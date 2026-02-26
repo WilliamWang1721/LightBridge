@@ -1,0 +1,10 @@
+.DS_Store
+*.db
+*.db-shm
+*.db-wal
+coverage.out
+/tmp/
+/bin/
+
+# Ignore folders ending with (EXTRA)
+*([Ee][Xx][Tt][Rr][Aa])/

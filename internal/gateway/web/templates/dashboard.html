@@ -1,0 +1,931 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LightBridge 仪表盘</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-page: #ffffff;
+      --bg-surface: #fafafa;
+      --bg-card: #ffffff;
+      --border: #e8e8e8;
+      --text-main: #0d0d0d;
+      --text-secondary: #7a7a7a;
+      --text-muted: #b0b0b0;
+      --accent-red: #e42313;
+      --ok-green: #22c55e;
+      --chip-dark: #0d0d0d;
+      --font-display: "Space Grotesk", "Noto Sans SC", sans-serif;
+      --font-body: "Inter", "Noto Sans SC", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background: #ffffff;
+      color: var(--text-main);
+      font-family: var(--font-body);
+      font-size: 16px;
+      line-height: 1.45;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .dashboard-shell {
+      display: flex;
+      min-height: 100vh;
+      background: #ffffff;
+    }
+
+    .sidebar {
+      width: 240px;
+      min-width: 240px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 40px 32px;
+      border-right: 1px solid var(--border);
+      background: var(--bg-page);
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      margin-bottom: 48px;
+      font-family: var(--font-display);
+    }
+
+    .brand-mark {
+      width: 28px;
+      height: 28px;
+      background: var(--accent-red);
+      display: inline-block;
+    }
+
+    .menu {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .menu-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      font-size: 14px;
+      color: var(--text-secondary);
+      transition: color 0.2s ease;
+      font-family: var(--font-display);
+      font-weight: 400;
+    }
+
+    .menu-item:hover {
+      color: var(--text-main);
+    }
+
+    .menu-item.is-active {
+      color: var(--text-main);
+      font-weight: 500;
+    }
+
+    .menu-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--bg-page);
+      flex-shrink: 0;
+    }
+
+    .menu-item.is-active .menu-dot {
+      background: var(--accent-red);
+    }
+
+    .sidebar-bottom {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .sidebar-user {
+      font-size: 13px;
+      color: var(--text-main);
+      font-weight: 500;
+      font-family: var(--font-display);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .admin-chip {
+      width: 36px;
+      height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--text-main);
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: var(--font-display);
+      border: 0;
+    }
+
+    .content {
+      flex: 1;
+      background: var(--bg-page);
+      padding: 40px 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 48px;
+    }
+
+    .icon {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
+    }
+
+    .icon--muted {
+      color: var(--text-secondary);
+    }
+
+    .icon--success {
+      color: var(--ok-green);
+    }
+
+    .icon--18 {
+      width: 18px;
+      height: 18px;
+    }
+
+    .icon--github {
+      width: 16px;
+      height: 16px;
+      stroke: none;
+      fill: currentColor;
+    }
+
+    .header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 40px;
+      font-weight: 500;
+      letter-spacing: -1px;
+      line-height: 1.08;
+      font-family: var(--font-display);
+    }
+
+    .header p {
+      margin: 8px 0 0;
+      color: var(--text-secondary);
+      font-size: 14px;
+      font-family: var(--font-body);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: 1px solid var(--border);
+      background: #ffffff;
+      color: var(--text-main);
+      font-size: 13px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      font-family: var(--font-display);
+    }
+
+    .btn.primary {
+      background: var(--text-main);
+      color: #ffffff;
+      border-color: var(--text-main);
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 24px;
+    }
+
+    .kpi-card {
+      padding: 28px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .kpi-label {
+      margin: 0;
+      font-size: 13px;
+      color: var(--text-secondary);
+      font-family: var(--font-body);
+    }
+
+    .kpi-value {
+      margin: 0;
+      font-size: 36px;
+      font-weight: 600;
+      line-height: 1.05;
+      letter-spacing: -1px;
+      color: var(--text-main);
+      font-family: var(--font-display);
+    }
+
+    .kpi-meta {
+      margin: 0;
+      font-size: 13px;
+      color: var(--text-secondary);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-body);
+    }
+
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    .chart-card {
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    .chart-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .chart-header h2 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      font-family: var(--font-display);
+      color: var(--text-main);
+    }
+
+    .period-chip {
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      background: var(--bg-page);
+    }
+
+    .bars-wrap {
+      height: 220px;
+      padding-top: 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: flex-end;
+      gap: 16px;
+    }
+
+    .bar-col {
+      flex: 1;
+      height: 100%;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .bar-fill {
+      width: 100%;
+      background: var(--accent-red);
+    }
+
+    .bar-label {
+      font-size: 13px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      font-family: var(--font-body);
+    }
+
+    .txn-card {
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .txn-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .txn-header h2 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      font-family: var(--font-display);
+      color: var(--text-main);
+    }
+
+    .txn-view {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-display);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-main);
+    }
+
+    .txn-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .txn-item {
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .txn-item:not(:last-child) {
+      border-bottom: 1px solid var(--border);
+    }
+
+    .txn-left {
+      display: inline-flex;
+      align-items: center;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    .txn-icon-box {
+      width: 44px;
+      height: 44px;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .txn-text {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .txn-name {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-main);
+    }
+
+    .txn-meta {
+      margin: 0;
+      font-family: var(--font-body);
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 300px;
+    }
+
+    .txn-right {
+      display: inline-flex;
+      align-items: center;
+      gap: 24px;
+      flex-shrink: 0;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 10px;
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1.2;
+    }
+
+    .badge--solid {
+      background: var(--text-main);
+      color: #ffffff;
+      border: 1px solid var(--text-main);
+    }
+
+    .badge--outline {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+
+    .txn-amount {
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ok-green);
+    }
+
+    .txn-pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 16px 0 20px;
+    }
+
+    .page {
+      width: 36px;
+      height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-display);
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+
+    .page.active {
+      background: var(--text-main);
+      color: #ffffff;
+      border-color: var(--text-main);
+      font-weight: 500;
+    }
+
+    .panel {
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      padding: 18px 18px 16px;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      gap: 14px;
+    }
+
+    .panel-header h2 {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 600;
+      font-family: var(--font-display);
+    }
+
+    .panel-header small {
+      color: var(--text-muted);
+      font-size: 11px;
+      font-family: var(--font-body);
+    }
+
+    .panel-link {
+      color: #8a8a8a;
+      font-size: 11px;
+      font-weight: 500;
+      font-family: var(--font-display);
+    }
+
+    .bars {
+      height: 188px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 10px;
+      border-bottom: 1px solid #ececec;
+      padding: 0 8px 10px;
+    }
+
+    .bar-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      min-width: 28px;
+    }
+
+    .bar {
+      width: 100%;
+      max-width: 40px;
+      height: var(--h);
+      background: var(--accent-red);
+      min-height: 18px;
+    }
+
+    .bar-label {
+      font-size: 13px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      font-family: var(--font-body);
+    }
+
+    .service-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .service-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 0;
+      border-bottom: 1px solid #efefef;
+    }
+
+    .service-meta {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .service-icon {
+      width: 12px;
+      height: 12px;
+      border: 1px solid #dddddd;
+      background: #fdfdfd;
+      flex-shrink: 0;
+    }
+
+    .service-title {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: #242424;
+      font-family: var(--font-display);
+    }
+
+    .service-desc {
+      margin: 2px 0 0;
+      font-size: 12px;
+      color: #9a9a9a;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 220px;
+      font-family: var(--font-body);
+    }
+
+    .status-pill {
+      min-width: 32px;
+      height: 20px;
+      padding: 0 8px;
+      background: var(--chip-dark);
+      color: #ffffff;
+      font-size: 11px;
+      border: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-family: var(--font-display);
+    }
+
+    .latency {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ok-green);
+      letter-spacing: 0.01em;
+      font-family: var(--font-display);
+    }
+
+    .pager {
+      margin-top: 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pager-btn {
+      width: 20px;
+      height: 18px;
+      border: 1px solid var(--border);
+      background: #ffffff;
+      color: #8f8f8f;
+      font-size: 11px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .pager-index {
+      font-size: 11px;
+      color: #969696;
+      font-family: var(--font-body);
+    }
+
+    .footnote {
+      font-size: 12px;
+      color: #9d9d9d;
+      margin-top: -24px;
+      font-family: var(--font-body);
+    }
+
+    @media (max-width: 1180px) {
+      .kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 860px) {
+      .dashboard-shell {
+        flex-direction: column;
+      }
+
+      .sidebar {
+        width: 100%;
+        min-width: 0;
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+        padding: 20px 18px;
+        gap: 18px;
+      }
+
+      .brand {
+        margin-bottom: 12px;
+      }
+
+      .menu {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 12px 16px;
+      }
+
+      .sidebar-bottom {
+        justify-content: flex-end;
+      }
+
+      .content {
+        padding: 20px 18px 24px;
+        gap: 24px;
+      }
+
+      .header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .header h1 {
+        font-size: 34px;
+      }
+
+      .kpi-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard-shell">
+    <aside class="sidebar" aria-label="Sidebar">
+      <div class="sidebar-top">
+        <a class="brand" href="/admin/dashboard">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span>LightBridge</span>
+        </a>
+        <nav class="menu" aria-label="主导航">
+          <a class="menu-item is-active" href="/admin/dashboard"><span class="menu-dot" aria-hidden="true"></span>概览 Overview</a>
+          <a class="menu-item" href="/admin/providers"><span class="menu-dot" aria-hidden="true"></span>提供商 Provider</a>
+          <a class="menu-item" href="/admin/models"><span class="menu-dot" aria-hidden="true"></span>凭证 Voucher</a>
+          <a class="menu-item" href="/admin/docs"><span class="menu-dot" aria-hidden="true"></span>配置 Configuration</a>
+          <a class="menu-item" href="/admin/marketplace"><span class="menu-dot" aria-hidden="true"></span>模块 Plugin</a>
+          <a class="menu-item" href="/admin/logs"><span class="menu-dot" aria-hidden="true"></span>设置 Settings</a>
+        </nav>
+      </div>
+      <div class="sidebar-bottom">
+        <span class="admin-chip">A</span>
+        <span class="sidebar-user">{{.Username}}</span>
+      </div>
+    </aside>
+
+    <main class="content">
+      <header class="header">
+        <div>
+          <h1>概览 Overview</h1>
+          <p>在仪表盘中总览服务情况与详情</p>
+        </div>
+        <div class="header-actions">
+          <a class="btn primary" href="https://github.com/justlovemaki/LightBridge" target="_blank" rel="noopener noreferrer" aria-label="GitHub 仓库">
+            <svg class="icon icon--github" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 .5C5.649.5.5 5.649.5 12c0 5.08 3.292 9.392 7.86 10.912.575.106.784-.25.784-.555 0-.273-.01-.996-.016-1.955-3.197.695-3.872-1.54-3.872-1.54-.523-1.328-1.278-1.682-1.278-1.682-1.045-.714.08-.7.08-.7 1.157.081 1.765 1.188 1.765 1.188 1.028 1.762 2.697 1.253 3.354.958.104-.744.402-1.253.73-1.54-2.552-.29-5.236-1.276-5.236-5.68 0-1.255.448-2.282 1.184-3.086-.119-.29-.513-1.457.112-3.038 0 0 .967-.31 3.17 1.179a10.993 10.993 0 0 1 2.887-.388c.98.004 1.967.133 2.887.388 2.2-1.49 3.165-1.179 3.165-1.179.628 1.58.234 2.748.115 3.038.739.804 1.183 1.831 1.183 3.086 0 4.415-2.688 5.387-5.25 5.672.413.356.78 1.058.78 2.134 0 1.54-.014 2.782-.014 3.16 0 .307.206.666.79.553C20.212 21.388 23.5 17.078 23.5 12 23.5 5.649 18.351.5 12 .5z"></path>
+            </svg>
+            <span>GitHub</span>
+          </a>
+        </div>
+      </header>
+
+      <section class="kpi-grid" aria-label="统计信息">
+        <article class="kpi-card">
+          <p class="kpi-label">服务账户</p>
+          <p class="kpi-value">128</p>
+          <p class="kpi-meta">
+            <svg class="icon icon--success" viewBox="0 0 24 24" aria-hidden="true">
+              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+              <polyline points="17 6 23 6 23 12"></polyline>
+            </svg>
+            <span>本月新增 12</span>
+          </p>
+        </article>
+        <article class="kpi-card">
+          <p class="kpi-label">系统状态</p>
+          <p class="kpi-value">正常</p>
+          <p class="kpi-meta">
+            <svg class="icon icon--success" viewBox="0 0 24 24" aria-hidden="true">
+              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+              <polyline points="17 6 23 6 23 12"></polyline>
+            </svg>
+            <span>近24小时无故障</span>
+          </p>
+        </article>
+        <article class="kpi-card">
+          <p class="kpi-label">运行时长</p>
+          <p class="kpi-value">247 天</p>
+          <p class="kpi-meta">
+            <svg class="icon icon--success" viewBox="0 0 24 24" aria-hidden="true">
+              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+              <polyline points="17 6 23 6 23 12"></polyline>
+            </svg>
+            <span>连续运行</span>
+          </p>
+        </article>
+        <article class="kpi-card">
+          <p class="kpi-label">消耗额度</p>
+          <p class="kpi-value">3.2M Token</p>
+          <p class="kpi-meta">
+            <svg class="icon icon--success" viewBox="0 0 24 24" aria-hidden="true">
+              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+              <polyline points="17 6 23 6 23 12"></polyline>
+            </svg>
+            <span>本月已用 72%</span>
+          </p>
+        </article>
+      </section>
+
+      <section class="dashboard-grid">
+        <article class="chart-card" aria-label="Token 消耗量">
+          <div class="chart-header">
+            <h2>Token 消耗量</h2>
+            <div class="period-chip">1月1日 - 1月7日</div>
+          </div>
+          <div class="bars-wrap" aria-hidden="true">
+            <div class="bar-col"><div class="bar-fill" style="height: 128px"></div><div class="bar-label">周一</div></div>
+            <div class="bar-col"><div class="bar-fill" style="height: 164px"></div><div class="bar-label">周二</div></div>
+            <div class="bar-col"><div class="bar-fill" style="height: 148px"></div><div class="bar-label">周三</div></div>
+            <div class="bar-col"><div class="bar-fill" style="height: 186px"></div><div class="bar-label">周四</div></div>
+            <div class="bar-col"><div class="bar-fill" style="height: 202px"></div><div class="bar-label">周五</div></div>
+            <div class="bar-col"><div class="bar-fill" style="height: 96px"></div><div class="bar-label">周六</div></div>
+            <div class="bar-col"><div class="bar-fill" style="height: 118px"></div><div class="bar-label">周日</div></div>
+          </div>
+        </article>
+
+        <article class="txn-card" aria-label="当前可用服务">
+          <div class="txn-header">
+            <h2>当前可用服务</h2>
+            <a class="txn-view" href="/admin/models">
+              <span>查看全部</span>
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <line x1="5" x2="19" y1="12" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+              </svg>
+            </a>
+          </div>
+          <ul class="txn-list">
+            <li class="txn-item">
+              <div class="txn-left">
+                <div class="txn-icon-box">
+                  <svg class="icon icon--18 icon--muted" viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+                    <line x1="2" x2="22" y1="10" y2="10"></line>
+                  </svg>
+                </div>
+                <div class="txn-text">
+                  <p class="txn-name">Codex</p>
+                  <p class="txn-meta">OpenAI · 可用</p>
+                </div>
+              </div>
+              <div class="txn-right">
+                <span class="badge badge--solid">可用</span>
+                <span class="txn-amount">运行中</span>
+              </div>
+            </li>
+            <li class="txn-item">
+              <div class="txn-left">
+                <div class="txn-icon-box">
+                  <svg class="icon icon--18 icon--muted" viewBox="0 0 24 24" aria-hidden="true">
+                    <line x1="7" x2="17" y1="17" y2="7"></line>
+                    <polyline points="7 7 17 7 17 17"></polyline>
+                  </svg>
+                </div>
+                <div class="txn-text">
+                  <p class="txn-name">Claude</p>
+                  <p class="txn-meta">Claude Code · 可用</p>
+                </div>
+              </div>
+              <div class="txn-right">
+                <span class="badge badge--outline">可用</span>
+                <span class="txn-amount">运行中</span>
+              </div>
+            </li>
+            <li class="txn-item">
+              <div class="txn-left">
+                <div class="txn-icon-box">
+                  <svg class="icon icon--18 icon--muted" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                </div>
+                <div class="txn-text">
+                  <p class="txn-name">Gemini</p>
+                  <p class="txn-meta">Antigravity · 可用</p>
+                </div>
+              </div>
+              <div class="txn-right">
+                <span class="badge badge--solid">可用</span>
+                <span class="txn-amount">运行中</span>
+              </div>
+            </li>
+          </ul>
+          <div class="txn-pagination" aria-hidden="true">
+            <span class="page active">1</span>
+            <span class="page">2</span>
+            <span class="page">3</span>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
