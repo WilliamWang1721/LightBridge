@@ -13,7 +13,7 @@
 [![Gateway](https://img.shields.io/badge/API-OpenAI%20Compatible-10a37f)](#-核心功能)
 [![Status](https://img.shields.io/badge/Status-MVP%20v0.1-orange)](#-当前-v01-边界)
 
-[**👉 主 README**](./README.md) | [中文副本](./README-ZH.md)
+[**👉 中文**](./README-ZH.md) | [English](./README.md)
 
 </div>
 
