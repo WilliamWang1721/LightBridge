@@ -124,11 +124,16 @@ func (m *Marketplace) Install(ctx context.Context, entry types.ModuleEntry) (*ty
 		return nil, nil, err
 	}
 
+	enabled := true
+	if existing, err := m.store.GetInstalledModule(ctx, manifest.ID); err == nil && existing != nil {
+		enabled = existing.Enabled
+	}
+
 	installed := &types.ModuleInstalled{
 		ID:          manifest.ID,
 		Version:     manifest.Version,
 		InstallPath: filepath.Dir(manifestPath),
-		Enabled:     true,
+		Enabled:     enabled,
 		Protocols:   strings.Join(entry.Protocols, ","),
 		SHA256:      actual,
 		InstalledAt: time.Now().UTC(),

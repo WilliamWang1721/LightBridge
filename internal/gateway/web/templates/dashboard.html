@@ -778,7 +778,7 @@
           <p>在仪表盘中总览服务情况与详情</p>
         </div>
         <div class="header-actions">
-          <a class="btn primary" href="https://github.com/justlovemaki/LightBridge" target="_blank" rel="noopener noreferrer" aria-label="GitHub 仓库">
+          <a class="btn primary" href="https://github.com/WilliamWang1721/LightBridge.git" target="_blank" rel="noopener noreferrer" aria-label="GitHub 仓库">
             <svg class="icon icon--github" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 .5C5.649.5.5 5.649.5 12c0 5.08 3.292 9.392 7.86 10.912.575.106.784-.25.784-.555 0-.273-.01-.996-.016-1.955-3.197.695-3.872-1.54-3.872-1.54-.523-1.328-1.278-1.682-1.278-1.682-1.045-.714.08-.7.08-.7 1.157.081 1.765 1.188 1.765 1.188 1.028 1.762 2.697 1.253 3.354.958.104-.744.402-1.253.73-1.54-2.552-.29-5.236-1.276-5.236-5.68 0-1.255.448-2.282 1.184-3.086-.119-.29-.513-1.457.112-3.038 0 0 .967-.31 3.17 1.179a10.993 10.993 0 0 1 2.887-.388c.98.004 1.967.133 2.887.388 2.2-1.49 3.165-1.179 3.165-1.179.628 1.58.234 2.748.115 3.038.739.804 1.183 1.831 1.183 3.086 0 4.415-2.688 5.387-5.25 5.672.413.356.78 1.058.78 2.134 0 1.54-.014 2.782-.014 3.16 0 .307.206.666.79.553C20.212 21.388 23.5 17.078 23.5 12 23.5 5.649 18.351.5 12 .5z"></path>
             </svg>
@@ -789,47 +789,47 @@
 
       <section class="kpi-grid" aria-label="统计信息">
         <article class="kpi-card">
-          <p class="kpi-label">服务账户</p>
-          <p class="kpi-value">128</p>
+          <p class="kpi-label">提供商 Providers</p>
+          <p class="kpi-value" id="kpi-providers">{{.ProviderCount}}</p>
           <p class="kpi-meta">
             <svg class="icon icon--success" viewBox="0 0 24 24" aria-hidden="true">
               <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
               <polyline points="17 6 23 6 23 12"></polyline>
             </svg>
-            <span>本月新增 12</span>
+            <span id="kpi-providers-meta">已配置 Provider</span>
           </p>
         </article>
         <article class="kpi-card">
-          <p class="kpi-label">系统状态</p>
-          <p class="kpi-value">正常</p>
+          <p class="kpi-label">模型 Models</p>
+          <p class="kpi-value" id="kpi-models">{{.ModelCount}}</p>
           <p class="kpi-meta">
             <svg class="icon icon--success" viewBox="0 0 24 24" aria-hidden="true">
               <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
               <polyline points="17 6 23 6 23 12"></polyline>
             </svg>
-            <span>近24小时无故障</span>
+            <span id="kpi-models-meta">已配置虚拟模型</span>
           </p>
         </article>
         <article class="kpi-card">
-          <p class="kpi-label">运行时长</p>
-          <p class="kpi-value">247 天</p>
+          <p class="kpi-label">模块 Modules</p>
+          <p class="kpi-value" id="kpi-modules">{{.ModuleCount}}</p>
           <p class="kpi-meta">
             <svg class="icon icon--success" viewBox="0 0 24 24" aria-hidden="true">
               <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
               <polyline points="17 6 23 6 23 12"></polyline>
             </svg>
-            <span>连续运行</span>
+            <span id="kpi-modules-meta">已安装模块</span>
           </p>
         </article>
         <article class="kpi-card">
-          <p class="kpi-label">消耗额度</p>
-          <p class="kpi-value">3.2M Token</p>
+          <p class="kpi-label">24H Tokens</p>
+          <p class="kpi-value" id="kpi-tokens">--</p>
           <p class="kpi-meta">
             <svg class="icon icon--success" viewBox="0 0 24 24" aria-hidden="true">
               <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
               <polyline points="17 6 23 6 23 12"></polyline>
             </svg>
-            <span>本月已用 72%</span>
+            <span id="kpi-tokens-meta">近 24 小时请求 --</span>
           </p>
         </article>
       </section>
@@ -838,23 +838,15 @@
         <article class="chart-card" aria-label="Token 消耗量">
           <div class="chart-header">
             <h2>Token 消耗量</h2>
-            <div class="period-chip">1月1日 - 1月7日</div>
+            <div class="period-chip" id="chart-period">最近 7 天</div>
           </div>
-          <div class="bars-wrap" aria-hidden="true">
-            <div class="bar-col"><div class="bar-fill" style="height: 128px"></div><div class="bar-label">周一</div></div>
-            <div class="bar-col"><div class="bar-fill" style="height: 164px"></div><div class="bar-label">周二</div></div>
-            <div class="bar-col"><div class="bar-fill" style="height: 148px"></div><div class="bar-label">周三</div></div>
-            <div class="bar-col"><div class="bar-fill" style="height: 186px"></div><div class="bar-label">周四</div></div>
-            <div class="bar-col"><div class="bar-fill" style="height: 202px"></div><div class="bar-label">周五</div></div>
-            <div class="bar-col"><div class="bar-fill" style="height: 96px"></div><div class="bar-label">周六</div></div>
-            <div class="bar-col"><div class="bar-fill" style="height: 118px"></div><div class="bar-label">周日</div></div>
-          </div>
+          <div class="bars-wrap" aria-hidden="true" id="token-bars"></div>
         </article>
 
         <article class="txn-card" aria-label="当前可用服务">
           <div class="txn-header">
             <h2>当前可用服务</h2>
-            <a class="txn-view" href="/admin/models">
+            <a class="txn-view" href="/admin/providers">
               <span>查看全部</span>
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
                 <line x1="5" x2="19" y1="12" y2="12"></line>
@@ -862,70 +854,132 @@
               </svg>
             </a>
           </div>
-          <ul class="txn-list">
-            <li class="txn-item">
-              <div class="txn-left">
-                <div class="txn-icon-box">
-                  <svg class="icon icon--18 icon--muted" viewBox="0 0 24 24" aria-hidden="true">
-                    <rect x="2" y="5" width="20" height="14" rx="2"></rect>
-                    <line x1="2" x2="22" y1="10" y2="10"></line>
-                  </svg>
-                </div>
-                <div class="txn-text">
-                  <p class="txn-name">Codex</p>
-                  <p class="txn-meta">OpenAI · 可用</p>
-                </div>
-              </div>
-              <div class="txn-right">
-                <span class="badge badge--solid">可用</span>
-                <span class="txn-amount">运行中</span>
-              </div>
-            </li>
-            <li class="txn-item">
-              <div class="txn-left">
-                <div class="txn-icon-box">
-                  <svg class="icon icon--18 icon--muted" viewBox="0 0 24 24" aria-hidden="true">
-                    <line x1="7" x2="17" y1="17" y2="7"></line>
-                    <polyline points="7 7 17 7 17 17"></polyline>
-                  </svg>
-                </div>
-                <div class="txn-text">
-                  <p class="txn-name">Claude</p>
-                  <p class="txn-meta">Claude Code · 可用</p>
-                </div>
-              </div>
-              <div class="txn-right">
-                <span class="badge badge--outline">可用</span>
-                <span class="txn-amount">运行中</span>
-              </div>
-            </li>
-            <li class="txn-item">
-              <div class="txn-left">
-                <div class="txn-icon-box">
-                  <svg class="icon icon--18 icon--muted" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="12" cy="7" r="4"></circle>
-                  </svg>
-                </div>
-                <div class="txn-text">
-                  <p class="txn-name">Gemini</p>
-                  <p class="txn-meta">Antigravity · 可用</p>
-                </div>
-              </div>
-              <div class="txn-right">
-                <span class="badge badge--solid">可用</span>
-                <span class="txn-amount">运行中</span>
-              </div>
-            </li>
-          </ul>
-          <div class="txn-pagination" aria-hidden="true">
-            <span class="page active">1</span>
-            <span class="page">2</span>
-            <span class="page">3</span>
-          </div>
+          <ul class="txn-list" id="service-list"></ul>
         </article>
       </section>
     </main>
   </div>
+  <script src="/admin/static/admin.js"></script>
+  <script>
+    (() => {
+      const LB = window.LightBridgeAdmin;
+      if (!LB) return;
+
+      const weekdayCN = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+
+      function setText(id, text) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = String(text ?? '');
+      }
+
+      function renderTokenBars(series) {
+        const host = document.getElementById('token-bars');
+        if (!host) return;
+        host.innerHTML = '';
+
+        if (!Array.isArray(series) || series.length === 0) {
+          host.appendChild(LB.el('div', { className: 'bar-col' }, [
+            LB.el('div', { className: 'bar-fill', style: 'height: 18px; opacity: .35;' }),
+            LB.el('div', { className: 'bar-label', text: '暂无数据' }),
+          ]));
+          return;
+        }
+
+        const values = series.map((p) => Number((p?.input_tokens || 0) + (p?.output_tokens || 0)));
+        const max = Math.max(1, ...values);
+        for (let i = 0; i < series.length; i++) {
+          const p = series[i] || {};
+          const total = Number((p.input_tokens || 0) + (p.output_tokens || 0));
+          const height = Math.round((total / max) * 186 + 16);
+          const day = p.day ? new Date(`${p.day}T00:00:00Z`) : null;
+          const label = day && !Number.isNaN(day.getTime()) ? weekdayCN[day.getUTCDay()] : (p.day || '-');
+          host.appendChild(LB.el('div', { className: 'bar-col' }, [
+            LB.el('div', { className: 'bar-fill', style: `height: ${height}px` }),
+            LB.el('div', { className: 'bar-label', text: label }),
+          ]));
+        }
+      }
+
+      function renderServices(providers) {
+        const list = document.getElementById('service-list');
+        if (!list) return;
+        list.innerHTML = '';
+
+        const items = Array.isArray(providers) ? providers.slice() : [];
+        items.sort((a, b) => String(a?.ID || a?.id || '').localeCompare(String(b?.ID || b?.id || '')));
+        const top = items.slice(0, 5);
+        if (top.length === 0) {
+          list.appendChild(LB.el('li', { className: 'txn-item' }, [
+            LB.el('div', { className: 'txn-left' }, [
+              LB.el('div', { className: 'txn-text' }, [
+                LB.el('p', { className: 'txn-name', text: '暂无 Provider' }),
+                LB.el('p', { className: 'txn-meta', text: '请前往 Provider 页面添加' }),
+              ])
+            ])
+          ]));
+          return;
+        }
+
+        const iconHTML = `
+          <svg class="icon icon--18 icon--muted" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+            <line x1="2" x2="22" y1="10" y2="10"></line>
+          </svg>
+        `;
+
+        for (const p of top) {
+          const id = p?.ID || p?.id || '';
+          const protocol = p?.Protocol || p?.protocol || '';
+          const endpoint = p?.Endpoint || p?.endpoint || '';
+          const enabled = Boolean(p?.Enabled ?? p?.enabled ?? false);
+          const health = String(p?.Health || p?.health || 'unknown');
+          const iconBox = LB.el('div', { className: 'txn-icon-box' });
+          iconBox.innerHTML = iconHTML;
+
+          list.appendChild(LB.el('li', { className: 'txn-item' }, [
+            LB.el('div', { className: 'txn-left' }, [
+              iconBox,
+              LB.el('div', { className: 'txn-text' }, [
+                LB.el('p', { className: 'txn-name', text: id || '-' }),
+                LB.el('p', { className: 'txn-meta', text: `${protocol || 'unknown'} · ${endpoint || ''}`.trim() }),
+              ]),
+            ]),
+            LB.el('div', { className: 'txn-right' }, [
+              LB.el('span', { className: `badge ${enabled ? 'badge--solid' : 'badge--outline'}`, text: enabled ? '可用' : '禁用' }),
+              LB.el('span', { className: 'txn-amount', text: health }),
+            ]),
+          ]));
+        }
+      }
+
+      async function load() {
+        try {
+          const body = await LB.apiJSON('/admin/api/dashboard');
+          const stats = body?.stats || {};
+
+          setText('kpi-providers', LB.formatCompactNumber(stats.provider_total ?? (body?.providers || []).length));
+          setText('kpi-models', LB.formatCompactNumber(stats.model_total ?? (body?.models || []).length));
+          setText('kpi-modules', LB.formatCompactNumber(stats.module_total ?? (body?.modules || []).length));
+
+          const tokens24h = Number(stats.tokens_24h ?? 0);
+          setText('kpi-tokens', `${LB.formatTokens(tokens24h)} Token`);
+          setText('kpi-tokens-meta', `近 24 小时请求 ${LB.formatCompactNumber(stats.requests_24h ?? 0)} 次`);
+
+          renderTokenBars(body?.tokens_7d || []);
+          const period = document.getElementById('chart-period');
+          const series = Array.isArray(body?.tokens_7d) ? body.tokens_7d : [];
+          if (period && series.length >= 2 && series[0]?.day && series[series.length - 1]?.day) {
+            period.textContent = `${series[0].day} - ${series[series.length - 1].day}`;
+          }
+
+          renderServices(body?.providers || []);
+        } catch (err) {
+          LB.toast(err?.message || '加载失败', 'error', 4200);
+        }
+      }
+
+      load();
+    })();
+  </script>
 </body>
 </html>

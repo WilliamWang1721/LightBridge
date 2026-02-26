@@ -1,8 +1,12 @@
 package gateway
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
+	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -221,6 +225,22 @@ func (s *Server) handleProvidersAPI(w http.ResponseWriter, r *http.Request) {
 		if payload.ConfigJSON == "" {
 			payload.ConfigJSON = "{}"
 		}
+		// Preserve server-side health metadata unless explicitly provided.
+		if strings.TrimSpace(payload.Health) == "" || payload.LastCheckAt == nil {
+			existing, err := s.store.GetProvider(r.Context(), payload.ID)
+			if err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+				return
+			}
+			if existing != nil {
+				if strings.TrimSpace(payload.Health) == "" {
+					payload.Health = existing.Health
+				}
+				if payload.LastCheckAt == nil {
+					payload.LastCheckAt = existing.LastCheckAt
+				}
+			}
+		}
 		if err := s.store.UpsertProvider(r.Context(), payload); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 			return
@@ -288,11 +308,25 @@ func (s *Server) handleDashboardAPI(w http.ResponseWriter, r *http.Request) {
 	models, _ := s.store.ListModels(r.Context(), true)
 	modules, _ := s.store.ListInstalledModules(r.Context())
 	logs, _ := s.store.ListRequestLogs(r.Context(), 20)
+	now := time.Now().UTC()
+	stats24h, _ := s.store.RequestStatsSince(r.Context(), now.Add(-24*time.Hour))
+	startDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC).AddDate(0, 0, -6)
+	tokens7d, _ := s.store.TokenUsageLastNDays(r.Context(), startDay, 7)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"providers": providers,
 		"models":    models,
 		"modules":   modules,
 		"logs":      logs,
+		"stats": map[string]any{
+			"provider_total": len(providers),
+			"model_total":    len(models),
+			"module_total":   len(modules),
+			"requests_24h":   stats24h.Requests,
+			"tokens_24h":     stats24h.InputTokens + stats24h.OutputTokens,
+			"uptime_sec":     int64(time.Since(s.startedAt).Seconds()),
+		},
+		"tokens_7d": tokens7d,
+		"now":       now.Format(time.RFC3339),
 	})
 }
 
@@ -366,12 +400,67 @@ func (s *Server) handleMarketplaceInstallAPI(w http.ResponseWriter, r *http.Requ
 		writeJSON(w, code, map[string]any{"error": err.Error()})
 		return
 	}
-	rt, err := s.moduleMgr.StartInstalledModule(r.Context(), installed.ID)
-	if err != nil {
-		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error(), "installed": installed})
-		return
+	var rt *types.ModuleRuntime
+	if installed.Enabled {
+		stopCtx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+		_ = s.moduleMgr.StopModule(stopCtx, installed.ID)
+		cancel()
+
+		started, err := s.moduleMgr.StartInstalledModule(r.Context(), installed.ID)
+		if err != nil {
+			writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error(), "installed": installed})
+			return
+		}
+		rt = started
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "installed": installed, "runtime": rt})
+}
+
+type moduleStatus struct {
+	Module    types.ModuleInstalled `json:"module"`
+	Runtime   *types.ModuleRuntime  `json:"runtime,omitempty"`
+	Providers []string              `json:"providers,omitempty"`
+}
+
+func (s *Server) handleModulesListAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	modules, err := s.store.ListInstalledModules(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	runtimes, err := s.store.ListModuleRuntimes(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	rtByID := make(map[string]types.ModuleRuntime, len(runtimes))
+	for _, rt := range runtimes {
+		rtByID[rt.ModuleID] = rt
+	}
+	out := make([]moduleStatus, 0, len(modules))
+	for _, mod := range modules {
+		var rtPtr *types.ModuleRuntime
+		if rt, ok := rtByID[mod.ID]; ok {
+			copy := rt
+			rtPtr = &copy
+		}
+		var providers []string
+		if b, err := os.ReadFile(filepath.Join(mod.InstallPath, "manifest.json")); err == nil {
+			var manifest types.ModuleManifest
+			if err := json.Unmarshal(b, &manifest); err == nil {
+				for alias := range exposedProviderProtocols(manifest.Services) {
+					providers = append(providers, alias)
+				}
+				sort.Strings(providers)
+			}
+		}
+		out = append(out, moduleStatus{Module: mod, Runtime: rtPtr, Providers: providers})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": out})
 }
 
 func (s *Server) handleModuleStartAPI(w http.ResponseWriter, r *http.Request) {
@@ -384,6 +473,10 @@ func (s *Server) handleModuleStartAPI(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid json"})
+		return
+	}
+	if strings.TrimSpace(req.ModuleID) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "module_id is required"})
 		return
 	}
 	rt, err := s.moduleMgr.StartInstalledModule(r.Context(), req.ModuleID)
@@ -406,9 +499,255 @@ func (s *Server) handleModuleStopAPI(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid json"})
 		return
 	}
-	if err := s.moduleMgr.StopModule(r.Context(), req.ModuleID); err != nil {
+	if strings.TrimSpace(req.ModuleID) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "module_id is required"})
+		return
+	}
+	stopCtx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	if err := s.moduleMgr.StopModule(stopCtx, req.ModuleID); err != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
 		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+type moduleEnableRequest struct {
+	ModuleID string `json:"module_id"`
+	Enabled  bool   `json:"enabled"`
+}
+
+func exposedProviderProtocols(services []types.ManifestService) map[string]string {
+	out := map[string]string{}
+	for _, svc := range services {
+		if svc.Kind != "provider" {
+			continue
+		}
+		for _, alias := range svc.ExposeProviderAliases {
+			alias = strings.TrimSpace(alias)
+			if alias == "" {
+				continue
+			}
+			if _, ok := out[alias]; ok {
+				continue
+			}
+			out[alias] = svc.Protocol
+		}
+	}
+	return out
+}
+
+func (s *Server) setProviderEnabledAndHealth(ctx context.Context, id, protocol string, enabled bool, health string) error {
+	existing, err := s.store.GetProvider(ctx, id)
+	if err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	if existing == nil {
+		return s.store.UpsertProvider(ctx, types.Provider{
+			ID:          id,
+			Type:        types.ProviderTypeModule,
+			Protocol:    protocol,
+			Endpoint:    "",
+			ConfigJSON:  "{}",
+			Enabled:     enabled,
+			Health:      health,
+			LastCheckAt: &now,
+		})
+	}
+	existing.Type = types.ProviderTypeModule
+	if strings.TrimSpace(protocol) != "" {
+		existing.Protocol = protocol
+	}
+	existing.Enabled = enabled
+	existing.Health = health
+	existing.LastCheckAt = &now
+	return s.store.UpsertProvider(ctx, *existing)
+}
+
+func (s *Server) handleModuleEnableAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	var req moduleEnableRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid json"})
+		return
+	}
+	if strings.TrimSpace(req.ModuleID) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "module_id is required"})
+		return
+	}
+
+	bg, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	manifest, err := s.moduleMgr.LoadInstalledManifest(bg, req.ModuleID)
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": err.Error()})
+		return
+	}
+	protos := exposedProviderProtocols(manifest.Services)
+
+	if !req.Enabled {
+		_ = s.moduleMgr.StopModule(bg, req.ModuleID)
+		if err := s.store.SetModuleEnabled(bg, req.ModuleID, false); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+			return
+		}
+		for alias, proto := range protos {
+			_ = s.setProviderEnabledAndHealth(bg, alias, proto, false, "disabled")
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "enabled": false})
+		return
+	}
+
+	if err := s.store.SetModuleEnabled(bg, req.ModuleID, true); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	for alias, proto := range protos {
+		_ = s.setProviderEnabledAndHealth(bg, alias, proto, true, "down")
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "enabled": true})
+}
+
+func (s *Server) handleModuleManifestAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	moduleID := strings.TrimSpace(r.URL.Query().Get("module_id"))
+	if moduleID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "module_id is required"})
+		return
+	}
+	manifest, err := s.moduleMgr.LoadInstalledManifest(r.Context(), moduleID)
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "manifest": manifest})
+}
+
+type moduleConfigUpdateRequest struct {
+	ModuleID string `json:"module_id"`
+	Config   any    `json:"config"`
+	Restart  bool   `json:"restart"`
+}
+
+func (s *Server) handleModuleConfigAPI(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		moduleID := strings.TrimSpace(r.URL.Query().Get("module_id"))
+		if moduleID == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "module_id is required"})
+			return
+		}
+		manifest, err := s.moduleMgr.LoadInstalledManifest(r.Context(), moduleID)
+		if err != nil {
+			writeJSON(w, http.StatusNotFound, map[string]any{"error": err.Error()})
+			return
+		}
+		cfg, err := s.moduleMgr.ReadModuleConfig(moduleID, manifest.ConfigDefaults)
+		if err != nil {
+			writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"ok":          true,
+			"module_id":   moduleID,
+			"config_path": s.moduleMgr.ModuleConfigPath(moduleID),
+			"config":      cfg,
+			"schema":      manifest.ConfigSchema,
+			"defaults":    manifest.ConfigDefaults,
+		})
+	case http.MethodPost:
+		var req moduleConfigUpdateRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid json"})
+			return
+		}
+		if strings.TrimSpace(req.ModuleID) == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "module_id is required"})
+			return
+		}
+		cfgObj, ok := req.Config.(map[string]any)
+		if req.Config == nil {
+			cfgObj = map[string]any{}
+			ok = true
+		}
+		if !ok {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "config must be a JSON object"})
+			return
+		}
+
+		bg, cancel := context.WithTimeout(context.Background(), 12*time.Second)
+		defer cancel()
+
+		if err := s.moduleMgr.WriteModuleConfig(req.ModuleID, cfgObj); err != nil {
+			writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+			return
+		}
+		var rt *types.ModuleRuntime
+		if req.Restart {
+			_ = s.moduleMgr.StopModule(bg, req.ModuleID)
+			started, err := s.moduleMgr.StartInstalledModule(bg, req.ModuleID)
+			if err != nil {
+				writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+				return
+			}
+			rt = started
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "runtime": rt})
+	default:
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+	}
+}
+
+type moduleUninstallRequest struct {
+	ModuleID  string `json:"module_id"`
+	PurgeData bool   `json:"purge_data"`
+}
+
+func (s *Server) handleModuleUninstallAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	var req moduleUninstallRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid json"})
+		return
+	}
+	if strings.TrimSpace(req.ModuleID) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "module_id is required"})
+		return
+	}
+
+	bg, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	manifest, err := s.moduleMgr.LoadInstalledManifest(bg, req.ModuleID)
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": err.Error()})
+		return
+	}
+	protos := exposedProviderProtocols(manifest.Services)
+
+	_ = s.moduleMgr.StopModule(bg, req.ModuleID)
+	for alias := range protos {
+		_ = s.store.DeleteProvider(bg, alias)
+	}
+	if err := s.store.DeleteInstalledModule(bg, req.ModuleID); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+
+	_ = os.RemoveAll(s.moduleMgr.ModuleInstallRoot(req.ModuleID))
+	if req.PurgeData {
+		_ = os.RemoveAll(s.moduleMgr.ModuleDataDir(req.ModuleID))
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }

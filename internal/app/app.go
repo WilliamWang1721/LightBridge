@@ -46,6 +46,7 @@ func Run(ctx context.Context, cfg Config) error {
 		providers.NewGRPCChatAdapter(),
 	)
 	moduleMgr := modules.NewManager(st, cfg.DataDir)
+	defer moduleMgr.StopAll(context.Background())
 	marketplace := modules.NewMarketplace(st, cfg.DataDir, nil)
 
 	server, err := gateway.New(gateway.Config{

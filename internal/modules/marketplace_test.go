@@ -283,3 +283,138 @@ func TestInstallAndRunModuleThroughGateway(t *testing.T) {
 		t.Fatalf("expected module response body, got %s", string(chatBody))
 	}
 }
+
+func TestModuleStartNotTiedToContext(t *testing.T) {
+	st, dataDir := testutil.NewStore(t)
+	zipBytes, zipSHA := buildSampleModuleZip(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(zipBytes)
+	}))
+	defer server.Close()
+
+	market := modules.NewMarketplace(st, dataDir, nil)
+	installed, _, err := market.Install(context.Background(), types.ModuleEntry{
+		ID:          "sample-module",
+		Name:        "Sample Module",
+		Version:     "0.1.0",
+		DownloadURL: server.URL,
+		SHA256:      zipSHA,
+		Protocols:   []string{"http_openai"},
+	})
+	if err != nil {
+		t.Fatalf("install module: %v", err)
+	}
+
+	mgr := modules.NewManager(st, dataDir)
+	ctx, cancel := context.WithCancel(context.Background())
+	rt, err := mgr.StartInstalledModule(ctx, installed.ID)
+	if err != nil {
+		t.Fatalf("start module: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = mgr.StopModule(context.Background(), installed.ID)
+	})
+
+	cancel()
+	time.Sleep(250 * time.Millisecond)
+
+	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/health", rt.HTTPPort))
+	if err != nil {
+		t.Fatalf("health request: %v", err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected health status: %d", resp.StatusCode)
+	}
+}
+
+func TestModuleConfigPreservedOnRestart(t *testing.T) {
+	st, dataDir := testutil.NewStore(t)
+	zipBytes, zipSHA := buildSampleModuleZip(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(zipBytes)
+	}))
+	defer server.Close()
+
+	market := modules.NewMarketplace(st, dataDir, nil)
+	installed, _, err := market.Install(context.Background(), types.ModuleEntry{
+		ID:          "sample-module",
+		Name:        "Sample Module",
+		Version:     "0.1.0",
+		DownloadURL: server.URL,
+		SHA256:      zipSHA,
+		Protocols:   []string{"http_openai"},
+	})
+	if err != nil {
+		t.Fatalf("install module: %v", err)
+	}
+
+	mgr := modules.NewManager(st, dataDir)
+	rt, err := mgr.StartInstalledModule(context.Background(), installed.ID)
+	if err != nil {
+		t.Fatalf("start module: %v", err)
+	}
+	if rt.HTTPPort == 0 {
+		t.Fatalf("expected http port")
+	}
+
+	cfgPath := mgr.ModuleConfigPath(installed.ID)
+	custom := []byte("{\"hello\":\"world\"}")
+	if err := os.WriteFile(cfgPath, custom, 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	_ = mgr.StopModule(context.Background(), installed.ID)
+
+	_, err = mgr.StartInstalledModule(context.Background(), installed.ID)
+	if err != nil {
+		t.Fatalf("restart module: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = mgr.StopModule(context.Background(), installed.ID)
+	})
+
+	b, err := os.ReadFile(cfgPath)
+	if err != nil {
+		t.Fatalf("read config: %v", err)
+	}
+	if strings.TrimSpace(string(b)) != string(custom) {
+		t.Fatalf("expected config preserved, got %s", string(b))
+	}
+}
+
+func TestMarketplaceInstallPreservesEnabledFlag(t *testing.T) {
+	st, dataDir := testutil.NewStore(t)
+	zipBytes, zipSHA := buildSampleModuleZip(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(zipBytes)
+	}))
+	defer server.Close()
+
+	market := modules.NewMarketplace(st, dataDir, nil)
+	entry := types.ModuleEntry{
+		ID:          "sample-module",
+		Name:        "Sample Module",
+		Version:     "0.1.0",
+		DownloadURL: server.URL,
+		SHA256:      zipSHA,
+		Protocols:   []string{"http_openai"},
+	}
+	installed, _, err := market.Install(context.Background(), entry)
+	if err != nil {
+		t.Fatalf("install module: %v", err)
+	}
+	if err := st.SetModuleEnabled(context.Background(), installed.ID, false); err != nil {
+		t.Fatalf("disable module: %v", err)
+	}
+
+	installed2, _, err := market.Install(context.Background(), entry)
+	if err != nil {
+		t.Fatalf("reinstall module: %v", err)
+	}
+	if installed2.Enabled {
+		t.Fatalf("expected enabled flag preserved as false, got %+v", installed2)
+	}
+}

@@ -1,5 +1,316 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Models</title><link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2/css/pico.min.css" /></head>
-<body class="container"><nav><a href="/admin/dashboard">Dashboard</a></nav><main><h1>Models</h1>
-<p>Use <code>GET/POST /admin/api/models</code> to manage virtual models and routes.</p></main></body></html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Models</title>
+  <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2/css/pico.min.css" />
+  <style>
+    .muted { opacity: .75; }
+    .routes { display: flex; flex-direction: column; gap: 10px; }
+    .route-row { padding: 12px; border: 1px solid var(--pico-muted-border-color); border-radius: var(--pico-border-radius); }
+    .route-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; align-items: end; }
+    .route-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+    @media (max-width: 840px) { .route-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body class="container">
+  <nav>
+    <ul>
+      <li><strong>LightBridge</strong></li>
+    </ul>
+    <ul>
+      <li><a href="/admin/dashboard">Dashboard</a></li>
+      <li><a href="/admin/providers">Providers</a></li>
+      <li><a href="/admin/models" aria-current="page">Models</a></li>
+      <li><a href="/admin/marketplace">Marketplace</a></li>
+      <li><a href="/admin/logs">Logs</a></li>
+    </ul>
+  </nav>
+  <main>
+    <h1>Models</h1>
+    <p class="muted">管理虚拟模型与路由（数据来自 <code>/admin/api/models</code>）。</p>
+
+    <div class="grid">
+      <section aria-label="Models list">
+        <header style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <h2 style="margin:0;">模型列表</h2>
+          <div style="display:flex;gap:10px;">
+            <button type="button" id="refresh">刷新</button>
+            <button type="button" id="new-model" class="secondary">新建</button>
+          </div>
+        </header>
+
+        <figure style="margin-top:12px;">
+          <table role="grid">
+            <thead>
+              <tr>
+                <th>Model ID</th>
+                <th>Display Name</th>
+                <th>Enabled</th>
+                <th>Routes</th>
+              </tr>
+            </thead>
+            <tbody id="models-body"></tbody>
+          </table>
+        </figure>
+      </section>
+
+      <section aria-label="Model editor">
+        <header style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <h2 id="editor-title" style="margin:0;">编辑模型</h2>
+          <small class="muted" id="editor-hint"></small>
+        </header>
+
+        <form id="model-form">
+          <label>
+            Model ID
+            <input name="id" required placeholder="gpt-4o-mini" />
+          </label>
+          <label>
+            Display Name
+            <input name="displayName" placeholder="GPT-4o Mini" />
+          </label>
+          <label>
+            <input type="checkbox" name="enabled" checked />
+            Enabled
+          </label>
+
+          <hr />
+          <header style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <h3 style="margin:0;">Routes</h3>
+            <button type="button" id="add-route" class="secondary">添加 Route</button>
+          </header>
+          <div class="routes" id="routes"></div>
+
+          <footer style="display:flex;justify-content:flex-end;gap:10px;margin-top:14px;">
+            <button type="submit" id="save" class="primary">保存</button>
+          </footer>
+        </form>
+      </section>
+    </div>
+  </main>
+
+  <script src="/admin/static/admin.js"></script>
+  <script>
+    (() => {
+      const LB = window.LightBridgeAdmin;
+      if (!LB) return;
+
+      const btnRefresh = document.getElementById('refresh');
+      const btnNew = document.getElementById('new-model');
+      const modelsBody = document.getElementById('models-body');
+
+      const editorTitle = document.getElementById('editor-title');
+      const editorHint = document.getElementById('editor-hint');
+      const form = document.getElementById('model-form');
+      const fieldID = form.elements.namedItem('id');
+      const fieldDisplayName = form.elements.namedItem('displayName');
+      const fieldEnabled = form.elements.namedItem('enabled');
+      const routesHost = document.getElementById('routes');
+      const btnAddRoute = document.getElementById('add-route');
+      const btnSave = document.getElementById('save');
+
+      let allModels = [];
+      let allRoutes = [];
+      let allProviders = [];
+      let selectedModelID = null;
+
+      function getModelID(m) {
+        return String(m?.ID ?? m?.id ?? '').trim();
+      }
+
+      function routeModelID(r) {
+        return String(r?.ModelID ?? r?.modelID ?? '').trim();
+      }
+
+      function providersSorted() {
+        const list = Array.isArray(allProviders) ? allProviders.slice() : [];
+        list.sort((a, b) => String(a?.ID || a?.id || '').localeCompare(String(b?.ID || b?.id || '')));
+        return list;
+      }
+
+      function clearEditor() {
+        selectedModelID = null;
+        editorTitle.textContent = '新建模型';
+        editorHint.textContent = '';
+        fieldID.disabled = false;
+        fieldID.value = '';
+        fieldDisplayName.value = '';
+        fieldEnabled.checked = true;
+        routesHost.innerHTML = '';
+      }
+
+      function addRouteRow(route = {}) {
+        const providerOptions = providersSorted().map((p) => {
+          const id = String(p?.ID ?? p?.id ?? '');
+          return LB.el('option', { value: id, text: id });
+        });
+
+        const providerSelect = LB.el('select', { name: 'providerID', required: true }, providerOptions);
+        providerSelect.value = String(route?.ProviderID ?? route?.providerID ?? '');
+
+        const upstreamInput = LB.el('input', {
+          name: 'upstreamModel',
+          required: true,
+          placeholder: 'upstream model',
+          value: String(route?.UpstreamModel ?? route?.upstreamModel ?? ''),
+        });
+
+        const priorityInput = LB.el('input', {
+          type: 'number',
+          name: 'priority',
+          min: 0,
+          step: 1,
+          value: String(route?.Priority ?? route?.priority ?? 100),
+        });
+
+        const weightInput = LB.el('input', {
+          type: 'number',
+          name: 'weight',
+          min: 1,
+          step: 1,
+          value: String(route?.Weight ?? route?.weight ?? 1),
+        });
+
+        const enabledCheck = LB.el('input', {
+          type: 'checkbox',
+          name: 'enabled',
+          checked: Boolean(route?.Enabled ?? route?.enabled ?? true),
+        });
+
+        const removeBtn = LB.el('button', { type: 'button', className: 'secondary', text: '删除' });
+
+        const row = LB.el('article', { className: 'route-row' }, [
+          LB.el('div', { className: 'route-grid' }, [
+            LB.el('label', {}, ['Provider', providerSelect]),
+            LB.el('label', {}, ['Upstream Model', upstreamInput]),
+            LB.el('label', {}, ['Priority', priorityInput]),
+            LB.el('label', {}, ['Weight', weightInput]),
+            LB.el('label', {}, [enabledCheck, ' Enabled']),
+          ]),
+          LB.el('div', { className: 'route-actions' }, [removeBtn]),
+        ]);
+
+        removeBtn.addEventListener('click', () => row.remove());
+        routesHost.appendChild(row);
+      }
+
+      function selectModel(id) {
+        selectedModelID = id;
+        const model = allModels.find((m) => getModelID(m) === id);
+        if (!model) return;
+
+        editorTitle.textContent = `编辑模型 · ${id}`;
+        editorHint.textContent = '保存会覆盖该模型的全部 routes';
+        fieldID.value = id;
+        fieldID.disabled = true;
+        fieldDisplayName.value = String(model?.DisplayName ?? model?.displayName ?? id);
+        fieldEnabled.checked = Boolean(model?.Enabled ?? model?.enabled ?? true);
+
+        routesHost.innerHTML = '';
+        const modelRoutes = allRoutes.filter((r) => routeModelID(r) === id);
+        if (modelRoutes.length === 0) addRouteRow({ enabled: true, weight: 1, priority: 100 });
+        for (const r of modelRoutes) addRouteRow(r);
+      }
+
+      function renderModels() {
+        modelsBody.innerHTML = '';
+
+        const routeCountByModel = new Map();
+        for (const r of allRoutes) {
+          const mid = routeModelID(r);
+          if (!mid) continue;
+          routeCountByModel.set(mid, (routeCountByModel.get(mid) || 0) + 1);
+        }
+
+        const sorted = Array.isArray(allModels) ? allModels.slice() : [];
+        sorted.sort((a, b) => getModelID(a).localeCompare(getModelID(b)));
+        for (const m of sorted) {
+          const id = getModelID(m);
+          const displayName = String(m?.DisplayName ?? m?.displayName ?? id);
+          const enabled = Boolean(m?.Enabled ?? m?.enabled ?? false);
+          const count = routeCountByModel.get(id) || 0;
+          const tr = LB.el('tr', { dataset: { id } }, [
+            LB.el('td', { text: id }),
+            LB.el('td', { text: displayName }),
+            LB.el('td', { text: enabled ? 'yes' : 'no' }),
+            LB.el('td', { text: String(count) }),
+          ]);
+          tr.addEventListener('click', () => selectModel(id));
+          modelsBody.appendChild(tr);
+        }
+      }
+
+      async function reload() {
+        try {
+          const [modelRes, providerRes] = await Promise.all([
+            LB.apiJSON('/admin/api/models'),
+            LB.apiJSON('/admin/api/providers'),
+          ]);
+          allModels = Array.isArray(modelRes?.models) ? modelRes.models : [];
+          allRoutes = Array.isArray(modelRes?.routes) ? modelRes.routes : [];
+          allProviders = Array.isArray(providerRes?.data) ? providerRes.data : [];
+
+          renderModels();
+
+          if (selectedModelID && allModels.some((m) => getModelID(m) === selectedModelID)) {
+            selectModel(selectedModelID);
+          } else if (allModels.length > 0) {
+            selectModel(getModelID(allModels[0]));
+          } else {
+            clearEditor();
+          }
+        } catch (err) {
+          LB.toast(err?.message || '加载失败', 'error', 4200);
+        }
+      }
+
+      btnRefresh.addEventListener('click', reload);
+      btnNew.addEventListener('click', clearEditor);
+      btnAddRoute.addEventListener('click', () => addRouteRow({ enabled: true, weight: 1, priority: 100 }));
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        btnSave.disabled = true;
+        try {
+          const id = String(fieldID.value || '').trim();
+          if (!id) throw new Error('Model ID 不能为空');
+
+          const routes = [];
+          const rows = routesHost.querySelectorAll('.route-row');
+          for (const row of rows) {
+            const providerID = String(row.querySelector('[name="providerID"]')?.value || '').trim();
+            const upstreamModel = String(row.querySelector('[name="upstreamModel"]')?.value || '').trim();
+            const priority = Number(row.querySelector('[name="priority"]')?.value || 100);
+            const weight = Number(row.querySelector('[name="weight"]')?.value || 1);
+            const enabled = Boolean(row.querySelector('[name="enabled"]')?.checked);
+            if (!providerID) throw new Error('Route provider 不能为空');
+            if (!upstreamModel) throw new Error('Route upstream model 不能为空');
+            routes.push({ providerID, upstreamModel, priority, weight, enabled });
+          }
+
+          const payload = {
+            model: {
+              id,
+              displayName: String(fieldDisplayName.value || '').trim(),
+              enabled: Boolean(fieldEnabled.checked),
+            },
+            routes,
+          };
+          await LB.apiJSON('/admin/api/models', { method: 'POST', body: payload });
+          LB.toast('已保存', 'ok');
+          await reload();
+          selectModel(id);
+        } catch (err) {
+          LB.toast(err?.message || '保存失败', 'error', 4200);
+        } finally {
+          btnSave.disabled = false;
+        }
+      });
+
+      reload();
+    })();
+  </script>
+</body>
+</html>

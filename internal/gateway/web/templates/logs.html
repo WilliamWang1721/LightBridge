@@ -1,5 +1,206 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Logs</title><link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2/css/pico.min.css" /></head>
-<body class="container"><nav><a href="/admin/dashboard">Dashboard</a></nav><main><h1>Request Logs</h1>
-<p>Metadata logs API: <code>/admin/api/logs</code></p></main></body></html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Logs</title>
+  <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2/css/pico.min.css" />
+  <style>
+    .muted { opacity: .75; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; }
+    .filters { display:flex; gap:12px; flex-wrap:wrap; align-items:end; }
+    .filters label { min-width: 220px; flex: 1; }
+  </style>
+</head>
+<body class="container">
+  <nav>
+    <ul>
+      <li><strong>LightBridge</strong></li>
+    </ul>
+    <ul>
+      <li><a href="/admin/dashboard">Dashboard</a></li>
+      <li><a href="/admin/providers">Providers</a></li>
+      <li><a href="/admin/models">Models</a></li>
+      <li><a href="/admin/marketplace">Marketplace</a></li>
+      <li><a href="/admin/logs" aria-current="page">Logs</a></li>
+    </ul>
+  </nav>
+
+  <main>
+    <h1>Request Logs</h1>
+    <p class="muted">请求元数据日志（最多 200 条，来自 <code>/admin/api/logs</code>）。</p>
+
+    <section class="filters" aria-label="Filters">
+      <label>
+        Search
+        <input id="q" placeholder="request_id / provider / model / path" />
+      </label>
+      <label>
+        Provider
+        <select id="provider">
+          <option value="">All</option>
+        </select>
+      </label>
+      <label>
+        Status
+        <select id="status">
+          <option value="">All</option>
+          <option value="2xx">2xx</option>
+          <option value="4xx">4xx</option>
+          <option value="5xx">5xx</option>
+        </select>
+      </label>
+      <button type="button" id="refresh">刷新</button>
+    </section>
+
+    <small class="muted" id="summary"></small>
+
+    <figure>
+      <table role="grid">
+        <thead>
+          <tr>
+            <th>TS</th>
+            <th class="mono">RequestID</th>
+            <th>Provider</th>
+            <th>Model</th>
+            <th>Path</th>
+            <th>Status</th>
+            <th>Latency</th>
+            <th>Tokens</th>
+            <th>Error</th>
+          </tr>
+        </thead>
+        <tbody id="logs-body"></tbody>
+      </table>
+    </figure>
+  </main>
+
+  <script src="/admin/static/admin.js"></script>
+  <script>
+    (() => {
+      const LB = window.LightBridgeAdmin;
+      if (!LB) return;
+
+      const q = document.getElementById('q');
+      const providerSel = document.getElementById('provider');
+      const statusSel = document.getElementById('status');
+      const btnRefresh = document.getElementById('refresh');
+      const summary = document.getElementById('summary');
+      const body = document.getElementById('logs-body');
+
+      let allLogs = [];
+
+      function getText(v) {
+        return String(v ?? '');
+      }
+
+      function toTokens(item) {
+        const inTok = Number(item?.InputTokens ?? item?.inputTokens ?? 0);
+        const outTok = Number(item?.OutputTokens ?? item?.outputTokens ?? 0);
+        return inTok + outTok;
+      }
+
+      function statusBucket(code) {
+        const n = Number(code);
+        if (!Number.isFinite(n)) return '';
+        if (n >= 200 && n < 300) return '2xx';
+        if (n >= 400 && n < 500) return '4xx';
+        if (n >= 500 && n < 600) return '5xx';
+        return '';
+      }
+
+      function rebuildProviderOptions() {
+        const current = providerSel.value;
+        const set = new Set();
+        for (const item of allLogs) {
+          const pid = getText(item?.ProviderID ?? item?.providerID).trim();
+          if (pid) set.add(pid);
+        }
+        const list = Array.from(set).sort((a, b) => a.localeCompare(b));
+        providerSel.innerHTML = '<option value=\"\">All</option>';
+        for (const pid of list) providerSel.appendChild(LB.el('option', { value: pid, text: pid }));
+        providerSel.value = current;
+      }
+
+      function applyFilters() {
+        const qq = getText(q.value).trim().toLowerCase();
+        const provider = getText(providerSel.value).trim();
+        const st = getText(statusSel.value).trim();
+
+        return allLogs.filter((item) => {
+          const pid = getText(item?.ProviderID ?? item?.providerID).trim();
+          const mid = getText(item?.ModelID ?? item?.modelID).trim();
+          const path = getText(item?.Path ?? item?.path).trim();
+          const rid = getText(item?.RequestID ?? item?.requestID).trim();
+          const code = Number(item?.Status ?? item?.status ?? 0);
+          if (provider && pid !== provider) return false;
+          if (st && statusBucket(code) !== st) return false;
+          if (!qq) return true;
+          const hay = `${rid} ${pid} ${mid} ${path}`.toLowerCase();
+          return hay.includes(qq);
+        });
+      }
+
+      function render() {
+        const list = applyFilters();
+        body.innerHTML = '';
+
+        let tokens = 0;
+        for (const item of list) tokens += toTokens(item);
+        summary.textContent = `显示 ${LB.formatCompactNumber(list.length)} 条 · tokens=${LB.formatTokens(tokens)}`;
+
+        if (!list.length) {
+          body.appendChild(LB.el('tr', {}, [
+            LB.el('td', { colSpan: 9, text: '无匹配日志' }),
+          ]));
+          return;
+        }
+
+        for (const item of list) {
+          const ts = getText(item?.Timestamp ?? item?.timestamp);
+          const rid = getText(item?.RequestID ?? item?.requestID);
+          const pid = getText(item?.ProviderID ?? item?.providerID);
+          const mid = getText(item?.ModelID ?? item?.modelID);
+          const path = getText(item?.Path ?? item?.path);
+          const code = Number(item?.Status ?? item?.status ?? 0);
+          const latency = Number(item?.LatencyMS ?? item?.latencyMS ?? 0);
+          const errCode = getText(item?.ErrorCode ?? item?.errorCode);
+          const tok = toTokens(item);
+          body.appendChild(LB.el('tr', {}, [
+            LB.el('td', { text: LB.formatISODateTime(ts) }),
+            LB.el('td', { className: 'mono', text: rid }),
+            LB.el('td', { text: pid }),
+            LB.el('td', { text: mid }),
+            LB.el('td', { className: 'mono', text: path }),
+            LB.el('td', { text: String(code || '') }),
+            LB.el('td', { text: latency ? `${latency}ms` : '' }),
+            LB.el('td', { text: tok ? LB.formatTokens(tok) : '0' }),
+            LB.el('td', { className: 'mono', text: errCode }),
+          ]));
+        }
+      }
+
+      async function load() {
+        btnRefresh.disabled = true;
+        try {
+          const res = await LB.apiJSON('/admin/api/logs');
+          allLogs = Array.isArray(res?.data) ? res.data : [];
+          rebuildProviderOptions();
+          render();
+        } catch (err) {
+          LB.toast(err?.message || '加载失败', 'error', 4200);
+        } finally {
+          btnRefresh.disabled = false;
+        }
+      }
+
+      q.addEventListener('input', render);
+      providerSel.addEventListener('change', render);
+      statusSel.addEventListener('change', render);
+      btnRefresh.addEventListener('click', load);
+
+      load();
+    })();
+  </script>
+</body>
+</html>

@@ -29,7 +29,7 @@ type Manager struct {
 	client  *http.Client
 
 	mu        sync.Mutex
-	processes map[string]*exec.Cmd
+	processes map[string]*moduleProcess
 }
 
 func NewManager(st *store.Store, dataDir string) *Manager {
@@ -37,11 +37,57 @@ func NewManager(st *store.Store, dataDir string) *Manager {
 		store:     st,
 		dataDir:   dataDir,
 		client:    &http.Client{Timeout: 5 * time.Second},
-		processes: map[string]*exec.Cmd{},
+		processes: map[string]*moduleProcess{},
 	}
 }
 
-func (m *Manager) StartInstalledModule(ctx context.Context, moduleID string) (*types.ModuleRuntime, error) {
+func (m *Manager) ModuleDataDir(moduleID string) string {
+	return filepath.Join(m.dataDir, "module_data", moduleID)
+}
+
+func (m *Manager) ModuleConfigPath(moduleID string) string {
+	return filepath.Join(m.ModuleDataDir(moduleID), "config.json")
+}
+
+func (m *Manager) ModuleInstallRoot(moduleID string) string {
+	return filepath.Join(m.dataDir, "modules", moduleID)
+}
+
+func (m *Manager) ReadModuleConfig(moduleID string, defaults map[string]any) (map[string]any, error) {
+	configPath := m.ModuleConfigPath(moduleID)
+	if err := ensureJSONFile(configPath, defaults); err != nil {
+		return nil, err
+	}
+	b, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, err
+	}
+	var cfg map[string]any
+	if err := json.Unmarshal(b, &cfg); err != nil {
+		return nil, err
+	}
+	if cfg == nil {
+		cfg = map[string]any{}
+	}
+	return cfg, nil
+}
+
+func (m *Manager) WriteModuleConfig(moduleID string, cfg map[string]any) error {
+	if cfg == nil {
+		cfg = map[string]any{}
+	}
+	dir := m.ModuleDataDir(moduleID)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	b, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(m.ModuleConfigPath(moduleID), b, 0o644)
+}
+
+func (m *Manager) LoadInstalledManifest(ctx context.Context, moduleID string) (*types.ModuleManifest, error) {
 	installed, err := m.store.GetInstalledModule(ctx, moduleID)
 	if err != nil {
 		return nil, err
@@ -49,37 +95,106 @@ func (m *Manager) StartInstalledModule(ctx context.Context, moduleID string) (*t
 	if installed == nil {
 		return nil, fmt.Errorf("module %s not installed", moduleID)
 	}
+	manifest, _, err := m.loadManifest(installed.InstallPath)
+	if err != nil {
+		return nil, err
+	}
+	return manifest, nil
+}
+
+type moduleProcess struct {
+	cmd     *exec.Cmd
+	done    chan struct{}
+	aliases []string
+}
+
+func (m *Manager) StartInstalledModule(ctx context.Context, moduleID string) (*types.ModuleRuntime, error) {
+	m.mu.Lock()
+	if _, ok := m.processes[moduleID]; ok {
+		m.mu.Unlock()
+		return nil, fmt.Errorf("module %s already running", moduleID)
+	}
+	proc := &moduleProcess{done: make(chan struct{})}
+	m.processes[moduleID] = proc
+	m.mu.Unlock()
+
+	installed, err := m.store.GetInstalledModule(ctx, moduleID)
+	if err != nil {
+		m.mu.Lock()
+		delete(m.processes, moduleID)
+		m.mu.Unlock()
+		close(proc.done)
+		return nil, err
+	}
+	if installed == nil {
+		m.mu.Lock()
+		delete(m.processes, moduleID)
+		m.mu.Unlock()
+		close(proc.done)
+		return nil, fmt.Errorf("module %s not installed", moduleID)
+	}
 	if !installed.Enabled {
+		m.mu.Lock()
+		delete(m.processes, moduleID)
+		m.mu.Unlock()
+		close(proc.done)
 		return nil, fmt.Errorf("module %s is disabled", moduleID)
 	}
 
 	manifest, manifestPath, err := m.loadManifest(installed.InstallPath)
 	if err != nil {
+		m.mu.Lock()
+		delete(m.processes, moduleID)
+		m.mu.Unlock()
+		close(proc.done)
 		return nil, err
+	}
+	if manifest.ID != installed.ID {
+		m.mu.Lock()
+		delete(m.processes, moduleID)
+		m.mu.Unlock()
+		close(proc.done)
+		return nil, fmt.Errorf("manifest id mismatch: %s", manifest.ID)
 	}
 	ep, err := resolveEntrypoint(manifest.Entrypoints, runtime.GOOS, runtime.GOARCH)
 	if err != nil {
+		m.mu.Lock()
+		delete(m.processes, moduleID)
+		m.mu.Unlock()
+		close(proc.done)
 		return nil, err
 	}
 
 	httpPort, err := findFreePort()
 	if err != nil {
+		m.mu.Lock()
+		delete(m.processes, moduleID)
+		m.mu.Unlock()
+		close(proc.done)
 		return nil, err
 	}
 	grpcPort, err := findFreePort()
 	if err != nil {
+		m.mu.Lock()
+		delete(m.processes, moduleID)
+		m.mu.Unlock()
+		close(proc.done)
 		return nil, err
 	}
 	moduleDataDir := filepath.Join(m.dataDir, "module_data", manifest.ID)
 	if err := os.MkdirAll(moduleDataDir, 0o755); err != nil {
+		m.mu.Lock()
+		delete(m.processes, moduleID)
+		m.mu.Unlock()
+		close(proc.done)
 		return nil, err
 	}
 	configPath := filepath.Join(moduleDataDir, "config.json")
-	if manifest.ConfigDefaults == nil {
-		manifest.ConfigDefaults = map[string]any{}
-	}
-	configBytes, _ := json.MarshalIndent(manifest.ConfigDefaults, "", "  ")
-	if err := os.WriteFile(configPath, configBytes, 0o644); err != nil {
+	if err := ensureJSONFile(configPath, manifest.ConfigDefaults); err != nil {
+		m.mu.Lock()
+		delete(m.processes, moduleID)
+		m.mu.Unlock()
+		close(proc.done)
 		return nil, err
 	}
 
@@ -87,7 +202,7 @@ func (m *Manager) StartInstalledModule(ctx context.Context, moduleID string) (*t
 	if !filepath.IsAbs(cmdPath) {
 		cmdPath = filepath.Join(filepath.Dir(manifestPath), cmdPath)
 	}
-	cmd := exec.CommandContext(ctx, cmdPath, ep.Args...)
+	cmd := exec.Command(cmdPath, ep.Args...)
 	cmd.Dir = filepath.Dir(manifestPath)
 	cmd.Env = append(os.Environ(),
 		"LIGHTBRIDGE_MODULE_ID="+manifest.ID,
@@ -100,12 +215,31 @@ func (m *Manager) StartInstalledModule(ctx context.Context, moduleID string) (*t
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
+		m.mu.Lock()
+		delete(m.processes, moduleID)
+		m.mu.Unlock()
+		close(proc.done)
 		return nil, err
 	}
 
+	aliases := collectExposedAliases(manifest.Services)
 	m.mu.Lock()
-	m.processes[moduleID] = cmd
+	proc.cmd = cmd
+	proc.aliases = aliases
 	m.mu.Unlock()
+
+	go func() {
+		_ = cmd.Wait()
+		bg := context.Background()
+		_ = m.store.DeleteModuleRuntime(bg, moduleID)
+		for _, alias := range aliases {
+			_ = m.store.UpdateProviderHealth(bg, alias, "down")
+		}
+		m.mu.Lock()
+		delete(m.processes, moduleID)
+		m.mu.Unlock()
+		close(proc.done)
+	}()
 
 	if err := m.waitHealth(ctx, manifest.Services, httpPort, grpcPort); err != nil {
 		_ = m.StopModule(context.Background(), moduleID)
@@ -132,27 +266,50 @@ func (m *Manager) StartInstalledModule(ctx context.Context, moduleID string) (*t
 }
 
 func (m *Manager) StopModule(ctx context.Context, moduleID string) error {
+	var (
+		proc    *moduleProcess
+		aliases []string
+	)
+
 	m.mu.Lock()
-	cmd, ok := m.processes[moduleID]
-	if ok {
-		delete(m.processes, moduleID)
+	proc = m.processes[moduleID]
+	if proc != nil {
+		aliases = append([]string(nil), proc.aliases...)
 	}
 	m.mu.Unlock()
-	if ok && cmd.Process != nil {
-		_ = cmd.Process.Signal(syscall.SIGTERM)
-		done := make(chan struct{})
-		go func() {
-			_, _ = cmd.Process.Wait()
-			close(done)
-		}()
+
+	for _, alias := range aliases {
+		_ = m.store.UpdateProviderHealth(ctx, alias, "down")
+	}
+
+	if proc != nil && proc.cmd != nil && proc.cmd.Process != nil {
+		_ = proc.cmd.Process.Signal(syscall.SIGTERM)
 		select {
-		case <-done:
+		case <-proc.done:
 		case <-time.After(2 * time.Second):
-			_ = cmd.Process.Kill()
+			_ = proc.cmd.Process.Kill()
+			select {
+			case <-proc.done:
+			case <-time.After(2 * time.Second):
+			}
 		}
 	}
+
 	_ = m.store.DeleteModuleRuntime(ctx, moduleID)
 	return nil
+}
+
+func (m *Manager) StopAll(ctx context.Context) {
+	m.mu.Lock()
+	ids := make([]string, 0, len(m.processes))
+	for id := range m.processes {
+		ids = append(ids, id)
+	}
+	m.mu.Unlock()
+
+	for _, id := range ids {
+		_ = m.StopModule(ctx, id)
+	}
 }
 
 func (m *Manager) loadManifest(installPath string) (*types.ModuleManifest, string, error) {
@@ -169,6 +326,36 @@ func (m *Manager) loadManifest(installPath string) (*types.ModuleManifest, strin
 		return nil, "", err
 	}
 	return &manifest, manifestPath, nil
+}
+
+func ensureJSONFile(path string, defaults map[string]any) error {
+	if _, err := os.Stat(path); err == nil {
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		var tmp any
+		if err := json.Unmarshal(b, &tmp); err != nil {
+			return fmt.Errorf("invalid json in %s: %w", filepath.Base(path), err)
+		}
+		if tmp != nil {
+			if _, ok := tmp.(map[string]any); !ok {
+				return fmt.Errorf("%s must be a JSON object", filepath.Base(path))
+			}
+		}
+		return nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+
+	if defaults == nil {
+		defaults = map[string]any{}
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	b, _ := json.MarshalIndent(defaults, "", "  ")
+	return os.WriteFile(path, b, 0o644)
 }
 
 func resolveEntrypoint(entrypoints map[string]types.ManifestEntrypoint, goos, goarch string) (types.ManifestEntrypoint, error) {
@@ -191,6 +378,28 @@ func findFreePort() (int, error) {
 	}
 	defer ln.Close()
 	return ln.Addr().(*net.TCPAddr).Port, nil
+}
+
+func collectExposedAliases(services []types.ManifestService) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0)
+	for _, svc := range services {
+		if svc.Kind != "provider" {
+			continue
+		}
+		for _, alias := range svc.ExposeProviderAliases {
+			alias = strings.TrimSpace(alias)
+			if alias == "" {
+				continue
+			}
+			if _, ok := seen[alias]; ok {
+				continue
+			}
+			seen[alias] = struct{}{}
+			out = append(out, alias)
+		}
+	}
+	return out
 }
 
 func (m *Manager) waitHealth(ctx context.Context, services []types.ManifestService, httpPort, grpcPort int) error {

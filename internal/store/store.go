@@ -187,6 +187,11 @@ func (s *Store) UpdateProviderHealth(ctx context.Context, id, status string) err
 	return err
 }
 
+func (s *Store) DeleteProvider(ctx context.Context, id string) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM providers WHERE id = ?`, id)
+	return err
+}
+
 func (s *Store) UpsertModel(ctx context.Context, m types.Model) error {
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO models(id, display_name, enabled) VALUES (?, ?, ?)
@@ -399,6 +404,11 @@ func (s *Store) DeleteModuleRuntime(ctx context.Context, moduleID string) error 
 	return err
 }
 
+func (s *Store) DeleteInstalledModule(ctx context.Context, moduleID string) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM modules_installed WHERE id = ?`, moduleID)
+	return err
+}
+
 func (s *Store) GetModuleRuntime(ctx context.Context, moduleID string) (*types.ModuleRuntime, error) {
 	row := s.db.QueryRowContext(ctx, `
 		SELECT module_id, pid, http_port, grpc_port, status, last_start_at
@@ -416,6 +426,35 @@ func (s *Store) GetModuleRuntime(ctx context.Context, moduleID string) (*types.M
 		rt.LastStartAt = ts
 	}
 	return &rt, nil
+}
+
+func (s *Store) ListModuleRuntimes(ctx context.Context) ([]types.ModuleRuntime, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT module_id, pid, http_port, grpc_port, status, last_start_at
+		FROM module_runtime
+		ORDER BY module_id ASC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]types.ModuleRuntime, 0)
+	for rows.Next() {
+		var rt types.ModuleRuntime
+		var lastStart string
+		if err := rows.Scan(&rt.ModuleID, &rt.PID, &rt.HTTPPort, &rt.GRPCPort, &rt.Status, &lastStart); err != nil {
+			return nil, err
+		}
+		if ts, err := time.Parse(time.RFC3339, lastStart); err == nil {
+			rt.LastStartAt = ts
+		}
+		out = append(out, rt)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (s *Store) InsertRequestLog(ctx context.Context, meta types.RequestLogMeta) error {
@@ -454,6 +493,83 @@ func (s *Store) ListRequestLogs(ctx context.Context, limit int) ([]types.Request
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
+	}
+	return out, nil
+}
+
+type RequestStats struct {
+	Requests     int
+	InputTokens  int
+	OutputTokens int
+}
+
+func (s *Store) RequestStatsSince(ctx context.Context, since time.Time) (RequestStats, error) {
+	row := s.db.QueryRowContext(ctx, `
+		SELECT
+			COUNT(1),
+			COALESCE(SUM(input_tokens), 0),
+			COALESCE(SUM(output_tokens), 0)
+		FROM request_logs_meta
+		WHERE datetime(ts) >= datetime(?)
+	`, since.UTC().Format(time.RFC3339))
+	var stats RequestStats
+	if err := row.Scan(&stats.Requests, &stats.InputTokens, &stats.OutputTokens); err != nil {
+		return RequestStats{}, err
+	}
+	return stats, nil
+}
+
+type DailyTokenUsage struct {
+	Day          string `json:"day"`
+	InputTokens  int    `json:"input_tokens"`
+	OutputTokens int    `json:"output_tokens"`
+}
+
+func (s *Store) TokenUsageLastNDays(ctx context.Context, startDay time.Time, days int) ([]DailyTokenUsage, error) {
+	if days <= 0 {
+		days = 7
+	}
+	start := time.Date(startDay.Year(), startDay.Month(), startDay.Day(), 0, 0, 0, 0, time.UTC)
+	end := start.AddDate(0, 0, days)
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT
+			date(datetime(ts)),
+			COALESCE(SUM(input_tokens), 0),
+			COALESCE(SUM(output_tokens), 0)
+		FROM request_logs_meta
+		WHERE datetime(ts) >= datetime(?) AND datetime(ts) < datetime(?)
+		GROUP BY 1
+		ORDER BY 1 ASC
+	`, start.UTC().Format(time.RFC3339), end.UTC().Format(time.RFC3339))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	type agg struct{ in, out int }
+	byDay := map[string]agg{}
+	for rows.Next() {
+		var day string
+		var in, out int
+		if err := rows.Scan(&day, &in, &out); err != nil {
+			return nil, err
+		}
+		byDay[day] = agg{in: in, out: out}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	out := make([]DailyTokenUsage, 0, days)
+	for i := 0; i < days; i++ {
+		day := start.AddDate(0, 0, i).Format("2006-01-02")
+		sum := byDay[day]
+		out = append(out, DailyTokenUsage{
+			Day:          day,
+			InputTokens:  sum.in,
+			OutputTokens: sum.out,
+		})
 	}
 	return out, nil
 }

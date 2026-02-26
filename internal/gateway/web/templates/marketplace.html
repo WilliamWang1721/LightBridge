@@ -1,6 +1,445 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Marketplace</title><link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2/css/pico.min.css" /></head>
-<body class="container"><nav><a href="/admin/dashboard">Dashboard</a></nav><main><h1>Marketplace</h1>
-<p>Index API: <code>/admin/api/marketplace/index</code></p>
-<p>Install API: <code>/admin/api/marketplace/install</code></p></main></body></html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Marketplace</title>
+  <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2/css/pico.min.css" />
+  <style>
+    .muted { opacity: .75; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; }
+    .toolbar { display:flex; align-items:end; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    .toolbar form { flex: 1; min-width: min(520px, 100%); }
+    .actions { display:flex; gap:10px; }
+    .pill { display:inline-flex; align-items:center; padding: 2px 8px; border-radius: 999px; font-size: 12px; border: 1px solid var(--pico-muted-border-color); opacity: .9; }
+    .pill.ok { border-color: rgba(34,197,94,.45); background: rgba(34,197,94,.08); }
+    .pill.warn { border-color: rgba(245,158,11,.5); background: rgba(245,158,11,.08); }
+    .pill.bad { border-color: rgba(239,68,68,.5); background: rgba(239,68,68,.08); }
+    dialog { max-width: min(920px, calc(100vw - 32px)); }
+    dialog textarea { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; }
+  </style>
+</head>
+<body class="container">
+  <nav>
+    <ul>
+      <li><strong>LightBridge</strong></li>
+    </ul>
+    <ul>
+      <li><a href="/admin/dashboard">Dashboard</a></li>
+      <li><a href="/admin/providers">Providers</a></li>
+      <li><a href="/admin/models">Models</a></li>
+      <li><a href="/admin/marketplace" aria-current="page">Marketplace</a></li>
+      <li><a href="/admin/logs">Logs</a></li>
+    </ul>
+  </nav>
+
+  <main>
+    <h1>Marketplace</h1>
+    <p class="muted">从模块索引加载可用模块，并安装/启动已安装模块。</p>
+
+    <section aria-label="Index">
+      <div class="toolbar">
+        <form id="index-form">
+          <label>
+            Index URL（留空使用服务端默认配置）
+            <input id="index-url" name="index_url" placeholder="https://example.com/index.json" />
+          </label>
+          <label>
+            搜索可用模块（ID / Name / Tag）
+            <input id="index-filter" name="index_filter" placeholder="sample-module" />
+          </label>
+        </form>
+        <div class="actions">
+          <button type="button" id="load-index">加载 Index</button>
+          <button type="button" id="refresh-installed" class="secondary">刷新已安装</button>
+        </div>
+      </div>
+      <small class="muted" id="index-meta"></small>
+    </section>
+
+    <section aria-label="Index modules">
+      <h2>可用模块</h2>
+      <figure>
+        <table role="grid">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Version</th>
+              <th>Protocols</th>
+              <th>Tags</th>
+              <th>Description</th>
+              <th>Homepage</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="index-modules"></tbody>
+        </table>
+      </figure>
+    </section>
+
+    <section aria-label="Installed modules">
+      <div class="toolbar" style="margin-bottom: 10px;">
+        <form id="installed-form">
+          <label>
+            已安装模块筛选
+            <input id="installed-filter" name="installed_filter" placeholder="sample-module" />
+          </label>
+        </form>
+        <div class="actions">
+          <button type="button" id="refresh-installed-2" class="secondary">刷新</button>
+        </div>
+      </div>
+      <h2 style="margin-top: 0;">已安装模块</h2>
+      <figure>
+        <table role="grid">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Version</th>
+              <th>Enabled</th>
+              <th>Status</th>
+              <th>Providers</th>
+              <th>Ports</th>
+              <th>Installed At</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="installed-modules"></tbody>
+        </table>
+      </figure>
+      <small class="muted">数据来自 <code>/admin/api/modules</code>；安装来自 <code>/admin/api/marketplace/install</code>。</small>
+    </section>
+  </main>
+
+  <dialog id="config-dialog">
+    <form method="dialog" id="config-form">
+      <h3 style="margin-top: 0;">模块配置</h3>
+      <p class="muted" style="margin-top: -6px;">
+        module_id: <code id="config-module-id"></code> · path: <code id="config-path"></code>
+      </p>
+      <label>
+        Config JSON（对象）
+        <textarea id="config-json" rows="16" spellcheck="false" placeholder='{"key":"value"}'></textarea>
+      </label>
+      <details>
+        <summary>Schema / Defaults</summary>
+        <pre class="mono" id="config-schema" style="white-space: pre-wrap;"></pre>
+      </details>
+      <label>
+        <input type="checkbox" id="config-restart" />
+        保存后重启模块（如在运行中）
+      </label>
+      <footer style="display:flex;justify-content:flex-end;gap:10px;">
+        <button type="button" class="secondary" id="config-cancel">取消</button>
+        <button type="submit" class="primary" id="config-save">保存</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <script src="/admin/static/admin.js"></script>
+  <script>
+    (() => {
+      const LB = window.LightBridgeAdmin;
+      if (!LB) return;
+
+      const indexURLInput = document.getElementById('index-url');
+      const indexFilter = document.getElementById('index-filter');
+      const installedFilter = document.getElementById('installed-filter');
+      const indexMeta = document.getElementById('index-meta');
+      const btnLoadIndex = document.getElementById('load-index');
+      const btnRefreshInstalled = document.getElementById('refresh-installed');
+      const btnRefreshInstalled2 = document.getElementById('refresh-installed-2');
+      const indexModulesBody = document.getElementById('index-modules');
+      const installedBody = document.getElementById('installed-modules');
+
+      const cfgDialog = document.getElementById('config-dialog');
+      const cfgForm = document.getElementById('config-form');
+      const cfgModuleID = document.getElementById('config-module-id');
+      const cfgPath = document.getElementById('config-path');
+      const cfgJSON = document.getElementById('config-json');
+      const cfgRestart = document.getElementById('config-restart');
+      const cfgSchema = document.getElementById('config-schema');
+      const cfgCancel = document.getElementById('config-cancel');
+      const cfgSave = document.getElementById('config-save');
+
+      let lastIndex = null;
+      let lastInstalled = [];
+      let installedByID = new Map();
+      let editingModuleID = null;
+
+      function qIndexURL() {
+        return String(indexURLInput.value || '').trim();
+      }
+
+      function norm(s) {
+        return String(s || '').toLowerCase();
+      }
+
+      function matchesFilter(filter, fields) {
+        const f = norm(filter).trim();
+        if (!f) return true;
+        const hay = (Array.isArray(fields) ? fields : [fields]).map(norm).join(' ');
+        return hay.includes(f);
+      }
+
+      function statusPill(item) {
+        const mod = item?.module || {};
+        const rt = item?.runtime || null;
+        const enabled = Boolean(mod?.Enabled ?? mod?.enabled ?? false);
+        const status = rt ? String(rt?.Status ?? rt?.status ?? 'running') : 'stopped';
+        const cls = !enabled ? 'bad' : (rt ? 'ok' : 'warn');
+        const label = !enabled ? 'disabled' : (rt ? status : 'stopped');
+        return LB.el('span', { className: `pill ${cls}`, text: label });
+      }
+
+      function renderIndex() {
+        indexModulesBody.innerHTML = '';
+        const modules = Array.isArray(lastIndex?.modules) ? lastIndex.modules : [];
+        if (!modules.length) {
+          indexModulesBody.appendChild(LB.el('tr', {}, [
+            LB.el('td', { colSpan: 8, text: '暂无模块（请先加载 Index）' }),
+          ]));
+          return;
+        }
+
+        const filterValue = String(indexFilter?.value || '');
+        modules.sort((a, b) => String(a?.id || '').localeCompare(String(b?.id || '')));
+        for (const m of modules) {
+          const id = String(m?.id || '');
+          const tags = Array.isArray(m?.tags) ? m.tags.filter(Boolean).join(', ') : '';
+          if (!matchesFilter(filterValue, [id, m?.name, tags, m?.description])) continue;
+
+          const installed = installedByID.get(id) || null;
+          const installedVer = String(installed?.module?.Version ?? installed?.module?.version ?? '');
+          const idxVer = String(m?.version || '');
+          const isSameVer = Boolean(installed && installedVer && idxVer && installedVer === idxVer);
+
+          const btn = LB.el('button', { type: 'button', className: 'primary', text: isSameVer ? '已安装' : (installed ? '升级安装' : '安装') });
+          btn.disabled = isSameVer;
+          btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            try {
+              const res = await LB.apiJSON('/admin/api/marketplace/install', {
+                method: 'POST',
+                body: { module_id: id, index_url: qIndexURL() },
+              });
+              if (res?.runtime) LB.toast(`已安装并启动：${id}`, 'ok');
+              else LB.toast(`已安装：${id}`, 'ok');
+              await loadInstalled();
+            } catch (err) {
+              LB.toast(err?.message || '安装失败', 'error', 4200);
+            } finally {
+              btn.disabled = false;
+            }
+          });
+
+          const homepage = String(m?.homepage || '').trim();
+          indexModulesBody.appendChild(LB.el('tr', {}, [
+            LB.el('td', { text: id }),
+            LB.el('td', { text: String(m?.name || '') }),
+            LB.el('td', { text: String(m?.version || '') }),
+            LB.el('td', { className: 'mono', text: Array.isArray(m?.protocols) ? m.protocols.join(', ') : '' }),
+            LB.el('td', { className: 'mono', text: tags }),
+            LB.el('td', { text: String(m?.description || '') }),
+            LB.el('td', {}, [homepage ? LB.el('a', { href: homepage, target: '_blank', rel: 'noreferrer', text: 'link' }) : LB.el('span', { className: 'muted', text: '-' })]),
+            LB.el('td', {}, [btn]),
+          ]));
+        }
+      }
+
+      async function loadIndex() {
+        btnLoadIndex.disabled = true;
+        try {
+          const url = qIndexURL();
+          const endpoint = url ? `/admin/api/marketplace/index?url=${encodeURIComponent(url)}` : '/admin/api/marketplace/index';
+          lastIndex = await LB.apiJSON(endpoint);
+          const meta = [];
+          if (lastIndex?.generated_at) meta.push(`generated_at=${lastIndex.generated_at}`);
+          if (lastIndex?.min_core_version) meta.push(`min_core_version=${lastIndex.min_core_version}`);
+          indexMeta.textContent = meta.join(' · ');
+          renderIndex();
+        } catch (err) {
+          LB.toast(err?.message || '加载 index 失败', 'error', 4200);
+        } finally {
+          btnLoadIndex.disabled = false;
+        }
+      }
+
+      async function loadInstalled() {
+        btnRefreshInstalled.disabled = true;
+        try {
+          const res = await LB.apiJSON('/admin/api/modules');
+          const list = Array.isArray(res?.data) ? res.data : [];
+          lastInstalled = list;
+          installedByID = new Map(list.map((it) => [String(it?.module?.ID ?? it?.module?.id ?? ''), it]));
+          renderInstalled();
+          renderIndex();
+        } catch (err) {
+          LB.toast(err?.message || '加载已安装模块失败', 'error', 4200);
+        } finally {
+          btnRefreshInstalled.disabled = false;
+        }
+      }
+
+      function renderInstalled() {
+        const list = Array.isArray(lastInstalled) ? lastInstalled : [];
+        installedBody.innerHTML = '';
+        if (!list.length) {
+          installedBody.appendChild(LB.el('tr', {}, [
+            LB.el('td', { colSpan: 8, text: '暂无已安装模块' }),
+          ]));
+          return;
+        }
+
+        const filterValue = String(installedFilter?.value || '');
+
+        for (const item of list) {
+          const mod = item?.module || {};
+          const rt = item?.runtime || null;
+          const id = String(mod?.ID ?? mod?.id ?? '');
+          const enabled = Boolean(mod?.Enabled ?? mod?.enabled ?? false);
+          const status = rt ? String(rt?.Status ?? rt?.status ?? 'running') : 'stopped';
+          const ports = rt ? `http:${rt.HTTPPort ?? rt.httpPort ?? '-'} grpc:${rt.GRPCPort ?? rt.grpcPort ?? '-'}` : '-';
+          const providers = Array.isArray(item?.providers) ? item.providers : (Array.isArray(item?.Providers) ? item.Providers : []);
+          const providerText = Array.isArray(providers) && providers.length ? providers.join(', ') : '-';
+
+          if (!matchesFilter(filterValue, [id, mod?.Version, status, providerText])) continue;
+
+          const enabledToggle = LB.el('input', { type: 'checkbox', checked: enabled });
+          enabledToggle.addEventListener('change', async () => {
+            enabledToggle.disabled = true;
+            try {
+              await LB.apiJSON('/admin/api/modules/enable', { method: 'POST', body: { module_id: id, enabled: Boolean(enabledToggle.checked) } });
+              LB.toast(`${enabledToggle.checked ? '已启用' : '已禁用'}：${id}`, 'ok');
+              await loadInstalled();
+            } catch (err) {
+              LB.toast(err?.message || '操作失败', 'error', 4200);
+              enabledToggle.checked = enabled;
+            } finally {
+              enabledToggle.disabled = false;
+            }
+          });
+
+          const btnStartStop = LB.el('button', { type: 'button', className: enabled ? (rt ? 'secondary' : 'primary') : 'secondary', text: rt ? '停止' : '启动' });
+          btnStartStop.disabled = !enabled;
+          btnStartStop.addEventListener('click', async () => {
+            btnStartStop.disabled = true;
+            try {
+              if (rt) {
+                await LB.apiJSON('/admin/api/modules/stop', { method: 'POST', body: { module_id: id } });
+                LB.toast(`已停止：${id}`, 'ok');
+              } else {
+                await LB.apiJSON('/admin/api/modules/start', { method: 'POST', body: { module_id: id } });
+                LB.toast(`已启动：${id}`, 'ok');
+              }
+              await loadInstalled();
+            } catch (err) {
+              LB.toast(err?.message || '操作失败', 'error', 4200);
+            } finally {
+              btnStartStop.disabled = false;
+            }
+          });
+
+          const btnConfig = LB.el('button', { type: 'button', className: 'secondary', text: '配置' });
+          btnConfig.disabled = !enabled;
+          btnConfig.addEventListener('click', async () => {
+            btnConfig.disabled = true;
+            try {
+              const res = await LB.apiJSON(`/admin/api/modules/config?module_id=${encodeURIComponent(id)}`);
+              editingModuleID = id;
+              cfgModuleID.textContent = id;
+              cfgPath.textContent = String(res?.config_path || '');
+              cfgJSON.value = JSON.stringify(res?.config || {}, null, 2);
+              cfgSchema.textContent = JSON.stringify({ schema: res?.schema || {}, defaults: res?.defaults || {} }, null, 2);
+              cfgRestart.checked = false;
+              cfgDialog.showModal();
+            } catch (err) {
+              LB.toast(err?.message || '加载配置失败', 'error', 4200);
+            } finally {
+              btnConfig.disabled = false;
+            }
+          });
+
+          const btnUninstall = LB.el('button', { type: 'button', className: 'secondary', text: '卸载' });
+          btnUninstall.addEventListener('click', async () => {
+            if (!confirm(`确定卸载模块：${id} ?`)) return;
+            const purge = confirm('是否同时删除模块数据（config 等）？');
+            btnUninstall.disabled = true;
+            try {
+              await LB.apiJSON('/admin/api/modules/uninstall', { method: 'POST', body: { module_id: id, purge_data: purge } });
+              LB.toast(`已卸载：${id}`, 'ok');
+              await loadInstalled();
+            } catch (err) {
+              LB.toast(err?.message || '卸载失败', 'error', 4200);
+            } finally {
+              btnUninstall.disabled = false;
+            }
+          });
+
+          installedBody.appendChild(LB.el('tr', {}, [
+            LB.el('td', { text: id }),
+            LB.el('td', { text: String(mod?.Version ?? mod?.version ?? '') }),
+            LB.el('td', {}, [enabledToggle]),
+            LB.el('td', {}, [statusPill(item)]),
+            LB.el('td', { className: 'mono', text: providerText }),
+            LB.el('td', { className: 'mono', text: ports }),
+            LB.el('td', { text: LB.formatISODateTime(mod?.InstalledAt ?? mod?.installedAt ?? '') }),
+            LB.el('td', {}, [btnStartStop, btnConfig, btnUninstall]),
+          ]));
+        }
+      }
+
+      btnLoadIndex.addEventListener('click', loadIndex);
+      btnRefreshInstalled.addEventListener('click', loadInstalled);
+      btnRefreshInstalled2.addEventListener('click', loadInstalled);
+      indexFilter?.addEventListener('input', renderIndex);
+      installedFilter?.addEventListener('input', renderInstalled);
+
+      cfgCancel?.addEventListener('click', () => {
+        editingModuleID = null;
+        try { cfgDialog.close(); } catch (_) {}
+      });
+      cfgDialog?.addEventListener('close', () => {
+        editingModuleID = null;
+      });
+
+      cfgForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const moduleID = String(editingModuleID || '').trim();
+        if (!moduleID) return;
+
+        let obj = null;
+        try {
+          obj = cfgJSON.value ? JSON.parse(cfgJSON.value) : {};
+        } catch (_) {
+          LB.toast('Config JSON 解析失败', 'error', 4200);
+          return;
+        }
+        if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+          // ok
+        } else {
+          LB.toast('Config 必须是 JSON 对象', 'error', 4200);
+          return;
+        }
+
+        cfgSave.disabled = true;
+        try {
+          await LB.apiJSON('/admin/api/modules/config', { method: 'POST', body: { module_id: moduleID, config: obj, restart: Boolean(cfgRestart.checked) } });
+          LB.toast(`已保存配置：${moduleID}`, 'ok');
+          try { cfgDialog.close(); } catch (_) {}
+          editingModuleID = null;
+          await loadInstalled();
+        } catch (err) {
+          LB.toast(err?.message || '保存失败', 'error', 4200);
+        } finally {
+          cfgSave.disabled = false;
+        }
+      });
+
+      renderIndex();
+      loadInstalled();
+    })();
+  </script>
+</body>
+</html>

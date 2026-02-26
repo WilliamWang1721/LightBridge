@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"io/fs"
 	"net/http"
 	"path"
 	"strings"
@@ -38,7 +39,9 @@ type Server struct {
 	moduleMgr   *modules.Manager
 
 	templates *template.Template
+	staticFS  http.FileSystem
 	sessions  *sessionManager
+	startedAt time.Time
 
 	mu sync.Mutex
 }
@@ -47,6 +50,10 @@ func New(cfg Config, st *store.Store, resolver *routing.Resolver, providerRegist
 	tmpl, err := template.ParseFS(webFS, "web/templates/*.html")
 	if err != nil {
 		return nil, fmt.Errorf("parse templates: %w", err)
+	}
+	staticSub, err := fs.Sub(webFS, "web/static")
+	if err != nil {
+		return nil, fmt.Errorf("static fs: %w", err)
 	}
 	if cookieSecret == "" {
 		cookieSecret, _ = util.RandomToken(32)
@@ -59,7 +66,9 @@ func New(cfg Config, st *store.Store, resolver *routing.Resolver, providerRegist
 		marketplace: marketplace,
 		moduleMgr:   moduleMgr,
 		templates:   tmpl,
+		staticFS:    http.FS(staticSub),
 		sessions:    newSessionManager(cookieSecret),
+		startedAt:   time.Now().UTC(),
 	}, nil
 }
 
@@ -69,6 +78,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/v1/models", s.handleModels)
 	mux.HandleFunc("/v1/", s.handleV1Proxy)
 
+	mux.Handle("/admin/static/", http.StripPrefix("/admin/static/", http.FileServer(s.staticFS)))
 	mux.HandleFunc("/admin", s.wrapAdminPage(s.handleDashboardPage))
 	mux.HandleFunc("/admin/", s.routeAdminPages)
 	mux.HandleFunc("/admin/api/", s.routeAdminAPI)
@@ -265,9 +275,18 @@ func (s *Server) routeAdminPages(w http.ResponseWriter, r *http.Request) {
 		s.handleSetupPage(w, r)
 	case "login":
 		s.handleLoginPage(w, r)
-	case "dashboard", "providers", "models", "marketplace", "logs", "docs":
+	case "dashboard":
+		s.wrapAdminPage(s.handleDashboardPage)(w, r)
+	case "providers", "models", "marketplace", "logs", "docs":
 		s.wrapAdminPage(func(w http.ResponseWriter, r *http.Request) {
-			s.renderPage(w, page, map[string]any{"Page": strings.Title(page)})
+			username, _ := s.sessions.username(r)
+			if strings.TrimSpace(username) == "" {
+				username = "Admin"
+			}
+			s.renderPage(w, page, map[string]any{
+				"Page":     strings.Title(page),
+				"Username": username,
+			})
 		})(w, r)
 	default:
 		http.NotFound(w, r)
@@ -294,10 +313,20 @@ func (s *Server) routeAdminAPI(w http.ResponseWriter, r *http.Request) {
 		s.wrapAdminAPI(s.handleMarketplaceIndexAPI)(w, r)
 	case "/marketplace/install":
 		s.wrapAdminAPI(s.handleMarketplaceInstallAPI)(w, r)
+	case "/modules":
+		s.wrapAdminAPI(s.handleModulesListAPI)(w, r)
 	case "/modules/start":
 		s.wrapAdminAPI(s.handleModuleStartAPI)(w, r)
 	case "/modules/stop":
 		s.wrapAdminAPI(s.handleModuleStopAPI)(w, r)
+	case "/modules/enable":
+		s.wrapAdminAPI(s.handleModuleEnableAPI)(w, r)
+	case "/modules/manifest":
+		s.wrapAdminAPI(s.handleModuleManifestAPI)(w, r)
+	case "/modules/config":
+		s.wrapAdminAPI(s.handleModuleConfigAPI)(w, r)
+	case "/modules/uninstall":
+		s.wrapAdminAPI(s.handleModuleUninstallAPI)(w, r)
 	default:
 		http.NotFound(w, r)
 	}
