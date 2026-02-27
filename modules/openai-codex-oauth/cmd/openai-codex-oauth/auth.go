@@ -477,6 +477,70 @@ type importRequest struct {
 	Token        string `json:"token"`
 }
 
+func stripUTF8BOM(raw []byte) []byte {
+	if len(raw) >= 3 && raw[0] == 0xEF && raw[1] == 0xBB && raw[2] == 0xBF {
+		return raw[3:]
+	}
+	return raw
+}
+
+func findStringValueDeep(root any, keys ...string) string {
+	if root == nil || len(keys) == 0 {
+		return ""
+	}
+	keySet := make(map[string]struct{}, len(keys))
+	for _, k := range keys {
+		if strings.TrimSpace(k) == "" {
+			continue
+		}
+		keySet[strings.ToLower(strings.TrimSpace(k))] = struct{}{}
+	}
+	if len(keySet) == 0 {
+		return ""
+	}
+
+	type item struct {
+		v     any
+		depth int
+	}
+	const maxDepth = 8
+	queue := []item{{v: root, depth: 0}}
+	for len(queue) > 0 {
+		it := queue[0]
+		queue = queue[1:]
+		if it.depth > maxDepth || it.v == nil {
+			continue
+		}
+		switch n := it.v.(type) {
+		case map[string]any:
+			for k, v := range n {
+				if _, ok := keySet[strings.ToLower(k)]; !ok {
+					continue
+				}
+				if s, ok := v.(string); ok {
+					if strings.TrimSpace(s) != "" {
+						return strings.TrimSpace(s)
+					}
+				}
+			}
+			for _, v := range n {
+				switch v.(type) {
+				case map[string]any, []any:
+					queue = append(queue, item{v: v, depth: it.depth + 1})
+				}
+			}
+		case []any:
+			for _, v := range n {
+				switch v.(type) {
+				case map[string]any, []any:
+					queue = append(queue, item{v: v, depth: it.depth + 1})
+				}
+			}
+		}
+	}
+	return ""
+}
+
 func (s *server) handleAuthImport(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeOpenAIError(w, http.StatusMethodNotAllowed, "method not allowed", "invalid_request_error", "method_not_allowed")
@@ -489,6 +553,7 @@ func (s *server) handleAuthImport(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "failed to read body"})
 		return
 	}
+	raw = stripUTF8BOM(raw)
 
 	var decoded any
 	if err := json.Unmarshal(raw, &decoded); err != nil {
@@ -527,6 +592,30 @@ func (s *server) handleAuthImport(w http.ResponseWriter, r *http.Request) {
 		Expired:      pick("expired", "expire", "expires_at", "expiresAt"),
 		LastRefresh:  pick("last_refresh", "lastRefresh"),
 		Token:        pick("token"),
+	}
+	if req.RefreshToken == "" {
+		req.RefreshToken = findStringValueDeep(m, "refresh_token", "refreshToken")
+	}
+	if req.AccessToken == "" {
+		req.AccessToken = findStringValueDeep(m, "access_token", "accessToken")
+	}
+	if req.IDToken == "" {
+		req.IDToken = findStringValueDeep(m, "id_token", "idToken")
+	}
+	if req.AccountID == "" {
+		req.AccountID = findStringValueDeep(m, "account_id", "accountId")
+	}
+	if req.Email == "" {
+		req.Email = findStringValueDeep(m, "email")
+	}
+	if req.Expired == "" {
+		req.Expired = findStringValueDeep(m, "expired", "expire", "expires_at", "expiresAt")
+	}
+	if req.LastRefresh == "" {
+		req.LastRefresh = findStringValueDeep(m, "last_refresh", "lastRefresh")
+	}
+	if req.Token == "" {
+		req.Token = findStringValueDeep(m, "token")
 	}
 	if req.RefreshToken == "" && req.Token != "" {
 		req.RefreshToken = req.Token

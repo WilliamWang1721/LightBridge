@@ -274,6 +274,25 @@ func (s *Store) ListModels(ctx context.Context, includeDisabled bool) ([]types.M
 	return models, nil
 }
 
+func (s *Store) GetModel(ctx context.Context, id string) (*types.Model, error) {
+	row := s.db.QueryRowContext(ctx, `SELECT id, display_name, enabled FROM models WHERE id = ?`, id)
+	var m types.Model
+	var enabled int
+	if err := row.Scan(&m.ID, &m.DisplayName, &enabled); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	m.Enabled = enabled == 1
+	return &m, nil
+}
+
+func (s *Store) DeleteModel(ctx context.Context, id string) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM models WHERE id = ?`, id)
+	return err
+}
+
 func (s *Store) ReplaceModelRoutes(ctx context.Context, modelID string, routes []types.ModelRoute) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -624,6 +643,13 @@ func (s *Store) EnsureDefaultModels(ctx context.Context) error {
 		{ID: "claude-3-5-sonnet", DisplayName: "Claude 3.5 Sonnet", Enabled: true},
 	}
 	for _, m := range defaults {
+		existing, err := s.GetModel(ctx, m.ID)
+		if err != nil {
+			return err
+		}
+		if existing != nil {
+			continue
+		}
 		if err := s.UpsertModel(ctx, m); err != nil {
 			return err
 		}

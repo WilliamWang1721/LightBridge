@@ -497,6 +497,25 @@ func (m *Manager) registerProviderAliases(ctx context.Context, services []types.
 				Enabled:    true,
 				Health:     "healthy",
 			}
+
+			// Preserve user intent where possible:
+			// - If the provider already exists and is not a module provider, do not clobber it.
+			// - If the provider exists as a module provider, preserve Enabled + ConfigJSON, but still
+			//   refresh Endpoint/Protocol (ports can change across restarts).
+			existing, err := m.store.GetProvider(ctx, alias)
+			if err != nil {
+				return err
+			}
+			if existing != nil {
+				if strings.TrimSpace(existing.Type) != "" && existing.Type != types.ProviderTypeModule {
+					continue
+				}
+				provider.Enabled = existing.Enabled
+				if strings.TrimSpace(existing.ConfigJSON) != "" {
+					provider.ConfigJSON = existing.ConfigJSON
+				}
+			}
+
 			if err := m.store.UpsertProvider(ctx, provider); err != nil {
 				return err
 			}
