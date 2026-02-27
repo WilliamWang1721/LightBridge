@@ -1668,6 +1668,65 @@
         }
       }
 
+      async function ensureCodexProviderRegistered() {
+        const providerId = 'codex';
+        const moduleId = 'openai-codex-oauth';
+
+        let existing = null;
+        try {
+          const prov = await LB.apiJSON('/admin/api/providers');
+          const list = Array.isArray(prov?.data) ? prov.data : [];
+          existing = list.find((p) => providerID(p) === providerId) || null;
+        } catch (_) {
+          // ignore
+        }
+
+        if (existing && providerType(existing) && providerType(existing) !== 'module') {
+          throw new Error(`Provider ID 冲突：${providerId} 已存在且类型为 ${providerType(existing)}`);
+        }
+
+        let endpoint = '';
+        async function loadModuleEndpointOnce() {
+          const res = await LB.apiJSON('/admin/api/modules');
+          const list = Array.isArray(res?.data) ? res.data : [];
+          const mod = list.find((it) => String(it?.module?.ID ?? it?.module?.id ?? '').trim() === moduleId) || null;
+          const rt = mod?.runtime;
+          const port = Number(rt?.HTTPPort ?? rt?.httpPort ?? rt?.http_port ?? 0);
+          if (port > 0) return `http://127.0.0.1:${port}`;
+          return '';
+        }
+
+        try {
+          endpoint = await loadModuleEndpointOnce();
+        } catch (_) {
+          endpoint = '';
+        }
+
+        if (!endpoint) {
+          // Best-effort: /admin/api/codex/oauth/status 会触发 ensureModuleHTTPRuntime 启动模块
+          try { await LB.apiJSON('/admin/api/codex/oauth/status'); } catch (_) {}
+          try { endpoint = await loadModuleEndpointOnce(); } catch (_) {}
+        }
+
+        const prevEndpoint = String(existing?.Endpoint ?? existing?.endpoint ?? '').trim();
+        if (!endpoint && !prevEndpoint) {
+          throw new Error('未检测到 openai-codex-oauth 运行端口，请先在 Marketplace 启动模块后再保存');
+        }
+
+        const payload = {
+          id: providerId,
+          type: 'module',
+          protocol: 'http_openai',
+          endpoint: endpoint || prevEndpoint,
+          configJSON: String(existing?.ConfigJSON ?? existing?.configJSON ?? '{}'),
+          enabled: existing ? Boolean(existing?.Enabled ?? existing?.enabled ?? true) : true,
+        };
+        try { payload.configJSON = safeJSON(payload.configJSON); } catch (_) {}
+
+        await LB.apiJSON('/admin/api/providers', { method: 'POST', body: payload });
+        return payload;
+      }
+
       async function saveCodexAndClose() {
         if (!B_CODEX_SAVE) return;
         B_CODEX_SAVE.disabled = true;
@@ -1679,9 +1738,12 @@
             LB.toast('尚未获取 Token，无法保存', 'error', 4200);
             return;
           }
+          await ensureCodexProviderRegistered();
           closeCodexDialog();
           await load();
-          LB.toast('已保存', 'ok');
+          const exists = lastProviders.some((p) => providerID(p) === 'codex');
+          if (exists) LB.toast('已保存，并已添加到 Provider 列表', 'ok');
+          else LB.toast('已保存，但 Provider 列表未刷新（可点击右下角“刷新 Refresh”）', 'error', 5200);
         } catch (err) {
           LB.toast(err?.message || '保存失败', 'error', 4200);
         } finally {

@@ -290,6 +290,11 @@ func (s *Server) handleProviderDeleteAPI(w http.ResponseWriter, r *http.Request)
 		if id == "" {
 			continue
 		}
+		// If user deletes a builtin provider, persist a tombstone so it won't be recreated on restart.
+		// (Builtin providers are normally ensured at startup.)
+		if existing, err := s.store.GetProvider(r.Context(), id); err == nil && existing != nil && existing.Type == types.ProviderTypeBuiltin {
+			_ = s.store.SetSetting(r.Context(), "builtin_provider_removed:"+id, time.Now().UTC().Format(time.RFC3339))
+		}
 		if err := s.store.DeleteProvider(r.Context(), id); err != nil {
 			failed++
 		} else {

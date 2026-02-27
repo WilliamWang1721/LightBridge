@@ -1,0 +1,23 @@
+- main [ref=e2]:
+  - region "Admin 登录" [ref=e3]:
+    - generic [ref=e4]:
+      - generic "LightBridge" [ref=e5]:
+        - paragraph [ref=e7]: LightBridge
+      - heading "Admin 登录" [level=1] [ref=e8]
+      - paragraph [ref=e9]: 登录以使用您的 LightBridge Admin 后台
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - paragraph [ref=e12]: 用户名 Username
+        - textbox "admin@lightbridge.com" [ref=e13]
+      - generic [ref=e14]:
+        - generic [ref=e15]:
+          - paragraph [ref=e16]: 密码 Password
+          - link "忘记密码？" [ref=e17] [cursor=pointer]:
+            - /url: "#"
+        - textbox "••••••••••••" [ref=e18]
+      - generic [ref=e20]:
+        - checkbox "记住此设备" [ref=e21]
+        - generic [ref=e22]: 记住此设备
+      - button "登录 Login" [ref=e23] [cursor=pointer]
+    - button "以自定义方式登录" [disabled] [ref=e24]
+    - paragraph [ref=e25]: Produced by MovingDOT Tech.

@@ -678,7 +678,11 @@ func (s *Store) EnsureBuiltinProviders(ctx context.Context) error {
 			Health:     "healthy",
 		},
 	}
+	const removedKeyPrefix = "builtin_provider_removed:"
 	for _, p := range defaults {
+		if _, ok, err := s.GetSetting(ctx, removedKeyPrefix+p.ID); err == nil && ok {
+			continue
+		}
 		existing, err := s.GetProvider(ctx, p.ID)
 		if err != nil {
 			return err

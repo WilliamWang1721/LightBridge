@@ -1,0 +1,102 @@
+- generic [ref=e2]:
+  - complementary "Sidebar" [ref=e3]:
+    - generic [ref=e4]:
+      - link "LightBridge" [ref=e5] [cursor=pointer]:
+        - /url: /admin/dashboard
+        - generic [ref=e7]: LightBridge
+      - navigation "主导航" [ref=e8]:
+        - link "概览 Overview" [ref=e9] [cursor=pointer]:
+          - /url: /admin/dashboard
+          - text: 概览 Overview
+        - link "提供商 Provider" [ref=e11] [cursor=pointer]:
+          - /url: /admin/providers
+          - text: 提供商 Provider
+        - link "路由 Router" [ref=e13] [cursor=pointer]:
+          - /url: /admin/router
+          - text: 路由 Router
+        - link "模块 Marketplace" [ref=e15] [cursor=pointer]:
+          - /url: /admin/marketplace
+          - text: 模块 Marketplace
+        - link "设置 Settings" [ref=e17] [cursor=pointer]:
+          - /url: /admin/logs
+          - text: 设置 Settings
+    - generic [ref=e19]:
+      - generic [ref=e20]: A
+      - generic [ref=e21]: admin
+  - main [ref=e22]:
+    - region "页面标题" [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - heading "提供商 PROVIDER" [level=1] [ref=e26]
+          - paragraph [ref=e27]: 管理 OAuth 与凭证文件，并维护 Provider 列表
+        - generic "操作" [ref=e28]:
+          - button "视图" [ref=e30] [cursor=pointer]:
+            - img [ref=e31]
+          - button "多选" [ref=e36] [cursor=pointer]:
+            - img [ref=e37]
+          - button "筛选" [ref=e41] [cursor=pointer]:
+            - img [ref=e42]
+          - button "添加" [ref=e44] [cursor=pointer]:
+            - img [ref=e45]
+            - generic [ref=e46]: 添加
+    - generic "批量操作" [ref=e112]:
+      - generic [ref=e113]: 已选择 1 个
+      - generic [ref=e114]:
+        - button "启用" [ref=e115] [cursor=pointer]
+        - button "禁用" [ref=e116] [cursor=pointer]
+        - button "删除" [ref=e117] [cursor=pointer]
+        - button "清空" [ref=e118] [cursor=pointer]
+        - button "退出" [ref=e119] [cursor=pointer]
+    - region "提供商列表" [ref=e47]:
+      - generic "凭证列表" [ref=e48]:
+        - row "账户名称 所属模型 / Provider来源 是否可用 用量" [ref=e49]:
+          - columnheader "账户名称" [ref=e50]
+          - columnheader "所属模型 / Provider来源" [ref=e51]
+          - columnheader "是否可用" [ref=e52]
+          - columnheader "用量" [ref=e53]
+          - columnheader
+        - rowgroup [ref=e54]:
+          - row "anthropic anthropic builtin · https://api.anthropic.com 可用 0% ···" [ref=e168]:
+            - cell "anthropic" [ref=e169]
+            - cell "anthropic builtin · https://api.anthropic.com" [ref=e170]:
+              - generic [ref=e171]:
+                - generic [ref=e172]: anthropic
+                - generic [ref=e173]: builtin · https://api.anthropic.com
+            - cell "可用" [ref=e174]:
+              - generic [ref=e177]: 可用
+            - cell "0%" [ref=e178]:
+              - generic "最近 200 条请求累计 0 tokens / 0 requests" [ref=e179]:
+                - generic [ref=e180]: 0%
+            - cell "···" [ref=e182]:
+              - button "···" [ref=e183]
+          - row "Codex (OpenAI) http_openai module · codex · http://127.0.0.1:58390 可用 0% ···" [ref=e184]:
+            - cell "Codex (OpenAI)" [ref=e185]
+            - cell "http_openai module · codex · http://127.0.0.1:58390" [ref=e186]:
+              - generic [ref=e187]:
+                - generic [ref=e188]: http_openai
+                - generic [ref=e189]: module · codex · http://127.0.0.1:58390
+            - cell "可用" [ref=e190]:
+              - generic [ref=e193]: 可用
+            - cell "0%" [ref=e194]:
+              - generic "最近 200 条请求累计 0 tokens / 0 requests" [ref=e195]:
+                - generic [ref=e196]: 0%
+            - cell "···" [ref=e198]:
+              - button "···" [ref=e199]
+          - row "forward forward builtin · https://api.openai.com/v1 可用 0% ···" [ref=e200]:
+            - cell "forward" [ref=e201]
+            - cell "forward builtin · https://api.openai.com/v1" [ref=e202]:
+              - generic [ref=e203]:
+                - generic [ref=e204]: forward
+                - generic [ref=e205]: builtin · https://api.openai.com/v1
+            - cell "可用" [ref=e206]:
+              - generic [ref=e209]: 可用
+            - cell "0%" [ref=e210]:
+              - generic "最近 200 条请求累计 0 tokens / 0 requests" [ref=e211]:
+                - generic [ref=e212]: 0%
+            - cell "···" [ref=e214]:
+              - button "···" [ref=e215]
+      - generic "分页" [ref=e103]:
+        - generic [ref=e105]: 3 providers
+        - button "刷新" [ref=e106] [cursor=pointer]:
+          - img [ref=e107]
+          - generic [ref=e111]: 刷新 Refresh

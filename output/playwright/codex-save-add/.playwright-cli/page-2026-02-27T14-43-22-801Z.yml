@@ -1,0 +1,102 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - complementary "Sidebar" [ref=e3]:
+      - generic [ref=e4]:
+        - link "LightBridge" [ref=e5] [cursor=pointer]:
+          - /url: /admin/dashboard
+          - generic [ref=e7]: LightBridge
+        - navigation "主导航" [ref=e8]:
+          - link "概览 Overview" [ref=e9] [cursor=pointer]:
+            - /url: /admin/dashboard
+            - text: 概览 Overview
+          - link "提供商 Provider" [ref=e11] [cursor=pointer]:
+            - /url: /admin/providers
+            - text: 提供商 Provider
+          - link "路由 Router" [ref=e13] [cursor=pointer]:
+            - /url: /admin/router
+            - text: 路由 Router
+          - link "模块 Marketplace" [ref=e15] [cursor=pointer]:
+            - /url: /admin/marketplace
+            - text: 模块 Marketplace
+          - link "设置 Settings" [ref=e17] [cursor=pointer]:
+            - /url: /admin/logs
+            - text: 设置 Settings
+      - generic [ref=e19]:
+        - generic [ref=e20]: A
+        - generic [ref=e21]: admin
+    - main [ref=e22]:
+      - region "页面标题" [ref=e23]:
+        - generic [ref=e24]:
+          - generic [ref=e25]:
+            - heading "提供商 PROVIDER" [level=1] [ref=e26]
+            - paragraph [ref=e27]: 管理 OAuth 与凭证文件，并维护 Provider 列表
+          - generic "操作" [ref=e28]:
+            - button "视图" [ref=e30] [cursor=pointer]:
+              - img [ref=e31]
+            - button "多选" [ref=e36] [cursor=pointer]:
+              - img [ref=e37]
+            - button "筛选" [ref=e41] [cursor=pointer]:
+              - img [ref=e42]
+            - button "添加" [ref=e44] [cursor=pointer]:
+              - img [ref=e45]
+              - generic [ref=e46]: 添加
+      - region "提供商列表" [ref=e47]:
+        - generic "凭证列表" [ref=e48]:
+          - row "账户名称 所属模型 / Provider来源 是否可用 用量" [ref=e49]:
+            - columnheader "账户名称" [ref=e50]
+            - columnheader "所属模型 / Provider来源" [ref=e51]
+            - columnheader "是否可用" [ref=e52]
+            - columnheader "用量" [ref=e53]
+            - columnheader
+          - rowgroup [ref=e54]:
+            - row "anthropic anthropic builtin · https://api.anthropic.com 可用 0% ···" [ref=e244]:
+              - cell "anthropic" [ref=e245]
+              - cell "anthropic builtin · https://api.anthropic.com" [ref=e246]:
+                - generic [ref=e247]:
+                  - generic [ref=e248]: anthropic
+                  - generic [ref=e249]: builtin · https://api.anthropic.com
+              - cell "可用" [ref=e250]:
+                - generic [ref=e253]: 可用
+              - cell "0%" [ref=e254]:
+                - generic "最近 200 条请求累计 0 tokens / 0 requests" [ref=e255]:
+                  - generic [ref=e256]: 0%
+              - cell "···" [ref=e258]:
+                - button "···" [ref=e259]
+            - row "forward forward builtin · https://api.openai.com/v1 可用 0% ···" [ref=e260]:
+              - cell "forward" [ref=e261]
+              - cell "forward builtin · https://api.openai.com/v1" [ref=e262]:
+                - generic [ref=e263]:
+                  - generic [ref=e264]: forward
+                  - generic [ref=e265]: builtin · https://api.openai.com/v1
+              - cell "可用" [ref=e266]:
+                - generic [ref=e269]: 可用
+              - cell "0%" [ref=e270]:
+                - generic "最近 200 条请求累计 0 tokens / 0 requests" [ref=e271]:
+                  - generic [ref=e272]: 0%
+              - cell "···" [ref=e274]:
+                - button "···" [ref=e275]
+        - generic "分页" [ref=e103]:
+          - generic [ref=e105]: 2 providers
+          - button "刷新" [ref=e106] [cursor=pointer]:
+            - img [ref=e107]
+            - generic [ref=e111]: 刷新 Refresh
+  - dialog [ref=e293]:
+    - generic [ref=e294]:
+      - heading "Codex OAuth" [level=3] [ref=e295]
+      - paragraph [ref=e296]:
+        - text: Codex（OpenAI）OAuth 登录与 Token 管理（模块：openai-codex-oauth） ·
+        - link "前往文档" [active] [ref=e297] [cursor=pointer]:
+          - /url: /admin/docs
+      - generic [ref=e298]:
+        - generic [ref=e299]:
+          - generic [ref=e300]: 当前状态
+          - generic [ref=e301]: "email: mrwilliam1721@gmail.com account_id: ab31a8de-eb4b-46c0-ac97-1c6ee513dff5 expired: 2026-03-09T13:41:00Z access_token: eyJhbG…di14 (sha256:ucJbTB_iZb) refresh_token: rt_rdm…wjbU (sha256:kOlXGj1M_L)"
+        - generic [ref=e302]:
+          - generic [ref=e303]:
+            - button "生成 OAuth 链接" [ref=e304] [cursor=pointer]
+            - button "生成 Device Code" [ref=e305] [cursor=pointer]
+          - paragraph [ref=e306]: 默认请使用「生成 OAuth 链接」进行登录。若出现问题，请在您的 ChatGPT 设置中允许使用 Device Code 登录 Codex，之后按下「生成 Device Code」进行登录，并输入 Device Code 完成授权。
+        - button "▼ 展开高级选项" [ref=e308] [cursor=pointer]
+      - generic [ref=e309]:
+        - button "保存" [ref=e310] [cursor=pointer]
+        - button "关闭" [ref=e311] [cursor=pointer]
