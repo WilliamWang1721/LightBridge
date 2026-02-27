@@ -48,6 +48,7 @@ func (d *DB) Migrate(ctx context.Context) error {
 		sql     string
 	}{
 		{1, migrationV1},
+		{2, migrationV2},
 	}
 
 	for _, m := range migrations {
@@ -168,4 +169,8 @@ CREATE INDEX IF NOT EXISTS idx_logs_ts ON request_logs_meta(ts DESC);
 CREATE INDEX IF NOT EXISTS idx_logs_provider ON request_logs_meta(provider_id);
 CREATE INDEX IF NOT EXISTS idx_logs_model ON request_logs_meta(model_id);
 CREATE INDEX IF NOT EXISTS idx_logs_status ON request_logs_meta(status);
+`
+
+const migrationV2 = `
+ALTER TABLE providers ADD COLUMN display_name TEXT NOT NULL DEFAULT '';
 `

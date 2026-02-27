@@ -1,0 +1,136 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary "Sidebar" [ref=e3]:
+      - generic [ref=e4]:
+        - link "LightBridge" [ref=e5] [cursor=pointer]:
+          - /url: /admin/dashboard
+          - generic [ref=e7]: LightBridge
+        - navigation "主导航" [ref=e8]:
+          - link "概览 Overview" [ref=e9] [cursor=pointer]:
+            - /url: /admin/dashboard
+            - text: 概览 Overview
+          - link "提供商 Provider" [ref=e11] [cursor=pointer]:
+            - /url: /admin/providers
+            - text: 提供商 Provider
+          - link "路由 Router" [ref=e13] [cursor=pointer]:
+            - /url: /admin/router
+            - text: 路由 Router
+          - link "模块 Marketplace" [ref=e15] [cursor=pointer]:
+            - /url: /admin/marketplace
+            - text: 模块 Marketplace
+          - link "设置 Settings" [ref=e17] [cursor=pointer]:
+            - /url: /admin/logs
+            - text: 设置 Settings
+      - generic [ref=e19]:
+        - generic [ref=e20]: A
+        - generic [ref=e21]: admin
+    - main [ref=e22]:
+      - region "页面标题" [ref=e23]:
+        - generic [ref=e24]:
+          - generic [ref=e25]:
+            - heading "提供商 PROVIDER" [level=1] [ref=e26]
+            - paragraph [ref=e27]: 管理 OAuth 与凭证文件，并维护 Provider 列表
+          - generic "操作" [ref=e28]:
+            - button "视图" [ref=e30] [cursor=pointer]:
+              - img [ref=e31]
+            - button "多选" [ref=e36] [cursor=pointer]:
+              - img [ref=e37]
+            - button "筛选" [ref=e41] [cursor=pointer]:
+              - img [ref=e42]
+            - button "添加" [ref=e44] [cursor=pointer]:
+              - img [ref=e45]
+              - generic [ref=e46]: 添加
+      - region "提供商列表" [ref=e47]:
+        - generic "凭证列表" [ref=e48]:
+          - row "账户名称 所属模型 / Provider来源 是否可用 用量" [ref=e49]:
+            - columnheader "账户名称" [ref=e50]
+            - columnheader "所属模型 / Provider来源" [ref=e51]
+            - columnheader "是否可用" [ref=e52]
+            - columnheader "用量" [ref=e53]
+            - columnheader
+          - rowgroup [ref=e54]:
+            - row "Codex (OpenAI) http_openai module · codex · http://127.0.0.1:60953 可用 0% ···" [ref=e343]:
+              - cell "Codex (OpenAI)" [ref=e344]
+              - cell "http_openai module · codex · http://127.0.0.1:60953" [ref=e345]:
+                - generic [ref=e346]:
+                  - generic [ref=e347]: http_openai
+                  - generic [ref=e348]: module · codex · http://127.0.0.1:60953
+              - cell "可用" [ref=e349]:
+                - generic [ref=e352]: 可用
+              - cell "0%" [ref=e353]:
+                - generic "最近 200 条请求累计 0 tokens / 0 requests" [ref=e354]:
+                  - generic [ref=e355]: 0%
+              - cell "···" [ref=e357]:
+                - button "···" [ref=e358]
+            - row "My Provider forward builtin · my-provider · https://api.openai.com/v1 禁用 0% ···" [ref=e359]:
+              - cell "My Provider" [ref=e360]
+              - cell "forward builtin · my-provider · https://api.openai.com/v1" [ref=e361]:
+                - generic [ref=e362]:
+                  - generic [ref=e363]: forward
+                  - generic [ref=e364]: builtin · my-provider · https://api.openai.com/v1
+              - cell "禁用" [ref=e365]:
+                - generic [ref=e368]: 禁用
+              - cell "0%" [ref=e369]:
+                - generic "最近 200 条请求累计 0 tokens / 0 requests" [ref=e370]:
+                  - generic [ref=e371]: 0%
+              - cell "···" [ref=e373]:
+                - button "···" [ref=e374]
+            - row "显示名测试 forward builtin · provider-mm51ujzo · https://api.openai.com/v1 可用 0% ···" [ref=e375]:
+              - cell "显示名测试" [ref=e376]
+              - cell "forward builtin · provider-mm51ujzo · https://api.openai.com/v1" [ref=e377]:
+                - generic [ref=e378]:
+                  - generic [ref=e379]: forward
+                  - generic [ref=e380]: builtin · provider-mm51ujzo · https://api.openai.com/v1
+              - cell "可用" [ref=e381]:
+                - generic [ref=e384]: 可用
+              - cell "0%" [ref=e385]:
+                - generic "最近 200 条请求累计 0 tokens / 0 requests" [ref=e386]:
+                  - generic [ref=e387]: 0%
+              - cell "···" [ref=e389]:
+                - button "···" [ref=e390]
+        - generic "分页" [ref=e87]:
+          - generic [ref=e89]: 3 providers
+          - button "刷新" [ref=e90] [cursor=pointer]:
+            - img [ref=e91]
+            - generic [ref=e95]: 刷新 Refresh
+  - dialog [ref=e96]:
+    - generic [ref=e97]:
+      - heading "编辑 Provider · codex" [level=3] [ref=e393]
+      - generic [ref=e113]:
+        - generic [ref=e114]: 服务商：我的Codex
+        - generic [ref=e115]:
+          - generic [ref=e116]:
+            - generic [ref=e117]: ID
+            - textbox "ID" [disabled] [ref=e118]:
+              - /placeholder: forward
+              - text: codex
+          - generic [ref=e119]:
+            - generic [ref=e120]: Type
+            - combobox "Type" [ref=e121]:
+              - option "builtin"
+              - option "module" [selected]
+          - generic [ref=e122]:
+            - generic [ref=e123]: Protocol
+            - combobox "Protocol" [ref=e124]:
+              - option "forward"
+              - option "anthropic"
+              - option "http_openai" [selected]
+              - option "http_rpc"
+              - option "grpc_chat"
+          - generic [ref=e125]:
+            - generic [ref=e126]: Endpoint
+            - textbox "Endpoint" [ref=e127]:
+              - /placeholder: https://api.openai.com/v1
+              - text: http://127.0.0.1:60953
+          - generic [ref=e128]:
+            - generic [ref=e129]: Config JSON
+            - textbox "Config JSON" [ref=e130]:
+              - /placeholder: "{\"api_key\":\"\",\"base_url\":\"...\"}"
+              - text: "{}"
+          - generic [ref=e131]:
+            - checkbox "Enabled" [checked] [ref=e132]
+            - generic [ref=e133]: Enabled
+        - generic [ref=e134]:
+          - button "上一步" [ref=e135] [cursor=pointer]
+          - button "取消" [ref=e136] [cursor=pointer]
+          - button "保存" [ref=e137] [cursor=pointer]

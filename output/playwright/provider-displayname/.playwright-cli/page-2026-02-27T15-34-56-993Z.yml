@@ -1,0 +1,102 @@
+- generic [ref=e2]:
+  - complementary "Sidebar" [ref=e3]:
+    - generic [ref=e4]:
+      - link "LightBridge" [ref=e5] [cursor=pointer]:
+        - /url: /admin/dashboard
+        - generic [ref=e7]: LightBridge
+      - navigation "主导航" [ref=e8]:
+        - link "概览 Overview" [ref=e9] [cursor=pointer]:
+          - /url: /admin/dashboard
+          - text: 概览 Overview
+        - link "提供商 Provider" [ref=e11] [cursor=pointer]:
+          - /url: /admin/providers
+          - text: 提供商 Provider
+        - link "路由 Router" [ref=e13] [cursor=pointer]:
+          - /url: /admin/router
+          - text: 路由 Router
+        - link "模块 Marketplace" [ref=e15] [cursor=pointer]:
+          - /url: /admin/marketplace
+          - text: 模块 Marketplace
+        - link "设置 Settings" [ref=e17] [cursor=pointer]:
+          - /url: /admin/logs
+          - text: 设置 Settings
+    - generic [ref=e19]:
+      - generic [ref=e20]: A
+      - generic [ref=e21]: admin
+  - main [ref=e22]:
+    - region "页面标题" [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - heading "提供商 PROVIDER" [level=1] [ref=e26]
+          - paragraph [ref=e27]: 管理 OAuth 与凭证文件，并维护 Provider 列表
+        - generic "操作" [ref=e28]:
+          - button "视图" [ref=e30] [cursor=pointer]:
+            - img [ref=e31]
+          - button "多选" [active] [ref=e36] [cursor=pointer]:
+            - img [ref=e37]
+          - button "筛选" [ref=e41] [cursor=pointer]:
+            - img [ref=e42]
+          - button "添加" [ref=e44] [cursor=pointer]:
+            - img [ref=e45]
+            - generic [ref=e46]: 添加
+    - generic "批量操作" [ref=e239]:
+      - generic [ref=e240]: 已选择 0 个
+      - generic [ref=e241]:
+        - button "启用" [disabled] [ref=e242]
+        - button "禁用" [disabled] [ref=e243]
+        - button "删除" [disabled] [ref=e244]
+        - button "清空" [disabled] [ref=e245]
+        - button "退出" [ref=e246] [cursor=pointer]
+    - region "提供商列表" [ref=e47]:
+      - generic "凭证列表" [ref=e48]:
+        - row "账户名称 所属模型 / Provider来源 是否可用 用量" [ref=e49]:
+          - columnheader "账户名称" [ref=e50]
+          - columnheader "所属模型 / Provider来源" [ref=e51]
+          - columnheader "是否可用" [ref=e52]
+          - columnheader "用量" [ref=e53]
+          - columnheader
+        - rowgroup [ref=e54]:
+          - row "Codex (OpenAI) http_openai module · codex · http://127.0.0.1:60953 可用 0% ···" [ref=e247]:
+            - cell "Codex (OpenAI)" [ref=e248]
+            - cell "http_openai module · codex · http://127.0.0.1:60953" [ref=e249]:
+              - generic [ref=e250]:
+                - generic [ref=e251]: http_openai
+                - generic [ref=e252]: module · codex · http://127.0.0.1:60953
+            - cell "可用" [ref=e253]:
+              - generic [ref=e256]: 可用
+            - cell "0%" [ref=e257]:
+              - generic "最近 200 条请求累计 0 tokens / 0 requests" [ref=e258]:
+                - generic [ref=e259]: 0%
+            - cell "···" [ref=e261]:
+              - button "···" [ref=e262]
+          - row "My Provider forward builtin · my-provider · https://api.openai.com/v1 可用 0% ···" [ref=e263]:
+            - cell "My Provider" [ref=e264]
+            - cell "forward builtin · my-provider · https://api.openai.com/v1" [ref=e265]:
+              - generic [ref=e266]:
+                - generic [ref=e267]: forward
+                - generic [ref=e268]: builtin · my-provider · https://api.openai.com/v1
+            - cell "可用" [ref=e269]:
+              - generic [ref=e272]: 可用
+            - cell "0%" [ref=e273]:
+              - generic "最近 200 条请求累计 0 tokens / 0 requests" [ref=e274]:
+                - generic [ref=e275]: 0%
+            - cell "···" [ref=e277]:
+              - button "···" [ref=e278]
+          - row "显示名测试 forward builtin · provider-mm51ujzo · https://api.openai.com/v1 可用 0% ···" [ref=e279]:
+            - cell "显示名测试" [ref=e280]
+            - cell "forward builtin · provider-mm51ujzo · https://api.openai.com/v1" [ref=e281]:
+              - generic [ref=e282]:
+                - generic [ref=e283]: forward
+                - generic [ref=e284]: builtin · provider-mm51ujzo · https://api.openai.com/v1
+            - cell "可用" [ref=e285]:
+              - generic [ref=e288]: 可用
+            - cell "0%" [ref=e289]:
+              - generic "最近 200 条请求累计 0 tokens / 0 requests" [ref=e290]:
+                - generic [ref=e291]: 0%
+            - cell "···" [ref=e293]:
+              - button "···" [ref=e294]
+      - generic "分页" [ref=e87]:
+        - generic [ref=e89]: 3 providers
+        - button "刷新" [ref=e90] [cursor=pointer]:
+          - img [ref=e91]
+          - generic [ref=e95]: 刷新 Refresh

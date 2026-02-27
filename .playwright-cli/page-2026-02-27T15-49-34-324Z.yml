@@ -1,0 +1,135 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - complementary "Sidebar" [ref=e3]:
+      - generic [ref=e4]:
+        - link "LightBridge" [ref=e5] [cursor=pointer]:
+          - /url: /admin/dashboard
+          - generic [ref=e7]: LightBridge
+        - navigation "主导航" [ref=e8]:
+          - link "概览 Overview" [ref=e9] [cursor=pointer]:
+            - /url: /admin/dashboard
+            - text: 概览 Overview
+          - link "提供商 Provider" [ref=e11] [cursor=pointer]:
+            - /url: /admin/providers
+            - text: 提供商 Provider
+          - link "路由 Router" [ref=e13] [cursor=pointer]:
+            - /url: /admin/router
+            - text: 路由 Router
+          - link "模块 Marketplace" [ref=e15] [cursor=pointer]:
+            - /url: /admin/marketplace
+            - text: 模块 Marketplace
+          - link "设置 Settings" [ref=e17] [cursor=pointer]:
+            - /url: /admin/logs
+            - text: 设置 Settings
+      - generic [ref=e19]:
+        - generic [ref=e20]: A
+        - generic [ref=e21]: admin
+    - main [ref=e22]:
+      - region "页面标题" [ref=e23]:
+        - generic [ref=e24]:
+          - generic [ref=e25]:
+            - heading "提供商 PROVIDER" [level=1] [ref=e26]
+            - paragraph [ref=e27]: 管理 OAuth 与凭证文件，并维护 Provider 列表
+          - generic "操作" [ref=e28]:
+            - button "视图" [ref=e30] [cursor=pointer]:
+              - img [ref=e31]
+            - button "多选" [ref=e36] [cursor=pointer]:
+              - img [ref=e37]
+            - button "筛选" [ref=e41] [cursor=pointer]:
+              - img [ref=e42]
+            - button "添加" [ref=e44] [cursor=pointer]:
+              - img [ref=e45]
+              - generic [ref=e46]: 添加
+      - region "提供商列表" [ref=e47]:
+        - generic "凭证列表" [ref=e48]:
+          - row "账户名称 所属模型 / Provider来源 是否可用 用量" [ref=e49]:
+            - columnheader "账户名称" [ref=e50]
+            - columnheader "所属模型 / Provider来源" [ref=e51]
+            - columnheader "是否可用" [ref=e52]
+            - columnheader "用量" [ref=e53]
+            - columnheader
+          - rowgroup [ref=e54]:
+            - row "我的Codex http_openai module · codex · http://127.0.0.1:61917 可用 0% ···" [ref=e55]:
+              - cell "我的Codex" [ref=e56]
+              - cell "http_openai module · codex · http://127.0.0.1:61917" [ref=e57]:
+                - generic [ref=e58]:
+                  - generic [ref=e59]: http_openai
+                  - generic [ref=e60]: module · codex · http://127.0.0.1:61917
+              - cell "可用" [ref=e61]:
+                - generic [ref=e64]: 可用
+              - cell "0%" [ref=e65]:
+                - generic "最近 200 条请求累计 0 tokens / 0 requests" [ref=e66]:
+                  - generic [ref=e67]: 0%
+              - cell "···" [ref=e69]:
+                - button "···" [ref=e70]
+            - row "My Provider forward builtin · my-provider · https://api.openai.com/v1 禁用 0% ···" [ref=e71]:
+              - cell "My Provider" [ref=e72]
+              - cell "forward builtin · my-provider · https://api.openai.com/v1" [ref=e73]:
+                - generic [ref=e74]:
+                  - generic [ref=e75]: forward
+                  - generic [ref=e76]: builtin · my-provider · https://api.openai.com/v1
+              - cell "禁用" [ref=e77]:
+                - generic [ref=e80]: 禁用
+              - cell "0%" [ref=e81]:
+                - generic "最近 200 条请求累计 0 tokens / 0 requests" [ref=e82]:
+                  - generic [ref=e83]: 0%
+              - cell "···" [ref=e85]:
+                - button "···" [ref=e86]
+            - row "显示名测试 forward builtin · provider-mm51ujzo · https://api.openai.com/v1 可用 0% ···" [ref=e87]:
+              - cell "显示名测试" [ref=e88]
+              - cell "forward builtin · provider-mm51ujzo · https://api.openai.com/v1" [ref=e89]:
+                - generic [ref=e90]:
+                  - generic [ref=e91]: forward
+                  - generic [ref=e92]: builtin · provider-mm51ujzo · https://api.openai.com/v1
+              - cell "可用" [ref=e93]:
+                - generic [ref=e96]: 可用
+              - cell "0%" [ref=e97]:
+                - generic "最近 200 条请求累计 0 tokens / 0 requests" [ref=e98]:
+                  - generic [ref=e99]: 0%
+              - cell "···" [ref=e101]:
+                - button "···" [ref=e102]
+        - generic "分页" [ref=e103]:
+          - generic [ref=e105]: 3 providers
+          - button "刷新" [ref=e106] [cursor=pointer]:
+            - img [ref=e107]
+            - generic [ref=e111]: 刷新 Refresh
+  - dialog [ref=e112]:
+    - generic [ref=e113]:
+      - heading "添加 Provider" [level=3] [ref=e114]
+      - generic [ref=e129]:
+        - generic [ref=e130]: 服务商：测试账户一
+        - generic [ref=e131]:
+          - generic [ref=e132]:
+            - generic [ref=e133]: ID
+            - textbox "ID" [ref=e134]:
+              - /placeholder: forward
+              - text: provider-mm52hqwy
+          - generic [ref=e135]:
+            - generic [ref=e136]: Type
+            - combobox "Type" [ref=e137]:
+              - option "builtin" [selected]
+              - option "module"
+          - generic [ref=e138]:
+            - generic [ref=e139]: Protocol
+            - combobox "Protocol" [ref=e140]:
+              - option "forward" [selected]
+              - option "anthropic"
+              - option "http_openai"
+              - option "http_rpc"
+              - option "grpc_chat"
+          - generic [ref=e141]:
+            - generic [ref=e142]: Endpoint
+            - textbox "Endpoint" [active] [ref=e143]:
+              - /placeholder: https://api.openai.com/v1
+          - generic [ref=e144]:
+            - generic [ref=e145]: Config JSON
+            - textbox "Config JSON" [ref=e146]:
+              - /placeholder: "{\"api_key\":\"\",\"base_url\":\"...\"}"
+              - text: "{}"
+          - generic [ref=e147]:
+            - checkbox "Enabled" [checked] [ref=e148]
+            - generic [ref=e149]: Enabled
+        - generic [ref=e150]:
+          - button "上一步" [ref=e151] [cursor=pointer]
+          - button "取消" [ref=e152] [cursor=pointer]
+          - button "保存" [ref=e153] [cursor=pointer]

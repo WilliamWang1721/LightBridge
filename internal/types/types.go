@@ -15,6 +15,7 @@ const (
 
 type Provider struct {
 	ID          string
+	DisplayName string
 	Type        string
 	Protocol    string
 	Endpoint    string

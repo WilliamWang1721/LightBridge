@@ -25,12 +25,14 @@ func TestMigrationIsIdempotent(t *testing.T) {
 	defer second.Close()
 
 	ctx := context.Background()
-	var migrationCount int
-	if err := second.QueryRowContext(ctx, "SELECT COUNT(1) FROM schema_migrations WHERE version = 1").Scan(&migrationCount); err != nil {
-		t.Fatalf("query migrations: %v", err)
-	}
-	if migrationCount != 1 {
-		t.Fatalf("expected single migration row for v1, got %d", migrationCount)
+	for _, v := range []int{1, 2} {
+		var migrationCount int
+		if err := second.QueryRowContext(ctx, "SELECT COUNT(1) FROM schema_migrations WHERE version = ?", v).Scan(&migrationCount); err != nil {
+			t.Fatalf("query migrations v%d: %v", v, err)
+		}
+		if migrationCount != 1 {
+			t.Fatalf("expected single migration row for v%d, got %d", v, migrationCount)
+		}
 	}
 
 	for _, table := range []string{
@@ -45,5 +47,13 @@ func TestMigrationIsIdempotent(t *testing.T) {
 		if count != 1 {
 			t.Fatalf("expected table %s to exist", table)
 		}
+	}
+
+	var hasDisplayName int
+	if err := second.QueryRowContext(ctx, "SELECT COUNT(1) FROM pragma_table_info('providers') WHERE name = 'display_name'").Scan(&hasDisplayName); err != nil {
+		t.Fatalf("check display_name column: %v", err)
+	}
+	if hasDisplayName != 1 {
+		t.Fatalf("expected providers.display_name column to exist")
 	}
 }

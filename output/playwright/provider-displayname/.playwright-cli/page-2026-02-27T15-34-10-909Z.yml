@@ -1,0 +1,96 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary "Sidebar" [ref=e3]:
+      - generic [ref=e4]:
+        - link "LightBridge" [ref=e5] [cursor=pointer]:
+          - /url: /admin/dashboard
+          - generic [ref=e7]: LightBridge
+        - navigation "主导航" [ref=e8]:
+          - link "概览 Overview" [ref=e9] [cursor=pointer]:
+            - /url: /admin/dashboard
+            - text: 概览 Overview
+          - link "提供商 Provider" [ref=e11] [cursor=pointer]:
+            - /url: /admin/providers
+            - text: 提供商 Provider
+          - link "路由 Router" [ref=e13] [cursor=pointer]:
+            - /url: /admin/router
+            - text: 路由 Router
+          - link "模块 Marketplace" [ref=e15] [cursor=pointer]:
+            - /url: /admin/marketplace
+            - text: 模块 Marketplace
+          - link "设置 Settings" [ref=e17] [cursor=pointer]:
+            - /url: /admin/logs
+            - text: 设置 Settings
+      - generic [ref=e19]:
+        - generic [ref=e20]: A
+        - generic [ref=e21]: admin
+    - main [ref=e22]:
+      - region "页面标题" [ref=e23]:
+        - generic [ref=e24]:
+          - generic [ref=e25]:
+            - heading "提供商 PROVIDER" [level=1] [ref=e26]
+            - paragraph [ref=e27]: 管理 OAuth 与凭证文件，并维护 Provider 列表
+          - generic "操作" [ref=e28]:
+            - button "视图" [ref=e30] [cursor=pointer]:
+              - img [ref=e31]
+            - button "多选" [ref=e36] [cursor=pointer]:
+              - img [ref=e37]
+            - button "筛选" [ref=e41] [cursor=pointer]:
+              - img [ref=e42]
+            - button "添加" [ref=e44] [cursor=pointer]:
+              - img [ref=e45]
+              - generic [ref=e46]: 添加
+      - region "提供商列表" [ref=e47]:
+        - generic "凭证列表" [ref=e48]:
+          - row "账户名称 所属模型 / Provider来源 是否可用 用量" [ref=e49]:
+            - columnheader "账户名称" [ref=e50]
+            - columnheader "所属模型 / Provider来源" [ref=e51]
+            - columnheader "是否可用" [ref=e52]
+            - columnheader "用量" [ref=e53]
+            - columnheader
+          - rowgroup [ref=e54]:
+            - row "Codex (OpenAI) http_openai module · codex · http://127.0.0.1:60953 可用 0% ···" [ref=e189]:
+              - cell "Codex (OpenAI)" [ref=e190]
+              - cell "http_openai module · codex · http://127.0.0.1:60953" [ref=e191]:
+                - generic [ref=e192]:
+                  - generic [ref=e193]: http_openai
+                  - generic [ref=e194]: module · codex · http://127.0.0.1:60953
+              - cell "可用" [ref=e195]:
+                - generic [ref=e198]: 可用
+              - cell "0%" [ref=e199]:
+                - generic "最近 200 条请求累计 0 tokens / 0 requests" [ref=e200]:
+                  - generic [ref=e201]: 0%
+              - cell "···" [ref=e203]:
+                - button "···" [ref=e204]
+            - row "My Provider forward builtin · my-provider · https://api.openai.com/v1 可用 0% ···" [ref=e205]:
+              - cell "My Provider" [ref=e206]
+              - cell "forward builtin · my-provider · https://api.openai.com/v1" [ref=e207]:
+                - generic [ref=e208]:
+                  - generic [ref=e209]: forward
+                  - generic [ref=e210]: builtin · my-provider · https://api.openai.com/v1
+              - cell "可用" [ref=e211]:
+                - generic [ref=e214]: 可用
+              - cell "0%" [ref=e215]:
+                - generic "最近 200 条请求累计 0 tokens / 0 requests" [ref=e216]:
+                  - generic [ref=e217]: 0%
+              - cell "···" [ref=e219]:
+                - button "···" [ref=e220]
+            - row "显示名测试 forward builtin · provider-mm51ujzo · https://api.openai.com/v1 可用 0% ···" [ref=e221]:
+              - cell "显示名测试" [ref=e222]
+              - cell "forward builtin · provider-mm51ujzo · https://api.openai.com/v1" [ref=e223]:
+                - generic [ref=e224]:
+                  - generic [ref=e225]: forward
+                  - generic [ref=e226]: builtin · provider-mm51ujzo · https://api.openai.com/v1
+              - cell "可用" [ref=e227]:
+                - generic [ref=e230]: 可用
+              - cell "0%" [ref=e231]:
+                - generic "最近 200 条请求累计 0 tokens / 0 requests" [ref=e232]:
+                  - generic [ref=e233]: 0%
+              - cell "···" [ref=e235]:
+                - button "···" [ref=e236]
+        - generic "分页" [ref=e87]:
+          - generic [ref=e89]: 3 providers
+          - button "刷新" [ref=e90] [cursor=pointer]:
+            - img [ref=e91]
+            - generic [ref=e95]: 刷新 Refresh
+  - generic [ref=e238]: 已保存

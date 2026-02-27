@@ -1,0 +1,103 @@
+- generic [ref=e2]:
+  - complementary "Sidebar" [ref=e3]:
+    - generic [ref=e4]:
+      - link "LightBridge" [ref=e5] [cursor=pointer]:
+        - /url: /admin/dashboard
+        - generic [ref=e7]: LightBridge
+      - navigation "主导航" [ref=e8]:
+        - link "概览 Overview" [ref=e9] [cursor=pointer]:
+          - /url: /admin/dashboard
+          - text: 概览 Overview
+        - link "提供商 Provider" [ref=e11] [cursor=pointer]:
+          - /url: /admin/providers
+          - text: 提供商 Provider
+        - link "路由 Router" [ref=e13] [cursor=pointer]:
+          - /url: /admin/router
+          - text: 路由 Router
+        - link "模块 Marketplace" [ref=e15] [cursor=pointer]:
+          - /url: /admin/marketplace
+          - text: 模块 Marketplace
+        - link "设置 Settings" [ref=e17] [cursor=pointer]:
+          - /url: /admin/logs
+          - text: 设置 Settings
+    - generic [ref=e19]:
+      - generic [ref=e20]: A
+      - generic [ref=e21]: admin
+  - main [ref=e22]:
+    - generic [ref=e23]:
+      - generic [ref=e24]:
+        - heading "概览 Overview" [level=1] [ref=e25]
+        - paragraph [ref=e26]: 在仪表盘中总览服务情况与详情
+      - generic [ref=e27]:
+        - link "文档" [ref=e28] [cursor=pointer]:
+          - /url: /admin/docs
+          - img [ref=e29]
+          - generic [ref=e32]: 文档
+        - link "GitHub 仓库" [ref=e33] [cursor=pointer]:
+          - /url: https://github.com/WilliamWang1721/LightBridge.git
+          - img [ref=e34]
+          - generic [ref=e36]: GitHub
+    - region "统计信息" [ref=e37]:
+      - article [ref=e38]:
+        - paragraph [ref=e39]: 提供商 Providers
+        - paragraph [ref=e40]: "2"
+        - paragraph [ref=e41]:
+          - img [ref=e42]
+          - generic [ref=e45]: 已配置 Provider
+      - article [ref=e46]:
+        - paragraph [ref=e47]: 模型 Models
+        - paragraph [ref=e48]: "2"
+        - paragraph [ref=e49]:
+          - img [ref=e50]
+          - generic [ref=e53]: 已配置虚拟模型
+      - article [ref=e54]:
+        - paragraph [ref=e55]: 模块 Modules
+        - paragraph [ref=e56]: "1"
+        - paragraph [ref=e57]:
+          - img [ref=e58]
+          - generic [ref=e61]: 已安装模块
+      - article [ref=e62]:
+        - paragraph [ref=e63]: 24H Tokens
+        - paragraph [ref=e64]: 0 Token
+        - paragraph [ref=e65]:
+          - img [ref=e66]
+          - generic [ref=e69]: 近 24 小时请求 0 次
+    - generic [ref=e70]:
+      - article "Token 消耗量" [ref=e71]:
+        - generic [ref=e72]:
+          - heading "Token 消耗量" [level=2] [ref=e73]
+          - generic [ref=e74]: 2026-02-21 - 2026-02-27
+        - generic [ref=e75]:
+          - generic [ref=e78]: 周六
+          - generic [ref=e81]: 周日
+          - generic [ref=e84]: 周一
+          - generic [ref=e87]: 周二
+          - generic [ref=e90]: 周三
+          - generic [ref=e93]: 周四
+          - generic [ref=e96]: 周五
+      - article "当前可用服务" [ref=e97]:
+        - generic [ref=e98]:
+          - heading "当前可用服务" [level=2] [ref=e99]
+          - link "查看全部" [ref=e100] [cursor=pointer]:
+            - /url: /admin/providers
+            - generic [ref=e101]: 查看全部
+            - img [ref=e102]
+        - list [ref=e104]:
+          - listitem [ref=e105]:
+            - generic [ref=e106]:
+              - img [ref=e108]
+              - generic [ref=e110]:
+                - paragraph [ref=e111]: codex
+                - paragraph [ref=e112]: http_openai · http://127.0.0.1:60953
+            - generic [ref=e113]:
+              - generic [ref=e114]: 可用
+              - generic [ref=e115]: healthy
+          - listitem [ref=e116]:
+            - generic [ref=e117]:
+              - img [ref=e119]
+              - generic [ref=e121]:
+                - paragraph [ref=e122]: my-provider
+                - paragraph [ref=e123]: forward · https://api.openai.com/v1
+            - generic [ref=e124]:
+              - generic [ref=e125]: 可用
+              - generic [ref=e126]: unknown

@@ -232,20 +232,25 @@ func (s *Server) handleProvidersAPI(w http.ResponseWriter, r *http.Request) {
 		if payload.ConfigJSON == "" {
 			payload.ConfigJSON = "{}"
 		}
-		// Preserve server-side health metadata unless explicitly provided.
-		if strings.TrimSpace(payload.Health) == "" || payload.LastCheckAt == nil {
+		// Preserve server-side metadata unless explicitly provided.
+		if strings.TrimSpace(payload.DisplayName) == "" || strings.TrimSpace(payload.Health) == "" || payload.LastCheckAt == nil {
 			existing, err := s.store.GetProvider(r.Context(), payload.ID)
 			if err != nil {
 				writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 				return
 			}
 			if existing != nil {
+				if strings.TrimSpace(payload.DisplayName) == "" {
+					payload.DisplayName = existing.DisplayName
+				}
 				if strings.TrimSpace(payload.Health) == "" {
 					payload.Health = existing.Health
 				}
 				if payload.LastCheckAt == nil {
 					payload.LastCheckAt = existing.LastCheckAt
 				}
+			} else if strings.TrimSpace(payload.DisplayName) == "" {
+				payload.DisplayName = payload.ID
 			}
 		}
 		if err := s.store.UpsertProvider(r.Context(), payload); err != nil {
@@ -1184,7 +1189,23 @@ func (s *Server) ensureModuleHTTPRuntime(ctx context.Context, moduleID string) (
 	started, err := s.moduleMgr.StartInstalledModule(ctx, moduleID)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "already running") {
-			return s.store.GetModuleRuntime(ctx, moduleID)
+			// The module can be "already running" while the runtime record is not yet persisted.
+			// Avoid returning (nil, nil) which could panic the caller; retry briefly.
+			for i := 0; i < 12; i++ {
+				rt, rtErr := s.store.GetModuleRuntime(ctx, moduleID)
+				if rtErr != nil {
+					return nil, rtErr
+				}
+				if rt != nil && rt.HTTPPort > 0 {
+					return rt, nil
+				}
+				select {
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				case <-time.After(150 * time.Millisecond):
+				}
+			}
+			return nil, fmt.Errorf("module %s runtime not ready", moduleID)
 		}
 		return nil, err
 	}
@@ -1195,6 +1216,9 @@ func (s *Server) proxyModuleHTTP(ctx context.Context, moduleID, method, endpoint
 	rt, err := s.ensureModuleHTTPRuntime(ctx, moduleID)
 	if err != nil {
 		return 0, nil, nil, err
+	}
+	if rt == nil || rt.HTTPPort <= 0 {
+		return 0, nil, nil, fmt.Errorf("module %s runtime not available", moduleID)
 	}
 	p := strings.TrimSpace(endpointPath)
 	if p == "" {

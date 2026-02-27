@@ -452,6 +452,8 @@ func (s *Server) routeAdminAPI(w http.ResponseWriter, r *http.Request) {
 		s.wrapAdminAPI(s.handleProviderDeleteAPI)(w, r)
 	case "/models":
 		s.wrapAdminAPI(s.handleModelsAPI)(w, r)
+	case "/models/delete":
+		s.wrapAdminAPI(s.handleModelDeleteAPI)(w, r)
 	case "/dashboard":
 		s.wrapAdminAPI(s.handleDashboardAPI)(w, r)
 	case "/logs":

@@ -510,6 +510,9 @@ func (m *Manager) registerProviderAliases(ctx context.Context, services []types.
 				if strings.TrimSpace(existing.Type) != "" && existing.Type != types.ProviderTypeModule {
 					continue
 				}
+				if strings.TrimSpace(existing.DisplayName) != "" {
+					provider.DisplayName = existing.DisplayName
+				}
 				provider.Enabled = existing.Enabled
 				if strings.TrimSpace(existing.ConfigJSON) != "" {
 					provider.ConfigJSON = existing.ConfigJSON

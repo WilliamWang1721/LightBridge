@@ -148,10 +148,15 @@ func (s *Store) DeleteClientKey(ctx context.Context, id string) error {
 }
 
 func (s *Store) UpsertProvider(ctx context.Context, p types.Provider) error {
+	displayName := strings.TrimSpace(p.DisplayName)
+	if displayName == "" {
+		displayName = strings.TrimSpace(p.ID)
+	}
 	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO providers(id, type, protocol, endpoint, config_json, enabled, health_status, last_check_at)
-		VALUES(?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO providers(id, display_name, type, protocol, endpoint, config_json, enabled, health_status, last_check_at)
+		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
+			display_name = excluded.display_name,
 			type = excluded.type,
 			protocol = excluded.protocol,
 			endpoint = excluded.endpoint,
@@ -159,13 +164,13 @@ func (s *Store) UpsertProvider(ctx context.Context, p types.Provider) error {
 			enabled = excluded.enabled,
 			health_status = excluded.health_status,
 			last_check_at = excluded.last_check_at
-	`, p.ID, p.Type, p.Protocol, p.Endpoint, emptyJSON(p.ConfigJSON), boolInt(p.Enabled), defaultStatus(p.Health), formatNullTime(p.LastCheckAt))
+	`, p.ID, displayName, p.Type, p.Protocol, p.Endpoint, emptyJSON(p.ConfigJSON), boolInt(p.Enabled), defaultStatus(p.Health), formatNullTime(p.LastCheckAt))
 	return err
 }
 
 func (s *Store) ListProviders(ctx context.Context, includeDisabled bool) ([]types.Provider, error) {
 	query := `
-		SELECT id, type, protocol, endpoint, config_json, enabled, health_status, last_check_at
+		SELECT id, display_name, type, protocol, endpoint, config_json, enabled, health_status, last_check_at
 		FROM providers
 	`
 	args := []any{}
@@ -185,7 +190,7 @@ func (s *Store) ListProviders(ctx context.Context, includeDisabled bool) ([]type
 		var p types.Provider
 		var enabled int
 		var lastCheck sql.NullString
-		if err := rows.Scan(&p.ID, &p.Type, &p.Protocol, &p.Endpoint, &p.ConfigJSON, &enabled, &p.Health, &lastCheck); err != nil {
+		if err := rows.Scan(&p.ID, &p.DisplayName, &p.Type, &p.Protocol, &p.Endpoint, &p.ConfigJSON, &enabled, &p.Health, &lastCheck); err != nil {
 			return nil, err
 		}
 		p.Enabled = enabled == 1
@@ -204,13 +209,13 @@ func (s *Store) ListProviders(ctx context.Context, includeDisabled bool) ([]type
 
 func (s *Store) GetProvider(ctx context.Context, id string) (*types.Provider, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, type, protocol, endpoint, config_json, enabled, health_status, last_check_at
+		SELECT id, display_name, type, protocol, endpoint, config_json, enabled, health_status, last_check_at
 		FROM providers WHERE id = ?
 	`, id)
 	var p types.Provider
 	var enabled int
 	var lastCheck sql.NullString
-	if err := row.Scan(&p.ID, &p.Type, &p.Protocol, &p.Endpoint, &p.ConfigJSON, &enabled, &p.Health, &lastCheck); err != nil {
+	if err := row.Scan(&p.ID, &p.DisplayName, &p.Type, &p.Protocol, &p.Endpoint, &p.ConfigJSON, &enabled, &p.Health, &lastCheck); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}

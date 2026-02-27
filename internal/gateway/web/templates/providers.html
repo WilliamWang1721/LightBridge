@@ -1392,6 +1392,8 @@
       function providerDisplayName(p) {
         const id = providerID(p);
         const type = providerType(p);
+        const displayName = String(p?.DisplayName ?? p?.displayName ?? '').trim();
+        if (displayName && displayName !== id) return displayName;
         if (String(id || '').toLowerCase() === 'codex' && type === 'module') return 'Codex (OpenAI)';
         return id;
       }
@@ -1429,7 +1431,7 @@
           F_ENDPOINT.value = String(provider?.Endpoint ?? provider?.endpoint ?? '');
           F_CFG.value = String(provider?.ConfigJSON ?? provider?.configJSON ?? '{}');
           F_ENABLED.checked = Boolean(provider?.Enabled ?? provider?.enabled ?? true);
-          STEP2_NAME.textContent = editingID;
+          STEP2_NAME.textContent = providerDisplayName(provider) || editingID;
           showStep(2);
         } else {
           TITLE.textContent = '添加 Provider';
@@ -1715,6 +1717,7 @@
 
         const payload = {
           id: providerId,
+          displayName: String(existing?.DisplayName ?? existing?.displayName ?? '').trim() || providerId,
           type: 'module',
           protocol: 'http_openai',
           endpoint: endpoint || prevEndpoint,
@@ -1766,10 +1769,11 @@
         if (qq) {
           out = out.filter((p) => {
             const id = providerID(p);
+            const name = providerDisplayName(p);
             const proto = providerProtocol(p);
             const type = providerType(p);
             const endpoint = providerEndpoint(p);
-            const hay = `${id} ${proto} ${type} ${endpoint}`.toLowerCase();
+            const hay = `${id} ${name} ${proto} ${type} ${endpoint}`.toLowerCase();
             return hay.includes(qq);
           });
         }
@@ -1943,6 +1947,7 @@
             if (!p) continue;
             const payload = {
               id,
+              displayName: String(p?.DisplayName ?? p?.displayName ?? '').trim(),
               type: providerType(p) || 'builtin',
               protocol: providerProtocol(p) || 'forward',
               endpoint: providerEndpoint(p) || '',
@@ -2261,7 +2266,10 @@
         const account = String(F_ACCOUNT.value || '').trim();
         if (!account) { F_ACCOUNT.focus(); return; }
         STEP2_NAME.textContent = account;
-        if (!F_ID.value) F_ID.value = account.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        if (!F_ID.value) {
+          const slug = account.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+          F_ID.value = slug || `provider-${Date.now().toString(36)}`;
+        }
         showStep(2);
       });
 
@@ -2333,9 +2341,11 @@
         try {
           const id = String(F_ID.value || '').trim();
           if (!id) throw new Error('ID 不能为空');
+          const account = String(F_ACCOUNT?.value || '').trim();
           const cfg = safeJSON(F_CFG.value);
           const payload = {
             id,
+            displayName: account || id,
             type: String(F_TYPE.value || '').trim() || 'builtin',
             protocol: String(F_PROTOCOL.value || '').trim() || 'forward',
             endpoint: String(F_ENDPOINT.value || '').trim(),
