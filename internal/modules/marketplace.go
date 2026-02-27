@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"lightbridge/internal/store"
@@ -28,6 +29,14 @@ type Marketplace struct {
 	client  *http.Client
 	store   *store.Store
 	baseDir string
+
+	mu    sync.Mutex
+	cache map[string]cachedIndex
+}
+
+type cachedIndex struct {
+	idx       *types.ModuleIndex
+	expiresAt time.Time
 }
 
 func NewMarketplace(st *store.Store, baseDir string, client *http.Client) *Marketplace {
@@ -38,6 +47,7 @@ func NewMarketplace(st *store.Store, baseDir string, client *http.Client) *Marke
 		client:  client,
 		store:   st,
 		baseDir: baseDir,
+		cache:   map[string]cachedIndex{},
 	}
 }
 
@@ -45,6 +55,10 @@ func (m *Marketplace) FetchIndex(ctx context.Context, indexURL string) (*types.M
 	indexURL = strings.TrimSpace(indexURL)
 	if isLocalIndexURL(indexURL) {
 		return m.fetchLocalIndex(ctx)
+	}
+
+	if spec, ok := parseGitHubModulesSpec(indexURL); ok {
+		return m.fetchGitHubIndex(ctx, spec)
 	}
 
 	if u, err := url.Parse(indexURL); err == nil && u != nil && u.Scheme == "file" {
@@ -277,6 +291,344 @@ func validateManifest(m types.ModuleManifest) error {
 func isLocalIndexURL(indexURL string) bool {
 	indexURL = strings.ToLower(strings.TrimSpace(indexURL))
 	return indexURL == "" || indexURL == "local"
+}
+
+type gitHubModulesSpec struct {
+	Owner string
+	Repo  string
+	Ref   string
+	Path  string
+}
+
+func (s gitHubModulesSpec) cacheKey() string {
+	owner := strings.ToLower(strings.TrimSpace(s.Owner))
+	repo := strings.ToLower(strings.TrimSpace(s.Repo))
+	ref := strings.TrimSpace(s.Ref)
+	path := strings.Trim(strings.TrimSpace(s.Path), "/")
+	return "github:" + owner + "/" + repo + "@" + ref + "/" + path
+}
+
+func parseGitHubModulesSpec(indexURL string) (gitHubModulesSpec, bool) {
+	indexURL = strings.TrimSpace(indexURL)
+	if indexURL == "" {
+		return gitHubModulesSpec{}, false
+	}
+
+	parseRefSuffix := func(raw string) (base, ref string) {
+		raw = strings.TrimSpace(raw)
+		ref = "main"
+		if i := strings.LastIndexAny(raw, "@#"); i >= 0 && i < len(raw)-1 {
+			ref = strings.TrimSpace(raw[i+1:])
+			raw = strings.TrimSpace(raw[:i])
+		}
+		if ref == "" {
+			ref = "main"
+		}
+		return raw, ref
+	}
+
+	if strings.HasPrefix(strings.ToLower(indexURL), "github:") || strings.HasPrefix(strings.ToLower(indexURL), "gh:") {
+		raw := indexURL
+		if strings.HasPrefix(strings.ToLower(raw), "github:") {
+			raw = raw[len("github:"):]
+		} else {
+			raw = raw[len("gh:"):]
+		}
+		raw = strings.TrimPrefix(strings.TrimSpace(raw), "//")
+
+		base, ref := parseRefSuffix(raw)
+		parts := strings.Split(strings.Trim(base, "/"), "/")
+		if len(parts) < 2 {
+			return gitHubModulesSpec{}, false
+		}
+		path := strings.Join(parts[2:], "/")
+		if strings.TrimSpace(path) == "" {
+			path = "MODULES"
+		}
+		return gitHubModulesSpec{Owner: parts[0], Repo: parts[1], Ref: ref, Path: path}, true
+	}
+
+	u, err := url.Parse(indexURL)
+	if err != nil || u == nil {
+		return gitHubModulesSpec{}, false
+	}
+
+	host := strings.ToLower(strings.TrimSpace(u.Host))
+	switch host {
+	case "github.com":
+		segs := strings.Split(strings.Trim(u.Path, "/"), "/")
+		if len(segs) < 2 {
+			return gitHubModulesSpec{}, false
+		}
+		owner, repo := segs[0], segs[1]
+		ref := "main"
+		path := "MODULES"
+		if len(segs) >= 4 && segs[2] == "tree" {
+			ref = segs[3]
+			if len(segs) > 4 {
+				path = strings.Join(segs[4:], "/")
+			}
+			if strings.TrimSpace(path) == "" {
+				path = "MODULES"
+			}
+		} else {
+			return gitHubModulesSpec{}, false
+		}
+		return gitHubModulesSpec{Owner: owner, Repo: repo, Ref: ref, Path: path}, true
+	case "api.github.com":
+		segs := strings.Split(strings.Trim(u.Path, "/"), "/")
+		// /repos/{owner}/{repo}/contents/{path}
+		if len(segs) < 5 {
+			return gitHubModulesSpec{}, false
+		}
+		if segs[0] != "repos" || segs[3] != "contents" {
+			return gitHubModulesSpec{}, false
+		}
+		owner, repo := segs[1], segs[2]
+		path := strings.Join(segs[4:], "/")
+		if strings.TrimSpace(path) == "" {
+			path = "MODULES"
+		}
+		ref := strings.TrimSpace(u.Query().Get("ref"))
+		if ref == "" {
+			ref = "main"
+		}
+		return gitHubModulesSpec{Owner: owner, Repo: repo, Ref: ref, Path: path}, true
+	default:
+		return gitHubModulesSpec{}, false
+	}
+}
+
+func (m *Marketplace) fetchGitHubIndex(ctx context.Context, spec gitHubModulesSpec) (*types.ModuleIndex, error) {
+	key := spec.cacheKey()
+	if idx, ok := m.getCachedIndex(key); ok {
+		return idx, nil
+	}
+
+	idx, err := m.buildGitHubIndex(ctx, spec)
+	if err != nil {
+		return nil, err
+	}
+	m.setCachedIndex(key, idx, 2*time.Minute)
+	return idx, nil
+}
+
+func (m *Marketplace) getCachedIndex(key string) (*types.ModuleIndex, bool) {
+	now := time.Now()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if ent, ok := m.cache[key]; ok {
+		if ent.idx != nil && ent.expiresAt.After(now) {
+			return ent.idx, true
+		}
+		delete(m.cache, key)
+	}
+	return nil, false
+}
+
+func (m *Marketplace) setCachedIndex(key string, idx *types.ModuleIndex, ttl time.Duration) {
+	if idx == nil || ttl <= 0 {
+		return
+	}
+	m.mu.Lock()
+	m.cache[key] = cachedIndex{idx: idx, expiresAt: time.Now().Add(ttl)}
+	m.mu.Unlock()
+}
+
+type gitHubContentItem struct {
+	Type        string `json:"type"`
+	Name        string `json:"name"`
+	Path        string `json:"path"`
+	DownloadURL string `json:"download_url"`
+}
+
+func (m *Marketplace) buildGitHubIndex(ctx context.Context, spec gitHubModulesSpec) (*types.ModuleIndex, error) {
+	apiBase := strings.TrimRight(strings.TrimSpace(os.Getenv("LIGHTBRIDGE_GITHUB_API_BASE")), "/")
+	if apiBase == "" {
+		apiBase = "https://api.github.com"
+	}
+
+	owner := strings.TrimSpace(spec.Owner)
+	repo := strings.TrimSpace(spec.Repo)
+	ref := strings.TrimSpace(spec.Ref)
+	dir := strings.Trim(strings.TrimSpace(spec.Path), "/")
+	if owner == "" || repo == "" {
+		return nil, errors.New("invalid github spec")
+	}
+	if ref == "" {
+		ref = "main"
+	}
+	if dir == "" {
+		dir = "MODULES"
+	}
+
+	// Build: GET /repos/{owner}/{repo}/contents/{dir}?ref={ref}
+	escapedDir := escapePath(dir)
+	u, err := url.Parse(apiBase)
+	if err != nil {
+		return nil, err
+	}
+	u.Path = strings.TrimSuffix(u.Path, "/") + "/repos/" + url.PathEscape(owner) + "/" + url.PathEscape(repo) + "/contents/" + escapedDir
+	q := u.Query()
+	q.Set("ref", ref)
+	u.RawQuery = q.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("accept", "application/vnd.github+json")
+	req.Header.Set("user-agent", "lightbridge")
+	if tok := strings.TrimSpace(os.Getenv("LIGHTBRIDGE_GITHUB_TOKEN")); tok != "" {
+		req.Header.Set("authorization", "Bearer "+tok)
+	} else if tok := strings.TrimSpace(os.Getenv("GITHUB_TOKEN")); tok != "" {
+		req.Header.Set("authorization", "Bearer "+tok)
+	} else if tok := strings.TrimSpace(os.Getenv("GH_TOKEN")); tok != "" {
+		req.Header.Set("authorization", "Bearer "+tok)
+	}
+
+	resp, err := m.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+	if resp.StatusCode != http.StatusOK {
+		msg := strings.TrimSpace(string(body))
+		if msg == "" {
+			msg = resp.Status
+		}
+		return nil, fmt.Errorf("github index fetch failed (%d): %s", resp.StatusCode, msg)
+	}
+
+	var items []gitHubContentItem
+	if err := json.Unmarshal(body, &items); err != nil {
+		return nil, fmt.Errorf("github index decode failed: %w", err)
+	}
+
+	zips := make([]gitHubContentItem, 0)
+	for _, it := range items {
+		if strings.ToLower(strings.TrimSpace(it.Type)) != "file" {
+			continue
+		}
+		if !strings.HasSuffix(strings.ToLower(strings.TrimSpace(it.Name)), ".zip") {
+			continue
+		}
+		if strings.TrimSpace(it.DownloadURL) == "" {
+			continue
+		}
+		zips = append(zips, it)
+	}
+
+	modules := make([]types.ModuleEntry, 0, len(zips))
+	for _, it := range zips {
+		entry, err := m.moduleEntryFromRemoteZip(ctx, it.DownloadURL, "GitHub module package", "github", "https://github.com/"+owner+"/"+repo)
+		if err != nil {
+			continue
+		}
+		modules = append(modules, entry)
+	}
+
+	sort.Slice(modules, func(i, j int) bool { return modules[i].ID < modules[j].ID })
+	return &types.ModuleIndex{
+		GeneratedAt:    time.Now().UTC().Format(time.RFC3339),
+		MinCoreVersion: "0.1.0",
+		Modules:        modules,
+	}, nil
+}
+
+func (m *Marketplace) moduleEntryFromRemoteZip(ctx context.Context, downloadURL, description, tagPrefix, homepage string) (types.ModuleEntry, error) {
+	downloadURL = strings.TrimSpace(downloadURL)
+	if downloadURL == "" {
+		return types.ModuleEntry{}, errors.New("missing download url")
+	}
+
+	tmp, err := os.CreateTemp("", "lightbridge-gh-module-*.zip")
+	if err != nil {
+		return types.ModuleEntry{}, err
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+
+	hasher := sha256.New()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
+	if err != nil {
+		_ = tmp.Close()
+		return types.ModuleEntry{}, err
+	}
+	resp, err := m.client.Do(req)
+	if err != nil {
+		_ = tmp.Close()
+		return types.ModuleEntry{}, err
+	}
+	if resp.StatusCode >= 400 {
+		_ = resp.Body.Close()
+		_ = tmp.Close()
+		return types.ModuleEntry{}, fmt.Errorf("download failed with %d", resp.StatusCode)
+	}
+	if _, err := io.Copy(io.MultiWriter(tmp, hasher), resp.Body); err != nil {
+		_ = resp.Body.Close()
+		_ = tmp.Close()
+		return types.ModuleEntry{}, err
+	}
+	_ = resp.Body.Close()
+	if err := tmp.Close(); err != nil {
+		return types.ModuleEntry{}, err
+	}
+
+	sha := hex.EncodeToString(hasher.Sum(nil))
+	manifest, err := readManifestFromZip(tmpPath)
+	if err != nil {
+		return types.ModuleEntry{}, err
+	}
+	if err := validateManifest(*manifest); err != nil {
+		return types.ModuleEntry{}, err
+	}
+
+	id := strings.TrimSpace(manifest.ID)
+	name := strings.TrimSpace(manifest.Name)
+	if name == "" {
+		name = id
+	}
+	tags := inferRemoteTags(tagPrefix, id)
+	protos := protocolsFromManifest(*manifest)
+
+	return types.ModuleEntry{
+		ID:          id,
+		Name:        name,
+		Version:     strings.TrimSpace(manifest.Version),
+		Description: description,
+		License:     strings.TrimSpace(manifest.License),
+		Tags:        tags,
+		Protocols:   protos,
+		DownloadURL: downloadURL,
+		SHA256:      sha,
+		Homepage:    homepage,
+	}, nil
+}
+
+func inferRemoteTags(prefix, id string) []string {
+	id = strings.ToLower(strings.TrimSpace(id))
+	tags := []string{strings.ToLower(strings.TrimSpace(prefix)), "provider"}
+	if strings.Contains(id, "oauth") || strings.Contains(id, "auth") {
+		tags = append(tags, "auth")
+	}
+	if strings.Contains(id, "tool") {
+		tags = append(tags, "tool")
+	}
+	return tags
+}
+
+func escapePath(p string) string {
+	p = strings.Trim(strings.TrimSpace(p), "/")
+	if p == "" {
+		return ""
+	}
+	segs := strings.Split(p, "/")
+	for i := range segs {
+		segs[i] = url.PathEscape(segs[i])
+	}
+	return strings.Join(segs, "/")
 }
 
 func (m *Marketplace) localModulesDir() string {

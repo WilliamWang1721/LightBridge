@@ -85,6 +85,7 @@ LIGHTBRIDGE_COOKIE_SECRET=your-secret
 Marketplace 默认源：
 - `local`：扫描 `./MODULES`（优先）或 `${LIGHTBRIDGE_DATA_DIR}/MODULES` 里的 `*.zip` 模块包
 - 也可将 `LIGHTBRIDGE_MODULE_INDEX` 设置为一个远程 `index.json` URL（如 GitHub Pages/Raw/Releases）
+- 也支持直接扫描 GitHub 仓库目录（需要目录里放 `*.zip`）：`LIGHTBRIDGE_MODULE_INDEX=github:<owner>/<repo>/MODULES@main`
 
 ---
 
