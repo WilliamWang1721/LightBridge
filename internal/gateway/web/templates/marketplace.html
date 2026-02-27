@@ -4,136 +4,701 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Marketplace</title>
-  <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2/css/pico.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
   <style>
-    .muted { opacity: .75; }
+    :root {
+      --bg-page: #ffffff;
+      --bg-surface: #fafafa;
+      --bg-card: #ffffff;
+      --border: #e8e8e8;
+      --text-main: #0d0d0d;
+      --text-secondary: #7a7a7a;
+      --text-muted: #b0b0b0;
+      --red-primary: #e42313;
+      --success: #22c55e;
+      --font-display: "Space Grotesk", "Noto Sans SC", sans-serif;
+      --font-body: "Inter", "Noto Sans SC", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background: var(--bg-page);
+      color: var(--text-main);
+      font-family: var(--font-body);
+      font-size: 16px;
+      line-height: 1.45;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    button { font-family: inherit; }
+
+    .shell {
+      display: flex;
+      min-height: 100vh;
+      background: var(--bg-page);
+    }
+
+    /* Sidebar (kept consistent with existing) */
+    .sidebar {
+      width: 240px;
+      min-width: 240px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 40px 32px;
+      border-right: 1px solid var(--border);
+      background: var(--bg-page);
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      margin-bottom: 48px;
+      font-family: var(--font-display);
+    }
+
+    .brand-mark {
+      width: 28px;
+      height: 28px;
+      background: var(--red-primary);
+      display: inline-block;
+    }
+
+    .menu {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .menu-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      font-size: 14px;
+      color: var(--text-secondary);
+      transition: color 0.2s ease;
+      font-family: var(--font-display);
+      font-weight: 400;
+    }
+
+    .menu-item:hover { color: var(--text-main); }
+
+    .menu-item.is-active {
+      color: var(--text-main);
+      font-weight: 500;
+    }
+
+    .menu-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--bg-page);
+      flex-shrink: 0;
+    }
+
+    .menu-item.is-active .menu-dot { background: var(--red-primary); }
+
+    .sidebar-bottom {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .admin-chip {
+      width: 36px;
+      height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--text-main);
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: var(--font-display);
+      border: 0;
+    }
+
+    .sidebar-user {
+      font-size: 13px;
+      color: var(--text-main);
+      font-weight: 500;
+      font-family: var(--font-display);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Content */
+    .content {
+      flex: 1;
+      padding: 40px 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 48px;
+      background: var(--bg-page);
+      min-width: 0;
+    }
+
+    .top-area {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      width: 100%;
+    }
+
+    .page-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      width: 100%;
+    }
+
+    .header-left {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .page-title {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: 40px;
+      font-weight: 500;
+      letter-spacing: -1px;
+      line-height: 1.08;
+      color: var(--text-main);
+    }
+
+    .page-subtitle {
+      margin: 0;
+      font-family: var(--font-body);
+      font-size: 14px;
+      font-weight: 400;
+      color: var(--text-secondary);
+    }
+
+    .header-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .icon {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
+    }
+
+    .btn {
+      height: 36px;
+      border: 1px solid var(--border);
+      background: var(--bg-page);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 16px;
+      cursor: pointer;
+      color: var(--text-main);
+      font-family: var(--font-display);
+      font-size: 13px;
+      font-weight: 500;
+      user-select: none;
+    }
+
+    .btn:active { transform: translateY(1px); }
+
+    .btn.primary {
+      background: var(--text-main);
+      border-color: var(--text-main);
+      color: #ffffff;
+      padding: 10px 20px;
+    }
+
+    /* Marketplace layout */
+    .market-split {
+      display: flex;
+      gap: 24px;
+      width: 100%;
+      align-items: flex-start;
+    }
+
+    .market-left {
+      width: 260px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+
+    .stat-card {
+      border: 1px solid var(--border);
+      background: var(--bg-page);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .stat-label {
+      font-family: var(--font-body);
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text-secondary);
+    }
+
+    .stat-value {
+      font-family: var(--font-display);
+      font-size: 34px;
+      font-weight: 600;
+      letter-spacing: -1px;
+      color: var(--text-main);
+      line-height: 1;
+    }
+
+    .market-right {
+      width: 821px;
+      height: 712px;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      min-width: 0;
+    }
+
+    .list-wrap {
+      width: 821px;
+      height: 676px;
+      border: 1px solid var(--border);
+      background: var(--bg-page);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 0;
+    }
+
+    .list-title {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .switch-row {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+      flex-wrap: wrap;
+    }
+
+    .switch-pill {
+      border-radius: 999px;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      background: var(--bg-page);
+      cursor: pointer;
+      font-family: var(--font-body);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-main);
+      user-select: none;
+    }
+
+    .switch-pill.is-active {
+      background: var(--text-main);
+      border-color: var(--text-main);
+      color: #ffffff;
+    }
+
+    .module-list {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding-right: 6px;
+    }
+
+    .module-card {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .module-card:hover { border-color: #d0d0d0; }
+
+    .module-card-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      width: 100%;
+    }
+
+    .module-card-name {
+      font-family: var(--font-display);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+
+    .module-card-state {
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+
+    .module-card-state.state-installed { color: var(--success); }
+    .module-card-state.state-update { color: var(--red-primary); }
+    .module-card-state.state-muted { color: var(--text-secondary); }
+
+    .module-card-meta {
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.4;
+      color: var(--text-secondary);
+    }
+
+    .empty {
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      background: var(--bg-page);
+      color: var(--text-secondary);
+      font-family: var(--font-body);
+      font-size: 13px;
+    }
+
+    /* Dialog */
+    dialog {
+      width: min(760px, calc(100vw - 32px));
+      border: 1px solid var(--border);
+      padding: 18px 18px 16px;
+      background: var(--bg-page);
+    }
+
+    dialog::backdrop { background: rgba(0, 0, 0, 0.35); }
+
+    .muted { color: var(--text-secondary); font-size: 12px; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; }
-    .toolbar { display:flex; align-items:end; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-    .toolbar form { flex: 1; min-width: min(520px, 100%); }
-    .actions { display:flex; gap:10px; }
-    .pill { display:inline-flex; align-items:center; padding: 2px 8px; border-radius: 999px; font-size: 12px; border: 1px solid var(--pico-muted-border-color); opacity: .9; }
-    .pill.ok { border-color: rgba(34,197,94,.45); background: rgba(34,197,94,.08); }
-    .pill.warn { border-color: rgba(245,158,11,.5); background: rgba(245,158,11,.08); }
-    .pill.bad { border-color: rgba(239,68,68,.5); background: rgba(239,68,68,.08); }
-    dialog { max-width: min(920px, calc(100vw - 32px)); }
-    dialog textarea { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; }
+    .state-text.state-installed { color: var(--success); }
+    .state-text.state-update { color: var(--red-primary); }
+    .state-text.state-muted { color: var(--text-secondary); }
+
+    .dialog-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 8px;
+    }
+
+    .dialog-field--full { grid-column: 1 / -1; }
+
+    .dialog-field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .dialog-label {
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .dialog-input {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      padding: 10px 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+      color: var(--text-main);
+      outline: none;
+    }
+
+    .dialog-input:focus { border-color: #d0d0d0; }
+
+    .dialog-textarea {
+      resize: vertical;
+      min-height: 160px;
+      line-height: 1.5;
+    }
+
+    .dialog-check {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--font-body);
+      font-size: 13px;
+      color: var(--text-main);
+    }
+
+    .dialog-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    .dialog-btn {
+      height: 36px;
+      padding: 0 14px;
+      border: 1px solid var(--border);
+      background: var(--bg-page);
+      font-family: var(--font-display);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .dialog-btn.primary {
+      background: var(--text-main);
+      border-color: var(--text-main);
+      color: #ffffff;
+    }
+
+    .dialog-btn.danger {
+      border-color: rgba(228,35,19,.35);
+      color: var(--red-primary);
+    }
+
+    @media (max-width: 1240px) {
+      .market-right,
+      .list-wrap {
+        width: 100%;
+        max-width: 821px;
+      }
+    }
+
+    @media (max-width: 980px) {
+      .market-split { flex-direction: column; }
+      .market-left { width: 100%; max-width: 420px; }
+      .market-right { width: 100%; height: auto; }
+      .list-wrap { height: auto; min-height: 520px; }
+      .module-list { max-height: 520px; }
+    }
+
+    @media (max-width: 860px) {
+      .shell { flex-direction: column; }
+      .sidebar {
+        width: 100%;
+        min-width: 0;
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+        padding: 20px 18px;
+        gap: 18px;
+      }
+      .brand { margin-bottom: 12px; }
+      .menu { flex-direction: row; flex-wrap: wrap; gap: 12px 16px; }
+      .sidebar-bottom { width: 100%; justify-content: flex-start; }
+      .content { padding: 28px 18px 36px; gap: 28px; }
+      .page-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+      .page-title { font-size: 34px; }
+      .header-actions { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
+      dialog { width: min(760px, calc(100vw - 24px)); }
+      .dialog-grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
-<body class="container">
-  <nav>
-    <ul>
-      <li><strong>LightBridge</strong></li>
-    </ul>
-    <ul>
-      <li><a href="/admin/dashboard">Dashboard</a></li>
-      <li><a href="/admin/providers">Providers</a></li>
-      <li><a href="/admin/models">Models</a></li>
-      <li><a href="/admin/marketplace" aria-current="page">Marketplace</a></li>
-      <li><a href="/admin/logs">Logs</a></li>
-    </ul>
-  </nav>
-
-  <main>
-    <h1>Marketplace</h1>
-    <p class="muted">从模块索引加载可用模块，并安装/启动已安装模块。</p>
-
-    <section aria-label="Index">
-      <div class="toolbar">
-        <form id="index-form">
-          <label>
-            Index URL（留空使用服务端默认配置）
-            <input id="index-url" name="index_url" placeholder="https://example.com/index.json" />
-          </label>
-          <label>
-            搜索可用模块（ID / Name / Tag）
-            <input id="index-filter" name="index_filter" placeholder="sample-module" />
-          </label>
-        </form>
-        <div class="actions">
-          <button type="button" id="load-index">加载 Index</button>
-          <button type="button" id="refresh-installed" class="secondary">刷新已安装</button>
-        </div>
+<body>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Sidebar">
+      <div class="sidebar-top">
+        <a class="brand" href="/admin/dashboard">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span>LightBridge</span>
+        </a>
+        <nav class="menu" aria-label="主导航">
+          <a class="menu-item" href="/admin/dashboard"><span class="menu-dot" aria-hidden="true"></span>概览 Overview</a>
+          <a class="menu-item" href="/admin/providers"><span class="menu-dot" aria-hidden="true"></span>提供商 Provider</a>
+          <a class="menu-item" href="/admin/models"><span class="menu-dot" aria-hidden="true"></span>凭证 Voucher</a>
+          <a class="menu-item" href="/admin/docs"><span class="menu-dot" aria-hidden="true"></span>配置 Configuration</a>
+          <a class="menu-item is-active" href="/admin/marketplace"><span class="menu-dot" aria-hidden="true"></span>模块 Marketplace</a>
+          <a class="menu-item" href="/admin/logs"><span class="menu-dot" aria-hidden="true"></span>设置 Settings</a>
+        </nav>
       </div>
-      <small class="muted" id="index-meta"></small>
-    </section>
-
-    <section aria-label="Index modules">
-      <h2>可用模块</h2>
-      <figure>
-        <table role="grid">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Name</th>
-              <th>Version</th>
-              <th>Protocols</th>
-              <th>Tags</th>
-              <th>Description</th>
-              <th>Homepage</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="index-modules"></tbody>
-        </table>
-      </figure>
-    </section>
-
-    <section aria-label="Installed modules">
-      <div class="toolbar" style="margin-bottom: 10px;">
-        <form id="installed-form">
-          <label>
-            已安装模块筛选
-            <input id="installed-filter" name="installed_filter" placeholder="sample-module" />
-          </label>
-        </form>
-        <div class="actions">
-          <button type="button" id="refresh-installed-2" class="secondary">刷新</button>
-        </div>
+      <div class="sidebar-bottom">
+        <span class="admin-chip">A</span>
+        <span class="sidebar-user">{{.Username}}</span>
       </div>
-      <h2 style="margin-top: 0;">已安装模块</h2>
-      <figure>
-        <table role="grid">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Version</th>
-              <th>Enabled</th>
-              <th>Status</th>
-              <th>Providers</th>
-              <th>Ports</th>
-              <th>Installed At</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="installed-modules"></tbody>
-        </table>
-      </figure>
-      <small class="muted">数据来自 <code>/admin/api/modules</code>；安装来自 <code>/admin/api/marketplace/install</code>。</small>
-    </section>
-  </main>
+    </aside>
+
+    <main class="content">
+      <section class="top-area" aria-label="页面标题">
+        <header class="page-header">
+          <div class="header-left">
+            <h1 class="page-title">Marketplace</h1>
+            <p class="page-subtitle">浏览、安装并管理模块。数据来源于 LightBrigde-Market。</p>
+          </div>
+          <div class="header-actions" aria-label="操作">
+            <button class="btn" type="button" id="market-source-btn" aria-label="市场源">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                <path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"></path>
+                <path d="M3 12c0 1.7 4 3 9 3s9-1.3 9-3"></path>
+              </svg>
+              <span>市场源</span>
+            </button>
+            <button class="btn primary" type="button" id="market-refresh-btn" aria-label="刷新市场">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10M1 14l5.36 4.36A9 9 0 0 0 20.49 15"></path>
+              </svg>
+              <span>刷新市场</span>
+            </button>
+          </div>
+        </header>
+      </section>
+
+      <section class="body" aria-label="Marketplace">
+        <div class="market-split">
+          <aside class="market-left" aria-label="统计">
+            <div class="stat-card">
+              <div class="stat-label">市场模块</div>
+              <div class="stat-value" id="stat-market-total">--</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">已安装</div>
+              <div class="stat-value" id="stat-installed">--</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">可更新</div>
+              <div class="stat-value" id="stat-updates">--</div>
+            </div>
+          </aside>
+
+          <section class="market-right" aria-label="模块列表">
+            <div class="list-wrap">
+              <div class="list-title">模块列表</div>
+              <div class="switch-row" aria-label="模块分类">
+                <button class="switch-pill is-active" type="button" data-kind="provider">Provider 模块</button>
+                <button class="switch-pill" type="button" data-kind="auth">Auth 模块</button>
+                <button class="switch-pill" type="button" data-kind="tools">Tools 模块</button>
+              </div>
+              <div class="module-list" id="module-list" role="list"></div>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="source-dialog">
+    <form id="source-form" method="dialog">
+      <h3 style="margin:0 0 6px;font-family:var(--font-display);">市场源</h3>
+      <p class="muted" style="margin:0 0 12px;">留空表示使用服务端默认 <span class="mono">ModuleIndexURL</span>。</p>
+      <div class="dialog-grid">
+        <label class="dialog-field dialog-field--full">
+          <span class="dialog-label">Index URL</span>
+          <input class="dialog-input" id="source-url" name="source_url" placeholder="https://example.com/index.json" />
+        </label>
+      </div>
+      <div class="dialog-actions">
+        <button class="dialog-btn" type="button" id="source-reset">恢复默认</button>
+        <button class="dialog-btn" type="button" id="source-cancel">取消</button>
+        <button class="dialog-btn primary" type="submit" id="source-save">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="module-dialog">
+    <form id="module-form" method="dialog">
+      <h3 id="module-title" style="margin:0 0 6px;font-family:var(--font-display);">模块</h3>
+      <p id="module-desc" class="muted" style="margin:0 0 12px;"></p>
+      <div class="dialog-grid">
+        <div class="dialog-field">
+          <span class="dialog-label">Module ID</span>
+          <div class="mono" id="module-id">-</div>
+        </div>
+        <div class="dialog-field">
+          <span class="dialog-label">状态</span>
+          <div class="mono" id="module-state">-</div>
+        </div>
+        <div class="dialog-field">
+          <span class="dialog-label">Index Version</span>
+          <div class="mono" id="module-index-version">-</div>
+        </div>
+        <div class="dialog-field">
+          <span class="dialog-label">Installed Version</span>
+          <div class="mono" id="module-installed-version">-</div>
+        </div>
+        <div class="dialog-field dialog-field--full">
+          <span class="dialog-label">Tags / Protocols</span>
+          <div class="mono" id="module-tags">-</div>
+        </div>
+        <label class="dialog-check dialog-field--full" style="margin-top: 4px;">
+          <input type="checkbox" id="module-enabled" />
+          <span>启用模块 Enabled</span>
+        </label>
+      </div>
+      <div class="dialog-actions">
+        <button class="dialog-btn danger" type="button" id="module-uninstall">卸载</button>
+        <button class="dialog-btn" type="button" id="module-config">配置</button>
+        <button class="dialog-btn" type="button" id="module-startstop">启动</button>
+        <button class="dialog-btn primary" type="button" id="module-install">安装</button>
+        <button class="dialog-btn" type="button" id="module-close">关闭</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="config-dialog">
     <form method="dialog" id="config-form">
-      <h3 style="margin-top: 0;">模块配置</h3>
-      <p class="muted" style="margin-top: -6px;">
-        module_id: <code id="config-module-id"></code> · path: <code id="config-path"></code>
+      <h3 style="margin:0 0 6px;font-family:var(--font-display);">模块配置</h3>
+      <p class="muted" style="margin:0 0 12px;">
+        module_id: <span class="mono" id="config-module-id"></span> · path: <span class="mono" id="config-path"></span>
       </p>
-      <label>
-        Config JSON（对象）
-        <textarea id="config-json" rows="16" spellcheck="false" placeholder='{"key":"value"}'></textarea>
-      </label>
-      <details>
-        <summary>Schema / Defaults</summary>
-        <pre class="mono" id="config-schema" style="white-space: pre-wrap;"></pre>
-      </details>
-      <label>
-        <input type="checkbox" id="config-restart" />
-        保存后重启模块（如在运行中）
-      </label>
-      <footer style="display:flex;justify-content:flex-end;gap:10px;">
-        <button type="button" class="secondary" id="config-cancel">取消</button>
-        <button type="submit" class="primary" id="config-save">保存</button>
-      </footer>
+      <div class="dialog-grid">
+        <label class="dialog-field dialog-field--full">
+          <span class="dialog-label">Config JSON（对象）</span>
+          <textarea class="dialog-input dialog-textarea" id="config-json" rows="14" spellcheck="false" placeholder='{"key":"value"}'></textarea>
+        </label>
+        <label class="dialog-check dialog-field--full">
+          <input type="checkbox" id="config-restart" />
+          <span>保存后重启模块（如在运行中）</span>
+        </label>
+      </div>
+      <div class="dialog-actions">
+        <button class="dialog-btn" type="button" id="config-cancel">取消</button>
+        <button class="dialog-btn primary" type="submit" id="config-save">保存</button>
+      </div>
     </form>
   </dialog>
 
@@ -143,302 +708,457 @@
       const LB = window.LightBridgeAdmin;
       if (!LB) return;
 
-      const indexURLInput = document.getElementById('index-url');
-      const indexFilter = document.getElementById('index-filter');
-      const installedFilter = document.getElementById('installed-filter');
-      const indexMeta = document.getElementById('index-meta');
-      const btnLoadIndex = document.getElementById('load-index');
-      const btnRefreshInstalled = document.getElementById('refresh-installed');
-      const btnRefreshInstalled2 = document.getElementById('refresh-installed-2');
-      const indexModulesBody = document.getElementById('index-modules');
-      const installedBody = document.getElementById('installed-modules');
+      const KEY_INDEX_URL = 'lightbridge_market_index_url';
 
-      const cfgDialog = document.getElementById('config-dialog');
-      const cfgForm = document.getElementById('config-form');
-      const cfgModuleID = document.getElementById('config-module-id');
-      const cfgPath = document.getElementById('config-path');
-      const cfgJSON = document.getElementById('config-json');
-      const cfgRestart = document.getElementById('config-restart');
-      const cfgSchema = document.getElementById('config-schema');
-      const cfgCancel = document.getElementById('config-cancel');
-      const cfgSave = document.getElementById('config-save');
+      const STAT_TOTAL = document.getElementById('stat-market-total');
+      const STAT_INSTALLED = document.getElementById('stat-installed');
+      const STAT_UPDATES = document.getElementById('stat-updates');
 
+      const LIST = document.getElementById('module-list');
+      const KIND_BTNS = Array.from(document.querySelectorAll('[data-kind]'));
+
+      const BTN_SOURCE = document.getElementById('market-source-btn');
+      const BTN_REFRESH = document.getElementById('market-refresh-btn');
+
+      const D_SOURCE = document.getElementById('source-dialog');
+      const F_SOURCE = document.getElementById('source-form');
+      const I_SOURCE = document.getElementById('source-url');
+      const B_SOURCE_RESET = document.getElementById('source-reset');
+      const B_SOURCE_CANCEL = document.getElementById('source-cancel');
+
+      const D_MODULE = document.getElementById('module-dialog');
+      const T_MODULE = document.getElementById('module-title');
+      const P_MODULE_DESC = document.getElementById('module-desc');
+      const V_MODULE_ID = document.getElementById('module-id');
+      const V_MODULE_STATE = document.getElementById('module-state');
+      const V_MODULE_IV = document.getElementById('module-index-version');
+      const V_MODULE_AV = document.getElementById('module-installed-version');
+      const V_MODULE_TAGS = document.getElementById('module-tags');
+      const C_MODULE_ENABLED = document.getElementById('module-enabled');
+      const B_MODULE_INSTALL = document.getElementById('module-install');
+      const B_MODULE_STARTSTOP = document.getElementById('module-startstop');
+      const B_MODULE_CONFIG = document.getElementById('module-config');
+      const B_MODULE_UNINSTALL = document.getElementById('module-uninstall');
+      const B_MODULE_CLOSE = document.getElementById('module-close');
+
+      const D_CFG = document.getElementById('config-dialog');
+      const F_CFG = document.getElementById('config-form');
+      const CFG_ID = document.getElementById('config-module-id');
+      const CFG_PATH = document.getElementById('config-path');
+      const CFG_JSON = document.getElementById('config-json');
+      const CFG_RESTART = document.getElementById('config-restart');
+      const CFG_CANCEL = document.getElementById('config-cancel');
+      const CFG_SAVE = document.getElementById('config-save');
+
+      let selectedKind = 'provider';
+      let indexURL = '';
       let lastIndex = null;
       let lastInstalled = [];
       let installedByID = new Map();
+      let activeEntry = null;
       let editingModuleID = null;
 
-      function qIndexURL() {
-        return String(indexURLInput.value || '').trim();
+      function getIndexModules() {
+        const mods = lastIndex?.modules ?? lastIndex?.Modules ?? [];
+        return Array.isArray(mods) ? mods : [];
       }
 
-      function norm(s) {
-        return String(s || '').toLowerCase();
+      function installedID(item) {
+        return String(item?.module?.ID ?? item?.module?.id ?? '').trim();
       }
 
-      function matchesFilter(filter, fields) {
-        const f = norm(filter).trim();
-        if (!f) return true;
-        const hay = (Array.isArray(fields) ? fields : [fields]).map(norm).join(' ');
-        return hay.includes(f);
+      function installedVersion(item) {
+        return String(item?.module?.Version ?? item?.module?.version ?? '').trim();
       }
 
-      function statusPill(item) {
-        const mod = item?.module || {};
-        const rt = item?.runtime || null;
-        const enabled = Boolean(mod?.Enabled ?? mod?.enabled ?? false);
-        const status = rt ? String(rt?.Status ?? rt?.status ?? 'running') : 'stopped';
-        const cls = !enabled ? 'bad' : (rt ? 'ok' : 'warn');
-        const label = !enabled ? 'disabled' : (rt ? status : 'stopped');
-        return LB.el('span', { className: `pill ${cls}`, text: label });
+      function normalizeTags(tags) {
+        return (Array.isArray(tags) ? tags : []).map((t) => String(t || '').toLowerCase().trim()).filter(Boolean);
       }
 
-      function renderIndex() {
-        indexModulesBody.innerHTML = '';
-        const modules = Array.isArray(lastIndex?.modules) ? lastIndex.modules : [];
-        if (!modules.length) {
-          indexModulesBody.appendChild(LB.el('tr', {}, [
-            LB.el('td', { colSpan: 8, text: '暂无模块（请先加载 Index）' }),
-          ]));
+      function inferKind(entry) {
+        const tags = normalizeTags(entry?.tags ?? entry?.Tags);
+        if (tags.some((t) => t.includes('provider'))) return 'provider';
+        if (tags.some((t) => t.includes('auth'))) return 'auth';
+        if (tags.some((t) => t.includes('tool'))) return 'tools';
+        return 'provider';
+      }
+
+      function formatVer(v) {
+        const s = String(v || '').trim();
+        if (!s) return '';
+        if (s.toLowerCase().startsWith('v')) return s;
+        return `v${s}`;
+      }
+
+      function isBuiltin(entry) {
+        const id = String(entry?.id ?? entry?.ID ?? '').toLowerCase().trim();
+        const tags = normalizeTags(entry?.tags ?? entry?.Tags);
+        if (id.startsWith('default-')) return true;
+        if (tags.includes('builtin') || tags.includes('built-in')) return true;
+        return false;
+      }
+
+      function stateFor(entry) {
+        const id = String(entry?.id ?? entry?.ID ?? '').trim();
+        if (!id) return { label: '-', color: 'var(--text-secondary)', kind: 'unknown' };
+
+        if (isBuiltin(entry)) return { label: '内置', color: 'var(--text-secondary)', kind: 'builtin' };
+
+        const inst = installedByID.get(id) || null;
+        const iv = String(entry?.version ?? entry?.Version ?? '').trim();
+        const av = inst ? installedVersion(inst) : '';
+        if (!inst) return { label: '可安装', color: 'var(--text-secondary)', kind: 'available' };
+        if (iv && av && iv !== av) return { label: '有更新', color: 'var(--red-primary)', kind: 'update' };
+        return { label: '已安装', color: 'var(--success)', kind: 'installed' };
+      }
+
+      function setActiveKind(kind) {
+        selectedKind = kind;
+        for (const b of KIND_BTNS) {
+          const k = String(b.dataset.kind || '');
+          b.classList.toggle('is-active', k === selectedKind);
+        }
+        renderList();
+      }
+
+      function renderStats() {
+        const all = getIndexModules();
+        const total = all.length;
+        const installed = Array.isArray(lastInstalled) ? lastInstalled.length : 0;
+        let updates = 0;
+        for (const m of all) {
+          const id = String(m?.id ?? m?.ID ?? '').trim();
+          if (!id) continue;
+          const inst = installedByID.get(id);
+          if (!inst) continue;
+          const iv = String(m?.version ?? m?.Version ?? '').trim();
+          const av = installedVersion(inst);
+          if (iv && av && iv !== av) updates += 1;
+        }
+        STAT_TOTAL.textContent = LB.formatCompactNumber(total);
+        STAT_INSTALLED.textContent = LB.formatCompactNumber(installed);
+        STAT_UPDATES.textContent = LB.formatCompactNumber(updates);
+      }
+
+      function clearList() {
+        LIST.innerHTML = '';
+      }
+
+      function renderList() {
+        clearList();
+        const all = getIndexModules().slice();
+        all.sort((a, b) => String(a?.id || '').localeCompare(String(b?.id || '')));
+
+        const filtered = all.filter((m) => inferKind(m) === selectedKind);
+        if (!filtered.length) {
+          LIST.appendChild(LB.el('div', { className: 'empty', text: '该分类暂无模块（或市场源尚未加载）。' }));
           return;
         }
 
-        const filterValue = String(indexFilter?.value || '');
-        modules.sort((a, b) => String(a?.id || '').localeCompare(String(b?.id || '')));
-        for (const m of modules) {
-          const id = String(m?.id || '');
-          const tags = Array.isArray(m?.tags) ? m.tags.filter(Boolean).join(', ') : '';
-          if (!matchesFilter(filterValue, [id, m?.name, tags, m?.description])) continue;
+        for (const entry of filtered) {
+          const id = String(entry?.id ?? entry?.ID ?? '').trim();
+          const ver = String(entry?.version ?? entry?.Version ?? '').trim();
+          const title = `${id}  ${formatVer(ver)}`.trim();
+          const desc = String(entry?.description ?? entry?.Description ?? '').trim();
+          const st = stateFor(entry);
+          const stCls = st.kind === 'installed' ? 'state-installed' : (st.kind === 'update' ? 'state-update' : 'state-muted');
 
-          const installed = installedByID.get(id) || null;
-          const installedVer = String(installed?.module?.Version ?? installed?.module?.version ?? '');
-          const idxVer = String(m?.version || '');
-          const isSameVer = Boolean(installed && installedVer && idxVer && installedVer === idxVer);
-
-          const btn = LB.el('button', { type: 'button', className: 'primary', text: isSameVer ? '已安装' : (installed ? '升级安装' : '安装') });
-          btn.disabled = isSameVer;
-          btn.addEventListener('click', async () => {
-            btn.disabled = true;
-            try {
-              const res = await LB.apiJSON('/admin/api/marketplace/install', {
-                method: 'POST',
-                body: { module_id: id, index_url: qIndexURL() },
-              });
-              if (res?.runtime) LB.toast(`已安装并启动：${id}`, 'ok');
-              else LB.toast(`已安装：${id}`, 'ok');
-              await loadInstalled();
-            } catch (err) {
-              LB.toast(err?.message || '安装失败', 'error', 4200);
-            } finally {
-              btn.disabled = false;
-            }
-          });
-
-          const homepage = String(m?.homepage || '').trim();
-          indexModulesBody.appendChild(LB.el('tr', {}, [
-            LB.el('td', { text: id }),
-            LB.el('td', { text: String(m?.name || '') }),
-            LB.el('td', { text: String(m?.version || '') }),
-            LB.el('td', { className: 'mono', text: Array.isArray(m?.protocols) ? m.protocols.join(', ') : '' }),
-            LB.el('td', { className: 'mono', text: tags }),
-            LB.el('td', { text: String(m?.description || '') }),
-            LB.el('td', {}, [homepage ? LB.el('a', { href: homepage, target: '_blank', rel: 'noreferrer', text: 'link' }) : LB.el('span', { className: 'muted', text: '-' })]),
-            LB.el('td', {}, [btn]),
-          ]));
+          const card = LB.el('button', { type: 'button', className: 'module-card' }, [
+            LB.el('div', { className: 'module-card-row' }, [
+              LB.el('div', { className: 'module-card-name', text: title }),
+              LB.el('div', { className: `module-card-state ${stCls}`, text: st.label }),
+            ]),
+            LB.el('div', { className: 'module-card-meta', text: desc || '-' }),
+          ]);
+          card.addEventListener('click', () => openModule(entry));
+          LIST.appendChild(card);
         }
       }
 
-      async function loadIndex() {
-        btnLoadIndex.disabled = true;
+      function currentIndexURL() {
+        return String(indexURL || '').trim();
+      }
+
+      async function loadAll({ toastOnFail = true } = {}) {
+        BTN_REFRESH.disabled = true;
         try {
-          const url = qIndexURL();
+          const url = currentIndexURL();
           const endpoint = url ? `/admin/api/marketplace/index?url=${encodeURIComponent(url)}` : '/admin/api/marketplace/index';
-          lastIndex = await LB.apiJSON(endpoint);
-          const meta = [];
-          if (lastIndex?.generated_at) meta.push(`generated_at=${lastIndex.generated_at}`);
-          if (lastIndex?.min_core_version) meta.push(`min_core_version=${lastIndex.min_core_version}`);
-          indexMeta.textContent = meta.join(' · ');
-          renderIndex();
+          const [idx, mods] = await Promise.all([
+            LB.apiJSON(endpoint),
+            LB.apiJSON('/admin/api/modules'),
+          ]);
+          lastIndex = idx;
+          lastInstalled = Array.isArray(mods?.data) ? mods.data : [];
+          installedByID = new Map(lastInstalled.map((it) => [installedID(it), it]).filter(([k]) => k));
+          renderStats();
+          renderList();
         } catch (err) {
-          LB.toast(err?.message || '加载 index 失败', 'error', 4200);
+          if (toastOnFail) LB.toast(err?.message || '加载 Marketplace 失败', 'error', 4200);
         } finally {
-          btnLoadIndex.disabled = false;
+          BTN_REFRESH.disabled = false;
         }
       }
 
-      async function loadInstalled() {
-        btnRefreshInstalled.disabled = true;
+      function openSourceDialog() {
+        I_SOURCE.value = currentIndexURL();
+        if (!D_SOURCE.open) D_SOURCE.showModal();
+      }
+
+      function closeSourceDialog() {
+        try { D_SOURCE.close(); } catch (_) {}
+      }
+
+      function openModule(entry) {
+        activeEntry = entry;
+        const id = String(entry?.id ?? entry?.ID ?? '').trim();
+        const ver = String(entry?.version ?? entry?.Version ?? '').trim();
+        const st = stateFor(entry);
+        const stCls = st.kind === 'installed' ? 'state-installed' : (st.kind === 'update' ? 'state-update' : 'state-muted');
+        const inst = installedByID.get(id) || null;
+        const installedVer = inst ? installedVersion(inst) : '';
+
+        T_MODULE.textContent = `${id}  ${formatVer(ver)}`.trim();
+        P_MODULE_DESC.textContent = String(entry?.description ?? entry?.Description ?? '').trim();
+        V_MODULE_ID.textContent = id || '-';
+        V_MODULE_STATE.textContent = st.label;
+        V_MODULE_STATE.className = `mono state-text ${stCls}`;
+        V_MODULE_IV.textContent = ver ? formatVer(ver) : '-';
+        V_MODULE_AV.textContent = installedVer ? formatVer(installedVer) : '-';
+
+        const tags = Array.isArray(entry?.tags) ? entry.tags : (Array.isArray(entry?.Tags) ? entry.Tags : []);
+        const protos = Array.isArray(entry?.protocols) ? entry.protocols : (Array.isArray(entry?.Protocols) ? entry.Protocols : []);
+        V_MODULE_TAGS.textContent = `${normalizeTags(tags).join(', ') || '-'} / ${Array.isArray(protos) ? protos.join(', ') : '-'}`;
+
+        const enabled = Boolean(inst?.module?.Enabled ?? inst?.module?.enabled ?? false);
+        const running = Boolean(inst?.runtime);
+        C_MODULE_ENABLED.checked = enabled;
+        C_MODULE_ENABLED.disabled = !inst;
+
+        B_MODULE_STARTSTOP.textContent = running ? '停止' : '启动';
+        B_MODULE_STARTSTOP.disabled = !inst || !enabled;
+
+        if (st.kind === 'installed') {
+          B_MODULE_INSTALL.textContent = '已安装';
+          B_MODULE_INSTALL.disabled = true;
+        } else if (st.kind === 'update') {
+          B_MODULE_INSTALL.textContent = '更新安装';
+          B_MODULE_INSTALL.disabled = false;
+        } else if (st.kind === 'builtin') {
+          B_MODULE_INSTALL.textContent = '内置';
+          B_MODULE_INSTALL.disabled = true;
+        } else {
+          B_MODULE_INSTALL.textContent = '安装';
+          B_MODULE_INSTALL.disabled = false;
+        }
+
+        B_MODULE_UNINSTALL.disabled = !inst || st.kind === 'builtin';
+        B_MODULE_CONFIG.disabled = !inst;
+
+        if (!D_MODULE.open) D_MODULE.showModal();
+      }
+
+      function closeModuleDialog() {
+        activeEntry = null;
+        try { D_MODULE.close(); } catch (_) {}
+      }
+
+      async function doInstallActive() {
+        const entry = activeEntry;
+        if (!entry) return;
+        const id = String(entry?.id ?? entry?.ID ?? '').trim();
+        if (!id) return;
+
+        B_MODULE_INSTALL.disabled = true;
         try {
-          const res = await LB.apiJSON('/admin/api/modules');
-          const list = Array.isArray(res?.data) ? res.data : [];
-          lastInstalled = list;
-          installedByID = new Map(list.map((it) => [String(it?.module?.ID ?? it?.module?.id ?? ''), it]));
-          renderInstalled();
-          renderIndex();
+          const res = await LB.apiJSON('/admin/api/marketplace/install', {
+            method: 'POST',
+            body: { module_id: id, index_url: currentIndexURL() },
+          });
+          if (res?.runtime) LB.toast(`已安装并启动：${id}`, 'ok');
+          else LB.toast(`已安装：${id}`, 'ok');
+          await loadAll({ toastOnFail: false });
+          // Refresh dialog state.
+          const next = getIndexModules().find((m) => String(m?.id ?? m?.ID ?? '') === id) || entry;
+          openModule(next);
         } catch (err) {
-          LB.toast(err?.message || '加载已安装模块失败', 'error', 4200);
+          LB.toast(err?.message || '安装失败', 'error', 4200);
+          B_MODULE_INSTALL.disabled = false;
         } finally {
-          btnRefreshInstalled.disabled = false;
+          // no-op
         }
       }
 
-      function renderInstalled() {
-        const list = Array.isArray(lastInstalled) ? lastInstalled : [];
-        installedBody.innerHTML = '';
-        if (!list.length) {
-          installedBody.appendChild(LB.el('tr', {}, [
-            LB.el('td', { colSpan: 8, text: '暂无已安装模块' }),
-          ]));
-          return;
-        }
+      async function doStartStop() {
+        const entry = activeEntry;
+        if (!entry) return;
+        const id = String(entry?.id ?? entry?.ID ?? '').trim();
+        if (!id) return;
 
-        const filterValue = String(installedFilter?.value || '');
-
-        for (const item of list) {
-          const mod = item?.module || {};
-          const rt = item?.runtime || null;
-          const id = String(mod?.ID ?? mod?.id ?? '');
-          const enabled = Boolean(mod?.Enabled ?? mod?.enabled ?? false);
-          const status = rt ? String(rt?.Status ?? rt?.status ?? 'running') : 'stopped';
-          const ports = rt ? `http:${rt.HTTPPort ?? rt.httpPort ?? '-'} grpc:${rt.GRPCPort ?? rt.grpcPort ?? '-'}` : '-';
-          const providers = Array.isArray(item?.providers) ? item.providers : (Array.isArray(item?.Providers) ? item.Providers : []);
-          const providerText = Array.isArray(providers) && providers.length ? providers.join(', ') : '-';
-
-          if (!matchesFilter(filterValue, [id, mod?.Version, status, providerText])) continue;
-
-          const enabledToggle = LB.el('input', { type: 'checkbox', checked: enabled });
-          enabledToggle.addEventListener('change', async () => {
-            enabledToggle.disabled = true;
-            try {
-              await LB.apiJSON('/admin/api/modules/enable', { method: 'POST', body: { module_id: id, enabled: Boolean(enabledToggle.checked) } });
-              LB.toast(`${enabledToggle.checked ? '已启用' : '已禁用'}：${id}`, 'ok');
-              await loadInstalled();
-            } catch (err) {
-              LB.toast(err?.message || '操作失败', 'error', 4200);
-              enabledToggle.checked = enabled;
-            } finally {
-              enabledToggle.disabled = false;
-            }
-          });
-
-          const btnStartStop = LB.el('button', { type: 'button', className: enabled ? (rt ? 'secondary' : 'primary') : 'secondary', text: rt ? '停止' : '启动' });
-          btnStartStop.disabled = !enabled;
-          btnStartStop.addEventListener('click', async () => {
-            btnStartStop.disabled = true;
-            try {
-              if (rt) {
-                await LB.apiJSON('/admin/api/modules/stop', { method: 'POST', body: { module_id: id } });
-                LB.toast(`已停止：${id}`, 'ok');
-              } else {
-                await LB.apiJSON('/admin/api/modules/start', { method: 'POST', body: { module_id: id } });
-                LB.toast(`已启动：${id}`, 'ok');
-              }
-              await loadInstalled();
-            } catch (err) {
-              LB.toast(err?.message || '操作失败', 'error', 4200);
-            } finally {
-              btnStartStop.disabled = false;
-            }
-          });
-
-          const btnConfig = LB.el('button', { type: 'button', className: 'secondary', text: '配置' });
-          btnConfig.disabled = !enabled;
-          btnConfig.addEventListener('click', async () => {
-            btnConfig.disabled = true;
-            try {
-              const res = await LB.apiJSON(`/admin/api/modules/config?module_id=${encodeURIComponent(id)}`);
-              editingModuleID = id;
-              cfgModuleID.textContent = id;
-              cfgPath.textContent = String(res?.config_path || '');
-              cfgJSON.value = JSON.stringify(res?.config || {}, null, 2);
-              cfgSchema.textContent = JSON.stringify({ schema: res?.schema || {}, defaults: res?.defaults || {} }, null, 2);
-              cfgRestart.checked = false;
-              cfgDialog.showModal();
-            } catch (err) {
-              LB.toast(err?.message || '加载配置失败', 'error', 4200);
-            } finally {
-              btnConfig.disabled = false;
-            }
-          });
-
-          const btnUninstall = LB.el('button', { type: 'button', className: 'secondary', text: '卸载' });
-          btnUninstall.addEventListener('click', async () => {
-            if (!confirm(`确定卸载模块：${id} ?`)) return;
-            const purge = confirm('是否同时删除模块数据（config 等）？');
-            btnUninstall.disabled = true;
-            try {
-              await LB.apiJSON('/admin/api/modules/uninstall', { method: 'POST', body: { module_id: id, purge_data: purge } });
-              LB.toast(`已卸载：${id}`, 'ok');
-              await loadInstalled();
-            } catch (err) {
-              LB.toast(err?.message || '卸载失败', 'error', 4200);
-            } finally {
-              btnUninstall.disabled = false;
-            }
-          });
-
-          installedBody.appendChild(LB.el('tr', {}, [
-            LB.el('td', { text: id }),
-            LB.el('td', { text: String(mod?.Version ?? mod?.version ?? '') }),
-            LB.el('td', {}, [enabledToggle]),
-            LB.el('td', {}, [statusPill(item)]),
-            LB.el('td', { className: 'mono', text: providerText }),
-            LB.el('td', { className: 'mono', text: ports }),
-            LB.el('td', { text: LB.formatISODateTime(mod?.InstalledAt ?? mod?.installedAt ?? '') }),
-            LB.el('td', {}, [btnStartStop, btnConfig, btnUninstall]),
-          ]));
+        const inst = installedByID.get(id) || null;
+        const running = Boolean(inst?.runtime);
+        B_MODULE_STARTSTOP.disabled = true;
+        try {
+          if (running) {
+            await LB.apiJSON('/admin/api/modules/stop', { method: 'POST', body: { module_id: id } });
+            LB.toast(`已停止：${id}`, 'ok');
+          } else {
+            await LB.apiJSON('/admin/api/modules/start', { method: 'POST', body: { module_id: id } });
+            LB.toast(`已启动：${id}`, 'ok');
+          }
+          await loadAll({ toastOnFail: false });
+          const next = getIndexModules().find((m) => String(m?.id ?? m?.ID ?? '') === id) || entry;
+          openModule(next);
+        } catch (err) {
+          LB.toast(err?.message || '操作失败', 'error', 4200);
+        } finally {
+          B_MODULE_STARTSTOP.disabled = false;
         }
       }
 
-      btnLoadIndex.addEventListener('click', loadIndex);
-      btnRefreshInstalled.addEventListener('click', loadInstalled);
-      btnRefreshInstalled2.addEventListener('click', loadInstalled);
-      indexFilter?.addEventListener('input', renderIndex);
-      installedFilter?.addEventListener('input', renderInstalled);
+      async function doEnableToggle() {
+        const entry = activeEntry;
+        if (!entry) return;
+        const id = String(entry?.id ?? entry?.ID ?? '').trim();
+        if (!id) return;
+        const inst = installedByID.get(id) || null;
+        if (!inst) return;
 
-      cfgCancel?.addEventListener('click', () => {
+        C_MODULE_ENABLED.disabled = true;
+        const target = Boolean(C_MODULE_ENABLED.checked);
+        try {
+          await LB.apiJSON('/admin/api/modules/enable', { method: 'POST', body: { module_id: id, enabled: target } });
+          LB.toast(`${target ? '已启用' : '已禁用'}：${id}`, 'ok');
+          await loadAll({ toastOnFail: false });
+          const next = getIndexModules().find((m) => String(m?.id ?? m?.ID ?? '') === id) || entry;
+          openModule(next);
+        } catch (err) {
+          LB.toast(err?.message || '操作失败', 'error', 4200);
+          C_MODULE_ENABLED.checked = Boolean(inst?.module?.Enabled ?? inst?.module?.enabled ?? false);
+        } finally {
+          C_MODULE_ENABLED.disabled = false;
+        }
+      }
+
+      async function openConfigDialog() {
+        const entry = activeEntry;
+        if (!entry) return;
+        const id = String(entry?.id ?? entry?.ID ?? '').trim();
+        if (!id) return;
+
+        B_MODULE_CONFIG.disabled = true;
+        try {
+          const res = await LB.apiJSON(`/admin/api/modules/config?module_id=${encodeURIComponent(id)}`);
+          editingModuleID = id;
+          CFG_ID.textContent = id;
+          CFG_PATH.textContent = String(res?.config_path || '');
+          CFG_JSON.value = JSON.stringify(res?.config || {}, null, 2);
+          CFG_RESTART.checked = false;
+          if (!D_CFG.open) D_CFG.showModal();
+        } catch (err) {
+          LB.toast(err?.message || '加载配置失败', 'error', 4200);
+        } finally {
+          B_MODULE_CONFIG.disabled = false;
+        }
+      }
+
+      function closeConfigDialog() {
         editingModuleID = null;
-        try { cfgDialog.close(); } catch (_) {}
-      });
-      cfgDialog?.addEventListener('close', () => {
-        editingModuleID = null;
+        try { D_CFG.close(); } catch (_) {}
+      }
+
+      async function doUninstall() {
+        const entry = activeEntry;
+        if (!entry) return;
+        const id = String(entry?.id ?? entry?.ID ?? '').trim();
+        if (!id) return;
+
+        if (!confirm(`确定卸载模块：${id} ?`)) return;
+        const purge = confirm('是否同时删除模块数据（config 等）？');
+        B_MODULE_UNINSTALL.disabled = true;
+        try {
+          await LB.apiJSON('/admin/api/modules/uninstall', { method: 'POST', body: { module_id: id, purge_data: purge } });
+          LB.toast(`已卸载：${id}`, 'ok');
+          closeModuleDialog();
+          await loadAll({ toastOnFail: false });
+        } catch (err) {
+          LB.toast(err?.message || '卸载失败', 'error', 4200);
+        } finally {
+          B_MODULE_UNINSTALL.disabled = false;
+        }
+      }
+
+      // Events.
+      KIND_BTNS.forEach((b) => {
+        b.addEventListener('click', () => setActiveKind(String(b.dataset.kind || 'provider')));
       });
 
-      cfgForm?.addEventListener('submit', async (e) => {
+      BTN_REFRESH.addEventListener('click', () => loadAll());
+      BTN_SOURCE.addEventListener('click', openSourceDialog);
+      B_SOURCE_CANCEL.addEventListener('click', closeSourceDialog);
+      B_SOURCE_RESET.addEventListener('click', () => {
+        indexURL = '';
+        try { localStorage.removeItem(KEY_INDEX_URL); } catch (_) {}
+        closeSourceDialog();
+        loadAll();
+      });
+
+      F_SOURCE.addEventListener('submit', (e) => {
+        e.preventDefault();
+        indexURL = String(I_SOURCE.value || '').trim();
+        try {
+          if (indexURL) localStorage.setItem(KEY_INDEX_URL, indexURL);
+          else localStorage.removeItem(KEY_INDEX_URL);
+        } catch (_) {}
+        closeSourceDialog();
+        loadAll();
+      });
+
+      B_MODULE_CLOSE.addEventListener('click', closeModuleDialog);
+      B_MODULE_INSTALL.addEventListener('click', doInstallActive);
+      B_MODULE_STARTSTOP.addEventListener('click', doStartStop);
+      B_MODULE_UNINSTALL.addEventListener('click', doUninstall);
+      B_MODULE_CONFIG.addEventListener('click', openConfigDialog);
+      C_MODULE_ENABLED.addEventListener('change', doEnableToggle);
+
+      CFG_CANCEL.addEventListener('click', closeConfigDialog);
+      D_CFG.addEventListener('close', () => { editingModuleID = null; });
+
+      F_CFG.addEventListener('submit', async (e) => {
         e.preventDefault();
         const moduleID = String(editingModuleID || '').trim();
         if (!moduleID) return;
 
         let obj = null;
         try {
-          obj = cfgJSON.value ? JSON.parse(cfgJSON.value) : {};
+          obj = CFG_JSON.value ? JSON.parse(CFG_JSON.value) : {};
         } catch (_) {
           LB.toast('Config JSON 解析失败', 'error', 4200);
           return;
         }
-        if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
-          // ok
-        } else {
+        if (!(obj && typeof obj === 'object' && !Array.isArray(obj))) {
           LB.toast('Config 必须是 JSON 对象', 'error', 4200);
           return;
         }
 
-        cfgSave.disabled = true;
+        CFG_SAVE.disabled = true;
         try {
-          await LB.apiJSON('/admin/api/modules/config', { method: 'POST', body: { module_id: moduleID, config: obj, restart: Boolean(cfgRestart.checked) } });
+          await LB.apiJSON('/admin/api/modules/config', { method: 'POST', body: { module_id: moduleID, config: obj, restart: Boolean(CFG_RESTART.checked) } });
           LB.toast(`已保存配置：${moduleID}`, 'ok');
-          try { cfgDialog.close(); } catch (_) {}
-          editingModuleID = null;
-          await loadInstalled();
+          closeConfigDialog();
+          await loadAll({ toastOnFail: false });
+          if (activeEntry) openModule(activeEntry);
         } catch (err) {
           LB.toast(err?.message || '保存失败', 'error', 4200);
         } finally {
-          cfgSave.disabled = false;
+          CFG_SAVE.disabled = false;
         }
       });
 
-      renderIndex();
-      loadInstalled();
+      // Init.
+      try { indexURL = String(localStorage.getItem(KEY_INDEX_URL) || '').trim(); } catch (_) {}
+      setActiveKind('provider');
+      loadAll({ toastOnFail: false });
     })();
   </script>
 </body>
