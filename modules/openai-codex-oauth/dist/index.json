@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-02-27T08:45:06Z",
+  "generated_at": "2026-02-27T11:05:02Z",
   "min_core_version": "0.1.0",
   "modules": [
     {
       "id": "openai-codex-oauth",
-      "name": "OpenAI Codex OAuth Module",
+      "name": "Codex OAuth",
       "version": "0.1.0",
-      "description": "LightBridge provider module for OpenAI Codex (OAuth device flow).",
+      "description": "Use OpenAI Codex via OAuth (ChatGPT Codex backend reverse proxy).",
       "license": "UNLICENSED",
-      "tags": ["codex", "oauth", "openai"],
+      "tags": ["OpenAI", "OAuth"],
       "protocols": ["http_openai"],
       "download_url": "http://127.0.0.1:8000/openai-codex-oauth_0.1.0_darwin_arm64.zip",
-      "sha256": "b5fd53d5c33e7006a758aba0f0bf19c35e5bb76cabcbddaf0ad3d37084402563",
+      "sha256": "3accb62854aec74ae07c2be2d0ea01c472242b5df7d1527fa267ae6fab6a100c",
       "homepage": ""
     }
   ]

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -19,8 +20,9 @@ import (
 )
 
 const (
-	codexOAuthClientID = "app_EMoamEEZ73f0CkXaXp7hrann"
-	codexOAuthTokenURL = "https://auth.openai.com/oauth/token"
+	codexOAuthClientID     = "app_EMoamEEZ73f0CkXaXp7hrann"
+	codexOAuthAuthorizeURL = "https://auth.openai.com/oauth/authorize"
+	codexOAuthTokenURL     = "https://auth.openai.com/oauth/token"
 
 	codexDeviceUserCodeURL              = "https://auth.openai.com/api/accounts/deviceauth/usercode"
 	codexDeviceTokenURL                 = "https://auth.openai.com/api/accounts/deviceauth/token"
@@ -67,8 +69,8 @@ func (s *server) loadCredentials() error {
 	if err := json.Unmarshal(b, &c); err != nil {
 		return fmt.Errorf("invalid credentials.json: %w", err)
 	}
-	if strings.TrimSpace(c.AccessToken) == "" || strings.TrimSpace(c.RefreshToken) == "" {
-		return fmt.Errorf("credentials.json missing access_token/refresh_token")
+	if strings.TrimSpace(c.AccessToken) == "" {
+		return fmt.Errorf("credentials.json missing access_token")
 	}
 	s.creds = &c
 	return nil
@@ -103,7 +105,7 @@ func (s *server) getAccessToken() (token, accountID string, ok bool) {
 	if s.creds == nil {
 		return "", "", false
 	}
-	if strings.TrimSpace(s.creds.AccessToken) == "" || strings.TrimSpace(s.creds.RefreshToken) == "" {
+	if strings.TrimSpace(s.creds.AccessToken) == "" {
 		return "", "", false
 	}
 	return s.creds.AccessToken, strings.TrimSpace(s.creds.AccountID), true
@@ -265,6 +267,343 @@ func exchangeAuthCode(ctx context.Context, httpc *http.Client, authCode, redirec
 	}, nil
 }
 
+const codexOAuthFlowTimeout = 10 * time.Minute
+
+type pkceCodes struct {
+	CodeVerifier  string `json:"code_verifier"`
+	CodeChallenge string `json:"code_challenge"`
+}
+
+func generatePKCECodes() (*pkceCodes, error) {
+	// Generate code verifier: 43-128 characters, URL-safe.
+	buf := make([]byte, 96)
+	if _, err := rand.Read(buf); err != nil {
+		return nil, err
+	}
+	verifier := base64.RawURLEncoding.EncodeToString(buf)
+	sum := sha256.Sum256([]byte(verifier))
+	challenge := base64.RawURLEncoding.EncodeToString(sum[:])
+	return &pkceCodes{CodeVerifier: verifier, CodeChallenge: challenge}, nil
+}
+
+type oauthFlow struct {
+	StartedAt    time.Time `json:"started_at"`
+	Status       string    `json:"status"` // pending|authorized|error|timeout
+	AuthURL      string    `json:"auth_url,omitempty"`
+	State        string    `json:"state"`
+	RedirectURI  string    `json:"redirect_uri"`
+	CodeVerifier string    `json:"-"`
+	Error        string    `json:"error,omitempty"`
+}
+
+type oauthStartRequest struct {
+	RedirectURI string `json:"redirect_uri"`
+}
+
+func (s *server) handleAuthOAuthStart(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeOpenAIError(w, http.StatusMethodNotAllowed, "method not allowed", "invalid_request_error", "method_not_allowed")
+		return
+	}
+
+	s.oauthMu.Lock()
+	if s.oauth != nil && s.oauth.Status == "pending" && time.Since(s.oauth.StartedAt) < codexOAuthFlowTimeout {
+		copy := *s.oauth
+		s.oauthMu.Unlock()
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "oauth": copy})
+		return
+	}
+	s.oauthMu.Unlock()
+
+	var req oauthStartRequest
+	_ = json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req)
+	_ = r.Body.Close()
+
+	redirectURI := strings.TrimSpace(req.RedirectURI)
+	if redirectURI == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "redirect_uri is required"})
+		return
+	}
+	if u, err := url.Parse(redirectURI); err != nil || u == nil || u.Scheme == "" || u.Host == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "redirect_uri must be an absolute URL"})
+		return
+	}
+
+	pkce, err := generatePKCECodes()
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	state := newUUID()
+	params := url.Values{
+		"client_id":                  {codexOAuthClientID},
+		"response_type":              {"code"},
+		"redirect_uri":               {redirectURI},
+		"scope":                      {"openid email profile offline_access"},
+		"state":                      {state},
+		"code_challenge":             {pkce.CodeChallenge},
+		"code_challenge_method":      {"S256"},
+		"prompt":                     {"login"},
+		"id_token_add_organizations": {"true"},
+		"codex_cli_simplified_flow":  {"true"},
+	}
+	authURL := codexOAuthAuthorizeURL + "?" + params.Encode()
+
+	flow := &oauthFlow{
+		StartedAt:    time.Now().UTC(),
+		Status:       "pending",
+		AuthURL:      authURL,
+		State:        state,
+		RedirectURI:  redirectURI,
+		CodeVerifier: pkce.CodeVerifier,
+	}
+
+	s.oauthMu.Lock()
+	s.oauth = flow
+	s.oauthMu.Unlock()
+
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "oauth": flow})
+}
+
+type oauthExchangeRequest struct {
+	Code        string `json:"code"`
+	State       string `json:"state"`
+	CallbackURL string `json:"callback_url"`
+}
+
+func (s *server) handleAuthOAuthExchange(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeOpenAIError(w, http.StatusMethodNotAllowed, "method not allowed", "invalid_request_error", "method_not_allowed")
+		return
+	}
+
+	var req oauthExchangeRequest
+	if err := json.NewDecoder(io.LimitReader(r.Body, 2<<20)).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "invalid json"})
+		return
+	}
+
+	if strings.TrimSpace(req.CallbackURL) != "" && strings.TrimSpace(req.Code) == "" {
+		u, err := url.Parse(strings.TrimSpace(req.CallbackURL))
+		if err != nil || u == nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "invalid callback_url"})
+			return
+		}
+		q := u.Query()
+		if errStr := strings.TrimSpace(q.Get("error")); errStr != "" {
+			desc := strings.TrimSpace(q.Get("error_description"))
+			msg := errStr
+			if desc != "" {
+				msg += ": " + desc
+			}
+			writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": msg})
+			return
+		}
+		req.Code = q.Get("code")
+		req.State = q.Get("state")
+	}
+
+	code := strings.TrimSpace(req.Code)
+	state := strings.TrimSpace(req.State)
+	if code == "" || state == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "code/state is required"})
+		return
+	}
+
+	s.oauthMu.Lock()
+	flow := s.oauth
+	s.oauthMu.Unlock()
+	if flow == nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "no active oauth flow; call /auth/oauth/start first"})
+		return
+	}
+	if strings.TrimSpace(flow.State) == "" || flow.State != state {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "state mismatch"})
+		return
+	}
+	if strings.TrimSpace(flow.RedirectURI) == "" || strings.TrimSpace(flow.CodeVerifier) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "oauth flow missing redirect_uri/code_verifier"})
+		return
+	}
+
+	ctx := r.Context()
+	creds, err := exchangeAuthCode(ctx, s.httpc, code, flow.RedirectURI, flow.CodeVerifier)
+	if err != nil {
+		s.oauthMu.Lock()
+		if s.oauth != nil && s.oauth.State == state {
+			s.oauth.Status = "error"
+			s.oauth.Error = err.Error()
+		}
+		s.oauthMu.Unlock()
+		writeJSON(w, http.StatusBadGateway, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+
+	s.credsMu.Lock()
+	s.creds = creds
+	s.credsMu.Unlock()
+	_ = s.saveCredentials(creds)
+
+	s.oauthMu.Lock()
+	if s.oauth != nil && s.oauth.State == state {
+		s.oauth.Status = "authorized"
+		s.oauth.Error = ""
+		// Never return verifier in responses.
+		s.oauth.CodeVerifier = ""
+	}
+	flowCopy := *s.oauth
+	s.oauthMu.Unlock()
+
+	s.credsMu.Lock()
+	cCopy := *s.creds
+	cCopy.AccessToken = maskToken(cCopy.AccessToken)
+	cCopy.RefreshToken = maskToken(cCopy.RefreshToken)
+	cCopy.IDToken = ""
+	s.credsMu.Unlock()
+
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "credentials": cCopy, "oauth": flowCopy})
+}
+
+type importRequest struct {
+	RefreshToken string `json:"refresh_token"`
+	AccessToken  string `json:"access_token"`
+	IDToken      string `json:"id_token"`
+	AccountID    string `json:"account_id"`
+	Email        string `json:"email"`
+	Expired      string `json:"expired"`
+	LastRefresh  string `json:"last_refresh"`
+	Token        string `json:"token"`
+}
+
+func (s *server) handleAuthImport(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeOpenAIError(w, http.StatusMethodNotAllowed, "method not allowed", "invalid_request_error", "method_not_allowed")
+		return
+	}
+
+	raw, err := io.ReadAll(io.LimitReader(r.Body, 6<<20))
+	_ = r.Body.Close()
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "failed to read body"})
+		return
+	}
+
+	var decoded any
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "body must be valid JSON"})
+		return
+	}
+
+	m, ok := decoded.(map[string]any)
+	if !ok {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "body must be a JSON object"})
+		return
+	}
+	if v, ok := m["auth_json"].(map[string]any); ok && v != nil {
+		m = v
+	}
+
+	pick := func(keys ...string) string {
+		for _, k := range keys {
+			if v, ok := m[k]; ok {
+				if s, ok := v.(string); ok {
+					if strings.TrimSpace(s) != "" {
+						return strings.TrimSpace(s)
+					}
+				}
+			}
+		}
+		return ""
+	}
+
+	req := importRequest{
+		RefreshToken: pick("refresh_token", "refreshToken"),
+		AccessToken:  pick("access_token", "accessToken"),
+		IDToken:      pick("id_token", "idToken"),
+		AccountID:    pick("account_id", "accountId"),
+		Email:        pick("email"),
+		Expired:      pick("expired", "expire", "expires_at", "expiresAt"),
+		LastRefresh:  pick("last_refresh", "lastRefresh"),
+		Token:        pick("token"),
+	}
+	if req.RefreshToken == "" && req.Token != "" {
+		req.RefreshToken = req.Token
+	}
+	if req.AccessToken == "" && req.Token != "" && req.RefreshToken == "" {
+		req.AccessToken = req.Token
+	}
+
+	if req.RefreshToken == "" && req.AccessToken == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "missing refresh_token or access_token"})
+		return
+	}
+
+	ctx := r.Context()
+	var creds *credentials
+
+	if req.AccessToken == "" && req.RefreshToken != "" {
+		// Prefer a refresh-token import: obtain a fresh access token immediately.
+		creds, err = refreshWithToken(ctx, s.httpc, req.RefreshToken)
+		if err != nil {
+			writeJSON(w, http.StatusBadGateway, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+	} else {
+		creds = &credentials{
+			IDToken:      strings.TrimSpace(req.IDToken),
+			AccessToken:  strings.TrimSpace(req.AccessToken),
+			RefreshToken: strings.TrimSpace(req.RefreshToken),
+			AccountID:    strings.TrimSpace(req.AccountID),
+			Email:        strings.TrimSpace(req.Email),
+			LastRefresh:  strings.TrimSpace(req.LastRefresh),
+			Expired:      strings.TrimSpace(req.Expired),
+		}
+		if creds.AccountID == "" || creds.Email == "" {
+			claims, _ := parseJWTClaims(creds.IDToken)
+			if claims != nil {
+				if creds.Email == "" {
+					creds.Email = strings.TrimSpace(claims.Email)
+				}
+				if creds.AccountID == "" {
+					creds.AccountID = strings.TrimSpace(claims.AccountID)
+				}
+			}
+		}
+		if strings.TrimSpace(creds.AccessToken) == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "access_token is required"})
+			return
+		}
+	}
+
+	s.credsMu.Lock()
+	s.creds = creds
+	s.credsMu.Unlock()
+	_ = s.saveCredentials(creds)
+
+	// Clear pending flows; importing is an explicit override.
+	s.flowMu.Lock()
+	if s.flow != nil && s.flow.Status == "pending" {
+		s.flow.Status = "timeout"
+		s.flow.Error = "credentials imported"
+	}
+	s.flowMu.Unlock()
+
+	s.oauthMu.Lock()
+	if s.oauth != nil && s.oauth.Status == "pending" {
+		s.oauth.Status = "timeout"
+		s.oauth.Error = "credentials imported"
+		s.oauth.CodeVerifier = ""
+	}
+	s.oauthMu.Unlock()
+
+	masked := *creds
+	masked.AccessToken = maskToken(masked.AccessToken)
+	masked.RefreshToken = maskToken(masked.RefreshToken)
+	masked.IDToken = ""
+
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "credentials": masked})
+}
+
 type deviceFlow struct {
 	StartedAt       time.Time `json:"started_at"`
 	Status          string    `json:"status"` // pending|authorized|error|timeout
@@ -370,10 +709,19 @@ func (s *server) handleAuthStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	s.flowMu.Unlock()
 
+	s.oauthMu.Lock()
+	var oauthCopy *oauthFlow
+	if s.oauth != nil {
+		f := *s.oauth
+		oauthCopy = &f
+	}
+	s.oauthMu.Unlock()
+
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":          true,
 		"credentials": credsCopy,
 		"flow":        flowCopy,
+		"oauth":       oauthCopy,
 	})
 }
 

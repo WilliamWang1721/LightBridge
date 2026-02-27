@@ -1,6 +1,11 @@
 {
   "id": "openai-codex-oauth",
-  "name": "OpenAI Codex OAuth Module",
+  "name": "Codex OAuth",
+  "description": "Use OpenAI Codex via OAuth (ChatGPT Codex backend reverse proxy).",
+  "tags": [
+    "OpenAI",
+    "OAuth"
+  ],
   "version": "0.1.0",
   "license": "UNLICENSED",
   "min_core_version": "0.1.0",

@@ -590,14 +590,26 @@ func (m *Marketplace) moduleEntryFromRemoteZip(ctx context.Context, downloadURL,
 	if name == "" {
 		name = id
 	}
-	tags := inferRemoteTags(tagPrefix, id)
+	desc := strings.TrimSpace(manifest.Description)
+	if desc == "" {
+		desc = description
+	}
+
+	var tags []string
+	if len(manifest.Tags) > 0 {
+		tags = mergeTags(nil, manifest.Tags...)
+		tags = mergeTags(tags, inferDescriptiveTagsFromID(id)...)
+		tags = mergeTags(tags, strings.ToLower(strings.TrimSpace(tagPrefix)), "provider")
+	} else {
+		tags = inferRemoteTags(tagPrefix, id)
+	}
 	protos := protocolsFromManifest(*manifest)
 
 	return types.ModuleEntry{
 		ID:          id,
 		Name:        name,
 		Version:     strings.TrimSpace(manifest.Version),
-		Description: description,
+		Description: desc,
 		License:     strings.TrimSpace(manifest.License),
 		Tags:        tags,
 		Protocols:   protos,
@@ -609,12 +621,13 @@ func (m *Marketplace) moduleEntryFromRemoteZip(ctx context.Context, downloadURL,
 
 func inferRemoteTags(prefix, id string) []string {
 	id = strings.ToLower(strings.TrimSpace(id))
-	tags := []string{strings.ToLower(strings.TrimSpace(prefix)), "provider"}
+	tags := mergeTags(nil, strings.ToLower(strings.TrimSpace(prefix)), "provider")
+	tags = mergeTags(tags, inferDescriptiveTagsFromID(id)...)
 	if strings.Contains(id, "oauth") || strings.Contains(id, "auth") {
-		tags = append(tags, "auth")
+		tags = mergeTags(tags, "auth")
 	}
 	if strings.Contains(id, "tool") {
-		tags = append(tags, "tool")
+		tags = mergeTags(tags, "tool")
 	}
 	return tags
 }
@@ -635,8 +648,16 @@ func (m *Marketplace) localModulesDir() string {
 	if v := strings.TrimSpace(os.Getenv("LIGHTBRIDGE_MODULES_DIR")); v != "" {
 		return v
 	}
-	if st, err := os.Stat("MODULES"); err == nil && st.IsDir() {
-		return "MODULES"
+
+	// Prefer a repo-local MODULES directory only if it exists with the exact
+	// casing. This avoids accidentally scanning a sibling "modules" source folder
+	// on case-insensitive filesystems.
+	if entries, err := os.ReadDir("."); err == nil {
+		for _, ent := range entries {
+			if ent.Name() == "MODULES" && ent.IsDir() {
+				return "MODULES"
+			}
+		}
 	}
 	return filepath.Join(m.baseDir, "MODULES")
 }
@@ -709,14 +730,30 @@ func moduleEntryFromZip(zipPath string) (types.ModuleEntry, error) {
 	}
 
 	protos := protocolsFromManifest(*manifest)
-	tags := inferLocalTags(manifest.ID)
+	name := strings.TrimSpace(manifest.Name)
+	if name == "" {
+		name = strings.TrimSpace(manifest.ID)
+	}
+	desc := strings.TrimSpace(manifest.Description)
+	if desc == "" {
+		desc = "Local module package"
+	}
+
+	var tags []string
+	if len(manifest.Tags) > 0 {
+		tags = mergeTags(nil, manifest.Tags...)
+		tags = mergeTags(tags, inferDescriptiveTagsFromID(manifest.ID)...)
+		tags = mergeTags(tags, "local", "provider")
+	} else {
+		tags = inferLocalTags(manifest.ID)
+	}
 
 	downloadURL := (&url.URL{Scheme: "file", Path: zipPath}).String()
 	return types.ModuleEntry{
 		ID:          manifest.ID,
-		Name:        manifest.Name,
+		Name:        name,
 		Version:     manifest.Version,
-		Description: "Local module package",
+		Description: desc,
 		License:     manifest.License,
 		Tags:        tags,
 		Protocols:   protos,
@@ -791,12 +828,13 @@ func protocolsFromManifest(m types.ModuleManifest) []string {
 
 func inferLocalTags(id string) []string {
 	id = strings.ToLower(strings.TrimSpace(id))
-	tags := []string{"local", "provider"}
+	tags := mergeTags(nil, "local", "provider")
+	tags = mergeTags(tags, inferDescriptiveTagsFromID(id)...)
 	if strings.Contains(id, "oauth") || strings.Contains(id, "auth") {
-		tags = append(tags, "auth")
+		tags = mergeTags(tags, "auth")
 	}
 	if strings.Contains(id, "tool") {
-		tags = append(tags, "tool")
+		tags = mergeTags(tags, "tool")
 	}
 	return tags
 }
@@ -818,4 +856,40 @@ func parseFileDownloadURL(downloadURL string) (string, bool) {
 		return "", false
 	}
 	return p, true
+}
+
+func inferDescriptiveTagsFromID(id string) []string {
+	id = strings.ToLower(strings.TrimSpace(id))
+	var tags []string
+	if strings.Contains(id, "openai") {
+		tags = append(tags, "OpenAI")
+	}
+	if strings.Contains(id, "oauth") {
+		tags = append(tags, "OAuth")
+	}
+	return tags
+}
+
+func mergeTags(tags []string, more ...string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(tags)+len(more))
+	add := func(t string) {
+		t = strings.TrimSpace(t)
+		if t == "" {
+			return
+		}
+		k := strings.ToLower(t)
+		if _, ok := seen[k]; ok {
+			return
+		}
+		seen[k] = struct{}{}
+		out = append(out, t)
+	}
+	for _, t := range tags {
+		add(t)
+	}
+	for _, t := range more {
+		add(t)
+	}
+	return out
 }

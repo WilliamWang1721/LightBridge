@@ -56,6 +56,9 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.handleHealth)
 	mux.HandleFunc("/auth/device/start", s.handleAuthDeviceStart)
+	mux.HandleFunc("/auth/oauth/start", s.handleAuthOAuthStart)
+	mux.HandleFunc("/auth/oauth/exchange", s.handleAuthOAuthExchange)
+	mux.HandleFunc("/auth/import", s.handleAuthImport)
 	mux.HandleFunc("/auth/status", s.handleAuthStatus)
 	mux.HandleFunc("/v1/models", s.handleModels)
 	mux.HandleFunc("/v1/chat/completions", s.handleChatCompletions)
@@ -77,6 +80,9 @@ type server struct {
 
 	flowMu sync.Mutex
 	flow   *deviceFlow
+
+	oauthMu sync.Mutex
+	oauth   *oauthFlow
 
 	convMu        sync.Mutex
 	conversations map[string]conversationEntry
@@ -150,7 +156,7 @@ func (s *server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 	accessToken, accountID, ok := s.getAccessToken()
 	if !ok {
-		writeOpenAIError(w, http.StatusUnauthorized, "Codex OAuth not configured. Use /auth/device/start first.", "authentication_error", "not_authenticated")
+		writeOpenAIError(w, http.StatusUnauthorized, "Codex OAuth not configured. Use /auth/oauth/start (recommended), /auth/device/start, or /auth/import.", "authentication_error", "not_authenticated")
 		return
 	}
 

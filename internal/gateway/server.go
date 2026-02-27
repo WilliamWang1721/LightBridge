@@ -94,6 +94,7 @@ func (s *Server) Handler() http.Handler {
 
 	mux.Handle("/admin/static/", http.StripPrefix("/admin/static/", http.FileServer(s.staticFS)))
 	mux.HandleFunc("/admin", s.wrapAdminPage(s.handleDashboardPage))
+	mux.HandleFunc("/admin/codex/oauth/callback", s.wrapAdminPage(s.handleCodexOAuthCallbackPage))
 	mux.HandleFunc("/admin/", s.routeAdminPages)
 	mux.HandleFunc("/admin/api/", s.routeAdminAPI)
 
@@ -477,6 +478,16 @@ func (s *Server) routeAdminAPI(w http.ResponseWriter, r *http.Request) {
 		s.wrapAdminAPI(s.handleModuleConfigAPI)(w, r)
 	case "/modules/uninstall":
 		s.wrapAdminAPI(s.handleModuleUninstallAPI)(w, r)
+	case "/codex/oauth/status":
+		s.wrapAdminAPI(s.handleCodexOAuthStatusAPI)(w, r)
+	case "/codex/oauth/start":
+		s.wrapAdminAPI(s.handleCodexOAuthStartAPI)(w, r)
+	case "/codex/oauth/exchange":
+		s.wrapAdminAPI(s.handleCodexOAuthExchangeAPI)(w, r)
+	case "/codex/oauth/import":
+		s.wrapAdminAPI(s.handleCodexOAuthImportAPI)(w, r)
+	case "/codex/device/start":
+		s.wrapAdminAPI(s.handleCodexDeviceStartAPI)(w, r)
 	default:
 		http.NotFound(w, r)
 	}

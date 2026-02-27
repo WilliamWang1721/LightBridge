@@ -362,6 +362,14 @@
       width: 100%;
     }
 
+    .module-card-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      width: 100%;
+    }
+
     .module-card-name {
       font-family: var(--font-display);
       font-size: 13px;
@@ -371,6 +379,44 @@
       overflow: hidden;
       text-overflow: ellipsis;
       max-width: 100%;
+    }
+
+    .module-card-tags {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .tag {
+      height: 18px;
+      padding: 0 8px;
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--border);
+      background: var(--bg-page);
+      border-radius: 999px;
+      font-family: var(--font-body);
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 1;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    .tag.tag--ver { color: var(--text-main); }
+
+    .module-card-sub {
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.4;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .module-card-state {
@@ -775,6 +821,25 @@
         return (Array.isArray(tags) ? tags : []).map((t) => String(t || '').toLowerCase().trim()).filter(Boolean);
       }
 
+      function displayTags(tags) {
+        const out = [];
+        const seen = new Set();
+        for (const t of Array.isArray(tags) ? tags : []) {
+          const s = String(t || '').trim();
+          if (!s) continue;
+          const k = s.toLowerCase();
+          if (seen.has(k)) continue;
+          seen.add(k);
+          out.push(s);
+        }
+        return out;
+      }
+
+      function visibleTags(tags) {
+        const hidden = new Set(['local', 'provider', 'auth', 'tool', 'tools', 'github', 'builtin', 'built-in']);
+        return displayTags(tags).filter((t) => !hidden.has(String(t || '').toLowerCase().trim()));
+      }
+
       function inferKind(entry) {
         const tags = normalizeTags(entry?.tags ?? entry?.Tags);
         if (tags.some((t) => t.includes('provider'))) return 'provider';
@@ -858,14 +923,24 @@
         for (const entry of filtered) {
           const id = String(entry?.id ?? entry?.ID ?? '').trim();
           const ver = String(entry?.version ?? entry?.Version ?? '').trim();
-          const title = `${id}  ${formatVer(ver)}`.trim();
+          const name = String(entry?.name ?? entry?.Name ?? '').trim() || id;
           const desc = String(entry?.description ?? entry?.Description ?? '').trim();
           const st = stateFor(entry);
           const stCls = st.kind === 'installed' ? 'state-installed' : (st.kind === 'update' ? 'state-update' : 'state-muted');
+          const tags = visibleTags(entry?.tags ?? entry?.Tags);
+          const tagNodes = [];
+          if (ver) tagNodes.push(LB.el('span', { className: 'tag tag--ver', text: formatVer(ver) }));
+          for (const t of tags.slice(0, 4)) tagNodes.push(LB.el('span', { className: 'tag', text: t }));
 
           const card = LB.el('button', { type: 'button', className: 'module-card' }, [
             LB.el('div', { className: 'module-card-row' }, [
-              LB.el('div', { className: 'module-card-name', text: title }),
+              LB.el('div', { style: 'min-width:0;display:flex;flex-direction:column;gap:6px;flex:1;' }, [
+                LB.el('div', { className: 'module-card-title' }, [
+                  LB.el('div', { className: 'module-card-name', text: name }),
+                  tagNodes.length ? LB.el('div', { className: 'module-card-tags' }, tagNodes) : null,
+                ].filter(Boolean)),
+                LB.el('div', { className: 'module-card-sub mono', text: id }),
+              ]),
               LB.el('div', { className: `module-card-state ${stCls}`, text: st.label }),
             ]),
             LB.el('div', { className: 'module-card-meta', text: desc || '-' }),
@@ -913,12 +988,13 @@
         activeEntry = entry;
         const id = String(entry?.id ?? entry?.ID ?? '').trim();
         const ver = String(entry?.version ?? entry?.Version ?? '').trim();
+        const name = String(entry?.name ?? entry?.Name ?? '').trim() || id;
         const st = stateFor(entry);
         const stCls = st.kind === 'installed' ? 'state-installed' : (st.kind === 'update' ? 'state-update' : 'state-muted');
         const inst = installedByID.get(id) || null;
         const installedVer = inst ? installedVersion(inst) : '';
 
-        T_MODULE.textContent = `${id}  ${formatVer(ver)}`.trim();
+        T_MODULE.textContent = `${name}  ${formatVer(ver)}`.trim();
         P_MODULE_DESC.textContent = String(entry?.description ?? entry?.Description ?? '').trim();
         V_MODULE_ID.textContent = id || '-';
         V_MODULE_STATE.textContent = st.label;
@@ -928,7 +1004,7 @@
 
         const tags = Array.isArray(entry?.tags) ? entry.tags : (Array.isArray(entry?.Tags) ? entry.Tags : []);
         const protos = Array.isArray(entry?.protocols) ? entry.protocols : (Array.isArray(entry?.Protocols) ? entry.Protocols : []);
-        V_MODULE_TAGS.textContent = `${normalizeTags(tags).join(', ') || '-'} / ${Array.isArray(protos) ? protos.join(', ') : '-'}`;
+        V_MODULE_TAGS.textContent = `${visibleTags(tags).join(', ') || '-'} / ${Array.isArray(protos) ? protos.join(', ') : '-'}`;
 
         const enabled = Boolean(inst?.module?.Enabled ?? inst?.module?.enabled ?? false);
         const running = Boolean(inst?.runtime);

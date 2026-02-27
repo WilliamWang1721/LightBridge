@@ -1,7 +1,7 @@
 # Local Module Marketplace
 
-Put LightBridge module `.zip` packages in this folder and open the Admin Marketplace page.
+LightBridge's default Marketplace source is `local`.
 
-- Default marketplace source is `local`, which scans `./MODULES` for `*.zip`.
+- By default it scans `${LIGHTBRIDGE_DATA_DIR}/MODULES` for `*.zip`.
 - You can override the scan folder with `LIGHTBRIDGE_MODULES_DIR`.
-
+- Optionally, if the current working directory contains a folder named `MODULES` (exact casing), `local` will scan `./MODULES`.

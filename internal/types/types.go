@@ -120,6 +120,8 @@ type ModuleEntry struct {
 type ModuleManifest struct {
 	ID             string                        `json:"id"`
 	Name           string                        `json:"name"`
+	Description    string                        `json:"description"`
+	Tags           []string                      `json:"tags"`
 	Version        string                        `json:"version"`
 	License        string                        `json:"license"`
 	MinCoreVersion string                        `json:"min_core_version"`

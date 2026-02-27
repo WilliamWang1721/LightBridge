@@ -979,44 +979,79 @@
   <dialog id="provider-dialog">
     <form id="provider-form" method="dialog">
       <h3 id="provider-dialog-title" style="margin:0 0 12px;font-family:var(--font-display);">Provider</h3>
-      <div class="dialog-grid">
-        <label class="dialog-field">
-          <span class="dialog-label">ID</span>
-          <input class="dialog-input" name="id" required placeholder="forward" />
-        </label>
-        <label class="dialog-field">
-          <span class="dialog-label">Type</span>
-          <select class="dialog-input" name="type">
-            <option value="builtin">builtin</option>
-            <option value="module">module</option>
-          </select>
-        </label>
-        <label class="dialog-field">
-          <span class="dialog-label">Protocol</span>
-          <select class="dialog-input" name="protocol" required>
-            <option value="forward">forward</option>
-            <option value="anthropic">anthropic</option>
-            <option value="http_openai">http_openai</option>
-            <option value="http_rpc">http_rpc</option>
-            <option value="grpc_chat">grpc_chat</option>
-          </select>
-        </label>
-        <label class="dialog-field">
-          <span class="dialog-label">Endpoint</span>
-          <input class="dialog-input" name="endpoint" required placeholder="https://api.openai.com/v1" />
-        </label>
-        <label class="dialog-field dialog-field--full">
-          <span class="dialog-label">Config JSON</span>
-          <textarea class="dialog-input dialog-textarea" name="configJSON" rows="8" spellcheck="false" placeholder='{"api_key":"","base_url":"..."}'></textarea>
-        </label>
-        <label class="dialog-check dialog-field--full">
-          <input type="checkbox" name="enabled" />
-          <span>Enabled</span>
-        </label>
+
+      <!-- Step 1: 服务商 -->
+      <div id="dialog-step1">
+        <div class="dialog-grid" style="margin-bottom:12px;">
+          <div class="dialog-field dialog-field--full">
+            <span class="dialog-label">快速添加</span>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+              <button class="dialog-btn" type="button" id="quick-codex-openai" disabled>Codex（OpenAI）</button>
+              <span id="quick-codex-openai-hint" style="font-family:var(--font-body);font-size:12px;color:var(--text-secondary);">请先在 Marketplace 安装 <span style="font-family:ui-monospace,monospace;">openai-codex-oauth</span></span>
+            </div>
+          </div>
+        </div>
+        <div class="dialog-grid">
+          <label class="dialog-field dialog-field--full">
+            <span class="dialog-label">服务商</span>
+            <input class="dialog-input" name="providerName" placeholder="例如：Kiro Claude、Codex OpenAI" autocomplete="off" />
+          </label>
+          <label class="dialog-field dialog-field--full">
+            <span class="dialog-label">账户名称</span>
+            <input class="dialog-input" name="accountName" placeholder="为该账户设置一个易识别的名称" autocomplete="off" />
+          </label>
+        </div>
+        <div class="dialog-actions">
+          <button class="dialog-btn" type="button" id="provider-cancel">取消</button>
+          <button class="dialog-btn primary" type="button" id="provider-next">下一步</button>
+        </div>
       </div>
-      <div class="dialog-actions">
-        <button class="dialog-btn" type="button" id="provider-cancel">取消</button>
-        <button class="dialog-btn primary" type="submit" id="provider-save">保存</button>
+
+      <!-- Step 2: 详细配置 -->
+      <div id="dialog-step2" style="display:none;">
+        <div style="margin-bottom:12px;font-family:var(--font-body);font-size:13px;color:var(--text-secondary);">
+          服务商：<span id="dialog-step2-name" style="color:var(--text-main);font-weight:500;"></span>
+        </div>
+        <div class="dialog-grid">
+          <label class="dialog-field">
+            <span class="dialog-label">ID</span>
+            <input class="dialog-input" name="id" required placeholder="forward" />
+          </label>
+          <label class="dialog-field">
+            <span class="dialog-label">Type</span>
+            <select class="dialog-input" name="type">
+              <option value="builtin">builtin</option>
+              <option value="module">module</option>
+            </select>
+          </label>
+          <label class="dialog-field">
+            <span class="dialog-label">Protocol</span>
+            <select class="dialog-input" name="protocol" required>
+              <option value="forward">forward</option>
+              <option value="anthropic">anthropic</option>
+              <option value="http_openai">http_openai</option>
+              <option value="http_rpc">http_rpc</option>
+              <option value="grpc_chat">grpc_chat</option>
+            </select>
+          </label>
+          <label class="dialog-field">
+            <span class="dialog-label">Endpoint</span>
+            <input class="dialog-input" name="endpoint" required placeholder="https://api.openai.com/v1" />
+          </label>
+          <label class="dialog-field dialog-field--full">
+            <span class="dialog-label">Config JSON</span>
+            <textarea class="dialog-input dialog-textarea" name="configJSON" rows="8" spellcheck="false" placeholder='{"api_key":"","base_url":"..."}'></textarea>
+          </label>
+          <label class="dialog-check dialog-field--full">
+            <input type="checkbox" name="enabled" />
+            <span>Enabled</span>
+          </label>
+        </div>
+        <div class="dialog-actions">
+          <button class="dialog-btn" type="button" id="provider-back">上一步</button>
+          <button class="dialog-btn" type="button" id="provider-cancel2">取消</button>
+          <button class="dialog-btn primary" type="submit" id="provider-save">保存</button>
+        </div>
       </div>
     </form>
   </dialog>
@@ -1067,6 +1102,71 @@
     </form>
   </dialog>
 
+  <dialog id="codex-oauth-dialog">
+    <form id="codex-oauth-form" method="dialog">
+      <h3 style="margin:0 0 6px;font-family:var(--font-display);">Codex OAuth</h3>
+      <p style="margin:0 0 12px;font-family:var(--font-body);font-size:12px;color:var(--text-secondary);">Codex（OpenAI）OAuth 登录与 Token 管理（模块：<span style="font-family:ui-monospace,monospace;">openai-codex-oauth</span>）</p>
+
+      <div class="dialog-grid">
+        <div class="dialog-field dialog-field--full">
+          <span class="dialog-label">当前状态</span>
+          <div class="dialog-input" id="codex-oauth-summary" style="background:var(--bg-page);white-space:pre-wrap;"></div>
+        </div>
+
+        <label class="dialog-field dialog-field--full">
+          <span class="dialog-label">OAuth 链接</span>
+          <input class="dialog-input" id="codex-oauth-url" placeholder="点击「生成 OAuth 链接」" readonly />
+        </label>
+
+        <div class="dialog-field dialog-field--full">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button class="dialog-btn primary" type="button" id="codex-oauth-start">生成 OAuth 链接</button>
+            <button class="dialog-btn" type="button" id="codex-oauth-open" disabled>打开</button>
+            <button class="dialog-btn" type="button" id="codex-oauth-copy" disabled>复制</button>
+            <button class="dialog-btn" type="button" id="codex-oauth-refresh">刷新状态</button>
+          </div>
+        </div>
+
+        <label class="dialog-field dialog-field--full">
+          <span class="dialog-label">回调 URL（可选）</span>
+          <textarea class="dialog-input dialog-textarea" id="codex-oauth-callback" rows="3" placeholder="粘贴浏览器回调 URL（含 code & state），自动获取 Token"></textarea>
+        </label>
+        <div class="dialog-field dialog-field--full">
+          <button class="dialog-btn" type="button" id="codex-oauth-exchange">从回调 URL 获取 Token</button>
+        </div>
+
+        <label class="dialog-field dialog-field--full">
+          <span class="dialog-label">Refresh Token（Token）</span>
+          <textarea class="dialog-input dialog-textarea" id="codex-refresh-token" rows="3" placeholder="可仅填 refresh_token（系统会自动刷新获取 access_token）"></textarea>
+        </label>
+        <label class="dialog-field dialog-field--full">
+          <span class="dialog-label">Access Token（可选）</span>
+          <textarea class="dialog-input dialog-textarea" id="codex-access-token" rows="3" placeholder="或直接粘贴 access_token（无 refresh_token 时无法自动刷新）"></textarea>
+        </label>
+
+        <div class="dialog-field dialog-field--full">
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <button class="dialog-btn" type="button" id="codex-oauth-import">导入 Token</button>
+            <input type="file" id="codex-auth-json" accept=".json,application/json" />
+            <span style="font-family:var(--font-body);font-size:12px;color:var(--text-secondary);">上传 Codex 的 Auth.json</span>
+          </div>
+        </div>
+
+        <div class="dialog-field dialog-field--full" style="border-top:1px solid var(--border);padding-top:12px;">
+          <span class="dialog-label">设备登录（可选）</span>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;">
+            <button class="dialog-btn" type="button" id="codex-device-start">开始 Device Flow</button>
+            <div id="codex-device-info" style="font-family:var(--font-body);font-size:12px;color:var(--text-secondary);white-space:pre-wrap;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dialog-actions">
+        <button class="dialog-btn" type="button" id="codex-oauth-close">关闭</button>
+      </div>
+    </form>
+  </dialog>
+
   <script src="/admin/static/admin.js"></script>
   <script>
     (() => {
@@ -1094,7 +1194,13 @@
       const FORM = document.getElementById('provider-form');
       const TITLE = document.getElementById('provider-dialog-title');
       const CANCEL = document.getElementById('provider-cancel');
+      const CANCEL2 = document.getElementById('provider-cancel2');
       const SAVE = document.getElementById('provider-save');
+      const STEP1 = document.getElementById('dialog-step1');
+      const STEP2 = document.getElementById('dialog-step2');
+      const STEP2_NAME = document.getElementById('dialog-step2-name');
+      const BTN_NEXT = document.getElementById('provider-next');
+      const BTN_BACK = document.getElementById('provider-back');
 
       const D_FILTER = document.getElementById('filter-dialog');
       const F_FILTER = document.getElementById('filter-form');
@@ -1107,6 +1213,29 @@
       const F_ENDPOINT = FORM.elements.namedItem('endpoint');
       const F_CFG = FORM.elements.namedItem('configJSON');
       const F_ENABLED = FORM.elements.namedItem('enabled');
+      const F_NAME = FORM.elements.namedItem('providerName');
+      const F_ACCOUNT = FORM.elements.namedItem('accountName');
+
+      const QUICK_CODEX = document.getElementById('quick-codex-openai');
+      const QUICK_CODEX_HINT = document.getElementById('quick-codex-openai-hint');
+
+      const D_CODEX = document.getElementById('codex-oauth-dialog');
+      const CODEX_SUMMARY = document.getElementById('codex-oauth-summary');
+      const CODEX_URL = document.getElementById('codex-oauth-url');
+      const CODEX_CB_URL = document.getElementById('codex-oauth-callback');
+      const CODEX_REFRESH_TOKEN = document.getElementById('codex-refresh-token');
+      const CODEX_ACCESS_TOKEN = document.getElementById('codex-access-token');
+      const CODEX_DEVICE_INFO = document.getElementById('codex-device-info');
+
+      const B_CODEX_CLOSE = document.getElementById('codex-oauth-close');
+      const B_CODEX_REFRESH = document.getElementById('codex-oauth-refresh');
+      const B_CODEX_START = document.getElementById('codex-oauth-start');
+      const B_CODEX_OPEN = document.getElementById('codex-oauth-open');
+      const B_CODEX_COPY = document.getElementById('codex-oauth-copy');
+      const B_CODEX_EXCHANGE = document.getElementById('codex-oauth-exchange');
+      const B_CODEX_IMPORT = document.getElementById('codex-oauth-import');
+      const B_CODEX_DEVICE_START = document.getElementById('codex-device-start');
+      const I_CODEX_AUTH_JSON = document.getElementById('codex-auth-json');
 
       const USAGE_BAR_WIDTH = 116;
 
@@ -1114,6 +1243,9 @@
       let usageByProvider = new Map();
       let maxUsage = 0;
       let editingID = null;
+
+      let codexInstalled = false;
+      let codexAuthURL = '';
 
       const KEY_VIEW_MODE = 'lightbridge_provider_view_mode';
       let viewMode = 'table';
@@ -1145,16 +1277,48 @@
         return String(p?.Endpoint ?? p?.endpoint ?? '').trim();
       }
 
+      function providerDisplayName(p) {
+        const id = providerID(p);
+        const type = providerType(p);
+        if (String(id || '').toLowerCase() === 'codex' && type === 'module') return 'Codex (OpenAI)';
+        return id;
+      }
+
+      let dialogMode = 'add';
+
+      function showStep(step) {
+        STEP1.style.display = step === 1 ? '' : 'none';
+        STEP2.style.display = step === 2 ? '' : 'none';
+      }
+
       function openDialog(mode, provider) {
+        dialogMode = mode;
         editingID = mode === 'edit' ? providerID(provider) : null;
-        TITLE.textContent = mode === 'edit' ? `编辑 Provider · ${editingID}` : '添加 Provider';
-        F_ID.value = editingID || '';
-        F_ID.disabled = mode === 'edit';
-        F_TYPE.value = String(provider?.Type ?? provider?.type ?? 'builtin');
-        F_PROTOCOL.value = String(provider?.Protocol ?? provider?.protocol ?? 'forward');
-        F_ENDPOINT.value = String(provider?.Endpoint ?? provider?.endpoint ?? '');
-        F_CFG.value = String(provider?.ConfigJSON ?? provider?.configJSON ?? '{}');
-        F_ENABLED.checked = Boolean(provider?.Enabled ?? provider?.enabled ?? true);
+
+        if (mode === 'edit') {
+          TITLE.textContent = `编辑 Provider · ${editingID}`;
+          F_ID.value = editingID || '';
+          F_ID.disabled = true;
+          F_TYPE.value = String(provider?.Type ?? provider?.type ?? 'builtin');
+          F_PROTOCOL.value = String(provider?.Protocol ?? provider?.protocol ?? 'forward');
+          F_ENDPOINT.value = String(provider?.Endpoint ?? provider?.endpoint ?? '');
+          F_CFG.value = String(provider?.ConfigJSON ?? provider?.configJSON ?? '{}');
+          F_ENABLED.checked = Boolean(provider?.Enabled ?? provider?.enabled ?? true);
+          STEP2_NAME.textContent = editingID;
+          showStep(2);
+        } else {
+          TITLE.textContent = '添加 Provider';
+          F_NAME.value = '';
+          F_ACCOUNT.value = '';
+          F_ID.value = '';
+          F_ID.disabled = false;
+          F_TYPE.value = 'builtin';
+          F_PROTOCOL.value = 'forward';
+          F_ENDPOINT.value = '';
+          F_CFG.value = '{}';
+          F_ENABLED.checked = true;
+          showStep(1);
+        }
         DIALOG.showModal();
       }
 
@@ -1168,6 +1332,208 @@
         if (!raw) return '{}';
         const parsed = JSON.parse(raw);
         return JSON.stringify(parsed, null, 2);
+      }
+
+      async function refreshCodexAvailability() {
+        if (!QUICK_CODEX) return false;
+        try {
+          const res = await LB.apiJSON('/admin/api/modules');
+          const list = Array.isArray(res?.data) ? res.data : [];
+          codexInstalled = list.some((it) => String(it?.module?.ID ?? it?.module?.id ?? '').trim() === 'openai-codex-oauth');
+          QUICK_CODEX.disabled = !codexInstalled;
+          if (QUICK_CODEX_HINT) {
+            QUICK_CODEX_HINT.textContent = codexInstalled
+              ? '已安装，可进行 OAuth 登录'
+              : '请先在 Marketplace 安装 openai-codex-oauth';
+          }
+          return codexInstalled;
+        } catch (_) {
+          codexInstalled = false;
+          QUICK_CODEX.disabled = true;
+          if (QUICK_CODEX_HINT) QUICK_CODEX_HINT.textContent = '无法检测模块状态';
+          return false;
+        }
+      }
+
+      function closeCodexDialog() {
+        try { if (D_CODEX?.open) D_CODEX.close(); } catch (_) {}
+      }
+
+      async function loadCodexStatus({ toastOnFail = true } = {}) {
+        if (!CODEX_SUMMARY) return;
+        try {
+          const res = await LB.apiJSON('/admin/api/codex/oauth/status');
+          const creds = res?.credentials;
+          const oauth = res?.oauth;
+          const flow = res?.flow;
+
+          const lines = [];
+          if (!creds) {
+            lines.push('未配置 Token / 未登录');
+          } else {
+            if (creds.email) lines.push(`email: ${creds.email}`);
+            if (creds.account_id) lines.push(`account_id: ${creds.account_id}`);
+            if (creds.expired) lines.push(`expired: ${creds.expired}`);
+            if (creds.access_token) lines.push(`access_token: ${creds.access_token}`);
+            if (creds.refresh_token) lines.push(`refresh_token: ${creds.refresh_token}`);
+          }
+          if (oauth?.status) {
+            lines.push(`oauth: ${oauth.status}`);
+            if (oauth.redirect_uri) lines.push(`redirect_uri: ${oauth.redirect_uri}`);
+            if (oauth.state) lines.push(`state: ${oauth.state}`);
+          }
+          CODEX_SUMMARY.textContent = lines.join('\n') || '--';
+
+          if (CODEX_DEVICE_INFO) {
+            if (flow?.status === 'pending') {
+              const vurl = String(flow?.verification_url || '').trim();
+              const ucode = String(flow?.user_code || '').trim();
+              CODEX_DEVICE_INFO.textContent = `device_url: ${vurl}\nuser_code: ${ucode}`.trim();
+            } else if (flow?.status) {
+              CODEX_DEVICE_INFO.textContent = `device: ${String(flow.status)}`.trim();
+            } else {
+              CODEX_DEVICE_INFO.textContent = '';
+            }
+          }
+
+          return res;
+        } catch (err) {
+          if (toastOnFail) LB.toast(err?.message || '加载 Codex OAuth 状态失败', 'error', 4200);
+          throw err;
+        }
+      }
+
+      async function openCodexDialog() {
+        if (!D_CODEX) return;
+        const ok = await refreshCodexAvailability();
+        if (!ok) {
+          LB.toast('请先在 Marketplace 安装 openai-codex-oauth', 'error', 4200);
+          return;
+        }
+        try { if (DIALOG?.open) DIALOG.close(); } catch (_) {}
+        try {
+          codexAuthURL = '';
+          if (CODEX_URL) CODEX_URL.value = '';
+          if (B_CODEX_OPEN) B_CODEX_OPEN.disabled = true;
+          if (B_CODEX_COPY) B_CODEX_COPY.disabled = true;
+          if (CODEX_CB_URL) CODEX_CB_URL.value = '';
+          await loadCodexStatus({ toastOnFail: true });
+          if (!D_CODEX.open) D_CODEX.showModal();
+        } catch (_) {}
+      }
+
+      async function startCodexOAuth() {
+        if (!B_CODEX_START) return;
+        B_CODEX_START.disabled = true;
+        try {
+          const res = await LB.apiJSON('/admin/api/codex/oauth/start', { method: 'POST', body: {} });
+          const url = String(res?.oauth?.auth_url || '').trim();
+          codexAuthURL = url;
+          if (CODEX_URL) CODEX_URL.value = url;
+          if (B_CODEX_OPEN) B_CODEX_OPEN.disabled = !url;
+          if (B_CODEX_COPY) B_CODEX_COPY.disabled = !url;
+          if (url) window.open(url, '_blank', 'noopener,noreferrer');
+          await loadCodexStatus({ toastOnFail: false });
+        } catch (err) {
+          LB.toast(err?.message || '生成 OAuth 链接失败', 'error', 4200);
+        } finally {
+          B_CODEX_START.disabled = false;
+        }
+      }
+
+      function openCodexOAuthURL() {
+        const url = String(CODEX_URL?.value || codexAuthURL || '').trim();
+        if (!url) return;
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+
+      async function copyCodexOAuthURL() {
+        const url = String(CODEX_URL?.value || codexAuthURL || '').trim();
+        if (!url) return;
+        try {
+          await navigator.clipboard.writeText(url);
+          LB.toast('已复制', 'ok');
+        } catch (_) {
+          LB.toast('复制失败，请手动复制', 'error', 4200);
+        }
+      }
+
+      async function exchangeCodexFromCallbackURL() {
+        if (!B_CODEX_EXCHANGE) return;
+        const cb = String(CODEX_CB_URL?.value || '').trim();
+        if (!cb) {
+          LB.toast('请输入回调 URL', 'error', 4200);
+          return;
+        }
+        B_CODEX_EXCHANGE.disabled = true;
+        try {
+          await LB.apiJSON('/admin/api/codex/oauth/exchange', { method: 'POST', body: { callback_url: cb } });
+          LB.toast('Token 已获取', 'ok');
+          await loadCodexStatus({ toastOnFail: false });
+          await load();
+        } catch (err) {
+          LB.toast(err?.message || '获取 Token 失败', 'error', 4200);
+        } finally {
+          B_CODEX_EXCHANGE.disabled = false;
+        }
+      }
+
+      async function importCodexTokens() {
+        if (!B_CODEX_IMPORT) return;
+        const refreshToken = String(CODEX_REFRESH_TOKEN?.value || '').trim();
+        const accessToken = String(CODEX_ACCESS_TOKEN?.value || '').trim();
+        if (!refreshToken && !accessToken) {
+          LB.toast('请填入 refresh_token 或 access_token', 'error', 4200);
+          return;
+        }
+        B_CODEX_IMPORT.disabled = true;
+        try {
+          await LB.apiJSON('/admin/api/codex/oauth/import', { method: 'POST', body: { refresh_token: refreshToken, access_token: accessToken } });
+          LB.toast('已导入', 'ok');
+          if (CODEX_REFRESH_TOKEN) CODEX_REFRESH_TOKEN.value = '';
+          if (CODEX_ACCESS_TOKEN) CODEX_ACCESS_TOKEN.value = '';
+          await loadCodexStatus({ toastOnFail: false });
+          await load();
+        } catch (err) {
+          LB.toast(err?.message || '导入失败', 'error', 4200);
+        } finally {
+          B_CODEX_IMPORT.disabled = false;
+        }
+      }
+
+      async function importCodexAuthJSONFile(file) {
+        if (!file) return;
+        try {
+          const text = await file.text();
+          const parsed = JSON.parse(text);
+          await LB.apiJSON('/admin/api/codex/oauth/import', { method: 'POST', body: parsed });
+          LB.toast('Auth.json 已导入', 'ok');
+          await loadCodexStatus({ toastOnFail: false });
+          await load();
+        } catch (err) {
+          LB.toast(err?.message || 'Auth.json 导入失败', 'error', 4200);
+        } finally {
+          if (I_CODEX_AUTH_JSON) I_CODEX_AUTH_JSON.value = '';
+        }
+      }
+
+      async function startCodexDeviceFlow() {
+        if (!B_CODEX_DEVICE_START) return;
+        B_CODEX_DEVICE_START.disabled = true;
+        try {
+          const res = await LB.apiJSON('/admin/api/codex/device/start', { method: 'POST', body: {} });
+          const flow = res?.flow;
+          if (CODEX_DEVICE_INFO && flow) {
+            const vurl = String(flow?.verification_url || '').trim();
+            const ucode = String(flow?.user_code || '').trim();
+            CODEX_DEVICE_INFO.textContent = `device_url: ${vurl}\nuser_code: ${ucode}`.trim();
+          }
+          await loadCodexStatus({ toastOnFail: false });
+        } catch (err) {
+          LB.toast(err?.message || '启动 Device Flow 失败', 'error', 4200);
+        } finally {
+          B_CODEX_DEVICE_START.disabled = false;
+        }
       }
 
       function isFilterActive() {
@@ -1475,6 +1841,8 @@
           const protocol = providerProtocol(p);
           const type = providerType(p);
           const endpoint = providerEndpoint(p);
+          const display = providerDisplayName(p) || id;
+          const showID = Boolean(display && id && display !== id);
           const enabled = Boolean(p?.Enabled ?? p?.enabled ?? false);
 
           const statusClass = enabled ? 'ok' : 'bad';
@@ -1491,7 +1859,8 @@
             const card = LB.el('div', { className: `provider-card ${isSelected ? 'is-selected' : ''}`, role: 'button', tabIndex: 0 }, [
               LB.el('div', { className: 'provider-card-top' }, [
                 LB.el('div', { style: 'min-width:0;display:flex;flex-direction:column;gap:6px;' }, [
-                  LB.el('div', { className: 'provider-card-id', text: id || '-' }),
+                  LB.el('div', { className: 'provider-card-id', text: display || '-' }),
+                  showID ? LB.el('div', { className: 'provider-card-sub', text: id }) : null,
                   LB.el('div', { className: 'provider-card-sub', text: `${protocol || 'unknown'} · ${type || 'builtin'}`.trim() }),
                   LB.el('div', { className: 'provider-card-sub', text: endpoint || '' }),
                 ]),
@@ -1522,11 +1891,11 @@
           }
 
           const row = LB.el('div', { className: `table-row data ${isSelected ? 'is-selected' : ''}`, role: 'row', tabIndex: 0 }, [
-            LB.el('div', { className: 'cell account', role: 'cell', text: id || '-' }),
+            LB.el('div', { className: 'cell account', role: 'cell', text: display || '-' }),
             LB.el('div', { className: 'cell', role: 'cell' }, [
               LB.el('div', { className: 'cell-stack' }, [
                 LB.el('div', { className: 'stack-title', text: protocol || 'unknown' }),
-                LB.el('div', { className: 'stack-subtitle', text: `${type || 'builtin'} · ${endpoint || ''}`.trim() }),
+                LB.el('div', { className: 'stack-subtitle', text: (showID ? `${type || 'builtin'} · ${id} · ${endpoint || ''}` : `${type || 'builtin'} · ${endpoint || ''}`).trim() }),
               ]),
             ]),
             LB.el('div', { className: 'cell', role: 'cell' }, [
@@ -1586,9 +1955,41 @@
         }
       }
 
-      ADD.addEventListener('click', () => openDialog('add', { type: 'builtin', protocol: 'forward', endpoint: '', enabled: true, configJSON: '{}' }));
+      ADD.addEventListener('click', async () => {
+        await refreshCodexAvailability();
+        openDialog('add', {});
+      });
       REFRESH.addEventListener('click', load);
       CANCEL.addEventListener('click', closeDialog);
+      if (CANCEL2) CANCEL2.addEventListener('click', closeDialog);
+      if (QUICK_CODEX) QUICK_CODEX.addEventListener('click', openCodexDialog);
+
+      if (B_CODEX_CLOSE) B_CODEX_CLOSE.addEventListener('click', () => {
+        closeCodexDialog();
+        load();
+      });
+      if (B_CODEX_REFRESH) B_CODEX_REFRESH.addEventListener('click', () => loadCodexStatus({ toastOnFail: true }));
+      if (B_CODEX_START) B_CODEX_START.addEventListener('click', startCodexOAuth);
+      if (B_CODEX_OPEN) B_CODEX_OPEN.addEventListener('click', openCodexOAuthURL);
+      if (B_CODEX_COPY) B_CODEX_COPY.addEventListener('click', copyCodexOAuthURL);
+      if (B_CODEX_EXCHANGE) B_CODEX_EXCHANGE.addEventListener('click', exchangeCodexFromCallbackURL);
+      if (B_CODEX_IMPORT) B_CODEX_IMPORT.addEventListener('click', importCodexTokens);
+      if (I_CODEX_AUTH_JSON) I_CODEX_AUTH_JSON.addEventListener('change', () => importCodexAuthJSONFile(I_CODEX_AUTH_JSON.files?.[0]));
+      if (B_CODEX_DEVICE_START) B_CODEX_DEVICE_START.addEventListener('click', startCodexDeviceFlow);
+
+      if (BTN_NEXT) BTN_NEXT.addEventListener('click', () => {
+        const name = String(F_NAME.value || '').trim();
+        if (!name) { F_NAME.focus(); return; }
+        const account = String(F_ACCOUNT.value || '').trim();
+        if (!account) { F_ACCOUNT.focus(); return; }
+        STEP2_NAME.textContent = `${name} · ${account}`;
+        if (!F_ID.value) F_ID.value = account.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        showStep(2);
+      });
+
+      if (BTN_BACK) BTN_BACK.addEventListener('click', () => {
+        showStep(1);
+      });
 
       const VIEW_DD = document.getElementById('view-dropdown');
 
@@ -1675,6 +2076,7 @@
 
       updateDropdownState();
       setViewMode(viewMode);
+      refreshCodexAvailability();
       load();
     })();
   </script>

@@ -1,8 +1,12 @@
 package gateway
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"html/template"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -14,6 +18,8 @@ import (
 	"lightbridge/internal/types"
 	"lightbridge/internal/util"
 )
+
+const codexOAuthModuleID = "openai-codex-oauth"
 
 type adminPayload struct {
 	Username string         `json:"username"`
@@ -937,6 +943,245 @@ func (s *Server) handleModuleUninstallAPI(w http.ResponseWriter, r *http.Request
 		_ = os.RemoveAll(s.moduleMgr.ModuleDataDir(req.ModuleID))
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func (s *Server) handleCodexOAuthCallbackPage(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	if errStr := strings.TrimSpace(q.Get("error")); errStr != "" {
+		desc := strings.TrimSpace(q.Get("error_description"))
+		msg := errStr
+		if desc != "" {
+			msg += ": " + desc
+		}
+		s.renderCodexOAuthCallbackResult(w, false, msg)
+		return
+	}
+
+	code := strings.TrimSpace(q.Get("code"))
+	state := strings.TrimSpace(q.Get("state"))
+	if code == "" || state == "" {
+		s.renderCodexOAuthCallbackResult(w, false, "missing code/state in callback url")
+		return
+	}
+
+	payload, _ := json.Marshal(map[string]string{"code": code, "state": state})
+	status, body, _, err := s.proxyModuleHTTP(r.Context(), codexOAuthModuleID, http.MethodPost, "/auth/oauth/exchange", payload)
+	if err != nil {
+		s.renderCodexOAuthCallbackResult(w, false, err.Error())
+		return
+	}
+	if status < 200 || status >= 300 {
+		msg := strings.TrimSpace(string(body))
+		if msg == "" {
+			msg = fmt.Sprintf("token exchange failed (%d)", status)
+		}
+		s.renderCodexOAuthCallbackResult(w, false, msg)
+		return
+	}
+
+	s.renderCodexOAuthCallbackResult(w, true, "OAuth success. You can close this page and return to LightBridge.")
+}
+
+func (s *Server) renderCodexOAuthCallbackResult(w http.ResponseWriter, ok bool, message string) {
+	w.Header().Set("content-type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	title := "Codex OAuth"
+	status := "Success"
+	if !ok {
+		status = "Error"
+	}
+	esc := template.HTMLEscapeString(strings.TrimSpace(message))
+	_, _ = io.WriteString(w, "<!doctype html><html><head><meta charset=\"utf-8\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />")
+	_, _ = io.WriteString(w, "<title>"+template.HTMLEscapeString(title)+"</title>")
+	_, _ = io.WriteString(w, "<style>body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;margin:0;padding:32px;background:#fff;color:#111} .card{max-width:720px;margin:0 auto;border:1px solid #e8e8e8;border-radius:12px;padding:18px} .muted{color:#6b7280;font-size:13px} pre{white-space:pre-wrap;word-break:break-word;background:#fafafa;border:1px solid #e5e7eb;border-radius:10px;padding:12px;font-size:12px} a{color:#111;text-decoration:none;border-bottom:1px solid #ddd} .row{display:flex;gap:12px;align-items:center;justify-content:space-between}</style></head><body>")
+	_, _ = io.WriteString(w, "<div class=\"card\"><div class=\"row\"><h2 style=\"margin:0\">"+template.HTMLEscapeString(title)+"</h2><div class=\"muted\">"+template.HTMLEscapeString(status)+"</div></div>")
+	_, _ = io.WriteString(w, "<p class=\"muted\" style=\"margin:10px 0 0\">You can close this window, or <a href=\"/admin/providers\">return to Providers</a>.</p>")
+	if esc != "" {
+		_, _ = io.WriteString(w, "<pre style=\"margin:12px 0 0\">"+esc+"</pre>")
+	}
+	_, _ = io.WriteString(w, "</div><script>(function(){try{if(window.opener){setTimeout(function(){window.close();},800);}}catch(e){}})();</script></body></html>")
+}
+
+func (s *Server) handleCodexOAuthStatusAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	status, body, hdr, err := s.proxyModuleHTTP(r.Context(), codexOAuthModuleID, http.MethodGet, "/auth/status", nil)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+		return
+	}
+	writeProxyResponse(w, status, hdr, body)
+}
+
+func (s *Server) handleCodexDeviceStartAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	status, body, hdr, err := s.proxyModuleHTTP(r.Context(), codexOAuthModuleID, http.MethodPost, "/auth/device/start", nil)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+		return
+	}
+	writeProxyResponse(w, status, hdr, body)
+}
+
+func (s *Server) handleCodexOAuthStartAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	redirectURI := strings.TrimRight(baseURLFromRequest(r), "/") + "/admin/codex/oauth/callback"
+	payload, _ := json.Marshal(map[string]string{"redirect_uri": redirectURI})
+	status, body, hdr, err := s.proxyModuleHTTP(r.Context(), codexOAuthModuleID, http.MethodPost, "/auth/oauth/start", payload)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+		return
+	}
+	writeProxyResponse(w, status, hdr, body)
+}
+
+func (s *Server) handleCodexOAuthExchangeAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, 2<<20))
+	_ = r.Body.Close()
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid body"})
+		return
+	}
+	status, respBody, hdr, err := s.proxyModuleHTTP(r.Context(), codexOAuthModuleID, http.MethodPost, "/auth/oauth/exchange", body)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+		return
+	}
+	writeProxyResponse(w, status, hdr, respBody)
+}
+
+func (s *Server) handleCodexOAuthImportAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, 6<<20))
+	_ = r.Body.Close()
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid body"})
+		return
+	}
+	status, respBody, hdr, err := s.proxyModuleHTTP(r.Context(), codexOAuthModuleID, http.MethodPost, "/auth/import", body)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+		return
+	}
+	writeProxyResponse(w, status, hdr, respBody)
+}
+
+func baseURLFromRequest(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	host := strings.TrimSpace(r.Host)
+	if xfHost := strings.TrimSpace(r.Header.Get("X-Forwarded-Host")); xfHost != "" {
+		// X-Forwarded-Host can be a comma-separated list; first is original.
+		parts := strings.Split(xfHost, ",")
+		if len(parts) > 0 && strings.TrimSpace(parts[0]) != "" {
+			host = strings.TrimSpace(parts[0])
+		}
+	}
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	if xfProto := strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")); xfProto != "" {
+		parts := strings.Split(xfProto, ",")
+		if len(parts) > 0 && strings.TrimSpace(parts[0]) != "" {
+			scheme = strings.TrimSpace(parts[0])
+		}
+	}
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	return scheme + "://" + host
+}
+
+func (s *Server) ensureModuleHTTPRuntime(ctx context.Context, moduleID string) (*types.ModuleRuntime, error) {
+	rt, err := s.store.GetModuleRuntime(ctx, moduleID)
+	if err != nil {
+		return nil, err
+	}
+	if rt != nil && rt.HTTPPort > 0 {
+		return rt, nil
+	}
+
+	installed, err := s.store.GetInstalledModule(ctx, moduleID)
+	if err != nil {
+		return nil, err
+	}
+	if installed == nil {
+		return nil, fmt.Errorf("module %s not installed", moduleID)
+	}
+	if !installed.Enabled {
+		if err := s.store.SetModuleEnabled(ctx, moduleID, true); err != nil {
+			return nil, err
+		}
+	}
+
+	started, err := s.moduleMgr.StartInstalledModule(ctx, moduleID)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "already running") {
+			return s.store.GetModuleRuntime(ctx, moduleID)
+		}
+		return nil, err
+	}
+	return started, nil
+}
+
+func (s *Server) proxyModuleHTTP(ctx context.Context, moduleID, method, endpointPath string, body []byte) (status int, respBody []byte, hdr http.Header, _ error) {
+	rt, err := s.ensureModuleHTTPRuntime(ctx, moduleID)
+	if err != nil {
+		return 0, nil, nil, err
+	}
+	p := strings.TrimSpace(endpointPath)
+	if p == "" {
+		p = "/"
+	}
+	if !strings.HasPrefix(p, "/") {
+		p = "/" + p
+	}
+	u := fmt.Sprintf("http://127.0.0.1:%d%s", rt.HTTPPort, p)
+
+	req, err := http.NewRequestWithContext(ctx, method, u, bytes.NewReader(body))
+	if err != nil {
+		return 0, nil, nil, err
+	}
+	req.Header.Set("accept", "application/json")
+	if method != http.MethodGet {
+		req.Header.Set("content-type", "application/json")
+	}
+
+	httpc := &http.Client{Timeout: 45 * time.Second}
+	resp, err := httpc.Do(req)
+	if err != nil {
+		return 0, nil, nil, err
+	}
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
+	return resp.StatusCode, b, resp.Header, nil
+}
+
+func writeProxyResponse(w http.ResponseWriter, status int, hdr http.Header, body []byte) {
+	if ct := strings.TrimSpace(hdr.Get("content-type")); ct != "" {
+		w.Header().Set("content-type", ct)
+	} else {
+		w.Header().Set("content-type", "application/json")
+	}
+	w.WriteHeader(status)
+	_, _ = w.Write(body)
 }
 
 func (s *Server) authenticateClientKey(w http.ResponseWriter, r *http.Request) (*types.ClientAPIKey, bool) {

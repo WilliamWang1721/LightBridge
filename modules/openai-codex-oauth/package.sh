@@ -4,10 +4,14 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "${HERE}/../.." && pwd)"
 
-VERSION="$(python3 - <<'PY'
-import json, pathlib
+eval "$(python3 - <<'PY'
+import json, pathlib, shlex
 p = pathlib.Path("modules/openai-codex-oauth/manifest.json")
-print(json.loads(p.read_text(encoding="utf-8"))["version"])
+m = json.loads(p.read_text(encoding="utf-8"))
+print("VERSION=" + shlex.quote(m["version"]))
+print("NAME_JSON=" + shlex.quote(json.dumps(m.get("name", ""))))
+print("DESC_JSON=" + shlex.quote(json.dumps(m.get("description", ""))))
+print("TAGS_JSON=" + shlex.quote(json.dumps(m.get("tags", []))))
 PY
 )"
 
@@ -39,11 +43,11 @@ cat > "${DIST}/index.json" <<JSON
   "modules": [
     {
       "id": "openai-codex-oauth",
-      "name": "OpenAI Codex OAuth Module",
+      "name": ${NAME_JSON},
       "version": "${VERSION}",
-      "description": "LightBridge provider module for OpenAI Codex (OAuth device flow).",
+      "description": ${DESC_JSON},
       "license": "UNLICENSED",
-      "tags": ["codex", "oauth", "openai"],
+      "tags": ${TAGS_JSON},
       "protocols": ["http_openai"],
       "download_url": "http://127.0.0.1:8000/${ZIP_NAME}",
       "sha256": "${SHA256}",
