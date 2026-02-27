@@ -56,6 +56,10 @@ type Server struct {
 	voucherCfg     voucherConfig
 	voucherCfgAt   time.Time
 	voucherCfgOnce bool
+
+	codexOAuthCallbackMu      sync.Mutex
+	codexOAuthCallbackStarted bool
+	codexOAuthCallbackErr     error
 }
 
 func New(cfg Config, st *store.Store, resolver *routing.Resolver, providerRegistry *providers.Registry, marketplace *modules.Marketplace, moduleMgr *modules.Manager, cookieSecret string) (*Server, error) {

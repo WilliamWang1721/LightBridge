@@ -1105,7 +1105,8 @@
   <dialog id="codex-oauth-dialog">
     <form id="codex-oauth-form" method="dialog">
       <h3 style="margin:0 0 6px;font-family:var(--font-display);">Codex OAuth</h3>
-      <p style="margin:0 0 12px;font-family:var(--font-body);font-size:12px;color:var(--text-secondary);">Codex（OpenAI）OAuth 登录与 Token 管理（模块：<span style="font-family:ui-monospace,monospace;">openai-codex-oauth</span>）</p>
+      <p style="margin:0 0 8px;font-family:var(--font-body);font-size:12px;color:var(--text-secondary);">Codex（OpenAI）OAuth 登录与 Token 管理（模块：<span style="font-family:ui-monospace,monospace;">openai-codex-oauth</span>）
+        · <a href="/admin/docs" style="color:var(--red-primary);text-decoration:underline;">前往文档</a></p>
 
       <div class="dialog-grid">
         <div class="dialog-field dialog-field--full">
@@ -1113,50 +1114,62 @@
           <div class="dialog-input" id="codex-oauth-summary" style="background:var(--bg-page);white-space:pre-wrap;"></div>
         </div>
 
-        <label class="dialog-field dialog-field--full">
-          <span class="dialog-label">OAuth 链接</span>
-          <input class="dialog-input" id="codex-oauth-url" placeholder="点击「生成 OAuth 链接」" readonly />
-        </label>
-
-        <div class="dialog-field dialog-field--full">
-          <div style="display:flex;gap:10px;flex-wrap:wrap;">
-            <button class="dialog-btn primary" type="button" id="codex-oauth-start">生成 OAuth 链接</button>
-            <button class="dialog-btn" type="button" id="codex-oauth-open" disabled>打开</button>
-            <button class="dialog-btn" type="button" id="codex-oauth-copy" disabled>复制</button>
-            <button class="dialog-btn" type="button" id="codex-oauth-refresh">刷新状态</button>
+        <!-- Simple mode: two full-width buttons -->
+        <div class="dialog-field dialog-field--full" id="codex-simple-mode">
+          <div style="display:flex;gap:0;width:100%;">
+            <button class="dialog-btn primary" type="button" id="codex-oauth-start" style="flex:1;border-right:0;">生成 OAuth 链接</button>
+            <button class="dialog-btn" type="button" id="codex-device-start" style="flex:1;">生成 Device Code</button>
           </div>
+          <div id="codex-device-info" style="font-family:var(--font-body);font-size:12px;color:var(--text-secondary);white-space:pre-wrap;margin-top:8px;"></div>
+          <p style="margin:8px 0 0;font-family:var(--font-body);font-size:11px;color:var(--text-secondary);line-height:1.6;">
+            默认请使用「生成 OAuth 链接」进行登录。若出现问题，请在您的 ChatGPT 设置中允许使用 Device Code 登录 Codex，之后按下「生成 Device Code」进行登录，并输入 Device Code 完成授权。
+          </p>
         </div>
 
-        <label class="dialog-field dialog-field--full">
-          <span class="dialog-label">回调 URL（可选）</span>
-          <textarea class="dialog-input dialog-textarea" id="codex-oauth-callback" rows="3" placeholder="粘贴浏览器回调 URL（含 code & state），自动获取 Token"></textarea>
-        </label>
+        <!-- Advanced toggle -->
         <div class="dialog-field dialog-field--full">
-          <button class="dialog-btn" type="button" id="codex-oauth-exchange">从回调 URL 获取 Token</button>
+          <button class="dialog-btn" type="button" id="codex-advanced-toggle" style="width:100%;text-align:center;font-size:12px;color:var(--text-secondary);">▼ 展开高级选项</button>
         </div>
 
-        <label class="dialog-field dialog-field--full">
-          <span class="dialog-label">Refresh Token（Token）</span>
-          <textarea class="dialog-input dialog-textarea" id="codex-refresh-token" rows="3" placeholder="可仅填 refresh_token（系统会自动刷新获取 access_token）"></textarea>
-        </label>
-        <label class="dialog-field dialog-field--full">
-          <span class="dialog-label">Access Token（可选）</span>
-          <textarea class="dialog-input dialog-textarea" id="codex-access-token" rows="3" placeholder="或直接粘贴 access_token（无 refresh_token 时无法自动刷新）"></textarea>
-        </label>
+        <!-- Advanced mode (hidden by default) -->
+        <div id="codex-advanced-mode" style="display:none;grid-column:1/-1;">
+          <div class="dialog-grid">
+            <label class="dialog-field dialog-field--full">
+              <span class="dialog-label">回调 URL</span>
+              <textarea class="dialog-input dialog-textarea" id="codex-oauth-callback" rows="3" placeholder="粘贴浏览器回调 URL（含 code & state），自动获取 Token"></textarea>
+            </label>
+            <div class="dialog-field dialog-field--full">
+              <button class="dialog-btn" type="button" id="codex-oauth-exchange">从回调 URL 获取 Token</button>
+            </div>
 
-        <div class="dialog-field dialog-field--full">
-          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-            <button class="dialog-btn" type="button" id="codex-oauth-import">导入 Token</button>
-            <input type="file" id="codex-auth-json" accept=".json,application/json" />
-            <span style="font-family:var(--font-body);font-size:12px;color:var(--text-secondary);">上传 Codex 的 Auth.json</span>
-          </div>
-        </div>
+            <label class="dialog-field dialog-field--full">
+              <span class="dialog-label">Refresh Token</span>
+              <textarea class="dialog-input dialog-textarea" id="codex-refresh-token" rows="3" placeholder="可仅填 refresh_token（系统会自动刷新获取 access_token）"></textarea>
+            </label>
+            <label class="dialog-field dialog-field--full">
+              <span class="dialog-label">Access Token</span>
+              <textarea class="dialog-input dialog-textarea" id="codex-access-token" rows="3" placeholder="或直接粘贴 access_token（无 refresh_token 时无法自动刷新）"></textarea>
+            </label>
 
-        <div class="dialog-field dialog-field--full" style="border-top:1px solid var(--border);padding-top:12px;">
-          <span class="dialog-label">设备登录（可选）</span>
-          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;">
-            <button class="dialog-btn" type="button" id="codex-device-start">开始 Device Flow</button>
-            <div id="codex-device-info" style="font-family:var(--font-body);font-size:12px;color:var(--text-secondary);white-space:pre-wrap;"></div>
+            <div class="dialog-field dialog-field--full">
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                <button class="dialog-btn" type="button" id="codex-oauth-import">导入 Token</button>
+                <button class="dialog-btn" type="button" id="codex-oauth-refresh">刷新状态</button>
+              </div>
+            </div>
+
+            <div class="dialog-field dialog-field--full" style="border-top:1px solid var(--border);padding-top:12px;">
+              <span class="dialog-label">导入 Auth.json 文件（支持批量）</span>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px;">
+                <input type="file" id="codex-auth-json" accept=".json,application/json" multiple style="display:none" />
+                <button class="dialog-btn" type="button" id="codex-auth-json-choose">选择文件</button>
+                <span id="codex-auth-json-filename" style="font-family:var(--font-body);font-size:12px;color:var(--text-secondary);">支持选择多个 Auth.json 文件</span>
+              </div>
+            </div>
+
+            <div class="dialog-field dialog-field--full" style="border-top:1px solid var(--border);padding-top:12px;">
+              <button class="dialog-btn" type="button" id="codex-goto-provider" style="width:100%;text-align:center;">前往 Provider 添加界面</button>
+            </div>
           </div>
         </div>
       </div>
@@ -1221,7 +1234,6 @@
 
       const D_CODEX = document.getElementById('codex-oauth-dialog');
       const CODEX_SUMMARY = document.getElementById('codex-oauth-summary');
-      const CODEX_URL = document.getElementById('codex-oauth-url');
       const CODEX_CB_URL = document.getElementById('codex-oauth-callback');
       const CODEX_REFRESH_TOKEN = document.getElementById('codex-refresh-token');
       const CODEX_ACCESS_TOKEN = document.getElementById('codex-access-token');
@@ -1230,12 +1242,13 @@
       const B_CODEX_CLOSE = document.getElementById('codex-oauth-close');
       const B_CODEX_REFRESH = document.getElementById('codex-oauth-refresh');
       const B_CODEX_START = document.getElementById('codex-oauth-start');
-      const B_CODEX_OPEN = document.getElementById('codex-oauth-open');
-      const B_CODEX_COPY = document.getElementById('codex-oauth-copy');
       const B_CODEX_EXCHANGE = document.getElementById('codex-oauth-exchange');
       const B_CODEX_IMPORT = document.getElementById('codex-oauth-import');
       const B_CODEX_DEVICE_START = document.getElementById('codex-device-start');
       const I_CODEX_AUTH_JSON = document.getElementById('codex-auth-json');
+      const B_CODEX_ADVANCED_TOGGLE = document.getElementById('codex-advanced-toggle');
+      const CODEX_ADVANCED_MODE = document.getElementById('codex-advanced-mode');
+      const B_CODEX_GOTO_PROVIDER = document.getElementById('codex-goto-provider');
 
       const USAGE_BAR_WIDTH = 116;
 
@@ -1413,10 +1426,9 @@
         try { if (DIALOG?.open) DIALOG.close(); } catch (_) {}
         try {
           codexAuthURL = '';
-          if (CODEX_URL) CODEX_URL.value = '';
-          if (B_CODEX_OPEN) B_CODEX_OPEN.disabled = true;
-          if (B_CODEX_COPY) B_CODEX_COPY.disabled = true;
           if (CODEX_CB_URL) CODEX_CB_URL.value = '';
+          if (CODEX_ADVANCED_MODE) CODEX_ADVANCED_MODE.style.display = 'none';
+          if (B_CODEX_ADVANCED_TOGGLE) B_CODEX_ADVANCED_TOGGLE.textContent = '▼ 展开高级选项';
           await loadCodexStatus({ toastOnFail: true });
           if (!D_CODEX.open) D_CODEX.showModal();
         } catch (_) {}
@@ -1429,32 +1441,13 @@
           const res = await LB.apiJSON('/admin/api/codex/oauth/start', { method: 'POST', body: {} });
           const url = String(res?.oauth?.auth_url || '').trim();
           codexAuthURL = url;
-          if (CODEX_URL) CODEX_URL.value = url;
-          if (B_CODEX_OPEN) B_CODEX_OPEN.disabled = !url;
-          if (B_CODEX_COPY) B_CODEX_COPY.disabled = !url;
           if (url) window.open(url, '_blank', 'noopener,noreferrer');
+          else LB.toast('未获取到 OAuth 链接', 'error', 4200);
           await loadCodexStatus({ toastOnFail: false });
         } catch (err) {
           LB.toast(err?.message || '生成 OAuth 链接失败', 'error', 4200);
         } finally {
           B_CODEX_START.disabled = false;
-        }
-      }
-
-      function openCodexOAuthURL() {
-        const url = String(CODEX_URL?.value || codexAuthURL || '').trim();
-        if (!url) return;
-        window.open(url, '_blank', 'noopener,noreferrer');
-      }
-
-      async function copyCodexOAuthURL() {
-        const url = String(CODEX_URL?.value || codexAuthURL || '').trim();
-        if (!url) return;
-        try {
-          await navigator.clipboard.writeText(url);
-          LB.toast('已复制', 'ok');
-        } catch (_) {
-          LB.toast('复制失败，请手动复制', 'error', 4200);
         }
       }
 
@@ -1507,14 +1500,34 @@
           const text = await file.text();
           const parsed = JSON.parse(text);
           await LB.apiJSON('/admin/api/codex/oauth/import', { method: 'POST', body: parsed });
-          LB.toast('Auth.json 已导入', 'ok');
+          LB.toast(`${file.name} 已导入`, 'ok');
           await loadCodexStatus({ toastOnFail: false });
           await load();
         } catch (err) {
-          LB.toast(err?.message || 'Auth.json 导入失败', 'error', 4200);
-        } finally {
-          if (I_CODEX_AUTH_JSON) I_CODEX_AUTH_JSON.value = '';
+          LB.toast(`${file.name}: ${err?.message || '导入失败'}`, 'error', 4200);
         }
+      }
+
+      async function importCodexAuthJSONFiles(files) {
+        if (!files || files.length === 0) return;
+        let ok = 0, fail = 0;
+        for (const file of files) {
+          try {
+            const text = await file.text();
+            const parsed = JSON.parse(text);
+            await LB.apiJSON('/admin/api/codex/oauth/import', { method: 'POST', body: parsed });
+            ok++;
+          } catch (err) {
+            fail++;
+            LB.toast(`${file.name}: ${err?.message || '导入失败'}`, 'error', 4200);
+          }
+        }
+        if (ok > 0) LB.toast(`成功导入 ${ok} 个文件`, 'ok');
+        if (I_CODEX_AUTH_JSON) I_CODEX_AUTH_JSON.value = '';
+        const fnLabel = document.getElementById('codex-auth-json-filename');
+        if (fnLabel) fnLabel.textContent = '支持选择多个 Auth.json 文件';
+        await loadCodexStatus({ toastOnFail: false });
+        await load();
       }
 
       async function startCodexDeviceFlow() {
@@ -1970,12 +1983,40 @@
       });
       if (B_CODEX_REFRESH) B_CODEX_REFRESH.addEventListener('click', () => loadCodexStatus({ toastOnFail: true }));
       if (B_CODEX_START) B_CODEX_START.addEventListener('click', startCodexOAuth);
-      if (B_CODEX_OPEN) B_CODEX_OPEN.addEventListener('click', openCodexOAuthURL);
-      if (B_CODEX_COPY) B_CODEX_COPY.addEventListener('click', copyCodexOAuthURL);
       if (B_CODEX_EXCHANGE) B_CODEX_EXCHANGE.addEventListener('click', exchangeCodexFromCallbackURL);
       if (B_CODEX_IMPORT) B_CODEX_IMPORT.addEventListener('click', importCodexTokens);
-      if (I_CODEX_AUTH_JSON) I_CODEX_AUTH_JSON.addEventListener('change', () => importCodexAuthJSONFile(I_CODEX_AUTH_JSON.files?.[0]));
       if (B_CODEX_DEVICE_START) B_CODEX_DEVICE_START.addEventListener('click', startCodexDeviceFlow);
+
+      // Advanced toggle
+      if (B_CODEX_ADVANCED_TOGGLE) B_CODEX_ADVANCED_TOGGLE.addEventListener('click', () => {
+        const hidden = CODEX_ADVANCED_MODE.style.display === 'none';
+        CODEX_ADVANCED_MODE.style.display = hidden ? '' : 'none';
+        B_CODEX_ADVANCED_TOGGLE.textContent = hidden ? '▲ 收起高级选项' : '▼ 展开高级选项';
+      });
+
+      // Go to provider add page
+      if (B_CODEX_GOTO_PROVIDER) B_CODEX_GOTO_PROVIDER.addEventListener('click', () => {
+        closeCodexDialog();
+        openDialog('add', {});
+      });
+
+      // File import (batch support)
+      const B_CODEX_AUTH_JSON_CHOOSE = document.getElementById('codex-auth-json-choose');
+      const CODEX_AUTH_JSON_FILENAME = document.getElementById('codex-auth-json-filename');
+      if (B_CODEX_AUTH_JSON_CHOOSE && I_CODEX_AUTH_JSON) {
+        B_CODEX_AUTH_JSON_CHOOSE.addEventListener('click', () => {
+          I_CODEX_AUTH_JSON.value = '';
+          I_CODEX_AUTH_JSON.click();
+        });
+      }
+      if (I_CODEX_AUTH_JSON) I_CODEX_AUTH_JSON.addEventListener('change', () => {
+        const files = I_CODEX_AUTH_JSON.files;
+        if (!files || files.length === 0) return;
+        if (CODEX_AUTH_JSON_FILENAME) {
+          CODEX_AUTH_JSON_FILENAME.textContent = files.length === 1 ? files[0].name : `已选择 ${files.length} 个文件`;
+        }
+        importCodexAuthJSONFiles(files);
+      });
 
       if (BTN_NEXT) BTN_NEXT.addEventListener('click', () => {
         const name = String(F_NAME.value || '').trim();

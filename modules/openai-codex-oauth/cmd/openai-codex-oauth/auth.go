@@ -306,15 +306,6 @@ func (s *server) handleAuthOAuthStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.oauthMu.Lock()
-	if s.oauth != nil && s.oauth.Status == "pending" && time.Since(s.oauth.StartedAt) < codexOAuthFlowTimeout {
-		copy := *s.oauth
-		s.oauthMu.Unlock()
-		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "oauth": copy})
-		return
-	}
-	s.oauthMu.Unlock()
-
 	var req oauthStartRequest
 	_ = json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req)
 	_ = r.Body.Close()
@@ -328,6 +319,17 @@ func (s *server) handleAuthOAuthStart(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "redirect_uri must be an absolute URL"})
 		return
 	}
+
+	s.oauthMu.Lock()
+	if s.oauth != nil && s.oauth.Status == "pending" && time.Since(s.oauth.StartedAt) < codexOAuthFlowTimeout {
+		if strings.TrimSpace(s.oauth.RedirectURI) == redirectURI {
+			copy := *s.oauth
+			s.oauthMu.Unlock()
+			writeJSON(w, http.StatusOK, map[string]any{"ok": true, "oauth": copy})
+			return
+		}
+	}
+	s.oauthMu.Unlock()
 
 	pkce, err := generatePKCECodes()
 	if err != nil {

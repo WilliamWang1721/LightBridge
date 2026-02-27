@@ -732,14 +732,31 @@
         module_id: <span class="mono" id="config-module-id"></span> · path: <span class="mono" id="config-path"></span>
       </p>
       <div class="dialog-grid">
-        <label class="dialog-field dialog-field--full">
-          <span class="dialog-label">Config JSON（对象）</span>
-          <textarea class="dialog-input dialog-textarea" id="config-json" rows="14" spellcheck="false" placeholder='{"key":"value"}'></textarea>
-        </label>
+        <!-- Visual config fields (rendered dynamically) -->
+        <div class="dialog-field dialog-field--full" id="config-visual-fields" style="display:flex;flex-direction:column;gap:10px;"></div>
+
+        <!-- Collapsible advanced: raw JSON -->
+        <div class="dialog-field dialog-field--full">
+          <button class="dialog-btn" type="button" id="config-advanced-toggle" style="width:100%;text-align:center;font-size:12px;color:var(--text-secondary);">▼ 高级选项：Config JSON</button>
+        </div>
+        <div id="config-advanced-section" style="display:none;grid-column:1/-1;">
+          <div class="dialog-grid">
+            <label class="dialog-field dialog-field--full">
+              <span class="dialog-label">Config JSON（对象）</span>
+              <textarea class="dialog-input dialog-textarea" id="config-json" rows="14" spellcheck="false" placeholder='{"key":"value"}'></textarea>
+            </label>
+          </div>
+        </div>
+
         <label class="dialog-check dialog-field--full">
           <input type="checkbox" id="config-restart" />
           <span>保存后重启模块（如在运行中）</span>
         </label>
+
+        <!-- Advanced: go to Provider add page -->
+        <div class="dialog-field dialog-field--full" style="border-top:1px solid var(--border);padding-top:12px;">
+          <a class="dialog-btn" href="/admin/providers" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none;text-align:center;width:100%;">前往 Provider 添加界面</a>
+        </div>
       </div>
       <div class="dialog-actions">
         <button class="dialog-btn" type="button" id="config-cancel">取消</button>
@@ -1116,6 +1133,113 @@
         }
       }
 
+      const CFG_VISUAL = document.getElementById('config-visual-fields');
+      const CFG_ADV_TOGGLE = document.getElementById('config-advanced-toggle');
+      const CFG_ADV_SECTION = document.getElementById('config-advanced-section');
+
+      function renderVisualConfig(config, schema) {
+        CFG_VISUAL.innerHTML = '';
+        const obj = (config && typeof config === 'object' && !Array.isArray(config)) ? config : {};
+        const props = (schema && typeof schema === 'object' && schema.properties) ? schema.properties : {};
+        const keys = new Set([...Object.keys(props), ...Object.keys(obj)]);
+        if (keys.size === 0) {
+          CFG_VISUAL.innerHTML = '<span style="font-family:var(--font-body);font-size:12px;color:var(--text-secondary);">暂无可视化配置项</span>';
+          return;
+        }
+        for (const key of keys) {
+          const schemaProp = props[key] || {};
+          const val = obj[key];
+          const label = schemaProp.title || schemaProp.description || key;
+          const type = schemaProp.type || (typeof val === 'boolean' ? 'boolean' : (typeof val === 'number' ? 'number' : 'string'));
+
+          const field = document.createElement('div');
+          field.className = 'dialog-field';
+          field.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
+
+          const lbl = document.createElement('span');
+          lbl.className = 'dialog-label';
+          lbl.textContent = label;
+          field.appendChild(lbl);
+
+          if (type === 'boolean') {
+            const wrap = document.createElement('label');
+            wrap.className = 'dialog-check';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = Boolean(val);
+            cb.dataset.cfgKey = key;
+            cb.dataset.cfgType = 'boolean';
+            const sp = document.createElement('span');
+            sp.textContent = key;
+            wrap.appendChild(cb);
+            wrap.appendChild(sp);
+            field.appendChild(wrap);
+          } else if (type === 'number' || type === 'integer') {
+            const inp = document.createElement('input');
+            inp.className = 'dialog-input';
+            inp.type = 'number';
+            inp.value = val != null ? String(val) : '';
+            inp.placeholder = schemaProp.default != null ? String(schemaProp.default) : '';
+            inp.dataset.cfgKey = key;
+            inp.dataset.cfgType = 'number';
+            field.appendChild(inp);
+          } else if (typeof val === 'object' && val !== null) {
+            const ta = document.createElement('textarea');
+            ta.className = 'dialog-input';
+            ta.rows = 3;
+            ta.spellcheck = false;
+            ta.value = JSON.stringify(val, null, 2);
+            ta.dataset.cfgKey = key;
+            ta.dataset.cfgType = 'json';
+            field.appendChild(ta);
+          } else {
+            const inp = document.createElement('input');
+            inp.className = 'dialog-input';
+            inp.type = 'text';
+            inp.value = val != null ? String(val) : '';
+            inp.placeholder = schemaProp.default != null ? String(schemaProp.default) : '';
+            inp.dataset.cfgKey = key;
+            inp.dataset.cfgType = 'string';
+            field.appendChild(inp);
+          }
+          CFG_VISUAL.appendChild(field);
+        }
+      }
+
+      function collectVisualConfig() {
+        const obj = {};
+        const inputs = CFG_VISUAL.querySelectorAll('[data-cfg-key]');
+        for (const el of inputs) {
+          const key = el.dataset.cfgKey;
+          const type = el.dataset.cfgType;
+          if (type === 'boolean') obj[key] = el.checked;
+          else if (type === 'number') obj[key] = el.value !== '' ? Number(el.value) : undefined;
+          else if (type === 'json') { try { obj[key] = JSON.parse(el.value); } catch (_) { obj[key] = el.value; } }
+          else obj[key] = el.value;
+        }
+        // Remove undefined
+        for (const k of Object.keys(obj)) { if (obj[k] === undefined) delete obj[k]; }
+        return obj;
+      }
+
+      // Sync visual → JSON when toggling advanced
+      if (CFG_ADV_TOGGLE) CFG_ADV_TOGGLE.addEventListener('click', () => {
+        const hidden = CFG_ADV_SECTION.style.display === 'none';
+        if (hidden) {
+          // Sync visual fields to JSON
+          const merged = collectVisualConfig();
+          try {
+            const existing = CFG_JSON.value ? JSON.parse(CFG_JSON.value) : {};
+            Object.assign(existing, merged);
+            CFG_JSON.value = JSON.stringify(existing, null, 2);
+          } catch (_) {
+            CFG_JSON.value = JSON.stringify(merged, null, 2);
+          }
+        }
+        CFG_ADV_SECTION.style.display = hidden ? '' : 'none';
+        CFG_ADV_TOGGLE.textContent = hidden ? '▲ 收起高级选项：Config JSON' : '▼ 高级选项：Config JSON';
+      });
+
       async function openConfigDialog() {
         const entry = activeEntry;
         if (!entry) return;
@@ -1130,6 +1254,11 @@
           CFG_PATH.textContent = String(res?.config_path || '');
           CFG_JSON.value = JSON.stringify(res?.config || {}, null, 2);
           CFG_RESTART.checked = false;
+          // Reset advanced section
+          if (CFG_ADV_SECTION) CFG_ADV_SECTION.style.display = 'none';
+          if (CFG_ADV_TOGGLE) CFG_ADV_TOGGLE.textContent = '▼ 高级选项：Config JSON';
+          // Render visual config
+          renderVisualConfig(res?.config, res?.schema);
           if (!D_CFG.open) D_CFG.showModal();
         } catch (err) {
           LB.toast(err?.message || '加载配置失败', 'error', 4200);
@@ -1205,6 +1334,8 @@
         const moduleID = String(editingModuleID || '').trim();
         if (!moduleID) return;
 
+        // Merge visual config into JSON
+        const visualObj = collectVisualConfig();
         let obj = null;
         try {
           obj = CFG_JSON.value ? JSON.parse(CFG_JSON.value) : {};
@@ -1215,6 +1346,10 @@
         if (!(obj && typeof obj === 'object' && !Array.isArray(obj))) {
           LB.toast('Config 必须是 JSON 对象', 'error', 4200);
           return;
+        }
+        // Visual fields take precedence when advanced section is collapsed
+        if (CFG_ADV_SECTION && CFG_ADV_SECTION.style.display === 'none') {
+          Object.assign(obj, visualObj);
         }
 
         CFG_SAVE.disabled = true;

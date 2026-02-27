@@ -983,6 +983,10 @@ func (s *Server) handleCodexOAuthCallbackPage(w http.ResponseWriter, r *http.Req
 }
 
 func (s *Server) renderCodexOAuthCallbackResult(w http.ResponseWriter, ok bool, message string) {
+	s.renderCodexOAuthCallbackResultTo(w, ok, message, "/admin/providers")
+}
+
+func (s *Server) renderCodexOAuthCallbackResultTo(w http.ResponseWriter, ok bool, message string, returnURL string) {
 	w.Header().Set("content-type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	title := "Codex OAuth"
@@ -991,11 +995,16 @@ func (s *Server) renderCodexOAuthCallbackResult(w http.ResponseWriter, ok bool, 
 		status = "Error"
 	}
 	esc := template.HTMLEscapeString(strings.TrimSpace(message))
+	returnURL = strings.TrimSpace(returnURL)
+	if returnURL == "" {
+		returnURL = "/admin/providers"
+	}
+	escReturnURL := template.HTMLEscapeString(returnURL)
 	_, _ = io.WriteString(w, "<!doctype html><html><head><meta charset=\"utf-8\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />")
 	_, _ = io.WriteString(w, "<title>"+template.HTMLEscapeString(title)+"</title>")
 	_, _ = io.WriteString(w, "<style>body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;margin:0;padding:32px;background:#fff;color:#111} .card{max-width:720px;margin:0 auto;border:1px solid #e8e8e8;border-radius:12px;padding:18px} .muted{color:#6b7280;font-size:13px} pre{white-space:pre-wrap;word-break:break-word;background:#fafafa;border:1px solid #e5e7eb;border-radius:10px;padding:12px;font-size:12px} a{color:#111;text-decoration:none;border-bottom:1px solid #ddd} .row{display:flex;gap:12px;align-items:center;justify-content:space-between}</style></head><body>")
 	_, _ = io.WriteString(w, "<div class=\"card\"><div class=\"row\"><h2 style=\"margin:0\">"+template.HTMLEscapeString(title)+"</h2><div class=\"muted\">"+template.HTMLEscapeString(status)+"</div></div>")
-	_, _ = io.WriteString(w, "<p class=\"muted\" style=\"margin:10px 0 0\">You can close this window, or <a href=\"/admin/providers\">return to Providers</a>.</p>")
+	_, _ = io.WriteString(w, "<p class=\"muted\" style=\"margin:10px 0 0\">You can close this window, or <a href=\""+escReturnURL+"\">return to Providers</a>.</p>")
 	if esc != "" {
 		_, _ = io.WriteString(w, "<pre style=\"margin:12px 0 0\">"+esc+"</pre>")
 	}
@@ -1033,8 +1042,8 @@ func (s *Server) handleCodexOAuthStartAPI(w http.ResponseWriter, r *http.Request
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
 		return
 	}
-	redirectURI := strings.TrimRight(baseURLFromRequest(r), "/") + "/admin/codex/oauth/callback"
-	payload, _ := json.Marshal(map[string]string{"redirect_uri": redirectURI})
+	s.ensureCodexOAuthCallbackServer()
+	payload, _ := json.Marshal(map[string]string{"redirect_uri": codexOAuthLocalRedirectURI})
 	status, body, hdr, err := s.proxyModuleHTTP(r.Context(), codexOAuthModuleID, http.MethodPost, "/auth/oauth/start", payload)
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
