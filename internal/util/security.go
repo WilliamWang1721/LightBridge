@@ -37,7 +37,8 @@ func NewClientAPIKey() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("lbk_%s", token), nil
+	// Use OpenAI-style prefix for better compatibility with tools that validate key formats.
+	return fmt.Sprintf("sk-%s", token), nil
 }
 
 func ParseBearerToken(v string) string {

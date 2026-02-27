@@ -267,6 +267,57 @@
       padding: 10px 12px;
     }
 
+    dialog {
+      width: min(560px, calc(100vw - 32px));
+      border: 1px solid var(--border);
+      padding: 18px 18px 16px;
+      background: var(--bg-card);
+    }
+
+    dialog::backdrop { background: rgba(0, 0, 0, 0.35); }
+
+    .dialog-title {
+      margin: 0 0 6px;
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .dialog-body {
+      margin: 0;
+      font-family: var(--font-body);
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--text-secondary);
+      white-space: pre-wrap;
+    }
+
+    .dialog-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    .dialog-btn {
+      height: 36px;
+      padding: 0 14px;
+      border: 1px solid var(--border);
+      background: #ffffff;
+      font-family: var(--font-display);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--text-main);
+    }
+
+    .dialog-btn.primary {
+      background: var(--text-main);
+      border-color: var(--text-main);
+      color: #ffffff;
+    }
+
     @media (max-width: 520px) {
       .card {
         width: 100%;
@@ -296,7 +347,7 @@
         <div class="field">
           <div class="label-row">
             <p class="label">密码 Password</p>
-            <a class="forgot" href="#" onclick="return false">忘记密码？</a>
+            <a class="forgot" href="#" id="forgot-password">忘记密码？</a>
           </div>
           <input class="input" type="password" name="password" required autocomplete="current-password" placeholder="••••••••••••" />
         </div>
@@ -316,6 +367,26 @@
       <pre id="out"></pre>
     </section>
   </main>
+
+  <dialog id="forgot-dialog">
+    <form method="dialog">
+      <h3 class="dialog-title">重置密码 Reset Password</h3>
+      <p class="dialog-body">为保证安全，LightBridge 暂不提供在线找回密码。
+
+你可以通过以下方式重置：
+1) 停止 LightBridge 进程
+2) 删除数据库文件（会清空所有配置）
+   - macOS 默认：~/Library/Application Support/LightBridge/lightbridge.db
+   - 如设置了环境变量 LIGHTBRIDGE_DATA_DIR：$LIGHTBRIDGE_DATA_DIR/lightbridge.db
+3) 重新启动后访问 /admin/setup 重新初始化
+
+If you still can login, consider creating a new admin user or keep a backup of the DB file.</p>
+      <div class="dialog-actions">
+        <button class="dialog-btn" type="button" id="forgot-close">关闭</button>
+        <button class="dialog-btn primary" type="submit">我知道了</button>
+      </div>
+    </form>
+  </dialog>
   <script>
     const DEVICE_STORAGE_KEY = 'lightbridge_admin_device';
 
@@ -370,6 +441,21 @@
         location.href = '/admin/dashboard';
       }
     });
+
+    // "Forgot password" should not be a dead link.
+    (() => {
+      const a = document.getElementById('forgot-password');
+      const d = document.getElementById('forgot-dialog');
+      const c = document.getElementById('forgot-close');
+      if (!a || !d) return;
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (!d.open) d.showModal();
+      });
+      if (c) c.addEventListener('click', () => {
+        try { d.close(); } catch (_) {}
+      });
+    })();
   </script>
 </body>
 </html>

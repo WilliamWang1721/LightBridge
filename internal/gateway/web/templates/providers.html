@@ -233,6 +233,11 @@
       padding: 10px;
     }
 
+    .icon-btn.is-active {
+      border-color: var(--text-main);
+      box-shadow: 0 8px 20px rgba(0,0,0,.06);
+    }
+
     .icon-btn:active {
       transform: translateY(1px);
     }
@@ -294,6 +299,11 @@
     .table-row.data {
       height: 68px;
       background: var(--bg-page);
+    }
+
+    .table-row.data.is-selected {
+      border-color: #cfcfcf;
+      background: var(--bg-surface);
     }
 
     .cell {
@@ -404,6 +414,111 @@
       color: var(--text-secondary);
       width: 14px;
       text-align: center;
+    }
+
+    /* Grid view */
+    .list-panel.is-grid .table-row.header {
+      display: none;
+    }
+
+    .provider-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+    }
+
+    .provider-card {
+      border: 1px solid var(--border);
+      background: var(--bg-page);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      cursor: pointer;
+      min-width: 0;
+    }
+
+    .provider-card:hover { border-color: #d0d0d0; }
+    .provider-card:active { transform: translateY(1px); }
+    .provider-card.is-selected { background: var(--bg-surface); border-color: #cfcfcf; }
+
+    .provider-card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      width: 100%;
+      min-width: 0;
+    }
+
+    .provider-card-id {
+      font-family: var(--font-display);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+
+    .provider-card-sub {
+      font-family: var(--font-body);
+      font-size: 11px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      word-break: break-all;
+    }
+
+    /* Bulk actions */
+    .bulk-actions {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: var(--bg-page);
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .bulk-left {
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .bulk-right {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .bulk-btn {
+      height: 32px;
+      padding: 0 12px;
+      border: 1px solid var(--border);
+      background: var(--bg-page);
+      font-family: var(--font-display);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--text-main);
+      user-select: none;
+    }
+
+    .bulk-btn.primary {
+      background: var(--text-main);
+      border-color: var(--text-main);
+      color: #ffffff;
+    }
+
+    .bulk-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
     .bottom-pagination {
@@ -626,6 +741,7 @@
           <a class="menu-item" href="/admin/dashboard"><span class="menu-dot" aria-hidden="true"></span>概览 Overview</a>
           <a class="menu-item is-active" href="/admin/providers"><span class="menu-dot" aria-hidden="true"></span>提供商 Provider</a>
           <a class="menu-item" href="/admin/models"><span class="menu-dot" aria-hidden="true"></span>凭证 Voucher</a>
+          <a class="menu-item" href="/admin/router"><span class="menu-dot" aria-hidden="true"></span>路由 Router</a>
           <a class="menu-item" href="/admin/docs"><span class="menu-dot" aria-hidden="true"></span>配置 Configuration</a>
           <a class="menu-item" href="/admin/marketplace"><span class="menu-dot" aria-hidden="true"></span>模块 Marketplace</a>
           <a class="menu-item" href="/admin/logs"><span class="menu-dot" aria-hidden="true"></span>设置 Settings</a>
@@ -645,7 +761,7 @@
             <p class="page-subtitle">管理 OAuth 与凭证文件，并维护 Provider 列表</p>
           </div>
           <div class="header-actions" aria-label="操作">
-            <button class="icon-btn" type="button" aria-label="视图">
+            <button class="icon-btn" type="button" id="provider-view-toggle" aria-label="视图" title="切换视图 View">
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
                 <rect x="3" y="3" width="7" height="7"></rect>
                 <rect x="14" y="3" width="7" height="7"></rect>
@@ -653,14 +769,14 @@
                 <rect x="3" y="14" width="7" height="7"></rect>
               </svg>
             </button>
-            <button class="icon-btn" type="button" aria-label="多选">
+            <button class="icon-btn" type="button" id="provider-multi-toggle" aria-label="多选" title="多选 Multi-select">
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
                 <polyline points="7 12 10 15 16 9"></polyline>
                 <polyline points="7 6 10 9 16 3"></polyline>
                 <polyline points="7 18 10 21 16 15"></polyline>
               </svg>
             </button>
-            <button class="icon-btn" type="button" aria-label="筛选">
+            <button class="icon-btn" type="button" id="provider-filter-open" aria-label="筛选" title="筛选 Filter">
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
                 <polygon points="22 3 2 3 10 12 10 19 14 21 14 12 22 3"></polygon>
               </svg>
@@ -677,7 +793,7 @@
       </section>
 
       <section class="body" aria-label="提供商列表">
-        <div class="list-panel" aria-label="凭证列表">
+        <div class="list-panel" id="provider-list-panel" aria-label="凭证列表">
           <div class="table-row header" role="row">
             <div class="cell th" role="columnheader">账户名称</div>
             <div class="cell th" role="columnheader">所属模型 / Provider来源</div>
@@ -686,6 +802,16 @@
             <div class="cell" role="columnheader"></div>
           </div>
           <div id="provider-rows" role="rowgroup"></div>
+        </div>
+
+        <div class="bulk-actions" id="bulk-actions" style="display:none;" aria-label="批量操作">
+          <div class="bulk-left" id="bulk-summary">已选择 0 个</div>
+          <div class="bulk-right">
+            <button class="bulk-btn primary" type="button" id="bulk-enable">启用</button>
+            <button class="bulk-btn" type="button" id="bulk-disable">禁用</button>
+            <button class="bulk-btn" type="button" id="bulk-clear">清空</button>
+            <button class="bulk-btn" type="button" id="bulk-exit">退出</button>
+          </div>
         </div>
 
         <footer class="bottom-pagination" aria-label="分页">
@@ -748,22 +874,86 @@
       </div>
     </form>
   </dialog>
+
+  <dialog id="filter-dialog">
+    <form id="filter-form" method="dialog">
+      <h3 style="margin:0 0 12px;font-family:var(--font-display);">筛选 Filter</h3>
+      <div class="dialog-grid">
+        <label class="dialog-field dialog-field--full">
+          <span class="dialog-label">Search</span>
+          <input class="dialog-input" name="q" placeholder="provider id / protocol / endpoint" />
+        </label>
+        <label class="dialog-field">
+          <span class="dialog-label">Enabled</span>
+          <select class="dialog-input" name="enabled">
+            <option value="">All</option>
+            <option value="enabled">Enabled</option>
+            <option value="disabled">Disabled</option>
+          </select>
+        </label>
+        <label class="dialog-field">
+          <span class="dialog-label">Protocol</span>
+          <select class="dialog-input" name="protocol">
+            <option value="">All</option>
+          </select>
+        </label>
+        <label class="dialog-field">
+          <span class="dialog-label">Type</span>
+          <select class="dialog-input" name="type">
+            <option value="">All</option>
+            <option value="builtin">builtin</option>
+            <option value="module">module</option>
+          </select>
+        </label>
+        <label class="dialog-field">
+          <span class="dialog-label">Sort</span>
+          <select class="dialog-input" name="sort">
+            <option value="id">ID</option>
+            <option value="usage">Usage</option>
+          </select>
+        </label>
+      </div>
+      <div class="dialog-actions">
+        <button class="dialog-btn" type="button" id="filter-reset">重置</button>
+        <button class="dialog-btn" type="button" id="filter-cancel">取消</button>
+        <button class="dialog-btn primary" type="submit" id="filter-apply">应用</button>
+      </div>
+    </form>
+  </dialog>
+
   <script src="/admin/static/admin.js"></script>
   <script>
     (() => {
       const LB = window.LightBridgeAdmin;
       if (!LB) return;
 
+      const LIST_PANEL = document.getElementById('provider-list-panel');
       const ROWS = document.getElementById('provider-rows');
       const COUNT = document.getElementById('provider-count');
       const REFRESH = document.getElementById('refresh-providers');
       const ADD = document.getElementById('add-provider-btn');
+
+      const BTN_VIEW = document.getElementById('provider-view-toggle');
+      const BTN_MULTI = document.getElementById('provider-multi-toggle');
+      const BTN_FILTER = document.getElementById('provider-filter-open');
+
+      const BULK = document.getElementById('bulk-actions');
+      const BULK_SUMMARY = document.getElementById('bulk-summary');
+      const BULK_ENABLE = document.getElementById('bulk-enable');
+      const BULK_DISABLE = document.getElementById('bulk-disable');
+      const BULK_CLEAR = document.getElementById('bulk-clear');
+      const BULK_EXIT = document.getElementById('bulk-exit');
 
       const DIALOG = document.getElementById('provider-dialog');
       const FORM = document.getElementById('provider-form');
       const TITLE = document.getElementById('provider-dialog-title');
       const CANCEL = document.getElementById('provider-cancel');
       const SAVE = document.getElementById('provider-save');
+
+      const D_FILTER = document.getElementById('filter-dialog');
+      const F_FILTER = document.getElementById('filter-form');
+      const B_FILTER_RESET = document.getElementById('filter-reset');
+      const B_FILTER_CANCEL = document.getElementById('filter-cancel');
 
       const F_ID = FORM.elements.namedItem('id');
       const F_TYPE = FORM.elements.namedItem('type');
@@ -779,8 +969,32 @@
       let maxUsage = 0;
       let editingID = null;
 
+      const KEY_VIEW_MODE = 'lightbridge_provider_view_mode';
+      let viewMode = 'table';
+      try {
+        const raw = String(localStorage.getItem(KEY_VIEW_MODE) || '').trim();
+        if (raw === 'grid') viewMode = 'grid';
+      } catch (_) {}
+
+      let selectionMode = false;
+      let selectedIDs = new Set();
+
+      const filter = { q: '', enabled: '', protocol: '', type: '', sort: 'id' };
+
       function providerID(p) {
         return String(p?.ID ?? p?.id ?? '').trim();
+      }
+
+      function providerType(p) {
+        return String(p?.Type ?? p?.type ?? '').trim();
+      }
+
+      function providerProtocol(p) {
+        return String(p?.Protocol ?? p?.protocol ?? '').trim();
+      }
+
+      function providerEndpoint(p) {
+        return String(p?.Endpoint ?? p?.endpoint ?? '').trim();
       }
 
       function openDialog(mode, provider) {
@@ -808,6 +1022,48 @@
         return JSON.stringify(parsed, null, 2);
       }
 
+      function isFilterActive() {
+        return Boolean(String(filter.q || '').trim() || String(filter.enabled || '').trim() || String(filter.protocol || '').trim() || String(filter.type || '').trim() || (filter.sort || 'id') !== 'id');
+      }
+
+      function applyFilter(list) {
+        let out = Array.isArray(list) ? list.slice() : [];
+
+        const qq = String(filter.q || '').trim().toLowerCase();
+        const enabledF = String(filter.enabled || '').trim();
+        const protoF = String(filter.protocol || '').trim();
+        const typeF = String(filter.type || '').trim();
+
+        if (qq) {
+          out = out.filter((p) => {
+            const id = providerID(p);
+            const proto = providerProtocol(p);
+            const type = providerType(p);
+            const endpoint = providerEndpoint(p);
+            const hay = `${id} ${proto} ${type} ${endpoint}`.toLowerCase();
+            return hay.includes(qq);
+          });
+        }
+        if (enabledF === 'enabled') out = out.filter((p) => Boolean(p?.Enabled ?? p?.enabled ?? false));
+        if (enabledF === 'disabled') out = out.filter((p) => !Boolean(p?.Enabled ?? p?.enabled ?? false));
+        if (protoF) out = out.filter((p) => providerProtocol(p) === protoF);
+        if (typeF) out = out.filter((p) => providerType(p) === typeF);
+
+        if ((filter.sort || 'id') === 'usage') {
+          out.sort((a, b) => {
+            const ua = usageByProvider.get(providerID(a)) || { tokens: 0 };
+            const ub = usageByProvider.get(providerID(b)) || { tokens: 0 };
+            const da = Number(ua.tokens || 0);
+            const db = Number(ub.tokens || 0);
+            if (db !== da) return db - da;
+            return providerID(a).localeCompare(providerID(b));
+          });
+        } else {
+          out.sort((a, b) => providerID(a).localeCompare(providerID(b)));
+        }
+        return out;
+      }
+
       function computeUsage(logs) {
         usageByProvider = new Map();
         maxUsage = 0;
@@ -822,41 +1078,173 @@
         }
       }
 
+      function setViewMode(next) {
+        viewMode = next === 'grid' ? 'grid' : 'table';
+        try { localStorage.setItem(KEY_VIEW_MODE, viewMode); } catch (_) {}
+        render();
+      }
+
+      function setSelectionMode(next) {
+        selectionMode = Boolean(next);
+        if (!selectionMode) selectedIDs = new Set();
+        updateBulkBar();
+        render();
+      }
+
+      function toggleSelect(id) {
+        const pid = String(id || '').trim();
+        if (!pid) return;
+        if (!selectionMode) return;
+        if (selectedIDs.has(pid)) selectedIDs.delete(pid);
+        else selectedIDs.add(pid);
+        updateBulkBar();
+        render();
+      }
+
+      function updateBulkBar() {
+        if (BTN_MULTI) BTN_MULTI.classList.toggle('is-active', selectionMode);
+        if (BTN_FILTER) BTN_FILTER.classList.toggle('is-active', isFilterActive());
+        if (BTN_VIEW) BTN_VIEW.classList.toggle('is-active', viewMode === 'grid');
+
+        if (!BULK) return;
+        if (!selectionMode) {
+          BULK.style.display = 'none';
+          return;
+        }
+        BULK.style.display = 'flex';
+        const n = selectedIDs.size;
+        if (BULK_SUMMARY) BULK_SUMMARY.textContent = `已选择 ${LB.formatCompactNumber(n)} 个`;
+        const disabled = n === 0;
+        if (BULK_ENABLE) BULK_ENABLE.disabled = disabled;
+        if (BULK_DISABLE) BULK_DISABLE.disabled = disabled;
+        if (BULK_CLEAR) BULK_CLEAR.disabled = disabled;
+      }
+
+      async function bulkSetEnabled(targetEnabled) {
+        if (!selectionMode) return;
+        const ids = Array.from(selectedIDs);
+        if (ids.length === 0) return;
+        const label = targetEnabled ? '启用' : '禁用';
+        if (!confirm(`确定${label}选中的 ${ids.length} 个 Provider？`)) return;
+
+        const disabledBtns = [BULK_ENABLE, BULK_DISABLE, BULK_CLEAR, BULK_EXIT, BTN_MULTI, BTN_VIEW, BTN_FILTER].filter(Boolean);
+        for (const b of disabledBtns) b.disabled = true;
+
+        let ok = 0;
+        let fail = 0;
+        try {
+          for (const id of ids) {
+            const p = lastProviders.find((x) => providerID(x) === id);
+            if (!p) continue;
+            const payload = {
+              id,
+              type: providerType(p) || 'builtin',
+              protocol: providerProtocol(p) || 'forward',
+              endpoint: providerEndpoint(p) || '',
+              configJSON: String(p?.ConfigJSON ?? p?.configJSON ?? '{}'),
+              enabled: Boolean(targetEnabled),
+            };
+            try {
+              payload.configJSON = safeJSON(payload.configJSON);
+            } catch (_) {
+              // keep original
+            }
+            try {
+              await LB.apiJSON('/admin/api/providers', { method: 'POST', body: payload });
+              ok++;
+            } catch (_) {
+              fail++;
+            }
+          }
+          await load();
+          selectedIDs = new Set();
+          setSelectionMode(false);
+          if (fail === 0) LB.toast(`批量${label}成功：${ok}`, 'ok');
+          else LB.toast(`批量${label}完成：成功 ${ok} / 失败 ${fail}`, 'error', 5200);
+        } finally {
+          for (const b of disabledBtns) b.disabled = false;
+          updateBulkBar();
+        }
+      }
+
+      function openFilterDialog() {
+        if (!D_FILTER || !F_FILTER) return;
+        try {
+          F_FILTER.elements.namedItem('q').value = String(filter.q || '');
+          F_FILTER.elements.namedItem('enabled').value = String(filter.enabled || '');
+          F_FILTER.elements.namedItem('type').value = String(filter.type || '');
+          F_FILTER.elements.namedItem('sort').value = String(filter.sort || 'id');
+        } catch (_) {}
+
+        const protoSel = F_FILTER.elements.namedItem('protocol');
+        const currentProto = String(filter.protocol || '');
+        const set = new Set();
+        for (const p of lastProviders) {
+          const proto = providerProtocol(p);
+          if (proto) set.add(proto);
+        }
+        const list = Array.from(set).sort((a, b) => a.localeCompare(b));
+        protoSel.innerHTML = '<option value=\"\">All</option>';
+        for (const v of list) protoSel.appendChild(LB.el('option', { value: v, text: v }));
+        protoSel.value = currentProto;
+        if (protoSel.value !== currentProto) protoSel.value = '';
+
+        if (!D_FILTER.open) D_FILTER.showModal();
+      }
+
+      function closeFilterDialog() {
+        try { D_FILTER.close(); } catch (_) {}
+      }
+
       function render() {
         ROWS.innerHTML = '';
-        COUNT.textContent = `${LB.formatCompactNumber(lastProviders.length)} providers`;
+        updateBulkBar();
+        if (LIST_PANEL) LIST_PANEL.classList.toggle('is-grid', viewMode === 'grid');
+        if (ROWS) ROWS.classList.toggle('provider-grid', viewMode === 'grid');
 
-        if (!lastProviders.length) {
-          ROWS.appendChild(LB.el('div', { className: 'table-row data', role: 'row' }, [
-            LB.el('div', { className: 'cell account', role: 'cell', text: '暂无 Provider' }),
-            LB.el('div', { className: 'cell', role: 'cell' }, [
-              LB.el('div', { className: 'cell-stack' }, [
-                LB.el('div', { className: 'stack-title', text: '请点击右上角「添加」创建' }),
-                LB.el('div', { className: 'stack-subtitle', text: '数据来自 /admin/api/providers' }),
+        const list = applyFilter(lastProviders);
+        COUNT.textContent = isFilterActive()
+          ? `${LB.formatCompactNumber(list.length)} / ${LB.formatCompactNumber(lastProviders.length)} providers`
+          : `${LB.formatCompactNumber(lastProviders.length)} providers`;
+
+        if (!list.length) {
+          if (viewMode === 'grid') {
+            ROWS.appendChild(LB.el('div', { className: 'provider-card', role: 'note' }, [
+              LB.el('div', { className: 'provider-card-id', text: isFilterActive() ? '无匹配 Provider' : '暂无 Provider' }),
+              LB.el('div', { className: 'provider-card-sub', text: isFilterActive() ? '请调整筛选条件' : '请点击右上角「添加」创建' }),
+            ]));
+          } else {
+            ROWS.appendChild(LB.el('div', { className: 'table-row data', role: 'row' }, [
+              LB.el('div', { className: 'cell account', role: 'cell', text: isFilterActive() ? '无匹配 Provider' : '暂无 Provider' }),
+              LB.el('div', { className: 'cell', role: 'cell' }, [
+                LB.el('div', { className: 'cell-stack' }, [
+                  LB.el('div', { className: 'stack-title', text: isFilterActive() ? '请调整筛选条件' : '请点击右上角「添加」创建' }),
+                  LB.el('div', { className: 'stack-subtitle', text: '数据来自 /admin/api/providers' }),
+                ]),
               ]),
-            ]),
-            LB.el('div', { className: 'cell', role: 'cell' }, [
-              LB.el('div', { className: 'status bad' }, [
-                LB.el('span', { className: 'status-dot', 'aria-hidden': 'true' }),
-                LB.el('span', { text: '空' }),
+              LB.el('div', { className: 'cell', role: 'cell' }, [
+                LB.el('div', { className: 'status bad' }, [
+                  LB.el('span', { className: 'status-dot', 'aria-hidden': 'true' }),
+                  LB.el('span', { text: '--' }),
+                ]),
               ]),
-            ]),
-            LB.el('div', { className: 'cell', role: 'cell' }, [
-              LB.el('div', { className: 'usage' }, [
-                LB.el('div', { className: 'usage-pct', text: '0%' }),
-                LB.el('div', { className: 'usage-bar' }, [LB.el('div', { className: 'usage-fill', style: '--w:0px;--c:var(--success)' })]),
+              LB.el('div', { className: 'cell', role: 'cell' }, [
+                LB.el('div', { className: 'usage' }, [
+                  LB.el('div', { className: 'usage-pct', text: '0%' }),
+                  LB.el('div', { className: 'usage-bar' }, [LB.el('div', { className: 'usage-fill', style: '--w:0px;--c:var(--success)' })]),
+                ]),
               ]),
-            ]),
-            LB.el('div', { className: 'cell', role: 'cell' }),
-          ]));
+              LB.el('div', { className: 'cell', role: 'cell' }),
+            ]));
+          }
           return;
         }
 
-        for (const p of lastProviders) {
+        for (const p of list) {
           const id = providerID(p);
-          const protocol = String(p?.Protocol ?? p?.protocol ?? '');
-          const type = String(p?.Type ?? p?.type ?? '');
-          const endpoint = String(p?.Endpoint ?? p?.endpoint ?? '');
+          const protocol = providerProtocol(p);
+          const type = providerType(p);
+          const endpoint = providerEndpoint(p);
           const enabled = Boolean(p?.Enabled ?? p?.enabled ?? false);
 
           const statusClass = enabled ? 'ok' : 'bad';
@@ -866,7 +1254,44 @@
           const pct = maxUsage > 0 ? Math.round((usage.tokens / maxUsage) * 100) : 0;
           const w = Math.round((USAGE_BAR_WIDTH * pct) / 100);
 
-          ROWS.appendChild(LB.el('div', { className: 'table-row data', role: 'row' }, [
+          const isSelected = selectionMode && selectedIDs.has(id);
+          const usageTitle = `最近 200 条请求累计 ${LB.formatTokens(usage.tokens)} tokens / ${LB.formatCompactNumber(usage.requests)} requests`;
+
+          if (viewMode === 'grid') {
+            const card = LB.el('div', { className: `provider-card ${isSelected ? 'is-selected' : ''}`, role: 'button', tabIndex: 0 }, [
+              LB.el('div', { className: 'provider-card-top' }, [
+                LB.el('div', { style: 'min-width:0;display:flex;flex-direction:column;gap:6px;' }, [
+                  LB.el('div', { className: 'provider-card-id', text: id || '-' }),
+                  LB.el('div', { className: 'provider-card-sub', text: `${protocol || 'unknown'} · ${type || 'builtin'}`.trim() }),
+                  LB.el('div', { className: 'provider-card-sub', text: endpoint || '' }),
+                ]),
+                LB.el('div', { className: `status ${statusClass}`, title: enabled ? 'Enabled' : 'Disabled' }, [
+                  LB.el('span', { className: 'status-dot', 'aria-hidden': 'true' }),
+                  LB.el('span', { text: statusText }),
+                ]),
+              ]),
+              LB.el('div', { className: 'usage', title: usageTitle }, [
+                LB.el('div', { className: 'usage-pct', text: `${pct}%` }),
+                LB.el('div', { className: 'usage-bar' }, [
+                  LB.el('div', { className: 'usage-fill', style: `--w:${w}px;--c:var(--success)` }),
+                ]),
+              ]),
+            ]);
+            card.addEventListener('click', () => {
+              if (selectionMode) toggleSelect(id);
+              else openDialog('edit', p);
+            });
+            card.addEventListener('keydown', (e) => {
+              if (e.key !== 'Enter' && e.key !== ' ') return;
+              e.preventDefault();
+              if (selectionMode) toggleSelect(id);
+              else openDialog('edit', p);
+            });
+            ROWS.appendChild(card);
+            continue;
+          }
+
+          const row = LB.el('div', { className: `table-row data ${isSelected ? 'is-selected' : ''}`, role: 'row', tabIndex: 0 }, [
             LB.el('div', { className: 'cell account', role: 'cell', text: id || '-' }),
             LB.el('div', { className: 'cell', role: 'cell' }, [
               LB.el('div', { className: 'cell-stack' }, [
@@ -881,7 +1306,7 @@
               ]),
             ]),
             LB.el('div', { className: 'cell', role: 'cell' }, [
-              LB.el('div', { className: 'usage', title: `最近 200 条请求累计 ${LB.formatTokens(usage.tokens)} tokens / ${LB.formatCompactNumber(usage.requests)} requests` }, [
+              LB.el('div', { className: 'usage', title: usageTitle }, [
                 LB.el('div', { className: 'usage-pct', text: `${pct}%` }),
                 LB.el('div', { className: 'usage-bar' }, [
                   LB.el('div', { className: 'usage-fill', style: `--w:${w}px;--c:var(--success)` }),
@@ -891,7 +1316,24 @@
             LB.el('div', { className: 'cell', role: 'cell' }, [
               LB.el('div', { className: 'more', role: 'button', tabIndex: 0, dataset: { action: 'edit', id } }, ['···']),
             ]),
-          ]));
+          ]);
+          row.addEventListener('click', (e) => {
+            const target = e.target?.closest?.('[data-action=\"edit\"]');
+            if (target) {
+              if (selectionMode) toggleSelect(id);
+              else openDialog('edit', p);
+              return;
+            }
+            if (selectionMode) toggleSelect(id);
+            else openDialog('edit', p);
+          });
+          row.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            e.preventDefault();
+            if (selectionMode) toggleSelect(id);
+            else openDialog('edit', p);
+          });
+          ROWS.appendChild(row);
         }
       }
 
@@ -903,31 +1345,55 @@
           ]);
           lastProviders = Array.isArray(prov?.data) ? prov.data : [];
           computeUsage(logs?.data || []);
+          if (selectionMode && selectedIDs.size > 0) {
+            const avail = new Set(lastProviders.map(providerID));
+            selectedIDs = new Set(Array.from(selectedIDs).filter((id) => avail.has(id)));
+          }
           render();
         } catch (err) {
           LB.toast(err?.message || '加载失败', 'error', 4200);
         }
       }
 
-      ROWS.addEventListener('click', (e) => {
-        const target = e.target?.closest?.('[data-action="edit"]');
-        if (!target) return;
-        const id = String(target.dataset.id || '');
-        const p = lastProviders.find((x) => providerID(x) === id);
-        if (p) openDialog('edit', p);
-      });
-      ROWS.addEventListener('keydown', (e) => {
-        if (e.key !== 'Enter') return;
-        const target = e.target?.closest?.('[data-action="edit"]');
-        if (!target) return;
-        const id = String(target.dataset.id || '');
-        const p = lastProviders.find((x) => providerID(x) === id);
-        if (p) openDialog('edit', p);
-      });
-
       ADD.addEventListener('click', () => openDialog('add', { type: 'builtin', protocol: 'forward', endpoint: '', enabled: true, configJSON: '{}' }));
       REFRESH.addEventListener('click', load);
       CANCEL.addEventListener('click', closeDialog);
+
+      if (BTN_VIEW) BTN_VIEW.addEventListener('click', () => setViewMode(viewMode === 'grid' ? 'table' : 'grid'));
+      if (BTN_MULTI) BTN_MULTI.addEventListener('click', () => setSelectionMode(!selectionMode));
+      if (BTN_FILTER) BTN_FILTER.addEventListener('click', openFilterDialog);
+
+      if (BULK_ENABLE) BULK_ENABLE.addEventListener('click', () => bulkSetEnabled(true));
+      if (BULK_DISABLE) BULK_DISABLE.addEventListener('click', () => bulkSetEnabled(false));
+      if (BULK_CLEAR) BULK_CLEAR.addEventListener('click', () => {
+        selectedIDs = new Set();
+        updateBulkBar();
+        render();
+      });
+      if (BULK_EXIT) BULK_EXIT.addEventListener('click', () => setSelectionMode(false));
+
+      if (B_FILTER_CANCEL) B_FILTER_CANCEL.addEventListener('click', closeFilterDialog);
+      if (B_FILTER_RESET) B_FILTER_RESET.addEventListener('click', () => {
+        filter.q = '';
+        filter.enabled = '';
+        filter.protocol = '';
+        filter.type = '';
+        filter.sort = 'id';
+        closeFilterDialog();
+        render();
+      });
+      if (F_FILTER) F_FILTER.addEventListener('submit', (e) => {
+        e.preventDefault();
+        try {
+          filter.q = String(F_FILTER.elements.namedItem('q').value || '');
+          filter.enabled = String(F_FILTER.elements.namedItem('enabled').value || '');
+          filter.protocol = String(F_FILTER.elements.namedItem('protocol').value || '');
+          filter.type = String(F_FILTER.elements.namedItem('type').value || '');
+          filter.sort = String(F_FILTER.elements.namedItem('sort').value || 'id');
+        } catch (_) {}
+        closeFilterDialog();
+        render();
+      });
 
       FORM.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -955,6 +1421,7 @@
         }
       });
 
+      setViewMode(viewMode);
       load();
     })();
   </script>

@@ -1,0 +1,849 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>路由 Router</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-page: #ffffff;
+      --bg-surface: #fafafa;
+      --border: #e8e8e8;
+      --text-main: #0d0d0d;
+      --text-secondary: #7a7a7a;
+      --text-muted: #b0b0b0;
+      --red-primary: #e42313;
+      --success: #22c55e;
+      --font-display: "Space Grotesk", "Noto Sans SC", sans-serif;
+      --font-body: "Inter", "Noto Sans SC", sans-serif;
+      /* Hero card (slate) */
+      --hero-bg: #1e293b;
+      --hero-divider: #334155;
+      --hero-chip-bg: #283548;
+      --hero-chip-border: #475569;
+      --hero-label: #94a3b8;
+      --hero-btn-text: #cbd5e1;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--bg-page); color: var(--text-main); font-family: var(--font-body); font-size: 16px; line-height: 1.45; }
+    a { color: inherit; text-decoration: none; }
+    button { font-family: inherit; }
+
+    .shell { display: flex; min-height: 100vh; }
+
+    /* ── Sidebar ── */
+    .sidebar { width: 240px; min-width: 240px; display: flex; flex-direction: column; justify-content: space-between; padding: 40px 32px; border-right: 1px solid var(--border); }
+    .brand { display: inline-flex; align-items: center; gap: 12px; font-size: 18px; font-weight: 600; margin-bottom: 48px; font-family: var(--font-display); }
+    .brand-mark { width: 28px; height: 28px; background: var(--red-primary); display: inline-block; }
+    .menu { display: flex; flex-direction: column; gap: 8px; }
+    .menu-item { display: inline-flex; align-items: center; gap: 12px; padding: 12px 0; font-size: 14px; color: var(--text-secondary); font-family: var(--font-display); font-weight: 400; transition: color .2s; }
+    .menu-item:hover { color: var(--text-main); }
+    .menu-item.is-active { color: var(--text-main); font-weight: 500; }
+    .menu-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--bg-page); flex-shrink: 0; }
+    .menu-item.is-active .menu-dot { background: var(--red-primary); }
+    .sidebar-bottom { display: flex; align-items: center; gap: 12px; }
+    .admin-chip { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; background: var(--text-main); color: #fff; font-size: 13px; font-weight: 500; font-family: var(--font-display); border: 0; }
+    .sidebar-user { font-size: 13px; color: var(--text-main); font-weight: 500; font-family: var(--font-display); }
+
+    /* ── Content ── */
+    .content { flex: 1; padding: 40px 48px; display: flex; flex-direction: column; gap: 32px; min-width: 0; }
+
+    /* ── Top Area ── */
+    .top-area { width: 100%; }
+    .top-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
+    .title-col { display: flex; flex-direction: column; gap: 4px; }
+    .page-title { margin: 0; font-family: var(--font-display); font-size: 32px; font-weight: 700; color: var(--text-main); line-height: 1.1; }
+    .page-sub { margin: 0; font-size: 14px; color: var(--text-secondary); }
+    .actions-row { display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
+
+    /* ── Buttons ── */
+    .outline-btn { height: 36px; padding: 0 14px; border: 1px solid var(--border); background: var(--bg-page); font-family: var(--font-display); font-size: 13px; font-weight: 500; cursor: pointer; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 6px; user-select: none; }
+    .outline-btn:hover { color: var(--text-main); }
+    .outline-btn:active { transform: translateY(1px); }
+    .btn-icon { font-size: 16px; }
+    .filled-btn { height: 36px; padding: 0 20px; border: 0; background: var(--text-main); font-family: var(--font-display); font-size: 13px; font-weight: 600; cursor: pointer; color: #fff; display: inline-flex; align-items: center; gap: 6px; user-select: none; }
+    .filled-btn:active { transform: translateY(1px); }
+    .filled-btn--sm { height: 30px; padding: 0 14px; font-size: 12px; }
+
+    /* ── Hero Card ── */
+    .hero-card { background: var(--hero-bg); padding: 28px 32px; display: flex; flex-direction: column; gap: 24px; width: 100%; }
+    .hero-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
+    .hero-left { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    .hero-label { font-size: 11px; font-weight: 600; color: var(--hero-label); letter-spacing: 1px; text-transform: uppercase; }
+    .hero-url { font-family: var(--font-display); font-size: 22px; font-weight: 600; color: #fff; word-break: break-all; }
+    .hero-hint { font-size: 12px; color: var(--hero-label); }
+    .hero-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+    .hero-btn { height: 32px; padding: 0 14px; border: 1px solid var(--hero-chip-border); background: transparent; font-size: 12px; font-weight: 500; color: var(--hero-btn-text); cursor: pointer; user-select: none; }
+    .hero-btn:hover { border-color: #64748b; color: #fff; }
+    .hero-btn:active { transform: translateY(1px); }
+    .hero-btn-primary { height: 32px; padding: 0 14px; border: 0; background: #fff; font-size: 12px; font-weight: 600; color: var(--hero-bg); cursor: pointer; user-select: none; }
+    .hero-btn-primary:active { transform: translateY(1px); }
+    .hero-divider { height: 1px; background: var(--hero-divider); }
+    .hero-bottom { display: flex; gap: 32px; align-items: flex-start; }
+    .hero-kv { display: flex; flex-direction: column; gap: 4px; }
+    .hero-kv-label { font-size: 11px; color: var(--hero-label); }
+    .hero-kv-val { font-family: var(--font-display); font-size: 15px; font-weight: 600; color: #fff; background: transparent; border: 0; outline: none; padding: 0; cursor: pointer; }
+    .hero-kv-val option { background: var(--hero-bg); color: #fff; }
+    .hero-kv-input { font-family: var(--font-display); font-size: 15px; font-weight: 600; color: #fff; background: transparent; border: 0; border-bottom: 1px solid var(--hero-divider); outline: none; padding: 2px 0; width: 200px; }
+    .hero-kv-input::placeholder { color: var(--hero-chip-border); }
+    .hero-kv-input:focus { border-color: #64748b; }
+    .hero-chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .hero-chip { padding: 3px 10px; background: var(--hero-chip-bg); border: 1px solid var(--hero-chip-border); border-radius: 99px; font-family: var(--font-display); font-size: 11px; color: var(--hero-btn-text); cursor: pointer; user-select: none; }
+    .hero-chip:hover { border-color: #64748b; color: #fff; }
+    .hero-chip:active { transform: translateY(1px); }
+
+    /* ── Stat Cards ── */
+    .stats-row { display: flex; gap: 20px; width: 100%; }
+    .stat-card { flex: 1; display: flex; flex-direction: column; gap: 8px; padding: 24px 28px; background: var(--bg-surface); border: 1px solid var(--border); }
+    .stat-label { font-size: 12px; color: var(--text-secondary); }
+    .stat-value { font-family: var(--font-display); font-size: 36px; font-weight: 700; color: var(--text-main); line-height: 1; }
+    .stat-value--sm { font-size: 24px; font-weight: 600; }
+    .stat-hint { font-size: 12px; color: var(--text-muted); }
+
+    /* ── Main Grid ── */
+    .main-grid { display: flex; gap: 24px; width: 100%; align-items: flex-start; }
+
+    /* Key Section */
+    .key-section { flex: 1; border: 1px solid var(--border); min-width: 0; }
+    .key-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid var(--border); }
+    .key-title-area { display: flex; flex-direction: column; gap: 2px; }
+    .key-title { font-family: var(--font-display); font-size: 16px; font-weight: 600; color: var(--text-main); }
+    .key-sub { font-size: 11px; color: var(--text-muted); }
+    .key-count-badge { padding: 4px 12px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 99px; font-size: 11px; font-weight: 500; color: var(--text-secondary); }
+    .key-rows { display: flex; flex-direction: column; }
+    .key-row { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; gap: 12px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .15s; }
+    .key-row:last-child { border-bottom: 0; }
+    .key-row:hover { background: var(--bg-surface); }
+    .key-row.is-active { background: #fef8f7; border-left: 3px solid var(--red-primary); }
+    .key-row-left { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+    .key-row-name { font-size: 14px; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .key-row-val { font-family: var(--font-display); font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .key-row-right { display: flex; gap: 12px; align-items: center; flex-shrink: 0; }
+    .key-row-time { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+    .status-pill { padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 500; }
+    .status-pill--ok { background: #ecfdf5; color: var(--success); }
+    .status-pill--bad { background: #fef2f2; color: var(--red-primary); }
+    .key-row-menu { font-size: 18px; font-weight: bold; color: var(--text-muted); cursor: pointer; user-select: none; letter-spacing: 1px; position: relative; }
+    .key-row-menu:hover { color: var(--text-main); }
+    /* Dropdown menu for key actions */
+    .key-dropdown { display: none; position: absolute; right: 0; top: 100%; background: var(--bg-page); border: 1px solid var(--border); box-shadow: 0 8px 24px rgba(0,0,0,.08); z-index: 10; min-width: 120px; padding: 4px 0; }
+    .key-dropdown.is-open { display: block; }
+    .key-dropdown-item { display: block; width: 100%; padding: 8px 16px; border: 0; background: none; font-size: 13px; color: var(--text-main); cursor: pointer; text-align: left; font-family: var(--font-body); }
+    .key-dropdown-item:hover { background: var(--bg-surface); }
+    .key-dropdown-item--danger { color: var(--red-primary); }
+    .key-empty { padding: 32px 24px; text-align: center; color: var(--text-muted); font-size: 13px; }
+
+    /* ── App Panel ── */
+    .app-panel { width: 420px; min-width: 420px; border: 1px solid var(--border); display: flex; flex-direction: column; }
+    .app-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 12px; }
+    .app-title-row { display: flex; justify-content: space-between; align-items: center; }
+    .app-title { font-family: var(--font-display); font-size: 16px; font-weight: 600; color: var(--text-main); }
+    .app-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+    .app-tab { padding: 6px 14px; border-radius: 99px; border: 1px solid var(--border); background: transparent; font-size: 12px; color: var(--text-secondary); cursor: pointer; user-select: none; font-family: var(--font-body); }
+    .app-tab:hover { color: var(--text-main); }
+    .app-tab.is-active { background: var(--text-main); border-color: var(--text-main); color: #fff; font-weight: 500; }
+    .app-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 20px; }
+    .app-kv { display: flex; flex-direction: column; gap: 6px; }
+    .app-kv-label { font-size: 11px; font-weight: 600; color: var(--text-muted); letter-spacing: .5px; }
+    .app-kv-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--bg-surface); border: 1px solid var(--border); }
+    .app-kv-val { font-family: var(--font-display); font-size: 13px; font-weight: 500; color: var(--text-main); word-break: break-all; min-width: 0; }
+    .app-copy-btn { border: 0; background: none; font-size: 11px; font-weight: 500; color: var(--text-secondary); cursor: pointer; flex-shrink: 0; padding: 0; }
+    .app-copy-btn:hover { color: var(--text-main); }
+    .app-select { flex: 1; min-width: 0; border: 0; background: transparent; font-size: 13px; color: var(--text-main); outline: none; font-family: var(--font-body); cursor: pointer; }
+    .app-divider { height: 1px; background: var(--border); }
+    .map-area { display: flex; flex-direction: column; gap: 12px; }
+    .map-head { display: flex; justify-content: space-between; align-items: center; }
+    .map-title { font-size: 13px; font-weight: 600; color: var(--text-main); }
+    .map-add-btn { border: 0; background: none; font-size: 12px; font-weight: 500; color: var(--text-secondary); cursor: pointer; padding: 0; }
+    .map-add-btn:hover { color: var(--text-main); }
+    .map-rows { display: flex; flex-direction: column; gap: 10px; }
+    .map-row { display: flex; gap: 8px; align-items: center; }
+    .map-input { flex: 1; min-width: 0; height: 34px; padding: 0 12px; border: 1px solid var(--border); background: var(--bg-surface); font-size: 12px; color: var(--text-main); outline: none; font-family: var(--font-body); }
+    .map-input:focus { border-color: #d0d0d0; }
+    .map-arrow { color: var(--text-muted); font-size: 14px; user-select: none; flex-shrink: 0; }
+    .map-del { border: 0; background: none; color: var(--text-muted); font-size: 12px; cursor: pointer; padding: 4px; flex-shrink: 0; }
+    .map-del:hover { color: var(--text-main); }
+    .map-empty { font-size: 12px; color: var(--text-muted); }
+    .app-hint { margin: 0; font-size: 11px; color: var(--text-muted); }
+
+    /* ── Dialog ── */
+    dialog { width: min(480px, calc(100vw - 32px)); border: 1px solid var(--border); padding: 24px; background: var(--bg-page); }
+    dialog::backdrop { background: rgba(0,0,0,.35); }
+    .dialog-title { margin: 0 0 4px; font-family: var(--font-display); font-size: 18px; font-weight: 600; }
+    .dialog-sub { margin: 0 0 16px; font-size: 12px; color: var(--text-secondary); }
+    .dialog-fields { display: flex; flex-direction: column; gap: 16px; }
+    .dialog-field { display: flex; flex-direction: column; gap: 6px; }
+    .dialog-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+    .dialog-input { width: 100%; height: 40px; border: 1px solid var(--border); background: var(--bg-surface); padding: 0 12px; font-size: 13px; color: var(--text-main); outline: none; font-family: var(--font-body); }
+    .dialog-input:focus { border-color: #d0d0d0; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+    .created-key-card { display: flex; align-items: center; gap: 12px; padding: 14px; background: var(--bg-surface); border: 1px solid var(--border); margin-bottom: 8px; }
+    .created-key-label { font-size: 11px; font-weight: 600; color: var(--text-muted); flex-shrink: 0; }
+    .created-key-value { flex: 1; font-size: 13px; color: var(--text-main); word-break: break-all; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+
+    /* ── Responsive ── */
+    @media (max-width: 1120px) {
+      .main-grid { flex-direction: column; }
+      .app-panel { width: 100%; min-width: 0; }
+    }
+    @media (max-width: 860px) {
+      .shell { flex-direction: column; }
+      .sidebar { width: 100%; min-width: 0; border-right: 0; border-bottom: 1px solid var(--border); padding: 20px 18px; }
+      .brand { margin-bottom: 12px; }
+      .menu { flex-direction: row; flex-wrap: wrap; gap: 12px 16px; }
+      .content { padding: 28px 18px 36px; gap: 24px; }
+      .top-row { flex-direction: column; align-items: flex-start; gap: 12px; }
+      .page-title { font-size: 28px; }
+      .hero-top { flex-direction: column; gap: 16px; }
+      .hero-bottom { flex-wrap: wrap; }
+      .stats-row { flex-direction: column; }
+    }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Sidebar">
+      <div>
+        <a class="brand" href="/admin/dashboard"><span class="brand-mark" aria-hidden="true"></span><span>LightBridge</span></a>
+        <nav class="menu" aria-label="主导航">
+          <a class="menu-item" href="/admin/dashboard"><span class="menu-dot" aria-hidden="true"></span>概览 Overview</a>
+          <a class="menu-item" href="/admin/providers"><span class="menu-dot" aria-hidden="true"></span>提供商 Provider</a>
+          <a class="menu-item is-active" href="/admin/router"><span class="menu-dot" aria-hidden="true"></span>路由 Router</a>
+          <a class="menu-item" href="/admin/docs"><span class="menu-dot" aria-hidden="true"></span>配置 Configuration</a>
+          <a class="menu-item" href="/admin/marketplace"><span class="menu-dot" aria-hidden="true"></span>模块 Marketplace</a>
+          <a class="menu-item" href="/admin/logs"><span class="menu-dot" aria-hidden="true"></span>设置 Settings</a>
+        </nav>
+      </div>
+      <div class="sidebar-bottom"><span class="admin-chip">A</span><span class="sidebar-user">{{.Username}}</span></div>
+    </aside>
+
+    <main class="content">
+      <!-- ── Header ── -->
+      <section class="top-area" aria-label="页面标题">
+        <div class="top-row">
+          <div class="title-col">
+            <h1 class="page-title">路由 Router</h1>
+            <p class="page-sub">管理 API 密钥、端口配置与应用模型映射</p>
+          </div>
+          <div class="actions-row">
+            <button class="outline-btn" type="button" id="refresh-keys"><span class="btn-icon">↻</span> 刷新</button>
+            <button class="filled-btn" type="button" id="new-key">+ 新建密钥</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Hero Card (Port URL) ── -->
+      <section class="hero-card" aria-label="端口 URL">
+        <div class="hero-top">
+          <div class="hero-left">
+            <span class="hero-label">端口 URL  PORT URL</span>
+            <div class="hero-url" id="port-url-value">--</div>
+            <span class="hero-hint">OpenAI 兼容接口  /v1/*  ·  Base URL  /openai/v1</span>
+          </div>
+          <div class="hero-actions">
+            <button class="hero-btn" type="button" id="detect-ip">自动检测 IP</button>
+            <button class="hero-btn" type="button" id="copy-port-url">复制 URL</button>
+            <button class="hero-btn-primary" type="button" id="save-port-url">编辑配置</button>
+          </div>
+        </div>
+        <div class="hero-divider"></div>
+        <div class="hero-bottom">
+          <div class="hero-kv">
+            <span class="hero-kv-label">协议</span>
+            <select class="hero-kv-val" id="port-scheme"><option value="https">HTTPS</option><option value="http">HTTP</option></select>
+          </div>
+          <div class="hero-kv">
+            <span class="hero-kv-label">域名</span>
+            <input class="hero-kv-input" id="port-host" placeholder="light-bridge.com" spellcheck="false" />
+          </div>
+          <div class="hero-kv">
+            <span class="hero-kv-label">检测 IP</span>
+            <div class="hero-chips" id="ip-suggestions"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Stat Cards ── -->
+      <section class="stats-row" aria-label="统计">
+        <div class="stat-card">
+          <span class="stat-label">密钥总数</span>
+          <span class="stat-value" id="stat-total">0</span>
+          <span class="stat-hint" id="stat-total-hint">--</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">最近活跃</span>
+          <span class="stat-value stat-value--sm" id="stat-recent">--</span>
+          <span class="stat-hint" id="stat-recent-hint">--</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">应用适配</span>
+          <span class="stat-value" id="stat-apps">5</span>
+          <span class="stat-hint">Codex · Claude Code · +3</span>
+        </div>
+      </section>
+
+      <!-- ── Main Grid: Keys + App Adapter ── -->
+      <section class="main-grid" aria-label="密钥与应用">
+        <!-- Left: Key List -->
+        <div class="key-section">
+          <div class="key-header">
+            <div class="key-title-area">
+              <div class="key-title">API 密钥</div>
+              <div class="key-sub">点击选中 · 支持 sk-... 格式</div>
+            </div>
+            <span class="key-count-badge" id="key-count">0 个密钥</span>
+          </div>
+          <div class="key-rows" id="key-rows"></div>
+        </div>
+
+        <!-- Right: App Adapter -->
+        <div class="app-panel">
+          <div class="app-header">
+            <div class="app-title-row">
+              <span class="app-title">应用适配</span>
+              <button class="filled-btn filled-btn--sm" type="button" id="save-app-config">保存</button>
+            </div>
+            <div class="app-tabs" id="app-tabs"></div>
+          </div>
+          <div class="app-body">
+            <div class="app-kv">
+              <span class="app-kv-label">后端 URL</span>
+              <div class="app-kv-row">
+                <span class="app-kv-val" id="app-url-value">--</span>
+                <button class="app-copy-btn" type="button" id="copy-app-url">复制</button>
+              </div>
+            </div>
+            <div class="app-kv">
+              <span class="app-kv-label">绑定密钥</span>
+              <div class="app-kv-row">
+                <select class="app-select" id="app-key-select"></select>
+                <button class="app-copy-btn" type="button" id="copy-app-key">复制</button>
+              </div>
+            </div>
+            <div class="app-divider"></div>
+            <div class="map-area">
+              <div class="map-head">
+                <span class="map-title">模型映射</span>
+                <button class="map-add-btn" type="button" id="add-map-row">+ 添加</button>
+              </div>
+              <div class="map-rows" id="map-rows"></div>
+              <datalist id="model-suggestions"></datalist>
+            </div>
+            <p class="app-hint">提示：绑定 Key 后仅该 Key 可访问此应用 URL，并使用独立模型映射。</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ── Dialogs ── -->
+  <dialog id="new-key-dialog">
+    <form id="new-key-form" method="dialog">
+      <h3 class="dialog-title">新建 API 密钥</h3>
+      <p class="dialog-sub">新密钥仅在创建后可完整展示一次，请立即复制保存。</p>
+      <div class="dialog-fields">
+        <label class="dialog-field">
+          <span class="dialog-label">名称（可选）</span>
+          <input class="dialog-input" name="name" placeholder="Production / Staging / Cherry Studio" />
+        </label>
+        <label class="dialog-field">
+          <span class="dialog-label">自定义 Key（可选）</span>
+          <input class="dialog-input" name="key" placeholder="sk-..." autocomplete="off" spellcheck="false" />
+          <span class="dialog-sub">留空将自动生成，建议使用 sk- 前缀。</span>
+        </label>
+      </div>
+      <div class="dialog-actions">
+        <button class="outline-btn" type="button" id="new-key-cancel">取消</button>
+        <button class="filled-btn" type="submit" id="new-key-create">创建</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="key-created-dialog">
+    <form id="key-created-form" method="dialog">
+      <h3 class="dialog-title">密钥已创建</h3>
+      <p class="dialog-sub">请复制下方密钥并妥善保存。</p>
+      <div class="created-key-card">
+        <span class="created-key-label">API</span>
+        <code class="created-key-value" id="created-key-value">--</code>
+        <button class="outline-btn" type="button" id="copy-created">复制</button>
+      </div>
+      <div class="dialog-actions">
+        <button class="filled-btn" type="submit">完成</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/admin/static/admin.js"></script>
+  <script>
+    (() => {
+      const LB = window.LightBridgeAdmin;
+      if (!LB) return;
+
+      /* ── DOM refs ── */
+      const ROWS = document.getElementById('key-rows');
+      const KEY_COUNT = document.getElementById('key-count');
+      const STAT_TOTAL = document.getElementById('stat-total');
+      const STAT_TOTAL_HINT = document.getElementById('stat-total-hint');
+      const STAT_RECENT = document.getElementById('stat-recent');
+      const STAT_RECENT_HINT = document.getElementById('stat-recent-hint');
+      const BTN_REFRESH = document.getElementById('refresh-keys');
+      const BTN_NEW = document.getElementById('new-key');
+
+      const PORT_SCHEME = document.getElementById('port-scheme');
+      const PORT_HOST = document.getElementById('port-host');
+      const PORT_URL_VALUE = document.getElementById('port-url-value');
+      const IP_SUGGESTIONS = document.getElementById('ip-suggestions');
+      const BTN_DETECT_IP = document.getElementById('detect-ip');
+      const BTN_COPY_PORT_URL = document.getElementById('copy-port-url');
+      const BTN_SAVE_PORT_URL = document.getElementById('save-port-url');
+
+      const APP_TABS_EL = document.getElementById('app-tabs');
+      const APP_URL_VALUE = document.getElementById('app-url-value');
+      const APP_KEY_SELECT = document.getElementById('app-key-select');
+      const BTN_COPY_APP_URL = document.getElementById('copy-app-url');
+      const BTN_COPY_APP_KEY = document.getElementById('copy-app-key');
+      const MAP_ROWS = document.getElementById('map-rows');
+      const BTN_ADD_MAP_ROW = document.getElementById('add-map-row');
+      const MODEL_SUGGESTIONS = document.getElementById('model-suggestions');
+      const BTN_SAVE_APP = document.getElementById('save-app-config');
+
+      const D_NEW = document.getElementById('new-key-dialog');
+      const F_NEW = document.getElementById('new-key-form');
+      const B_NEW_CANCEL = document.getElementById('new-key-cancel');
+      const B_NEW_CREATE = document.getElementById('new-key-create');
+      const D_CREATED = document.getElementById('key-created-dialog');
+      const CREATED_VALUE = document.getElementById('created-key-value');
+      const BTN_COPY_CREATED = document.getElementById('copy-created');
+
+      /* ── State ── */
+      let keys = [];
+      let activeID = '';
+      const DEFAULT_APPS = ['codex', 'claude-code', 'opencode', 'gemini-cli', 'cherry-studio'];
+      let voucherCfg = { base_url: '', apps: {} };
+      let currentApp = DEFAULT_APPS[0];
+      let models = [];
+
+      /* ── Helpers ── */
+      function keyID(k) { return String(k?.ID ?? k?.id ?? '').trim(); }
+      function keyValue(k) { return String(k?.Key ?? k?.key ?? '').trim(); }
+      function keyName(k) { return String(k?.Name ?? k?.name ?? '').trim(); }
+      function keyEnabled(k) { return Boolean(k?.Enabled ?? k?.enabled ?? false); }
+      function keyLastUsed(k) { return k?.LastUsedAt ?? k?.lastUsedAt ?? null; }
+      function cfgBaseURL(cfg) { return String(cfg?.base_url ?? cfg?.BaseURL ?? '').trim(); }
+      function cfgApps(cfg) { return (cfg?.apps ?? cfg?.Apps) || {}; }
+
+      function ensureVoucherDefaults(cfg) {
+        const out = { base_url: cfgBaseURL(cfg).replace(/\/+$/, ''), apps: { ...(cfgApps(cfg) || {}) } };
+        for (const appID of DEFAULT_APPS) { if (!out.apps[appID]) out.apps[appID] = {}; }
+        for (const [appID, app] of Object.entries(out.apps)) {
+          const kid = String(app?.key_id ?? app?.KeyID ?? '').trim();
+          const mappings = Array.isArray(app?.model_mappings) ? app.model_mappings : (Array.isArray(app?.ModelMappings) ? app.ModelMappings : []);
+          out.apps[appID] = { key_id: kid, model_mappings: mappings.map(m => ({ from: String(m?.from ?? m?.From ?? '').trim(), to: String(m?.to ?? m?.To ?? '').trim() })) };
+        }
+        return out;
+      }
+
+      function mask(v) {
+        const s = String(v || '').trim();
+        if (!s) return '--';
+        if (s.length <= 16) return s;
+        return `${s.slice(0, 12)}••••••••${s.slice(-5)}`;
+      }
+
+      function relTime(iso) {
+        if (!iso) return '从未';
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return String(iso);
+        const sec = Math.floor((Date.now() - d.getTime()) / 1000);
+        if (sec < 60) return '刚刚';
+        const min = Math.floor(sec / 60);
+        if (min < 60) return `${min}分钟前`;
+        const hr = Math.floor(min / 60);
+        if (hr < 48) return `${hr}小时前`;
+        const day = Math.floor(hr / 24);
+        if (day < 30) return `${day}天前`;
+        return d.toLocaleDateString();
+      }
+
+      function sanitizeHostInput(raw) {
+        let v = String(raw || '').trim();
+        if (!v) return '';
+        if (v.includes('://')) {
+          try { const u = new URL(v); const p = String(u.protocol || '').replace(':', ''); if (p === 'http' || p === 'https') PORT_SCHEME.value = p; v = u.host || v; } catch (_) {}
+        }
+        return v.replace(/\/.*/, '').trim();
+      }
+
+      function effectivePortURL() {
+        const host = sanitizeHostInput(PORT_HOST.value);
+        if (host) return `${PORT_SCHEME.value}://${host}/openai`;
+        return `${location.origin}`.replace(/\/$/, '') + '/openai';
+      }
+
+      function effectiveOpenAIBaseV1() { return effectivePortURL().replace(/\/$/, '') + '/v1'; }
+      function effectiveAppBaseV1(appID) {
+        const a = String(appID || '').trim();
+        if (!a) return effectiveOpenAIBaseV1();
+        return effectivePortURL().replace(/\/$/, '') + '/' + encodeURIComponent(a) + '/v1';
+      }
+
+      async function copyText(text) {
+        const t = String(text || '');
+        if (!t) return;
+        try { await navigator.clipboard.writeText(t); LB.toast('已复制', 'ok'); return; } catch (_) {}
+        try { const ta = document.createElement('textarea'); ta.value = t; ta.style.cssText = 'position:fixed;left:-9999px'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); LB.toast('已复制', 'ok'); } catch (_) { LB.toast('复制失败', 'error'); }
+      }
+
+      /* ── Port URL ── */
+      function updatePortPreview() {
+        const hostBefore = PORT_HOST.value;
+        const host = sanitizeHostInput(hostBefore);
+        if (hostBefore !== host) PORT_HOST.value = host;
+        PORT_URL_VALUE.textContent = effectivePortURL();
+        renderAppPanel();
+      }
+
+      function initPortFieldsFromConfig() {
+        const base = cfgBaseURL(voucherCfg);
+        if (!base) {
+          PORT_SCHEME.value = String(location.protocol || 'https:').replace(':', '') || 'https';
+          PORT_HOST.value = String(location.host || '').trim();
+          updatePortPreview();
+          return;
+        }
+        try { const u = new URL(base); const p = String(u.protocol || '').replace(':', ''); if (p === 'http' || p === 'https') PORT_SCHEME.value = p; PORT_HOST.value = String(u.host || '').trim(); } catch (_) {
+          const m = base.match(/^(https?):\/\/([^/]+)/i);
+          if (m) { PORT_SCHEME.value = m[1].toLowerCase(); PORT_HOST.value = m[2]; }
+        }
+        updatePortPreview();
+      }
+
+      /* ── Stats ── */
+      function updateStats() {
+        const total = keys.length;
+        const enabled = keys.filter(k => keyEnabled(k)).length;
+        const disabled = total - enabled;
+        STAT_TOTAL.textContent = String(total);
+        STAT_TOTAL_HINT.textContent = `${enabled} 启用 · ${disabled} 禁用`;
+
+        // Most recent
+        let recentKey = null;
+        let recentTime = 0;
+        for (const k of keys) {
+          const lu = keyLastUsed(k);
+          if (!lu) continue;
+          const t = new Date(lu).getTime();
+          if (t > recentTime) { recentTime = t; recentKey = k; }
+        }
+        if (recentKey) {
+          STAT_RECENT.textContent = relTime(keyLastUsed(recentKey));
+          STAT_RECENT_HINT.textContent = `${keyName(recentKey) || 'Key'} · ${mask(keyValue(recentKey)).slice(0, 20)}`;
+        } else {
+          STAT_RECENT.textContent = '--';
+          STAT_RECENT_HINT.textContent = '暂无使用记录';
+        }
+      }
+
+      /* ── Key List ── */
+      function setActive(id) { activeID = String(id || '').trim(); renderKeys(); renderAppPanel(); }
+
+      function activeKey() { return keys.find(x => keyID(x) === activeID) || (keys.length ? keys[0] : null); }
+
+      function renderKeys() {
+        ROWS.innerHTML = '';
+        KEY_COUNT.textContent = `${keys.length} 个密钥`;
+        updateStats();
+
+        if (!keys.length) {
+          ROWS.innerHTML = '<div class="key-empty">暂无密钥，点击右上角「新建密钥」创建</div>';
+          return;
+        }
+
+        for (const k of keys) {
+          const id = keyID(k);
+          const name = keyName(k) || 'Unnamed';
+          const enabled = keyEnabled(k);
+          const val = keyValue(k);
+          const lastUsed = keyLastUsed(k);
+          const isActive = id && id === activeID;
+
+          const row = document.createElement('div');
+          row.className = `key-row${isActive ? ' is-active' : ''}`;
+          row.dataset.id = id;
+          row.innerHTML = `
+            <div class="key-row-left">
+              <div class="key-row-name">${LB.el('span', { text: name }).textContent}</div>
+              <div class="key-row-val">${mask(val)}</div>
+            </div>
+            <div class="key-row-right">
+              <span class="key-row-time">${relTime(lastUsed)}</span>
+              <span class="status-pill ${enabled ? 'status-pill--ok' : 'status-pill--bad'}">${enabled ? '启用' : '禁用'}</span>
+              <span class="key-row-menu" tabindex="0">···
+                <div class="key-dropdown">
+                  <button class="key-dropdown-item" data-action="copy" type="button">复制密钥</button>
+                  <button class="key-dropdown-item" data-action="toggle" type="button">${enabled ? '禁用' : '启用'}</button>
+                  <button class="key-dropdown-item key-dropdown-item--danger" data-action="delete" type="button">删除</button>
+                </div>
+              </span>
+            </div>`;
+
+          // Row click → select
+          row.addEventListener('click', (e) => {
+            if (e.target.closest('.key-row-menu') || e.target.tagName === 'BUTTON') return;
+            setActive(id);
+          });
+
+          // Menu toggle
+          const menuEl = row.querySelector('.key-row-menu');
+          const dropdown = row.querySelector('.key-dropdown');
+          menuEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Close all other dropdowns
+            document.querySelectorAll('.key-dropdown.is-open').forEach(d => { if (d !== dropdown) d.classList.remove('is-open'); });
+            dropdown.classList.toggle('is-open');
+          });
+
+          // Actions
+          dropdown.querySelector('[data-action="copy"]').addEventListener('click', async (e) => { e.stopPropagation(); dropdown.classList.remove('is-open'); await copyText(val); });
+          dropdown.querySelector('[data-action="toggle"]').addEventListener('click', async (e) => {
+            e.stopPropagation(); dropdown.classList.remove('is-open');
+            try { await LB.apiJSON('/admin/api/client_keys/enable', { method: 'POST', body: { id, enabled: !enabled } }); await loadKeys(); LB.toast(!enabled ? '已启用' : '已禁用', 'ok'); } catch (err) { LB.toast(err?.message || '操作失败', 'error'); }
+          });
+          dropdown.querySelector('[data-action="delete"]').addEventListener('click', async (e) => {
+            e.stopPropagation(); dropdown.classList.remove('is-open');
+            if (!confirm(`确定删除密钥：${name}（${id}）？`)) return;
+            try { await LB.apiJSON('/admin/api/client_keys/delete', { method: 'POST', body: { id } }); LB.toast('已删除', 'ok'); if (activeID === id) activeID = ''; await loadKeys(); } catch (err) { LB.toast(err?.message || '删除失败', 'error'); }
+          });
+
+          ROWS.appendChild(row);
+        }
+      }
+
+      // Close dropdowns on outside click
+      document.addEventListener('click', () => { document.querySelectorAll('.key-dropdown.is-open').forEach(d => d.classList.remove('is-open')); });
+
+      /* ── App Panel ── */
+      function appCfg(appID) {
+        const id = String(appID || '').trim();
+        if (!id) return null;
+        if (!voucherCfg.apps) voucherCfg.apps = {};
+        if (!voucherCfg.apps[id]) voucherCfg.apps[id] = { key_id: '', model_mappings: [] };
+        if (!Array.isArray(voucherCfg.apps[id].model_mappings)) voucherCfg.apps[id].model_mappings = [];
+        return voucherCfg.apps[id];
+      }
+
+      function renderAppTabs() {
+        APP_TABS_EL.innerHTML = '';
+        for (const appID of DEFAULT_APPS) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = `app-tab${appID === currentApp ? ' is-active' : ''}`;
+          btn.textContent = appID.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+          btn.addEventListener('click', () => { currentApp = appID; renderAppTabs(); renderAppPanel(); });
+          APP_TABS_EL.appendChild(btn);
+        }
+      }
+
+      function renderAppPanel() {
+        const cfg = appCfg(currentApp);
+        if (!cfg) return;
+        APP_URL_VALUE.textContent = effectiveAppBaseV1(currentApp);
+
+        // Key select
+        const want = String(cfg.key_id || '').trim();
+        APP_KEY_SELECT.innerHTML = '';
+        const opts = [{ value: '', label: '不绑定（任意 key 可用）' }];
+        const sorted = [...keys].sort((a, b) => (keyEnabled(a) ? 0 : 1) - (keyEnabled(b) ? 0 : 1) || (keyName(a) || '').localeCompare(keyName(b) || ''));
+        if (want && !sorted.some(k => keyID(k) === want)) opts.push({ value: want, label: `已失效 · ${want}` });
+        for (const k of sorted) { const id = keyID(k); if (id) opts.push({ value: id, label: `${keyName(k) || 'Key'} · ${id}${keyEnabled(k) ? '' : '（禁用）'}` }); }
+        for (const o of opts) { const opt = document.createElement('option'); opt.value = o.value; opt.textContent = o.label; APP_KEY_SELECT.appendChild(opt); }
+        APP_KEY_SELECT.value = want;
+        if (APP_KEY_SELECT.value !== want) APP_KEY_SELECT.value = '';
+
+        renderMapRows();
+      }
+
+      function renderMapRows() {
+        const cfg = appCfg(currentApp);
+        if (!cfg) return;
+        MAP_ROWS.innerHTML = '';
+        if (!cfg.model_mappings.length) {
+          MAP_ROWS.innerHTML = '<div class="map-empty">暂无映射。点击「+ 添加」开始配置。</div>';
+          return;
+        }
+        for (let idx = 0; idx < cfg.model_mappings.length; idx++) {
+          const m = cfg.model_mappings[idx];
+          const row = document.createElement('div');
+          row.className = 'map-row';
+          row.innerHTML = `<input class="map-input" value="${(m.from || '').replace(/"/g, '&quot;')}" placeholder="Claude 4.6 Opus" spellcheck="false" /><span class="map-arrow">→</span><input class="map-input" value="${(m.to || '').replace(/"/g, '&quot;')}" placeholder="GPT-5.2" spellcheck="false" list="model-suggestions" /><button class="map-del" type="button">✕</button>`;
+          const inputs = row.querySelectorAll('.map-input');
+          inputs[0].addEventListener('input', () => { m.from = inputs[0].value; });
+          inputs[1].addEventListener('input', () => { m.to = inputs[1].value; });
+          row.querySelector('.map-del').addEventListener('click', () => { cfg.model_mappings.splice(idx, 1); renderMapRows(); });
+          MAP_ROWS.appendChild(row);
+        }
+      }
+
+      /* ── API calls ── */
+      async function loadKeys() {
+        BTN_REFRESH.disabled = true;
+        try {
+          const res = await LB.apiJSON('/admin/api/client_keys');
+          keys = Array.isArray(res?.data) ? res.data : [];
+          if (!activeID && keys.length) activeID = keyID(keys[0]);
+          renderKeys();
+          renderAppPanel();
+        } catch (err) { LB.toast(err?.message || '加载密钥失败', 'error'); }
+        finally { BTN_REFRESH.disabled = false; }
+      }
+
+      async function loadVoucherConfig() {
+        try {
+          const res = await LB.apiJSON('/admin/api/voucher/config');
+          voucherCfg = ensureVoucherDefaults(res?.config || {});
+        } catch (err) { voucherCfg = ensureVoucherDefaults(voucherCfg); LB.toast(err?.message || '加载配置失败', 'error'); }
+        initPortFieldsFromConfig();
+        renderAppPanel();
+      }
+
+      async function loadModelSuggestions() {
+        try {
+          const res = await LB.apiJSON('/admin/api/models');
+          models = Array.isArray(res?.models) ? res.models : [];
+        } catch (_) { models = []; }
+        if (!MODEL_SUGGESTIONS) return;
+        const ids = new Map();
+        for (const m of models) { const id = String(m?.ID ?? m?.id ?? '').trim(); const label = String(m?.DisplayName ?? m?.displayName ?? '').trim(); if (id && !ids.has(id)) ids.set(id, label || id); }
+        MODEL_SUGGESTIONS.innerHTML = '';
+        for (const [id, label] of [...ids.entries()].sort((a, b) => a[0].localeCompare(b[0]))) { const opt = document.createElement('option'); opt.value = id; if (label !== id) opt.label = label; MODEL_SUGGESTIONS.appendChild(opt); }
+      }
+
+      function normalizeMappings(arr) {
+        const out = []; const seen = new Set();
+        for (const m of (Array.isArray(arr) ? arr : [])) {
+          const from = String(m?.from ?? '').trim(); const to = String(m?.to ?? '').trim();
+          if (!from || !to) continue; const k = `${from}->${to}`; if (seen.has(k)) continue; seen.add(k); out.push({ from, to });
+        }
+        return out.slice(0, 200);
+      }
+
+      async function detectIP() {
+        BTN_DETECT_IP.disabled = true;
+        try {
+          const res = await LB.apiJSON('/admin/api/server_addrs');
+          const scheme = String(res?.scheme || '').trim();
+          const host = String(res?.host || '').trim();
+          const port = String(res?.port || '').trim();
+          const hostname = String(res?.hostname || '').trim();
+          const ips = Array.isArray(res?.ips) ? res.ips : [];
+          if (scheme === 'http' || scheme === 'https') PORT_SCHEME.value = scheme;
+          if (host) PORT_HOST.value = host;
+          IP_SUGGESTIONS.innerHTML = '';
+          const suggestions = [];
+          if (host) suggestions.push(host);
+          if (hostname && hostname !== host) suggestions.push(hostname + (port ? `:${port}` : ''));
+          for (const ip of ips) { const s = String(ip || '').trim(); if (s) suggestions.push(s + (port ? `:${port}` : '')); }
+          for (const s of [...new Set(suggestions)].slice(0, 12)) {
+            const chip = document.createElement('button');
+            chip.type = 'button'; chip.className = 'hero-chip'; chip.textContent = s;
+            chip.addEventListener('click', () => { PORT_HOST.value = s; updatePortPreview(); });
+            IP_SUGGESTIONS.appendChild(chip);
+          }
+          updatePortPreview();
+          if (suggestions.length) LB.toast(`已检测到 ${[...new Set(suggestions)].length} 个地址`, 'ok');
+        } catch (err) { LB.toast(err?.message || '检测失败', 'error'); }
+        finally { BTN_DETECT_IP.disabled = false; }
+      }
+
+      async function savePortURL() {
+        const host = sanitizeHostInput(PORT_HOST.value);
+        if (!host) { LB.toast('请输入域名或 IP', 'error'); return; }
+        BTN_SAVE_PORT_URL.disabled = true;
+        try {
+          voucherCfg = ensureVoucherDefaults(voucherCfg);
+          voucherCfg.base_url = effectivePortURL().replace(/\/+$/, '');
+          await LB.apiJSON('/admin/api/voucher/config', { method: 'POST', body: voucherCfg });
+          LB.toast('已保存', 'ok');
+        } catch (err) { LB.toast(err?.message || '保存失败', 'error'); }
+        finally { BTN_SAVE_PORT_URL.disabled = false; }
+      }
+
+      async function saveAppConfig() {
+        BTN_SAVE_APP.disabled = true;
+        try {
+          voucherCfg = ensureVoucherDefaults(voucherCfg);
+          for (const [appID, app] of Object.entries(voucherCfg.apps || {})) {
+            voucherCfg.apps[appID] = { key_id: String(app?.key_id || '').trim(), model_mappings: normalizeMappings(app?.model_mappings) };
+          }
+          await LB.apiJSON('/admin/api/voucher/config', { method: 'POST', body: voucherCfg });
+          LB.toast('已保存', 'ok');
+        } catch (err) { LB.toast(err?.message || '保存失败', 'error'); }
+        finally { BTN_SAVE_APP.disabled = false; }
+      }
+
+      async function createKey(name, key) {
+        B_NEW_CREATE.disabled = true;
+        try {
+          const body = { name: String(name || '').trim() };
+          const raw = String(key || '').trim();
+          if (raw) body.key = raw;
+          const res = await LB.apiJSON('/admin/api/client_keys', { method: 'POST', body });
+          const created = res?.key || null;
+          const v = keyValue(created);
+          if (v) { CREATED_VALUE.textContent = v; if (!D_CREATED.open) D_CREATED.showModal(); await copyText(v); }
+          try { D_NEW.close(); } catch (_) {}
+          await loadKeys();
+          const cid = keyID(created);
+          if (cid) setActive(cid);
+        } catch (err) { LB.toast(err?.message || '创建失败', 'error'); }
+        finally { B_NEW_CREATE.disabled = false; }
+      }
+
+      /* ── Event Listeners ── */
+      BTN_REFRESH.addEventListener('click', loadKeys);
+      BTN_NEW.addEventListener('click', () => { F_NEW.reset(); if (!D_NEW.open) D_NEW.showModal(); });
+      B_NEW_CANCEL.addEventListener('click', () => { try { D_NEW.close(); } catch (_) {} });
+      BTN_COPY_CREATED.addEventListener('click', () => copyText(CREATED_VALUE.textContent));
+      F_NEW.addEventListener('submit', (e) => { e.preventDefault(); createKey(F_NEW.elements.namedItem('name')?.value, F_NEW.elements.namedItem('key')?.value); });
+
+      PORT_SCHEME.addEventListener('change', updatePortPreview);
+      PORT_HOST.addEventListener('input', updatePortPreview);
+      BTN_DETECT_IP.addEventListener('click', detectIP);
+      BTN_COPY_PORT_URL.addEventListener('click', () => copyText(PORT_URL_VALUE.textContent));
+      BTN_SAVE_PORT_URL.addEventListener('click', savePortURL);
+
+      APP_KEY_SELECT.addEventListener('change', () => { const cfg = appCfg(currentApp); if (cfg) cfg.key_id = String(APP_KEY_SELECT.value || '').trim(); });
+      BTN_COPY_APP_URL.addEventListener('click', () => copyText(APP_URL_VALUE.textContent));
+      BTN_COPY_APP_KEY.addEventListener('click', async () => {
+        const id = String(APP_KEY_SELECT.value || '').trim();
+        if (!id) { LB.toast('请先为该应用选择 API Key', 'info'); return; }
+        const k = keys.find(x => keyID(x) === id);
+        const v = keyValue(k);
+        if (!v) { LB.toast('该 Key 不存在或已被删除', 'error'); return; }
+        await copyText(v);
+      });
+      BTN_ADD_MAP_ROW.addEventListener('click', () => {
+        const cfg = appCfg(currentApp);
+        if (!cfg) return;
+        cfg.model_mappings.push({ from: '', to: '' });
+        renderMapRows();
+        const last = MAP_ROWS.querySelector('.map-row:last-child .map-input');
+        if (last) last.focus();
+      });
+      BTN_SAVE_APP.addEventListener('click', saveAppConfig);
+
+      /* ── Init ── */
+      renderAppTabs();
+      Promise.all([loadVoucherConfig(), loadKeys(), loadModelSuggestions()]).then(() => {
+        updatePortPreview();
+        renderAppPanel();
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -103,6 +103,50 @@ func (s *Store) TouchClientKey(ctx context.Context, id string) error {
 	return err
 }
 
+func (s *Store) ListClientKeys(ctx context.Context) ([]types.ClientAPIKey, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, key, name, enabled, created_at, last_used_at
+		FROM client_api_keys
+		ORDER BY datetime(created_at) DESC, id DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]types.ClientAPIKey, 0)
+	for rows.Next() {
+		var item types.ClientAPIKey
+		var enabled int
+		var createdAt string
+		var lastUsed sql.NullString
+		if err := rows.Scan(&item.ID, &item.Key, &item.Name, &enabled, &createdAt, &lastUsed); err != nil {
+			return nil, err
+		}
+		item.Enabled = enabled == 1
+		if ts, err := time.Parse(time.RFC3339, createdAt); err == nil {
+			item.CreatedAt = ts
+		}
+		if lastUsed.Valid {
+			if ts, err := time.Parse(time.RFC3339, lastUsed.String); err == nil {
+				item.LastUsedAt = &ts
+			}
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) SetClientKeyEnabled(ctx context.Context, id string, enabled bool) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE client_api_keys SET enabled = ? WHERE id = ?`, boolInt(enabled), id)
+	return err
+}
+
+func (s *Store) DeleteClientKey(ctx context.Context, id string) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM client_api_keys WHERE id = ?`, id)
+	return err
+}
+
 func (s *Store) UpsertProvider(ctx context.Context, p types.Provider) error {
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO providers(id, type, protocol, endpoint, config_json, enabled, health_status, last_check_at)

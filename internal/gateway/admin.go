@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -337,6 +338,192 @@ func (s *Server) handleLogsAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": logs})
+}
+
+func (s *Server) handleVoucherConfigAPI(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		cfg := s.getVoucherConfig(r.Context())
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "config": cfg})
+	case http.MethodPost:
+		var cfg voucherConfig
+		if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid json"})
+			return
+		}
+		if err := s.setVoucherConfig(r.Context(), cfg); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	default:
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+	}
+}
+
+func (s *Server) handleServerAddrsAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	if xf := strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")); xf != "" {
+		// May contain "https,http" from some proxies.
+		if p := strings.TrimSpace(strings.Split(xf, ",")[0]); p != "" {
+			scheme = p
+		}
+	}
+
+	host := strings.TrimSpace(r.Host)
+	hostname := host
+	port := ""
+	if h, p, err := net.SplitHostPort(host); err == nil {
+		hostname = h
+		port = p
+	}
+
+	ips := make([]string, 0)
+	if addrs, err := net.InterfaceAddrs(); err == nil {
+		seen := map[string]struct{}{}
+		for _, addr := range addrs {
+			ipNet, ok := addr.(*net.IPNet)
+			if !ok || ipNet.IP == nil {
+				continue
+			}
+			ip := ipNet.IP
+			if ip.IsLoopback() {
+				continue
+			}
+			ip4 := ip.To4()
+			if ip4 == nil {
+				continue
+			}
+			s := ip4.String()
+			if s == "" {
+				continue
+			}
+			if _, ok := seen[s]; ok {
+				continue
+			}
+			seen[s] = struct{}{}
+			ips = append(ips, s)
+		}
+		sort.Strings(ips)
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":       true,
+		"scheme":   scheme,
+		"host":     host,
+		"hostname": hostname,
+		"port":     port,
+		"ips":      ips,
+	})
+}
+
+func (s *Server) handleClientKeysAPI(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		keys, err := s.store.ListClientKeys(r.Context())
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"data": keys})
+	case http.MethodPost:
+		var req struct {
+			Name string `json:"name"`
+			Key  string `json:"key"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid json"})
+			return
+		}
+		name := strings.TrimSpace(req.Name)
+		if name == "" {
+			name = "Production"
+		}
+		keyValue := strings.TrimSpace(req.Key)
+		if keyValue == "" {
+			var err error
+			keyValue, err = util.NewClientAPIKey()
+			if err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+				return
+			}
+		}
+		keyID, err := util.RandomToken(8)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+			return
+		}
+		item := types.ClientAPIKey{
+			ID:        "key_" + keyID,
+			Key:       keyValue,
+			Name:      name,
+			Enabled:   true,
+			CreatedAt: time.Now().UTC(),
+		}
+		if err := s.store.CreateClientKey(r.Context(), item); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "key": item})
+	default:
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+	}
+}
+
+func (s *Server) handleClientKeyEnableAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	var req struct {
+		ID      string `json:"id"`
+		Enabled bool   `json:"enabled"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid json"})
+		return
+	}
+	id := strings.TrimSpace(req.ID)
+	if id == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "id is required"})
+		return
+	}
+	if err := s.store.SetClientKeyEnabled(r.Context(), id, req.Enabled); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func (s *Server) handleClientKeyDeleteAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	var req struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid json"})
+		return
+	}
+	id := strings.TrimSpace(req.ID)
+	if id == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "id is required"})
+		return
+	}
+	if err := s.store.DeleteClientKey(r.Context(), id); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (s *Server) handleMarketplaceIndexAPI(w http.ResponseWriter, r *http.Request) {
