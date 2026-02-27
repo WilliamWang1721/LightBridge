@@ -448,6 +448,8 @@ func (s *Server) routeAdminAPI(w http.ResponseWriter, r *http.Request) {
 		s.handleAdminLoginAPI(w, r)
 	case "/providers":
 		s.wrapAdminAPI(s.handleProvidersAPI)(w, r)
+	case "/providers/delete":
+		s.wrapAdminAPI(s.handleProviderDeleteAPI)(w, r)
 	case "/models":
 		s.wrapAdminAPI(s.handleModelsAPI)(w, r)
 	case "/dashboard":

@@ -276,17 +276,15 @@
     }
 
     .market-right {
-      width: 821px;
-      height: 712px;
+      flex: 1;
+      min-width: 0;
       display: flex;
       flex-direction: column;
-      flex-shrink: 0;
-      min-width: 0;
     }
 
     .list-wrap {
-      width: 821px;
-      height: 676px;
+      flex: 1;
+      min-width: 0;
       border: 1px solid var(--border);
       background: var(--bg-page);
       padding: 18px;
@@ -545,19 +543,10 @@
       color: var(--red-primary);
     }
 
-    @media (max-width: 1240px) {
-      .market-right,
-      .list-wrap {
-        width: 100%;
-        max-width: 821px;
-      }
-    }
-
     @media (max-width: 980px) {
       .market-split { flex-direction: column; }
       .market-left { width: 100%; max-width: 420px; }
-      .market-right { width: 100%; height: auto; }
-      .list-wrap { height: auto; min-height: 520px; }
+      .list-wrap { min-height: 520px; }
       .module-list { max-height: 520px; }
     }
 
@@ -595,7 +584,6 @@
           <a class="menu-item" href="/admin/dashboard"><span class="menu-dot" aria-hidden="true"></span>概览 Overview</a>
           <a class="menu-item" href="/admin/providers"><span class="menu-dot" aria-hidden="true"></span>提供商 Provider</a>
           <a class="menu-item" href="/admin/router"><span class="menu-dot" aria-hidden="true"></span>路由 Router</a>
-          <a class="menu-item" href="/admin/docs"><span class="menu-dot" aria-hidden="true"></span>配置 Configuration</a>
           <a class="menu-item is-active" href="/admin/marketplace"><span class="menu-dot" aria-hidden="true"></span>模块 Marketplace</a>
           <a class="menu-item" href="/admin/logs"><span class="menu-dot" aria-hidden="true"></span>设置 Settings</a>
         </nav>
@@ -610,7 +598,7 @@
       <section class="top-area" aria-label="页面标题">
         <header class="page-header">
           <div class="header-left">
-            <h1 class="page-title">Marketplace</h1>
+            <h1 class="page-title">模块 MARKETPLACE</h1>
             <p class="page-subtitle">浏览、安装并管理模块。数据来源于 LightBrigde-Market。</p>
           </div>
           <div class="header-actions" aria-label="操作">

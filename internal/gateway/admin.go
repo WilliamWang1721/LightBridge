@@ -263,6 +263,42 @@ type modelRoutePayload struct {
 	Routes []types.ModelRoute `json:"routes"`
 }
 
+func (s *Server) handleProviderDeleteAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	var req struct {
+		ID  string   `json:"id"`
+		IDs []string `json:"ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid json"})
+		return
+	}
+	ids := req.IDs
+	if len(ids) == 0 && strings.TrimSpace(req.ID) != "" {
+		ids = []string{strings.TrimSpace(req.ID)}
+	}
+	if len(ids) == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "id or ids is required"})
+		return
+	}
+	var deleted, failed int
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		if err := s.store.DeleteProvider(r.Context(), id); err != nil {
+			failed++
+		} else {
+			deleted++
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "deleted": deleted, "failed": failed})
+}
+
 func (s *Server) handleModelsAPI(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:

@@ -423,51 +423,150 @@
 
     .provider-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 12px;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 14px;
     }
 
     .provider-card {
       border: 1px solid var(--border);
       background: var(--bg-page);
-      padding: 14px;
+      padding: 18px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 0;
       cursor: pointer;
       min-width: 0;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
 
-    .provider-card:hover { border-color: #d0d0d0; }
+    .provider-card:hover {
+      border-color: #d0d0d0;
+      box-shadow: 0 2px 12px rgba(0,0,0,.04);
+    }
     .provider-card:active { transform: translateY(1px); }
     .provider-card.is-selected { background: var(--bg-surface); border-color: #cfcfcf; }
 
-    .provider-card-top {
+    .provider-card-header {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       justify-content: space-between;
       gap: 12px;
-      width: 100%;
-      min-width: 0;
+      margin-bottom: 12px;
     }
 
     .provider-card-id {
       font-family: var(--font-display);
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 600;
       color: var(--text-main);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 100%;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .provider-card-status {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-family: var(--font-body);
+      font-size: 11px;
+      font-weight: 500;
+      padding: 3px 8px;
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+    }
+
+    .provider-card-status.ok {
+      color: var(--success);
+      border-color: rgba(34,197,94,.2);
+      background: rgba(34,197,94,.06);
+    }
+
+    .provider-card-status.bad {
+      color: var(--red-primary);
+      border-color: rgba(228,35,19,.15);
+      background: rgba(228,35,19,.04);
+    }
+
+    .provider-card-status .status-dot {
+      width: 6px;
+      height: 6px;
+    }
+
+    .provider-card-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 14px;
     }
 
     .provider-card-sub {
       font-family: var(--font-body);
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 400;
       color: var(--text-secondary);
-      word-break: break-all;
+      line-height: 1.4;
+    }
+
+    .provider-card-sub.mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .provider-card-tags {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .provider-card-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 7px;
+      font-family: var(--font-body);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+    }
+
+    .provider-card-usage {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .provider-card-usage .usage-bar {
+      flex: 1;
+      height: 6px;
+      background: #f2f2f2;
+    }
+
+    .provider-card-usage .usage-fill {
+      height: 100%;
+      background: var(--c, var(--success));
+      transition: width 0.3s ease;
+    }
+
+    .provider-card-usage .usage-pct {
+      flex-shrink: 0;
+      font-family: var(--font-display);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      min-width: 32px;
+      text-align: right;
     }
 
     /* Bulk actions */
@@ -875,7 +974,6 @@
           <a class="menu-item" href="/admin/dashboard"><span class="menu-dot" aria-hidden="true"></span>概览 Overview</a>
           <a class="menu-item is-active" href="/admin/providers"><span class="menu-dot" aria-hidden="true"></span>提供商 Provider</a>
           <a class="menu-item" href="/admin/router"><span class="menu-dot" aria-hidden="true"></span>路由 Router</a>
-          <a class="menu-item" href="/admin/docs"><span class="menu-dot" aria-hidden="true"></span>配置 Configuration</a>
           <a class="menu-item" href="/admin/marketplace"><span class="menu-dot" aria-hidden="true"></span>模块 Marketplace</a>
           <a class="menu-item" href="/admin/logs"><span class="menu-dot" aria-hidden="true"></span>设置 Settings</a>
         </nav>
@@ -943,6 +1041,7 @@
         <div class="bulk-right">
           <button class="bulk-btn primary" type="button" id="bulk-enable">启用</button>
           <button class="bulk-btn" type="button" id="bulk-disable">禁用</button>
+          <button class="bulk-btn" type="button" id="bulk-delete" style="color:var(--red-primary);border-color:var(--red-primary);">删除</button>
           <button class="bulk-btn" type="button" id="bulk-clear">清空</button>
           <button class="bulk-btn" type="button" id="bulk-exit">退出</button>
         </div>
@@ -993,12 +1092,8 @@
         </div>
         <div class="dialog-grid">
           <label class="dialog-field dialog-field--full">
-            <span class="dialog-label">服务商</span>
-            <input class="dialog-input" name="providerName" placeholder="例如：Kiro Claude、Codex OpenAI" autocomplete="off" />
-          </label>
-          <label class="dialog-field dialog-field--full">
-            <span class="dialog-label">账户名称</span>
-            <input class="dialog-input" name="accountName" placeholder="为该账户设置一个易识别的名称" autocomplete="off" />
+            <span class="dialog-label">账户名称 <span style="color:var(--red-primary);">*</span></span>
+            <input class="dialog-input" name="accountName" placeholder="为该账户设置一个易识别的名称" autocomplete="off" required />
           </label>
         </div>
         <div class="dialog-actions">
@@ -1175,6 +1270,7 @@
       </div>
 
       <div class="dialog-actions">
+        <button class="dialog-btn primary" type="button" id="codex-oauth-save" disabled>保存</button>
         <button class="dialog-btn" type="button" id="codex-oauth-close">关闭</button>
       </div>
     </form>
@@ -1200,6 +1296,7 @@
       const BULK_SUMMARY = document.getElementById('bulk-summary');
       const BULK_ENABLE = document.getElementById('bulk-enable');
       const BULK_DISABLE = document.getElementById('bulk-disable');
+      const BULK_DELETE = document.getElementById('bulk-delete');
       const BULK_CLEAR = document.getElementById('bulk-clear');
       const BULK_EXIT = document.getElementById('bulk-exit');
 
@@ -1226,7 +1323,7 @@
       const F_ENDPOINT = FORM.elements.namedItem('endpoint');
       const F_CFG = FORM.elements.namedItem('configJSON');
       const F_ENABLED = FORM.elements.namedItem('enabled');
-      const F_NAME = FORM.elements.namedItem('providerName');
+      const F_NAME = null; // removed: providerName field no longer exists
       const F_ACCOUNT = FORM.elements.namedItem('accountName');
 
       const QUICK_CODEX = document.getElementById('quick-codex-openai');
@@ -1239,6 +1336,7 @@
       const CODEX_ACCESS_TOKEN = document.getElementById('codex-access-token');
       const CODEX_DEVICE_INFO = document.getElementById('codex-device-info');
 
+      const B_CODEX_SAVE = document.getElementById('codex-oauth-save');
       const B_CODEX_CLOSE = document.getElementById('codex-oauth-close');
       const B_CODEX_REFRESH = document.getElementById('codex-oauth-refresh');
       const B_CODEX_START = document.getElementById('codex-oauth-start');
@@ -1259,6 +1357,7 @@
 
       let codexInstalled = false;
       let codexAuthURL = '';
+      let codexHasCredentials = false;
 
       const KEY_VIEW_MODE = 'lightbridge_provider_view_mode';
       let viewMode = 'table';
@@ -1321,7 +1420,6 @@
           showStep(2);
         } else {
           TITLE.textContent = '添加 Provider';
-          F_NAME.value = '';
           F_ACCOUNT.value = '';
           F_ID.value = '';
           F_ID.disabled = false;
@@ -1374,11 +1472,15 @@
 
       async function loadCodexStatus({ toastOnFail = true } = {}) {
         if (!CODEX_SUMMARY) return;
+        CODEX_SUMMARY.textContent = '刷新中...';
         try {
           const res = await LB.apiJSON('/admin/api/codex/oauth/status');
           const creds = res?.credentials;
           const oauth = res?.oauth;
           const flow = res?.flow;
+
+          codexHasCredentials = Boolean(String(creds?.access_token || '').trim() || String(creds?.refresh_token || '').trim());
+          if (B_CODEX_SAVE) B_CODEX_SAVE.disabled = !codexHasCredentials;
 
           const lines = [];
           if (!creds) {
@@ -1426,6 +1528,8 @@
         try { if (DIALOG?.open) DIALOG.close(); } catch (_) {}
         try {
           codexAuthURL = '';
+          codexHasCredentials = false;
+          if (B_CODEX_SAVE) B_CODEX_SAVE.disabled = true;
           if (CODEX_CB_URL) CODEX_CB_URL.value = '';
           if (CODEX_ADVANCED_MODE) CODEX_ADVANCED_MODE.style.display = 'none';
           if (B_CODEX_ADVANCED_TOGGLE) B_CODEX_ADVANCED_TOGGLE.textContent = '▼ 展开高级选项';
@@ -1546,6 +1650,27 @@
           LB.toast(err?.message || '启动 Device Flow 失败', 'error', 4200);
         } finally {
           B_CODEX_DEVICE_START.disabled = false;
+        }
+      }
+
+      async function saveCodexAndClose() {
+        if (!B_CODEX_SAVE) return;
+        B_CODEX_SAVE.disabled = true;
+        try {
+          const res = await loadCodexStatus({ toastOnFail: true });
+          const creds = res?.credentials;
+          const has = Boolean(String(creds?.access_token || '').trim() || String(creds?.refresh_token || '').trim());
+          if (!has) {
+            LB.toast('尚未获取 Token，无法保存', 'error', 4200);
+            return;
+          }
+          closeCodexDialog();
+          await load();
+          LB.toast('已保存', 'ok');
+        } catch (err) {
+          LB.toast(err?.message || '保存失败', 'error', 4200);
+        } finally {
+          if (D_CODEX?.open && B_CODEX_SAVE) B_CODEX_SAVE.disabled = !codexHasCredentials;
         }
       }
 
@@ -1719,6 +1844,7 @@
         const disabled = n === 0;
         if (BULK_ENABLE) BULK_ENABLE.disabled = disabled;
         if (BULK_DISABLE) BULK_DISABLE.disabled = disabled;
+        if (BULK_DELETE) BULK_DELETE.disabled = disabled;
         if (BULK_CLEAR) BULK_CLEAR.disabled = disabled;
       }
 
@@ -1729,7 +1855,7 @@
         const label = targetEnabled ? '启用' : '禁用';
         if (!confirm(`确定${label}选中的 ${ids.length} 个 Provider？`)) return;
 
-        const disabledBtns = [BULK_ENABLE, BULK_DISABLE, BULK_CLEAR, BULK_EXIT, BTN_MULTI, BTN_VIEW, BTN_FILTER].filter(Boolean);
+        const disabledBtns = [BULK_ENABLE, BULK_DISABLE, BULK_DELETE, BULK_CLEAR, BULK_EXIT, BTN_MULTI, BTN_VIEW, BTN_FILTER].filter(Boolean);
         for (const b of disabledBtns) b.disabled = true;
 
         let ok = 0;
@@ -1763,6 +1889,32 @@
           setSelectionMode(false);
           if (fail === 0) LB.toast(`批量${label}成功：${ok}`, 'ok');
           else LB.toast(`批量${label}完成：成功 ${ok} / 失败 ${fail}`, 'error', 5200);
+        } finally {
+          for (const b of disabledBtns) b.disabled = false;
+          updateBulkBar();
+        }
+      }
+
+      async function bulkDelete() {
+        if (!selectionMode) return;
+        const ids = Array.from(selectedIDs);
+        if (ids.length === 0) return;
+        if (!confirm(`确定删除选中的 ${ids.length} 个 Provider？此操作不可撤销。`)) return;
+
+        const disabledBtns = [BULK_ENABLE, BULK_DISABLE, BULK_DELETE, BULK_CLEAR, BULK_EXIT, BTN_MULTI, BTN_VIEW, BTN_FILTER].filter(Boolean);
+        for (const b of disabledBtns) b.disabled = true;
+
+        try {
+          const res = await LB.apiJSON('/admin/api/providers/delete', { method: 'POST', body: { ids } });
+          const deleted = res?.deleted || 0;
+          const failed = res?.failed || 0;
+          await load();
+          selectedIDs = new Set();
+          setSelectionMode(false);
+          if (failed === 0) LB.toast(`已删除 ${deleted} 个 Provider`, 'ok');
+          else LB.toast(`删除完成：成功 ${deleted} / 失败 ${failed}`, 'error', 5200);
+        } catch (err) {
+          LB.toast(err?.message || '删除失败', 'error', 4200);
         } finally {
           for (const b of disabledBtns) b.disabled = false;
           updateBulkBar();
@@ -1818,9 +1970,13 @@
 
         if (!list.length) {
           if (viewMode === 'grid') {
-            ROWS.appendChild(LB.el('div', { className: 'provider-card', role: 'note' }, [
-              LB.el('div', { className: 'provider-card-id', text: isFilterActive() ? '无匹配 Provider' : '暂无 Provider' }),
-              LB.el('div', { className: 'provider-card-sub', text: isFilterActive() ? '请调整筛选条件' : '请点击右上角「添加」创建' }),
+            ROWS.appendChild(LB.el('div', { className: 'provider-card', role: 'note', style: 'cursor:default;' }, [
+              LB.el('div', { className: 'provider-card-header' }, [
+                LB.el('div', { className: 'provider-card-id', text: isFilterActive() ? '无匹配 Provider' : '暂无 Provider' }),
+              ]),
+              LB.el('div', { className: 'provider-card-meta' }, [
+                LB.el('div', { className: 'provider-card-sub', text: isFilterActive() ? '请调整筛选条件' : '请点击右上角「添加」创建' }),
+              ]),
             ]));
           } else {
             ROWS.appendChild(LB.el('div', { className: 'table-row data', role: 'row' }, [
@@ -1869,26 +2025,31 @@
           const usageTitle = `最近 200 条请求累计 ${LB.formatTokens(usage.tokens)} tokens / ${LB.formatCompactNumber(usage.requests)} requests`;
 
           if (viewMode === 'grid') {
+            const tags = [];
+            if (protocol) tags.push(LB.el('span', { className: 'provider-card-tag', text: protocol }));
+            if (type) tags.push(LB.el('span', { className: 'provider-card-tag', text: type }));
+
+            const metaChildren = [];
+            if (showID) metaChildren.push(LB.el('div', { className: 'provider-card-sub mono', text: id }));
+            if (endpoint) metaChildren.push(LB.el('div', { className: 'provider-card-sub mono', text: endpoint, title: endpoint }));
+            if (tags.length) metaChildren.push(LB.el('div', { className: 'provider-card-tags' }, tags));
+
             const card = LB.el('div', { className: `provider-card ${isSelected ? 'is-selected' : ''}`, role: 'button', tabIndex: 0 }, [
-              LB.el('div', { className: 'provider-card-top' }, [
-                LB.el('div', { style: 'min-width:0;display:flex;flex-direction:column;gap:6px;' }, [
-                  LB.el('div', { className: 'provider-card-id', text: display || '-' }),
-                  showID ? LB.el('div', { className: 'provider-card-sub', text: id }) : null,
-                  LB.el('div', { className: 'provider-card-sub', text: `${protocol || 'unknown'} · ${type || 'builtin'}`.trim() }),
-                  LB.el('div', { className: 'provider-card-sub', text: endpoint || '' }),
-                ]),
-                LB.el('div', { className: `status ${statusClass}`, title: enabled ? 'Enabled' : 'Disabled' }, [
+              LB.el('div', { className: 'provider-card-header' }, [
+                LB.el('div', { className: 'provider-card-id', text: display || '-', title: display || id }),
+                LB.el('div', { className: `provider-card-status ${statusClass}`, title: enabled ? 'Enabled' : 'Disabled' }, [
                   LB.el('span', { className: 'status-dot', 'aria-hidden': 'true' }),
                   LB.el('span', { text: statusText }),
                 ]),
               ]),
-              LB.el('div', { className: 'usage', title: usageTitle }, [
-                LB.el('div', { className: 'usage-pct', text: `${pct}%` }),
+              metaChildren.length ? LB.el('div', { className: 'provider-card-meta' }, metaChildren) : null,
+              LB.el('div', { className: 'provider-card-usage', title: usageTitle }, [
                 LB.el('div', { className: 'usage-bar' }, [
-                  LB.el('div', { className: 'usage-fill', style: `--w:${w}px;--c:var(--success)` }),
+                  LB.el('div', { className: 'usage-fill', style: `width:${pct}%;--c:var(--success)` }),
                 ]),
+                LB.el('div', { className: 'usage-pct', text: `${pct}%` }),
               ]),
-            ]);
+            ].filter(Boolean));
             card.addEventListener('click', () => {
               if (selectionMode) toggleSelect(id);
               else openDialog('edit', p);
@@ -1977,6 +2138,7 @@
       if (CANCEL2) CANCEL2.addEventListener('click', closeDialog);
       if (QUICK_CODEX) QUICK_CODEX.addEventListener('click', openCodexDialog);
 
+      if (B_CODEX_SAVE) B_CODEX_SAVE.addEventListener('click', saveCodexAndClose);
       if (B_CODEX_CLOSE) B_CODEX_CLOSE.addEventListener('click', () => {
         closeCodexDialog();
         load();
@@ -2019,11 +2181,9 @@
       });
 
       if (BTN_NEXT) BTN_NEXT.addEventListener('click', () => {
-        const name = String(F_NAME.value || '').trim();
-        if (!name) { F_NAME.focus(); return; }
         const account = String(F_ACCOUNT.value || '').trim();
         if (!account) { F_ACCOUNT.focus(); return; }
-        STEP2_NAME.textContent = `${name} · ${account}`;
+        STEP2_NAME.textContent = account;
         if (!F_ID.value) F_ID.value = account.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
         showStep(2);
       });
@@ -2059,6 +2219,7 @@
 
       if (BULK_ENABLE) BULK_ENABLE.addEventListener('click', () => bulkSetEnabled(true));
       if (BULK_DISABLE) BULK_DISABLE.addEventListener('click', () => bulkSetEnabled(false));
+      if (BULK_DELETE) BULK_DELETE.addEventListener('click', bulkDelete);
       if (BULK_CLEAR) BULK_CLEAR.addEventListener('click', () => {
         selectedIDs = new Set();
         updateBulkBar();
