@@ -678,6 +678,140 @@
       }
     }
 
+    /* View dropdown */
+    .view-btn-wrap {
+      position: relative;
+    }
+
+    .view-dropdown {
+      display: none;
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      min-width: 148px;
+      border: 1px solid var(--border);
+      background: var(--bg-page);
+      box-shadow: 0 8px 24px rgba(0,0,0,.08);
+      z-index: 100;
+      padding: 4px 0;
+    }
+
+    .view-dropdown.is-open {
+      display: block;
+    }
+
+    .view-dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 9px 14px;
+      border: 0;
+      background: none;
+      font-family: var(--font-display);
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .view-dropdown-item:hover {
+      background: var(--bg-surface);
+      color: var(--text-main);
+    }
+
+    .view-dropdown-item.is-active {
+      color: var(--text-main);
+      font-weight: 600;
+    }
+
+    .view-dropdown-item .vdi-dot {
+      width: 6px;
+      height: 6px;
+      background: transparent;
+      flex-shrink: 0;
+    }
+
+    .view-dropdown-item.is-active .vdi-dot {
+      background: var(--red-primary);
+    }
+
+    /* Model view */
+    .model-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .model-card {
+      border: 1px solid var(--border);
+      background: var(--bg-page);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .model-card-name {
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-main);
+      word-break: break-all;
+    }
+
+    .model-card-id {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 11px;
+      color: var(--text-secondary);
+      word-break: break-all;
+    }
+
+    .model-card-providers {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 2px;
+    }
+
+    .model-provider-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      font-family: var(--font-body);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .model-provider-tag .mpt-dot {
+      width: 5px;
+      height: 5px;
+      display: inline-block;
+    }
+
+    .model-provider-tag.enabled .mpt-dot {
+      background: var(--success);
+    }
+
+    .model-provider-tag.disabled .mpt-dot {
+      background: var(--text-muted);
+    }
+
+    .model-section-title {
+      font-family: var(--font-display);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 4px 0;
+    }
+
     @media (max-width: 860px) {
       .shell {
         flex-direction: column;
@@ -760,14 +894,27 @@
             <p class="page-subtitle">管理 OAuth 与凭证文件，并维护 Provider 列表</p>
           </div>
           <div class="header-actions" aria-label="操作">
-            <button class="icon-btn" type="button" id="provider-view-toggle" aria-label="视图" title="切换视图 View">
-              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-                <rect x="3" y="3" width="7" height="7"></rect>
-                <rect x="14" y="3" width="7" height="7"></rect>
-                <rect x="14" y="14" width="7" height="7"></rect>
-                <rect x="3" y="14" width="7" height="7"></rect>
-              </svg>
-            </button>
+            <div class="view-btn-wrap">
+              <button class="icon-btn" type="button" id="provider-view-toggle" aria-label="视图" title="切换视图 View">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="14" width="7" height="7"></rect>
+                  <rect x="3" y="14" width="7" height="7"></rect>
+                </svg>
+              </button>
+              <div class="view-dropdown" id="view-dropdown">
+                <button class="view-dropdown-item" type="button" data-view="grid">
+                  <span class="vdi-dot" aria-hidden="true"></span>卡片显示
+                </button>
+                <button class="view-dropdown-item" type="button" data-view="table">
+                  <span class="vdi-dot" aria-hidden="true"></span>列表显示
+                </button>
+                <button class="view-dropdown-item" type="button" data-view="model">
+                  <span class="vdi-dot" aria-hidden="true"></span>模型显示
+                </button>
+              </div>
+            </div>
             <button class="icon-btn" type="button" id="provider-multi-toggle" aria-label="多选" title="多选 Multi-select">
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
                 <polyline points="7 12 10 15 16 9"></polyline>
@@ -791,6 +938,16 @@
         </header>
       </section>
 
+      <div class="bulk-actions" id="bulk-actions" style="display:none;" aria-label="批量操作">
+        <div class="bulk-left" id="bulk-summary">已选择 0 个</div>
+        <div class="bulk-right">
+          <button class="bulk-btn primary" type="button" id="bulk-enable">启用</button>
+          <button class="bulk-btn" type="button" id="bulk-disable">禁用</button>
+          <button class="bulk-btn" type="button" id="bulk-clear">清空</button>
+          <button class="bulk-btn" type="button" id="bulk-exit">退出</button>
+        </div>
+      </div>
+
       <section class="body" aria-label="提供商列表">
         <div class="list-panel" id="provider-list-panel" aria-label="凭证列表">
           <div class="table-row header" role="row">
@@ -801,16 +958,6 @@
             <div class="cell" role="columnheader"></div>
           </div>
           <div id="provider-rows" role="rowgroup"></div>
-        </div>
-
-        <div class="bulk-actions" id="bulk-actions" style="display:none;" aria-label="批量操作">
-          <div class="bulk-left" id="bulk-summary">已选择 0 个</div>
-          <div class="bulk-right">
-            <button class="bulk-btn primary" type="button" id="bulk-enable">启用</button>
-            <button class="bulk-btn" type="button" id="bulk-disable">禁用</button>
-            <button class="bulk-btn" type="button" id="bulk-clear">清空</button>
-            <button class="bulk-btn" type="button" id="bulk-exit">退出</button>
-          </div>
         </div>
 
         <footer class="bottom-pagination" aria-label="分页">
@@ -972,8 +1119,10 @@
       let viewMode = 'table';
       try {
         const raw = String(localStorage.getItem(KEY_VIEW_MODE) || '').trim();
-        if (raw === 'grid') viewMode = 'grid';
+        if (raw === 'grid' || raw === 'model') viewMode = raw;
       } catch (_) {}
+
+      let modelData = { models: [], routes: [] };
 
       let selectionMode = false;
       let selectedIDs = new Set();
@@ -1078,9 +1227,84 @@
       }
 
       function setViewMode(next) {
-        viewMode = next === 'grid' ? 'grid' : 'table';
+        viewMode = (next === 'grid' || next === 'model') ? next : 'table';
         try { localStorage.setItem(KEY_VIEW_MODE, viewMode); } catch (_) {}
+        updateDropdownState();
         render();
+      }
+
+      function updateDropdownState() {
+        const dd = document.getElementById('view-dropdown');
+        if (dd) {
+          dd.querySelectorAll('.view-dropdown-item').forEach(btn => {
+            btn.classList.toggle('is-active', btn.dataset.view === viewMode);
+          });
+        }
+      }
+
+      async function loadModels() {
+        try {
+          const res = await LB.apiJSON('/admin/api/models');
+          modelData.models = Array.isArray(res?.models) ? res.models : [];
+          modelData.routes = Array.isArray(res?.routes) ? res.routes : [];
+        } catch (_) {
+          modelData.models = [];
+          modelData.routes = [];
+        }
+      }
+
+      function renderModelView() {
+        ROWS.innerHTML = '';
+        ROWS.classList.remove('provider-grid');
+        ROWS.classList.add('model-grid');
+        if (LIST_PANEL) LIST_PANEL.classList.remove('is-grid');
+
+        const models = modelData.models;
+        const routes = modelData.routes;
+
+        if (!models.length) {
+          ROWS.classList.remove('model-grid');
+          const empty = LB.el('div', { className: 'model-card', role: 'note' }, [
+            LB.el('div', { className: 'model-card-name', text: '暂无模型' }),
+            LB.el('div', { className: 'model-card-id', text: '请先添加 Provider 并配置模型路由' }),
+          ]);
+          ROWS.appendChild(empty);
+          COUNT.textContent = '0 models';
+          return;
+        }
+
+        COUNT.textContent = `${LB.formatCompactNumber(models.length)} models`;
+
+        for (const m of models) {
+          const mid = String(m?.ID ?? m?.id ?? '');
+          const name = String(m?.DisplayName ?? m?.displayName ?? mid);
+          const enabled = Boolean(m?.Enabled ?? m?.enabled ?? false);
+
+          const mRoutes = routes.filter(r => String(r?.ModelID ?? r?.modelID ?? '') === mid);
+
+          const providerTags = mRoutes.map(r => {
+            const pid = String(r?.ProviderID ?? r?.providerID ?? '');
+            const upstream = String(r?.UpstreamModel ?? r?.upstreamModel ?? '');
+            const rEnabled = Boolean(r?.Enabled ?? r?.enabled ?? false);
+            const tag = LB.el('span', { className: `model-provider-tag ${rEnabled ? 'enabled' : 'disabled'}`, title: upstream ? `upstream: ${upstream}` : pid }, [
+              LB.el('span', { className: 'mpt-dot', 'aria-hidden': 'true' }),
+              document.createTextNode(pid),
+            ]);
+            return tag;
+          });
+
+          const card = LB.el('div', { className: 'model-card' }, [
+            LB.el('div', { className: 'model-card-name', text: name }),
+            mid !== name ? LB.el('div', { className: 'model-card-id', text: mid }) : null,
+            LB.el('div', { className: 'model-card-providers' }, providerTags.length ? providerTags : [
+              LB.el('span', { className: 'model-provider-tag disabled' }, [
+                LB.el('span', { className: 'mpt-dot', 'aria-hidden': 'true' }),
+                document.createTextNode('无路由'),
+              ]),
+            ]),
+          ].filter(Boolean));
+          ROWS.appendChild(card);
+        }
       }
 
       function setSelectionMode(next) {
@@ -1103,7 +1327,7 @@
       function updateBulkBar() {
         if (BTN_MULTI) BTN_MULTI.classList.toggle('is-active', selectionMode);
         if (BTN_FILTER) BTN_FILTER.classList.toggle('is-active', isFilterActive());
-        if (BTN_VIEW) BTN_VIEW.classList.toggle('is-active', viewMode === 'grid');
+        if (BTN_VIEW) BTN_VIEW.classList.toggle('is-active', viewMode !== 'table');
 
         if (!BULK) return;
         if (!selectionMode) {
@@ -1198,7 +1422,14 @@
       function render() {
         ROWS.innerHTML = '';
         updateBulkBar();
+
+        if (viewMode === 'model') {
+          renderModelView();
+          return;
+        }
+
         if (LIST_PANEL) LIST_PANEL.classList.toggle('is-grid', viewMode === 'grid');
+        ROWS.classList.remove('model-grid');
         if (ROWS) ROWS.classList.toggle('provider-grid', viewMode === 'grid');
 
         const list = applyFilter(lastProviders);
@@ -1348,6 +1579,7 @@
             const avail = new Set(lastProviders.map(providerID));
             selectedIDs = new Set(Array.from(selectedIDs).filter((id) => avail.has(id)));
           }
+          await loadModels();
           render();
         } catch (err) {
           LB.toast(err?.message || '加载失败', 'error', 4200);
@@ -1358,7 +1590,28 @@
       REFRESH.addEventListener('click', load);
       CANCEL.addEventListener('click', closeDialog);
 
-      if (BTN_VIEW) BTN_VIEW.addEventListener('click', () => setViewMode(viewMode === 'grid' ? 'table' : 'grid'));
+      const VIEW_DD = document.getElementById('view-dropdown');
+
+      if (BTN_VIEW) BTN_VIEW.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (VIEW_DD) VIEW_DD.classList.toggle('is-open');
+      });
+
+      if (VIEW_DD) {
+        VIEW_DD.addEventListener('click', (e) => {
+          const item = e.target.closest('.view-dropdown-item');
+          if (!item) return;
+          const mode = item.dataset.view;
+          if (mode) setViewMode(mode);
+          VIEW_DD.classList.remove('is-open');
+        });
+      }
+
+      document.addEventListener('click', (e) => {
+        if (VIEW_DD && !VIEW_DD.contains(e.target) && e.target !== BTN_VIEW && !BTN_VIEW?.contains(e.target)) {
+          VIEW_DD.classList.remove('is-open');
+        }
+      });
       if (BTN_MULTI) BTN_MULTI.addEventListener('click', () => setSelectionMode(!selectionMode));
       if (BTN_FILTER) BTN_FILTER.addEventListener('click', openFilterDialog);
 
@@ -1420,6 +1673,7 @@
         }
       });
 
+      updateDropdownState();
       setViewMode(viewMode);
       load();
     })();

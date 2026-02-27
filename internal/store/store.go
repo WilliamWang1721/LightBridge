@@ -632,35 +632,7 @@ func (s *Store) EnsureDefaultModels(ctx context.Context) error {
 }
 
 func (s *Store) EnsureBuiltinProviders(ctx context.Context) error {
-	defaults := []types.Provider{
-		{
-			ID:       "forward",
-			Type:     types.ProviderTypeBuiltin,
-			Protocol: types.ProtocolForward,
-			Endpoint: "https://api.openai.com/v1",
-			ConfigJSON: mustJSON(map[string]any{
-				"base_url":      "https://api.openai.com/v1",
-				"api_key":       "",
-				"extra_headers": map[string]string{},
-				"model_remap":   map[string]string{},
-			}),
-			Enabled: true,
-			Health:  "unknown",
-		},
-		{
-			ID:       "anthropic",
-			Type:     types.ProviderTypeBuiltin,
-			Protocol: types.ProtocolAnthropic,
-			Endpoint: "https://api.anthropic.com",
-			ConfigJSON: mustJSON(map[string]any{
-				"base_url":       "https://api.anthropic.com",
-				"api_key":        "",
-				"default_models": []string{"claude-3-5-sonnet", "claude-3-5-haiku"},
-			}),
-			Enabled: true,
-			Health:  "unknown",
-		},
-	}
+	defaults := []types.Provider{}
 	for _, p := range defaults {
 		existing, err := s.GetProvider(ctx, p.ID)
 		if err != nil {
