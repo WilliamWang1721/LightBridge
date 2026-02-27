@@ -26,7 +26,7 @@ func DefaultConfig() (Config, error) {
 	if v := os.Getenv("LIGHTBRIDGE_ADDR"); v != "" {
 		addr = v
 	}
-	moduleIndex := "https://example.com/lightbridge-modules/index.json"
+	moduleIndex := "local"
 	if v := os.Getenv("LIGHTBRIDGE_MODULE_INDEX"); v != "" {
 		moduleIndex = v
 	}

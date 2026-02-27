@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -41,6 +42,15 @@ func NewMarketplace(st *store.Store, baseDir string, client *http.Client) *Marke
 }
 
 func (m *Marketplace) FetchIndex(ctx context.Context, indexURL string) (*types.ModuleIndex, error) {
+	indexURL = strings.TrimSpace(indexURL)
+	if isLocalIndexURL(indexURL) {
+		return m.fetchLocalIndex(ctx)
+	}
+
+	if u, err := url.Parse(indexURL); err == nil && u != nil && u.Scheme == "file" {
+		return nil, fmt.Errorf("file:// index is not supported; use %q to scan local MODULES dir", "local")
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, indexURL, nil)
 	if err != nil {
 		return nil, err
@@ -67,18 +77,6 @@ func (m *Marketplace) Install(ctx context.Context, entry types.ModuleEntry) (*ty
 	if strings.TrimSpace(entry.ID) == "" || strings.TrimSpace(entry.DownloadURL) == "" || strings.TrimSpace(entry.SHA256) == "" {
 		return nil, nil, fmt.Errorf("invalid module entry")
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, entry.DownloadURL, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-	resp, err := m.client.Do(req)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 400 {
-		return nil, nil, fmt.Errorf("download failed with %d", resp.StatusCode)
-	}
 
 	tmp, err := os.CreateTemp("", "lightbridge-module-*.zip")
 	if err != nil {
@@ -88,9 +86,42 @@ func (m *Marketplace) Install(ctx context.Context, entry types.ModuleEntry) (*ty
 	defer os.Remove(tmpPath)
 
 	hasher := sha256.New()
-	if _, err := io.Copy(io.MultiWriter(tmp, hasher), resp.Body); err != nil {
-		_ = tmp.Close()
-		return nil, nil, err
+
+	downloadURL := strings.TrimSpace(entry.DownloadURL)
+	if filePath, ok := parseFileDownloadURL(downloadURL); ok {
+		f, err := os.Open(filePath)
+		if err != nil {
+			_ = tmp.Close()
+			return nil, nil, err
+		}
+		_, copyErr := io.Copy(io.MultiWriter(tmp, hasher), f)
+		_ = f.Close()
+		if copyErr != nil {
+			_ = tmp.Close()
+			return nil, nil, copyErr
+		}
+	} else {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
+		if err != nil {
+			_ = tmp.Close()
+			return nil, nil, err
+		}
+		resp, err := m.client.Do(req)
+		if err != nil {
+			_ = tmp.Close()
+			return nil, nil, err
+		}
+		if resp.StatusCode >= 400 {
+			_ = resp.Body.Close()
+			_ = tmp.Close()
+			return nil, nil, fmt.Errorf("download failed with %d", resp.StatusCode)
+		}
+		_, copyErr := io.Copy(io.MultiWriter(tmp, hasher), resp.Body)
+		_ = resp.Body.Close()
+		if copyErr != nil {
+			_ = tmp.Close()
+			return nil, nil, copyErr
+		}
 	}
 	if err := tmp.Close(); err != nil {
 		return nil, nil, err
@@ -241,4 +272,198 @@ func validateManifest(m types.ModuleManifest) error {
 		}
 	}
 	return nil
+}
+
+func isLocalIndexURL(indexURL string) bool {
+	indexURL = strings.ToLower(strings.TrimSpace(indexURL))
+	return indexURL == "" || indexURL == "local"
+}
+
+func (m *Marketplace) localModulesDir() string {
+	if v := strings.TrimSpace(os.Getenv("LIGHTBRIDGE_MODULES_DIR")); v != "" {
+		return v
+	}
+	if st, err := os.Stat("MODULES"); err == nil && st.IsDir() {
+		return "MODULES"
+	}
+	return filepath.Join(m.baseDir, "MODULES")
+}
+
+func (m *Marketplace) fetchLocalIndex(ctx context.Context) (*types.ModuleIndex, error) {
+	_ = ctx
+	dir := m.localModulesDir()
+	st, err := os.Stat(dir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return &types.ModuleIndex{
+				GeneratedAt:    time.Now().UTC().Format(time.RFC3339),
+				MinCoreVersion: "0.1.0",
+				Modules:        []types.ModuleEntry{},
+			}, nil
+		}
+		return nil, err
+	}
+	if !st.IsDir() {
+		return nil, fmt.Errorf("local modules dir is not a directory: %s", dir)
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	mods := make([]types.ModuleEntry, 0)
+	for _, ent := range entries {
+		if ent.IsDir() {
+			continue
+		}
+		name := ent.Name()
+		if !strings.HasSuffix(strings.ToLower(name), ".zip") {
+			continue
+		}
+		zipPath := filepath.Join(dir, name)
+		entry, err := moduleEntryFromZip(zipPath)
+		if err != nil {
+			continue
+		}
+		mods = append(mods, entry)
+	}
+
+	sort.Slice(mods, func(i, j int) bool { return mods[i].ID < mods[j].ID })
+	return &types.ModuleIndex{
+		GeneratedAt:    time.Now().UTC().Format(time.RFC3339),
+		MinCoreVersion: "0.1.0",
+		Modules:        mods,
+	}, nil
+}
+
+func moduleEntryFromZip(zipPath string) (types.ModuleEntry, error) {
+	abs, err := filepath.Abs(zipPath)
+	if err == nil {
+		zipPath = abs
+	}
+
+	sha, err := sha256File(zipPath)
+	if err != nil {
+		return types.ModuleEntry{}, err
+	}
+
+	manifest, err := readManifestFromZip(zipPath)
+	if err != nil {
+		return types.ModuleEntry{}, err
+	}
+	if err := validateManifest(*manifest); err != nil {
+		return types.ModuleEntry{}, err
+	}
+
+	protos := protocolsFromManifest(*manifest)
+	tags := inferLocalTags(manifest.ID)
+
+	downloadURL := (&url.URL{Scheme: "file", Path: zipPath}).String()
+	return types.ModuleEntry{
+		ID:          manifest.ID,
+		Name:        manifest.Name,
+		Version:     manifest.Version,
+		Description: "Local module package",
+		License:     manifest.License,
+		Tags:        tags,
+		Protocols:   protos,
+		DownloadURL: downloadURL,
+		SHA256:      sha,
+		Homepage:    "",
+	}, nil
+}
+
+func sha256File(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+func readManifestFromZip(zipPath string) (*types.ModuleManifest, error) {
+	zr, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return nil, err
+	}
+	defer zr.Close()
+
+	for _, f := range zr.File {
+		if !strings.EqualFold(filepath.Base(f.Name), "manifest.json") {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			return nil, err
+		}
+		b, err := io.ReadAll(io.LimitReader(rc, 2<<20))
+		_ = rc.Close()
+		if err != nil {
+			return nil, err
+		}
+		var manifest types.ModuleManifest
+		if err := json.Unmarshal(b, &manifest); err != nil {
+			return nil, err
+		}
+		return &manifest, nil
+	}
+	return nil, errors.New("manifest.json not found in module zip")
+}
+
+func protocolsFromManifest(m types.ModuleManifest) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0)
+	for _, svc := range m.Services {
+		if svc.Kind != "provider" {
+			continue
+		}
+		p := strings.TrimSpace(svc.Protocol)
+		if p == "" {
+			continue
+		}
+		if _, ok := seen[p]; ok {
+			continue
+		}
+		seen[p] = struct{}{}
+		out = append(out, p)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func inferLocalTags(id string) []string {
+	id = strings.ToLower(strings.TrimSpace(id))
+	tags := []string{"local", "provider"}
+	if strings.Contains(id, "oauth") || strings.Contains(id, "auth") {
+		tags = append(tags, "auth")
+	}
+	if strings.Contains(id, "tool") {
+		tags = append(tags, "tool")
+	}
+	return tags
+}
+
+func parseFileDownloadURL(downloadURL string) (string, bool) {
+	u, err := url.Parse(strings.TrimSpace(downloadURL))
+	if err != nil || u == nil || u.Scheme != "file" {
+		return "", false
+	}
+	p, err := url.PathUnescape(u.Path)
+	if err != nil {
+		p = u.Path
+	}
+	// Windows file URIs can look like file:///C:/path.
+	if strings.HasPrefix(p, "/") && len(p) >= 3 && p[2] == ':' {
+		p = strings.TrimPrefix(p, "/")
+	}
+	if strings.TrimSpace(p) == "" {
+		return "", false
+	}
+	return p, true
 }

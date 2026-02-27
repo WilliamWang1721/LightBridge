@@ -28,16 +28,23 @@ See `manifest.json` for supported fields and defaults.
 bash modules/openai-codex-oauth/package.sh
 ```
 
-2. Host the `dist/` folder:
+2. Copy the generated `.zip` into LightBridge local marketplace folder:
+
+```bash
+mkdir -p MODULES
+cp modules/openai-codex-oauth/dist/*.zip MODULES/
+```
+
+3. In LightBridge Admin Marketplace (default source = `local`):
+
+- Install module `openai-codex-oauth`
+- Start the module
+
+Optional (remote marketplace): host the `dist/` folder and install from the generated `index.json`.
 
 ```bash
 cd modules/openai-codex-oauth/dist && python3 -m http.server 8000
 ```
-
-3. In LightBridge Admin:
-
-- Install module `openai-codex-oauth` from `http://127.0.0.1:8000/index.json`
-- Start the module
 
 ## OAuth (device flow)
 

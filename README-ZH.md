@@ -74,12 +74,17 @@ go run ./cmd/lightbridge
 ```bash
 LIGHTBRIDGE_ADDR=127.0.0.1:3210
 LIGHTBRIDGE_DATA_DIR=/path/to/data
-LIGHTBRIDGE_MODULE_INDEX=https://example.com/index.json
+LIGHTBRIDGE_MODULE_INDEX=local
+LIGHTBRIDGE_MODULES_DIR=/path/to/MODULES # optional
 LIGHTBRIDGE_COOKIE_SECRET=your-secret
 ```
 
 默认数据目录：
 - macOS/Linux: `${XDG_CONFIG_HOME:-$HOME/.config}/LightBridge`
+
+Marketplace 默认源：
+- `local`：扫描 `./MODULES`（优先）或 `${LIGHTBRIDGE_DATA_DIR}/MODULES` 里的 `*.zip` 模块包
+- 也可将 `LIGHTBRIDGE_MODULE_INDEX` 设置为一个远程 `index.json` URL（如 GitHub Pages/Raw/Releases）
 
 ---
 

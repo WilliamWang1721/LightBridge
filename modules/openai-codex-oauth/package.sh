@@ -57,7 +57,10 @@ echo "OK"
 echo "ZIP:    ${ZIP_PATH}"
 echo "SHA256: ${SHA256}"
 echo
-echo "Next:"
+echo "Local marketplace (default):"
+echo "  mkdir -p \"${ROOT}/MODULES\" && cp \"${ZIP_PATH}\" \"${ROOT}/MODULES/\""
+echo "  Open: http://127.0.0.1:3210/admin/marketplace (source = local)"
+echo
+echo "Remote marketplace (optional):"
 echo "  cd \"${DIST}\" && python3 -m http.server 8000"
 echo "  In LightBridge admin, install module_id=openai-codex-oauth from index_url=http://127.0.0.1:8000/index.json"
-

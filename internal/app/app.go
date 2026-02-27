@@ -22,6 +22,9 @@ func Run(ctx context.Context, cfg Config) error {
 	if err := os.MkdirAll(filepath.Join(cfg.DataDir, "modules"), 0o755); err != nil {
 		return fmt.Errorf("create module dir: %w", err)
 	}
+	if err := os.MkdirAll(filepath.Join(cfg.DataDir, "MODULES"), 0o755); err != nil {
+		return fmt.Errorf("create local marketplace dir: %w", err)
+	}
 
 	database, err := db.Open(cfg.DatabasePath)
 	if err != nil {
