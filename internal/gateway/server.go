@@ -342,6 +342,13 @@ func (s *Server) handleV1Proxy(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		route, err = s.resolver.Resolve(r.Context(), modelID)
+		if err != nil && errors.Is(err, routing.ErrNoHealthyProvider) {
+			// Auto-heal: if no healthy provider is available, try starting enabled modules (best-effort)
+			// and resolve once more. This helps when a module-backed provider (e.g. codex) is enabled
+			// but not currently running (or was restarted/crashed).
+			s.startEnabledModulesBestEffort()
+			route, err = s.resolver.Resolve(r.Context(), modelID)
+		}
 		if err != nil {
 			writeOpenAIError(w, http.StatusBadGateway, err.Error(), "routing_error", "routing_failed")
 			_ = s.store.InsertRequestLog(r.Context(), types.RequestLogMeta{

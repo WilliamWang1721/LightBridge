@@ -1,35 +1,548 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>LightBridge Setup</title>
-  <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2/css/pico.min.css" />
+  <title>Admin 初始化</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-surface: #fafafa;
+      --bg-card: #ffffff;
+      --border: #e8e8e8;
+      --text-main: #0d0d0d;
+      --text-secondary: #7a7a7a;
+      --text-muted: #b0b0b0;
+      --red-primary: #e42313;
+      --success: #22c55e;
+      --font-display: "Space Grotesk", "Noto Sans SC", sans-serif;
+      --font-body: "Inter", "Noto Sans SC", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+
+    body {
+      margin: 0;
+      background: var(--bg-surface);
+      color: var(--text-main);
+      font-family: var(--font-body);
+    }
+
+    a { color: inherit; text-decoration: none; }
+    button { font-family: inherit; }
+
+    .page {
+      min-height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+
+    .card {
+      width: 520px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 36px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .brand-header {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-mark {
+      width: 28px;
+      height: 28px;
+      background: var(--red-primary);
+      display: inline-block;
+    }
+
+    .logo-text {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 600;
+      line-height: 26px;
+      margin: 0;
+    }
+
+    .title {
+      width: 100%;
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: 30px;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    .subtitle {
+      width: 100%;
+      margin: 0;
+      font-family: var(--font-body);
+      font-size: 14px;
+      font-weight: 400;
+      line-height: 1.5;
+      color: var(--text-secondary);
+      text-align: center;
+    }
+
+    .form {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .field {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .label-row {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .label {
+      margin: 0;
+      font-family: var(--font-body);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-main);
+    }
+
+    .hint {
+      margin: 0;
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.45;
+      color: var(--text-secondary);
+    }
+
+    .link {
+      font-family: var(--font-body);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--red-primary);
+      text-align: right;
+      white-space: nowrap;
+      cursor: pointer;
+      background: transparent;
+      border: 0;
+      padding: 0;
+    }
+
+    .input {
+      width: 100%;
+      height: 46px;
+      padding: 0 14px;
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      font-family: var(--font-body);
+      font-size: 14px;
+      font-weight: 400;
+      color: var(--text-main);
+      outline: none;
+    }
+
+    .input::placeholder {
+      color: var(--text-secondary);
+      opacity: 1;
+    }
+
+    .input:focus { border-color: #d0d0d0; }
+
+    .row {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .row-left {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .checkbox {
+      width: 18px;
+      height: 18px;
+      border: 1px solid var(--border);
+      background: #ffffff;
+      appearance: none;
+      -webkit-appearance: none;
+      margin: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .checkbox:checked::after {
+      content: "";
+      width: 10px;
+      height: 6px;
+      border-left: 2px solid var(--text-main);
+      border-bottom: 2px solid var(--text-main);
+      transform: rotate(-45deg);
+      margin-top: -1px;
+    }
+
+    .row-text {
+      font-family: var(--font-body);
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      user-select: none;
+    }
+
+    .btn {
+      width: 100%;
+      height: 44px;
+      border: 0;
+      cursor: pointer;
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+    }
+
+    .btn.primary {
+      background: var(--red-primary);
+      color: #ffffff;
+    }
+
+    .btn.secondary {
+      background: #ffffff;
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      font-weight: 500;
+    }
+
+    .btn[disabled] {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .note {
+      width: 100%;
+      margin: 0;
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.5;
+      color: var(--text-secondary);
+      text-align: center;
+    }
+
+    #out {
+      margin: 0;
+      display: none;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #b42318;
+      background: #fff5f5;
+      border: 1px solid #fed7d7;
+      padding: 10px 12px;
+    }
+
+    dialog {
+      width: min(560px, calc(100vw - 32px));
+      border: 1px solid var(--border);
+      padding: 18px 18px 16px;
+      background: var(--bg-card);
+    }
+
+    dialog::backdrop { background: rgba(0, 0, 0, 0.35); }
+
+    .dialog-title {
+      margin: 0 0 6px;
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .dialog-body {
+      margin: 0;
+      font-family: var(--font-body);
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--text-secondary);
+      white-space: pre-wrap;
+    }
+
+    .key-box {
+      margin-top: 12px;
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      padding: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+      line-height: 1.55;
+      color: var(--text-main);
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+
+    .success-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--success);
+      font-weight: 500;
+      font-family: var(--font-display);
+      font-size: 13px;
+      margin-top: 8px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      display: inline-block;
+    }
+
+    .dialog-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    .dialog-btn {
+      height: 36px;
+      padding: 0 14px;
+      border: 1px solid var(--border);
+      background: #ffffff;
+      font-family: var(--font-display);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--text-main);
+      user-select: none;
+    }
+
+    .dialog-btn.primary {
+      background: var(--text-main);
+      border-color: var(--text-main);
+      color: #ffffff;
+    }
+
+    @media (max-width: 560px) {
+      .card {
+        width: 100%;
+        padding: 28px 22px;
+      }
+    }
+  </style>
 </head>
-<body class="container">
-  <main>
-    <h1>Setup Wizard</h1>
-    <p>Create your admin account and first client API key.</p>
-    <form id="setup-form">
-      <label>Username <input type="text" name="username" required value="admin" /></label>
-      <label>Password <input type="password" name="password" required /></label>
-      <button type="submit">Initialize</button>
-    </form>
-    <pre id="out"></pre>
+<body>
+  <main class="page">
+    <section class="card" aria-label="Admin 初始化">
+      <header class="brand-header">
+        <div class="brand-row" aria-label="LightBridge">
+          <span class="logo-mark" aria-hidden="true"></span>
+          <p class="logo-text">LightBridge</p>
+        </div>
+        <h1 class="title">初始化 Admin</h1>
+        <p class="subtitle">首次启动需要创建管理员账号，并生成首个 Client API Key。</p>
+      </header>
+
+      <form id="setup-form" class="form">
+        <div class="field">
+          <p class="label">用户名 Username</p>
+          <input class="input" type="text" name="username" required autocomplete="username" placeholder="admin" value="admin" />
+          <p class="hint">建议：使用独立的管理员用户名；创建后将自动登录。</p>
+        </div>
+
+        <div class="field">
+          <div class="label-row">
+            <p class="label">密码 Password</p>
+            <button type="button" class="link" id="password-tips">密码建议</button>
+          </div>
+          <input class="input" type="password" name="password" required autocomplete="new-password" placeholder="••••••••••••" />
+        </div>
+
+        <div class="field">
+          <p class="label">确认密码 Confirm</p>
+          <input class="input" type="password" name="password_confirm" required autocomplete="new-password" placeholder="••••••••••••" />
+        </div>
+
+        <div class="row">
+          <label class="row-left">
+            <input class="checkbox" id="show-password" type="checkbox" />
+            <span class="row-text">显示密码</span>
+          </label>
+          <span class="row-text" aria-hidden="true">首次配置</span>
+        </div>
+
+        <button class="btn primary" id="submit-btn" type="submit">初始化 Initialize</button>
+      </form>
+
+      <p class="note">初始化完成后将生成默认 Client API Key，请务必保存。</p>
+      <pre id="out"></pre>
+    </section>
   </main>
+
+  <dialog id="success-dialog">
+    <form method="dialog">
+      <h3 class="dialog-title">初始化完成 Setup Complete</h3>
+      <p class="dialog-body">已创建管理员账号，并为你生成了默认 Client API Key。</p>
+      <div class="success-pill"><span class="dot" aria-hidden="true"></span><span>请立即复制并妥善保存（建议写入密码管理器）。</span></div>
+      <div class="key-box" id="client-key" aria-label="Default Client API Key"></div>
+      <div class="dialog-actions">
+        <button class="dialog-btn" type="button" id="copy-key">复制 Key</button>
+        <button class="dialog-btn primary" type="button" id="go-dashboard">进入后台</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="tips-dialog">
+    <form method="dialog">
+      <h3 class="dialog-title">密码建议 Password Tips</h3>
+      <p class="dialog-body">- 建议长度 ≥ 12 位，包含大小写字母 + 数字 + 符号
+- 避免使用公司名/生日/常见弱口令
+- 不要与其它系统复用同一密码</p>
+      <div class="dialog-actions">
+        <button class="dialog-btn primary" type="submit">我知道了</button>
+      </div>
+    </form>
+  </dialog>
+
   <script>
-    document.getElementById('setup-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const data = Object.fromEntries(new FormData(e.target).entries());
-      const res = await fetch('/admin/api/setup', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(data)
+    const form = document.getElementById('setup-form');
+    const out = document.getElementById('out');
+    const submitBtn = document.getElementById('submit-btn');
+    const showPwd = document.getElementById('show-password');
+    const tipsBtn = document.getElementById('password-tips');
+    const tipsDialog = document.getElementById('tips-dialog');
+    const successDialog = document.getElementById('success-dialog');
+    const keyBox = document.getElementById('client-key');
+    const copyBtn = document.getElementById('copy-key');
+    const goBtn = document.getElementById('go-dashboard');
+
+    function setError(messageOrObject) {
+      out.style.display = 'block';
+      out.textContent = typeof messageOrObject === 'string' ? messageOrObject : JSON.stringify(messageOrObject, null, 2);
+    }
+
+    function clearError() {
+      out.style.display = 'none';
+      out.textContent = '';
+    }
+
+    function setSubmitting(isSubmitting) {
+      submitBtn.disabled = isSubmitting;
+      submitBtn.textContent = isSubmitting ? '初始化中…' : '初始化 Initialize';
+    }
+
+    if (showPwd) {
+      showPwd.addEventListener('change', () => {
+        const type = showPwd.checked ? 'text' : 'password';
+        const pwd = form.querySelector('input[name="password"]');
+        const confirm = form.querySelector('input[name="password_confirm"]');
+        if (pwd) pwd.type = type;
+        if (confirm) confirm.type = type;
       });
-      const body = await res.json();
-      document.getElementById('out').textContent = JSON.stringify(body, null, 2);
-      if (res.ok) {
-        location.href = '/admin/dashboard';
+    }
+
+    if (tipsBtn && tipsDialog) {
+      tipsBtn.addEventListener('click', () => {
+        if (!tipsDialog.open) tipsDialog.showModal();
+      });
+    }
+
+    if (goBtn) goBtn.addEventListener('click', () => {
+      location.href = '/admin/dashboard';
+    });
+
+    if (copyBtn) copyBtn.addEventListener('click', async () => {
+      const text = keyBox?.textContent || '';
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+        copyBtn.textContent = '已复制';
+        setTimeout(() => { copyBtn.textContent = '复制 Key'; }, 1200);
+      } catch (_) {
+        copyBtn.textContent = '复制失败';
+        setTimeout(() => { copyBtn.textContent = '复制 Key'; }, 1200);
+      }
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearError();
+
+      const formData = new FormData(form);
+      const username = String(formData.get('username') || '').trim();
+      const password = String(formData.get('password') || '');
+      const confirm = String(formData.get('password_confirm') || '');
+
+      if (!username) {
+        setError('请输入用户名。');
+        return;
+      }
+      if (!password) {
+        setError('请输入密码。');
+        return;
+      }
+      if (password !== confirm) {
+        setError('两次输入的密码不一致，请检查。');
+        return;
+      }
+
+      setSubmitting(true);
+      try {
+        const res = await fetch('/admin/api/setup', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const body = await res.json();
+
+        if (!res.ok) {
+          setError(body);
+          return;
+        }
+
+        const key = String(body?.default_client_key || '');
+        keyBox.textContent = key || '(未返回 key，请前往后台查看)';
+        if (successDialog && !successDialog.open) successDialog.showModal();
+      } catch (err) {
+        setError({ error: String(err || 'unknown error') });
+      } finally {
+        setSubmitting(false);
       }
     });
   </script>

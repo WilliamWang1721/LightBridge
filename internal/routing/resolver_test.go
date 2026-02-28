@@ -59,12 +59,34 @@ func TestResolveVariantAndFallback(t *testing.T) {
 		t.Fatalf("expected anthropic fallback, got %s", route.ProviderID)
 	}
 
+	// gpt-* models should prefer codex provider when available.
+	if err := st.UpsertProvider(ctx, types.Provider{
+		ID:         "codex",
+		Type:       types.ProviderTypeBuiltin,
+		Protocol:   types.ProtocolCodex,
+		Endpoint:   "https://api.openai.com",
+		ConfigJSON: "{}",
+		Enabled:    true,
+		Health:     "healthy",
+	}); err != nil {
+		t.Fatalf("upsert codex provider: %v", err)
+	}
 	route, err = resolver.Resolve(ctx, "gpt-4o-mini")
 	if err != nil {
-		t.Fatalf("resolve fallback forward: %v", err)
+		t.Fatalf("resolve fallback codex: %v", err)
 	}
-	if route.ProviderID != "forward" {
-		t.Fatalf("expected forward fallback, got %s", route.ProviderID)
+	if route.ProviderID != "codex" {
+		t.Fatalf("expected codex fallback for gpt- model, got %s", route.ProviderID)
+	}
+
+	// When the preferred fallback provider doesn't exist, any healthy provider is used.
+	route, err = resolver.Resolve(ctx, "some-unknown-model")
+	if err != nil {
+		t.Fatalf("resolve any-healthy fallback: %v", err)
+	}
+	// "forward" doesn't exist in this test, so it should fall back to any healthy provider.
+	if route.ProviderID == "" {
+		t.Fatalf("expected some provider for unknown model, got empty")
 	}
 }
 

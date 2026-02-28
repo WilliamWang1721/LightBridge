@@ -82,22 +82,31 @@ func (r *Resolver) Resolve(ctx context.Context, model string) (*types.ResolvedRo
 		}, nil
 	}
 
-	fallback := "forward"
-	if strings.HasPrefix(strings.ToLower(model), "claude-") {
-		fallback = "anthropic"
-	} else if strings.HasPrefix(strings.ToLower(model), "gemini-") {
-		fallback = "gemini"
-	}
+	fallback := inferFallbackProvider(model)
 	provider, err := r.store.GetProvider(ctx, fallback)
 	if err != nil {
 		return nil, err
 	}
-	if provider == nil || !provider.Enabled || !isHealthy(provider.Health) {
+	if provider != nil && provider.Enabled && isHealthy(provider.Health) {
+		return &types.ResolvedRoute{
+			RequestedModel: model,
+			ProviderID:     fallback,
+			UpstreamModel:  model,
+			Variant:        false,
+		}, nil
+	}
+
+	// Fallback provider unavailable — try any healthy enabled provider as last resort.
+	anyProvider, err := r.findAnyHealthyProvider(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	if anyProvider == nil {
 		return nil, fmt.Errorf("fallback provider %s unavailable: %w", fallback, ErrNoHealthyProvider)
 	}
 	return &types.ResolvedRoute{
 		RequestedModel: model,
-		ProviderID:     fallback,
+		ProviderID:     anyProvider.ID,
 		UpstreamModel:  model,
 		Variant:        false,
 	}, nil
@@ -304,26 +313,76 @@ func (r *Resolver) ResolveExcluding(ctx context.Context, model string, excludePr
 	}
 
 	// Try fallback providers not in exclusion set
-	fallback := "forward"
-	if strings.HasPrefix(strings.ToLower(model), "claude-") {
-		fallback = "anthropic"
+	fallback := inferFallbackProvider(model)
+	if _, excluded := excludeProviders[fallback]; !excluded {
+		provider, err := r.store.GetProvider(ctx, fallback)
+		if err != nil {
+			return nil, err
+		}
+		if provider != nil && provider.Enabled && isHealthy(provider.Health) {
+			return &types.ResolvedRoute{
+				RequestedModel: model,
+				ProviderID:     fallback,
+				UpstreamModel:  model,
+				Variant:        false,
+			}, nil
+		}
 	}
-	if _, excluded := excludeProviders[fallback]; excluded {
-		return nil, fmt.Errorf("all providers exhausted after failover: %w", ErrNoHealthyProvider)
-	}
-	provider, err := r.store.GetProvider(ctx, fallback)
+
+	// Fallback unavailable or excluded — try any healthy provider not in exclusion set.
+	anyProvider, err := r.findAnyHealthyProvider(ctx, excludeProviders)
 	if err != nil {
 		return nil, err
 	}
-	if provider == nil || !provider.Enabled || !isHealthy(provider.Health) {
-		return nil, fmt.Errorf("fallback provider %s unavailable: %w", fallback, ErrNoHealthyProvider)
+	if anyProvider == nil {
+		return nil, fmt.Errorf("all providers exhausted after failover: %w", ErrNoHealthyProvider)
 	}
 	return &types.ResolvedRoute{
 		RequestedModel: model,
-		ProviderID:     fallback,
+		ProviderID:     anyProvider.ID,
 		UpstreamModel:  model,
 		Variant:        false,
 	}, nil
+}
+
+// inferFallbackProvider returns the best-guess provider ID based on model name prefix.
+func inferFallbackProvider(model string) string {
+	lower := strings.ToLower(model)
+	switch {
+	case strings.HasPrefix(lower, "claude-"):
+		return "anthropic"
+	case strings.HasPrefix(lower, "gemini-"):
+		return "gemini"
+	case strings.HasPrefix(lower, "gpt-"),
+		strings.HasPrefix(lower, "o1-"),
+		strings.HasPrefix(lower, "o3-"),
+		strings.HasPrefix(lower, "o4-"),
+		strings.HasPrefix(lower, "chatgpt-"):
+		return "codex"
+	default:
+		return "forward"
+	}
+}
+
+// findAnyHealthyProvider scans all enabled+healthy providers, skipping those in the exclude set.
+func (r *Resolver) findAnyHealthyProvider(ctx context.Context, exclude map[string]struct{}) (*types.Provider, error) {
+	providers, err := r.store.ListProviders(ctx, false)
+	if err != nil {
+		return nil, err
+	}
+	for i := range providers {
+		p := &providers[i]
+		if !p.Enabled || !isHealthy(p.Health) {
+			continue
+		}
+		if exclude != nil {
+			if _, skip := exclude[p.ID]; skip {
+				continue
+			}
+		}
+		return p, nil
+	}
+	return nil, nil
 }
 
 func splitVariant(model string) (base string, provider string, ok bool) {
