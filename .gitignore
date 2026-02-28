@@ -5,6 +5,10 @@
 coverage.out
 /tmp/
 /bin/
+.playwright-cli/
+output/*.pid
+output/*.log
+output/_*/
 
 # Ignore folders ending with (EXTRA)
 *([Ee][Xx][Tt][Rr][Aa])/

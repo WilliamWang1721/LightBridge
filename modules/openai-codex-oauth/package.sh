@@ -48,7 +48,7 @@ cat > "${DIST}/index.json" <<JSON
       "description": ${DESC_JSON},
       "license": "UNLICENSED",
       "tags": ${TAGS_JSON},
-      "protocols": ["http_openai"],
+      "protocols": ["codex"],
       "download_url": "http://127.0.0.1:8000/${ZIP_NAME}",
       "sha256": "${SHA256}",
       "homepage": ""

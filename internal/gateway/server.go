@@ -458,6 +458,10 @@ func (s *Server) routeAdminAPI(w http.ResponseWriter, r *http.Request) {
 		s.wrapAdminAPI(s.handleDashboardAPI)(w, r)
 	case "/logs":
 		s.wrapAdminAPI(s.handleLogsAPI)(w, r)
+	case "/logs/prune":
+		s.wrapAdminAPI(s.handleLogsPruneAPI)(w, r)
+	case "/change_password":
+		s.wrapAdminAPI(s.handleChangePasswordAPI)(w, r)
 	case "/voucher/config":
 		s.wrapAdminAPI(s.handleVoucherConfigAPI)(w, r)
 	case "/server_addrs":

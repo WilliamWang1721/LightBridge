@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -61,6 +60,18 @@ func (s *Store) GetAdminPasswordHash(ctx context.Context, username string) (stri
 		return "", err
 	}
 	return hash, nil
+}
+
+func (s *Store) UpdateAdminPassword(ctx context.Context, username, passwordHash string) error {
+	res, err := s.db.ExecContext(ctx, `UPDATE admin_users SET password_hash = ? WHERE username = ?`, passwordHash, username)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err == nil && affected == 0 {
+		return fmt.Errorf("admin user not found")
+	}
+	return err
 }
 
 func (s *Store) CreateClientKey(ctx context.Context, key types.ClientAPIKey) error {
@@ -152,11 +163,13 @@ func (s *Store) UpsertProvider(ctx context.Context, p types.Provider) error {
 	if displayName == "" {
 		displayName = strings.TrimSpace(p.ID)
 	}
+	groupName := strings.TrimSpace(p.GroupName)
 	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO providers(id, display_name, type, protocol, endpoint, config_json, enabled, health_status, last_check_at)
-		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO providers(id, display_name, group_name, type, protocol, endpoint, config_json, enabled, health_status, last_check_at)
+		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			display_name = excluded.display_name,
+			group_name = excluded.group_name,
 			type = excluded.type,
 			protocol = excluded.protocol,
 			endpoint = excluded.endpoint,
@@ -164,13 +177,13 @@ func (s *Store) UpsertProvider(ctx context.Context, p types.Provider) error {
 			enabled = excluded.enabled,
 			health_status = excluded.health_status,
 			last_check_at = excluded.last_check_at
-	`, p.ID, displayName, p.Type, p.Protocol, p.Endpoint, emptyJSON(p.ConfigJSON), boolInt(p.Enabled), defaultStatus(p.Health), formatNullTime(p.LastCheckAt))
+	`, p.ID, displayName, groupName, p.Type, p.Protocol, p.Endpoint, emptyJSON(p.ConfigJSON), boolInt(p.Enabled), defaultStatus(p.Health), formatNullTime(p.LastCheckAt))
 	return err
 }
 
 func (s *Store) ListProviders(ctx context.Context, includeDisabled bool) ([]types.Provider, error) {
 	query := `
-		SELECT id, display_name, type, protocol, endpoint, config_json, enabled, health_status, last_check_at
+		SELECT id, display_name, group_name, type, protocol, endpoint, config_json, enabled, health_status, last_check_at
 		FROM providers
 	`
 	args := []any{}
@@ -190,7 +203,7 @@ func (s *Store) ListProviders(ctx context.Context, includeDisabled bool) ([]type
 		var p types.Provider
 		var enabled int
 		var lastCheck sql.NullString
-		if err := rows.Scan(&p.ID, &p.DisplayName, &p.Type, &p.Protocol, &p.Endpoint, &p.ConfigJSON, &enabled, &p.Health, &lastCheck); err != nil {
+		if err := rows.Scan(&p.ID, &p.DisplayName, &p.GroupName, &p.Type, &p.Protocol, &p.Endpoint, &p.ConfigJSON, &enabled, &p.Health, &lastCheck); err != nil {
 			return nil, err
 		}
 		p.Enabled = enabled == 1
@@ -209,13 +222,13 @@ func (s *Store) ListProviders(ctx context.Context, includeDisabled bool) ([]type
 
 func (s *Store) GetProvider(ctx context.Context, id string) (*types.Provider, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, display_name, type, protocol, endpoint, config_json, enabled, health_status, last_check_at
+		SELECT id, display_name, group_name, type, protocol, endpoint, config_json, enabled, health_status, last_check_at
 		FROM providers WHERE id = ?
 	`, id)
 	var p types.Provider
 	var enabled int
 	var lastCheck sql.NullString
-	if err := row.Scan(&p.ID, &p.DisplayName, &p.Type, &p.Protocol, &p.Endpoint, &p.ConfigJSON, &enabled, &p.Health, &lastCheck); err != nil {
+	if err := row.Scan(&p.ID, &p.DisplayName, &p.GroupName, &p.Type, &p.Protocol, &p.Endpoint, &p.ConfigJSON, &enabled, &p.Health, &lastCheck); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
@@ -356,9 +369,9 @@ func (s *Store) ListAllModelRoutes(ctx context.Context, includeDisabled bool) ([
 		FROM model_routes
 	`
 	if !includeDisabled {
-		query += "WHERE enabled = 1 "
+		query += " WHERE enabled = 1 "
 	}
-	query += "ORDER BY model_id ASC, priority ASC, provider_id ASC"
+	query += " ORDER BY model_id ASC, priority ASC, provider_id ASC"
 
 	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
@@ -565,6 +578,50 @@ func (s *Store) ListRequestLogs(ctx context.Context, limit int) ([]types.Request
 	return out, nil
 }
 
+func (s *Store) PruneRequestLogs(ctx context.Context, olderThan time.Duration, keepMax int) (int, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	var deleted int64
+
+	if olderThan > 0 {
+		threshold := time.Now().UTC().Add(-olderThan).Format(time.RFC3339)
+		res, err := tx.ExecContext(ctx, `DELETE FROM request_logs_meta WHERE datetime(ts) < datetime(?)`, threshold)
+		if err != nil {
+			_ = tx.Rollback()
+			return 0, err
+		}
+		if n, err := res.RowsAffected(); err == nil {
+			deleted += n
+		}
+	}
+
+	if keepMax > 0 {
+		res, err := tx.ExecContext(ctx, `
+			DELETE FROM request_logs_meta
+			WHERE id IN (
+				SELECT id
+				FROM request_logs_meta
+				ORDER BY id DESC
+				LIMIT -1 OFFSET ?
+			)
+		`, keepMax)
+		if err != nil {
+			_ = tx.Rollback()
+			return 0, err
+		}
+		if n, err := res.RowsAffected(); err == nil {
+			deleted += n
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return int(deleted), nil
+}
+
 type RequestStats struct {
 	Requests     int
 	InputTokens  int
@@ -744,9 +801,4 @@ func formatNullTime(ts *time.Time) any {
 		return nil
 	}
 	return ts.UTC().Format(time.RFC3339)
-}
-
-func mustJSON(v any) string {
-	encoded, _ := json.Marshal(v)
-	return string(encoded)
 }

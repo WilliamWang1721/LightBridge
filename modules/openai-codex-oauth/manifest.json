@@ -18,7 +18,7 @@
   "services": [
     {
       "kind": "provider",
-      "protocol": "http_openai",
+      "protocol": "codex",
       "health": {
         "type": "http",
         "path": "/health"

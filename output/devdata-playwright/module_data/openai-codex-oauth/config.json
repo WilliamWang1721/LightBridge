@@ -1,0 +1,15 @@
+{
+  "base_url": "https://chatgpt.com/backend-api/codex",
+  "beta_features": "powershell_utf8",
+  "client_version": "0.101.0",
+  "models": [
+    "gpt-5-codex",
+    "gpt-5-codex-mini",
+    "gpt-5.1-codex",
+    "gpt-5.1-codex-mini",
+    "gpt-5.2-codex"
+  ],
+  "near_expiry_minutes": 20,
+  "user_agent": "codex_cli_rs/0.101.0 (Windows 10.0.26100; x86_64) WindowsTerminal",
+  "web_search_eligible": true
+}

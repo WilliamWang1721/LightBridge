@@ -45,6 +45,7 @@ func Run(ctx context.Context, cfg Config) error {
 		providers.NewHTTPForwardAdapter("forward", nil),
 		providers.NewHTTPForwardAdapter("http_openai", nil),
 		providers.NewHTTPForwardAdapter("http_rpc", nil),
+		providers.NewCodexAdapter(nil),
 		providers.NewAnthropicAdapter(nil),
 		providers.NewGRPCChatAdapter(),
 	)

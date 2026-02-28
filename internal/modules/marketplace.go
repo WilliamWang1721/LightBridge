@@ -236,7 +236,7 @@ func unzip(srcZip, dstDir string) error {
 }
 
 func findManifest(installDir string) (string, error) {
-	var found string
+	candidates := make([]string, 0, 4)
 	err := filepath.WalkDir(installDir, func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -244,22 +244,66 @@ func findManifest(installDir string) (string, error) {
 		if d.IsDir() {
 			return nil
 		}
-		if strings.EqualFold(filepath.Base(path), "manifest.json") {
-			found = path
-			return errManifestFound
+		if !strings.EqualFold(filepath.Base(path), "manifest.json") {
+			return nil
 		}
+		// Ignore macOS zip metadata.
+		if strings.Contains(filepath.ToSlash(path), "/__MACOSX/") {
+			return nil
+		}
+		candidates = append(candidates, path)
 		return nil
 	})
 	if err != nil {
-		if errors.Is(err, errManifestFound) {
-			return found, nil
-		}
 		return "", err
 	}
-	if found == "" {
+	if len(candidates) == 0 {
 		return "", errors.New("manifest.json not found in module archive")
 	}
-	return found, nil
+
+	// Prefer dist/manifest.json when present (most packaged modules put runtime
+	// artifacts under dist/).
+	for _, p := range candidates {
+		if strings.HasSuffix(filepath.ToSlash(p), "/dist/manifest.json") {
+			return p, nil
+		}
+	}
+
+	// Otherwise, pick the first manifest whose entrypoint commands exist
+	// relative to the manifest directory.
+	for _, p := range candidates {
+		b, readErr := os.ReadFile(p)
+		if readErr != nil {
+			continue
+		}
+		var m types.ModuleManifest
+		if jsonErr := json.Unmarshal(b, &m); jsonErr != nil {
+			continue
+		}
+		if vErr := validateManifest(m); vErr != nil {
+			continue
+		}
+		ok := true
+		base := filepath.Dir(p)
+		for _, ep := range m.Entrypoints {
+			cmd := strings.TrimSpace(ep.Command)
+			if cmd == "" {
+				continue
+			}
+			cmdPath := filepath.Join(base, filepath.FromSlash(cmd))
+			st, statErr := os.Stat(cmdPath)
+			if statErr != nil || st.IsDir() {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			return p, nil
+		}
+	}
+
+	// Fallback: return the first one to keep backward compatibility.
+	return candidates[0], nil
 }
 
 func validateManifest(m types.ModuleManifest) error {
@@ -280,7 +324,7 @@ func validateManifest(m types.ModuleManifest) error {
 			return fmt.Errorf("unsupported service kind %s", svc.Kind)
 		}
 		switch svc.Protocol {
-		case types.ProtocolHTTPOpenAI, types.ProtocolHTTPRPC, types.ProtocolGRPCChat:
+		case types.ProtocolHTTPOpenAI, types.ProtocolHTTPRPC, types.ProtocolGRPCChat, types.ProtocolCodex:
 		default:
 			return fmt.Errorf("unsupported service protocol %s", svc.Protocol)
 		}

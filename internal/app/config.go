@@ -22,6 +22,9 @@ func DefaultConfig() (Config, error) {
 	if v := os.Getenv("LIGHTBRIDGE_DATA_DIR"); v != "" {
 		dataDir = v
 	}
+	if abs, err := filepath.Abs(dataDir); err == nil && abs != "" {
+		dataDir = abs
+	}
 	addr := "127.0.0.1:3210"
 	if v := os.Getenv("LIGHTBRIDGE_ADDR"); v != "" {
 		addr = v

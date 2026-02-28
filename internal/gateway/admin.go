@@ -28,6 +28,19 @@ type adminPayload struct {
 	Device   map[string]any `json:"device"`
 }
 
+type providerUpdatePayload struct {
+	ID          string     `json:"id"`
+	DisplayName *string    `json:"displayName"`
+	GroupName   *string    `json:"groupName"`
+	Type        string     `json:"type"`
+	Protocol    string     `json:"protocol"`
+	Endpoint    string     `json:"endpoint"`
+	ConfigJSON  string     `json:"configJSON"`
+	Enabled     *bool      `json:"enabled"`
+	Health      *string    `json:"health"`
+	LastCheckAt *time.Time `json:"lastCheckAt"`
+}
+
 func (s *Server) wrapAdminPage(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		hasAdmin, err := s.store.HasAdmin(r.Context())
@@ -214,45 +227,73 @@ func (s *Server) handleProvidersAPI(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"data": providers})
 	case http.MethodPost:
-		var payload types.Provider
-		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		var req providerUpdatePayload
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid json"})
 			return
 		}
-		if strings.TrimSpace(payload.ID) == "" {
+		if strings.TrimSpace(req.ID) == "" {
 			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "provider id is required"})
 			return
 		}
+		existing, err := s.store.GetProvider(r.Context(), req.ID)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+			return
+		}
+
+		payload := types.Provider{
+			ID:       strings.TrimSpace(req.ID),
+			Type:     strings.TrimSpace(req.Type),
+			Protocol: strings.TrimSpace(req.Protocol),
+			Endpoint: strings.TrimSpace(req.Endpoint),
+		}
+		if strings.TrimSpace(req.ConfigJSON) == "" {
+			payload.ConfigJSON = "{}"
+		} else {
+			payload.ConfigJSON = req.ConfigJSON
+		}
+		if req.Enabled != nil {
+			payload.Enabled = *req.Enabled
+		} else if existing != nil {
+			payload.Enabled = existing.Enabled
+		} else {
+			payload.Enabled = true
+		}
+
 		if payload.Type == "" {
 			payload.Type = types.ProviderTypeBuiltin
 		}
 		if payload.Protocol == "" {
 			payload.Protocol = types.ProtocolForward
 		}
-		if payload.ConfigJSON == "" {
-			payload.ConfigJSON = "{}"
+
+		if req.DisplayName != nil {
+			payload.DisplayName = strings.TrimSpace(*req.DisplayName)
+		} else if existing != nil {
+			payload.DisplayName = existing.DisplayName
+		} else {
+			payload.DisplayName = payload.ID
 		}
-		// Preserve server-side metadata unless explicitly provided.
-		if strings.TrimSpace(payload.DisplayName) == "" || strings.TrimSpace(payload.Health) == "" || payload.LastCheckAt == nil {
-			existing, err := s.store.GetProvider(r.Context(), payload.ID)
-			if err != nil {
-				writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
-				return
-			}
-			if existing != nil {
-				if strings.TrimSpace(payload.DisplayName) == "" {
-					payload.DisplayName = existing.DisplayName
-				}
-				if strings.TrimSpace(payload.Health) == "" {
-					payload.Health = existing.Health
-				}
-				if payload.LastCheckAt == nil {
-					payload.LastCheckAt = existing.LastCheckAt
-				}
-			} else if strings.TrimSpace(payload.DisplayName) == "" {
-				payload.DisplayName = payload.ID
-			}
+
+		if req.GroupName != nil {
+			payload.GroupName = strings.TrimSpace(*req.GroupName)
+		} else if existing != nil {
+			payload.GroupName = existing.GroupName
 		}
+
+		if req.Health != nil {
+			payload.Health = strings.TrimSpace(*req.Health)
+		} else if existing != nil {
+			payload.Health = existing.Health
+		}
+
+		if req.LastCheckAt != nil {
+			payload.LastCheckAt = req.LastCheckAt
+		} else if existing != nil {
+			payload.LastCheckAt = existing.LastCheckAt
+		}
+
 		if err := s.store.UpsertProvider(r.Context(), payload); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 			return
@@ -1277,4 +1318,93 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("content-type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(payload)
+}
+
+func (s *Server) handleModelDeleteAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	var req struct {
+		ID  string   `json:"id"`
+		IDs []string `json:"ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid json"})
+		return
+	}
+	ids := req.IDs
+	if len(ids) == 0 && strings.TrimSpace(req.ID) != "" {
+		ids = []string{strings.TrimSpace(req.ID)}
+	}
+	if len(ids) == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "id or ids is required"})
+		return
+	}
+	var deleted, failed int
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		if err := s.store.DeleteModel(r.Context(), id); err != nil {
+			failed++
+		} else {
+			deleted++
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "deleted": deleted, "failed": failed})
+}
+
+func (s *Server) handleChangePasswordAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	var req struct {
+		OldPassword string `json:"old_password"`
+		NewPassword string `json:"new_password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid json"})
+		return
+	}
+	username, ok := s.sessions.username(r)
+	if !ok || strings.TrimSpace(username) == "" {
+		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "not authenticated"})
+		return
+	}
+	if strings.TrimSpace(req.NewPassword) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "new_password is required"})
+		return
+	}
+	hash, err := s.store.GetAdminPasswordHash(r.Context(), username)
+	if err != nil || !util.CheckPassword(hash, req.OldPassword) {
+		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "old password is incorrect"})
+		return
+	}
+	newHash, err := util.HashPassword(req.NewPassword)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	if err := s.store.UpdateAdminPassword(r.Context(), username, newHash); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func (s *Server) handleLogsPruneAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	// Default: delete logs older than 30 days, keep at most 50000 rows.
+	deleted, err := s.store.PruneRequestLogs(r.Context(), 30*24*time.Hour, 50000)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "deleted": deleted})
 }

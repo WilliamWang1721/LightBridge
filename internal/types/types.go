@@ -8,6 +8,7 @@ const (
 	ProtocolHTTPOpenAI = "http_openai"
 	ProtocolHTTPRPC    = "http_rpc"
 	ProtocolGRPCChat   = "grpc_chat"
+	ProtocolCodex      = "codex"
 
 	ProviderTypeBuiltin = "builtin"
 	ProviderTypeModule  = "module"
@@ -16,6 +17,7 @@ const (
 type Provider struct {
 	ID          string
 	DisplayName string
+	GroupName   string
 	Type        string
 	Protocol    string
 	Endpoint    string

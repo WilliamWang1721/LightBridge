@@ -1079,33 +1079,44 @@
     <form id="provider-form" method="dialog">
       <h3 id="provider-dialog-title" style="margin:0 0 12px;font-family:var(--font-display);">Provider</h3>
 
-      <!-- Step 1: 服务商 -->
-      <div id="dialog-step1">
-        <div class="dialog-grid" style="margin-bottom:12px;">
-          <div class="dialog-field dialog-field--full">
-            <span class="dialog-label">快速添加</span>
-            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-              <button class="dialog-btn" type="button" id="quick-codex-openai" disabled>Codex（OpenAI）</button>
-              <span id="quick-codex-openai-hint" style="font-family:var(--font-body);font-size:12px;color:var(--text-secondary);">请先在 Marketplace 安装 <span style="font-family:ui-monospace,monospace;">openai-codex-oauth</span></span>
-            </div>
+      <div class="dialog-grid" style="margin-bottom:12px;">
+        <label class="dialog-field dialog-field--full">
+          <span class="dialog-label">账户名称 <span style="color:var(--red-primary);">*</span></span>
+          <input class="dialog-input" name="accountName" placeholder="为该账户设置一个易识别的名称" autocomplete="off" required />
+        </label>
+        <label class="dialog-field dialog-field--full">
+          <span class="dialog-label">分组</span>
+          <input class="dialog-input" name="groupName" placeholder="例如：个人 / 团队A / 测试" autocomplete="off" />
+        </label>
+      </div>
+
+      <div class="dialog-grid" style="margin-bottom:12px;">
+        <div class="dialog-field dialog-field--full">
+          <span class="dialog-label">添加方式</span>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <button class="dialog-btn primary" type="button" id="provider-mode-auto">自动读取（推荐）</button>
+            <button class="dialog-btn" type="button" id="provider-mode-advanced">高级添加</button>
+            <span style="font-family:var(--font-body);font-size:12px;color:var(--text-secondary);">自动读取会从 Marketplace 已安装模块中识别可用 Provider</span>
           </div>
-        </div>
-        <div class="dialog-grid">
-          <label class="dialog-field dialog-field--full">
-            <span class="dialog-label">账户名称 <span style="color:var(--red-primary);">*</span></span>
-            <input class="dialog-input" name="accountName" placeholder="为该账户设置一个易识别的名称" autocomplete="off" required />
-          </label>
-        </div>
-        <div class="dialog-actions">
-          <button class="dialog-btn" type="button" id="provider-cancel">取消</button>
-          <button class="dialog-btn primary" type="button" id="provider-next">下一步</button>
         </div>
       </div>
 
-      <!-- Step 2: 详细配置 -->
-      <div id="dialog-step2" style="display:none;">
-        <div style="margin-bottom:12px;font-family:var(--font-body);font-size:13px;color:var(--text-secondary);">
-          服务商：<span id="dialog-step2-name" style="color:var(--text-main);font-weight:500;"></span>
+      <div id="provider-auto-area">
+        <div class="dialog-grid" style="margin-bottom:8px;">
+          <div class="dialog-field dialog-field--full">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+              <span class="dialog-label" style="margin:0;">自动读取结果</span>
+              <button class="dialog-btn" type="button" id="auto-refresh">刷新</button>
+            </div>
+            <div id="auto-provider-list" style="margin-top:10px;display:flex;flex-direction:column;gap:8px;"></div>
+            <div id="auto-provider-hint" style="margin-top:8px;font-family:var(--font-body);font-size:12px;color:var(--text-secondary);"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="provider-advanced-area" style="display:none;">
+        <div id="provider-selected-hint" style="margin-bottom:12px;font-family:var(--font-body);font-size:13px;color:var(--text-secondary);">
+          当前配置：<span id="provider-selected-name" style="color:var(--text-main);font-weight:500;">-</span>
         </div>
         <div class="dialog-grid">
           <label class="dialog-field">
@@ -1127,6 +1138,7 @@
               <option value="http_openai">http_openai</option>
               <option value="http_rpc">http_rpc</option>
               <option value="grpc_chat">grpc_chat</option>
+              <option value="codex">codex</option>
             </select>
           </label>
           <label class="dialog-field">
@@ -1142,11 +1154,11 @@
             <span>Enabled</span>
           </label>
         </div>
-        <div class="dialog-actions">
-          <button class="dialog-btn" type="button" id="provider-back">上一步</button>
-          <button class="dialog-btn" type="button" id="provider-cancel2">取消</button>
-          <button class="dialog-btn primary" type="submit" id="provider-save">保存</button>
-        </div>
+      </div>
+
+      <div class="dialog-actions">
+        <button class="dialog-btn" type="button" id="provider-cancel">取消</button>
+        <button class="dialog-btn primary" type="submit" id="provider-save" disabled>保存</button>
       </div>
     </form>
   </dialog>
@@ -1157,7 +1169,7 @@
       <div class="dialog-grid">
         <label class="dialog-field dialog-field--full">
           <span class="dialog-label">Search</span>
-          <input class="dialog-input" name="q" placeholder="provider id / protocol / endpoint" />
+          <input class="dialog-input" name="q" placeholder="provider id / 账户名称 / 分组 / protocol / endpoint" />
         </label>
         <label class="dialog-field">
           <span class="dialog-label">Enabled</span>
@@ -1165,6 +1177,12 @@
             <option value="">All</option>
             <option value="enabled">Enabled</option>
             <option value="disabled">Disabled</option>
+          </select>
+        </label>
+        <label class="dialog-field">
+          <span class="dialog-label">Group</span>
+          <select class="dialog-input" name="group">
+            <option value="">All</option>
           </select>
         </label>
         <label class="dialog-field">
@@ -1207,6 +1225,20 @@
         <div class="dialog-field dialog-field--full">
           <span class="dialog-label">当前状态</span>
           <div class="dialog-input" id="codex-oauth-summary" style="background:var(--bg-page);white-space:pre-wrap;"></div>
+        </div>
+
+        <label class="dialog-field dialog-field--full">
+          <span class="dialog-label">账户名称（可选）</span>
+          <input class="dialog-input" id="codex-provider-display-name" placeholder="留空表示使用当前名称（或默认 codex）" autocomplete="off" />
+          <span style="margin-top:6px;font-family:var(--font-body);font-size:11px;color:var(--text-secondary);line-height:1.55;">此处仅用于 Provider 列表展示与分组管理，不影响 Token 本身。</span>
+        </label>
+        <div class="dialog-field dialog-field--full">
+          <span class="dialog-label">分组（可选）</span>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <input class="dialog-input" id="codex-provider-group-name" placeholder="例如：个人 / 团队A / 测试" autocomplete="off" style="flex:1;min-width:220px;" />
+            <button class="dialog-btn" type="button" id="codex-provider-group-clear">清空分组</button>
+          </div>
+          <span style="margin-top:6px;font-family:var(--font-body);font-size:11px;color:var(--text-secondary);line-height:1.55;">留空不会修改现有分组；点击「清空分组」会将分组置空。</span>
         </div>
 
         <!-- Simple mode: two full-width buttons -->
@@ -1304,13 +1336,16 @@
       const FORM = document.getElementById('provider-form');
       const TITLE = document.getElementById('provider-dialog-title');
       const CANCEL = document.getElementById('provider-cancel');
-      const CANCEL2 = document.getElementById('provider-cancel2');
       const SAVE = document.getElementById('provider-save');
-      const STEP1 = document.getElementById('dialog-step1');
-      const STEP2 = document.getElementById('dialog-step2');
-      const STEP2_NAME = document.getElementById('dialog-step2-name');
-      const BTN_NEXT = document.getElementById('provider-next');
-      const BTN_BACK = document.getElementById('provider-back');
+
+      const MODE_AUTO = document.getElementById('provider-mode-auto');
+      const MODE_ADV = document.getElementById('provider-mode-advanced');
+      const AUTO_AREA = document.getElementById('provider-auto-area');
+      const AUTO_LIST = document.getElementById('auto-provider-list');
+      const AUTO_HINT = document.getElementById('auto-provider-hint');
+      const AUTO_REFRESH = document.getElementById('auto-refresh');
+      const ADV_AREA = document.getElementById('provider-advanced-area');
+      const SELECTED_NAME = document.getElementById('provider-selected-name');
 
       const D_FILTER = document.getElementById('filter-dialog');
       const F_FILTER = document.getElementById('filter-form');
@@ -1325,9 +1360,7 @@
       const F_ENABLED = FORM.elements.namedItem('enabled');
       const F_NAME = null; // removed: providerName field no longer exists
       const F_ACCOUNT = FORM.elements.namedItem('accountName');
-
-      const QUICK_CODEX = document.getElementById('quick-codex-openai');
-      const QUICK_CODEX_HINT = document.getElementById('quick-codex-openai-hint');
+      const F_GROUP = FORM.elements.namedItem('groupName');
 
       const D_CODEX = document.getElementById('codex-oauth-dialog');
       const CODEX_SUMMARY = document.getElementById('codex-oauth-summary');
@@ -1335,6 +1368,9 @@
       const CODEX_REFRESH_TOKEN = document.getElementById('codex-refresh-token');
       const CODEX_ACCESS_TOKEN = document.getElementById('codex-access-token');
       const CODEX_DEVICE_INFO = document.getElementById('codex-device-info');
+      const CODEX_PROVIDER_NAME = document.getElementById('codex-provider-display-name');
+      const CODEX_PROVIDER_GROUP = document.getElementById('codex-provider-group-name');
+      const B_CODEX_GROUP_CLEAR = document.getElementById('codex-provider-group-clear');
 
       const B_CODEX_SAVE = document.getElementById('codex-oauth-save');
       const B_CODEX_CLOSE = document.getElementById('codex-oauth-close');
@@ -1371,7 +1407,7 @@
       let selectionMode = false;
       let selectedIDs = new Set();
 
-      const filter = { q: '', enabled: '', protocol: '', type: '', sort: 'id' };
+      const filter = { q: '', enabled: '', group: '', protocol: '', type: '', sort: 'id' };
 
       function providerID(p) {
         return String(p?.ID ?? p?.id ?? '').trim();
@@ -1389,6 +1425,10 @@
         return String(p?.Endpoint ?? p?.endpoint ?? '').trim();
       }
 
+      function providerGroupName(p) {
+        return String(p?.GroupName ?? p?.groupName ?? '').trim();
+      }
+
       function providerDisplayName(p) {
         const id = providerID(p);
         const type = providerType(p);
@@ -1399,30 +1439,98 @@
       }
 
       let dialogMode = 'add';
+      let addMode = 'auto';
+      let selectedAuto = null; // { alias, moduleID, moduleName, protocol }
+      let codexPendingDisplayName = '';
+      let codexPendingGroupName = '';
+      let codexNameTouched = false;
+      let codexGroupTouched = false;
 
-      function showStep(step) {
-        STEP1.style.display = step === 1 ? '' : 'none';
-        STEP2.style.display = step === 2 ? '' : 'none';
+      function resetCodexMetaTouched() {
+        codexNameTouched = false;
+        codexGroupTouched = false;
+      }
 
-        // Note: the dialog is a single <form>. Hidden required fields can block submit
-        // (e.g. edit mode goes directly to step 2). Disable step-1-only inputs on step 2
-        // to avoid native validation preventing the submit event from firing.
+      async function prefillCodexProviderMeta() {
+        if (!CODEX_PROVIDER_NAME && !CODEX_PROVIDER_GROUP) return;
+        resetCodexMetaTouched();
+        let existing = null;
         try {
-          if (F_ACCOUNT) {
-            const onStep1 = step === 1;
-            F_ACCOUNT.disabled = !onStep1;
-            F_ACCOUNT.required = onStep1;
-          }
-        } catch (_) {}
+          const prov = await LB.apiJSON('/admin/api/providers');
+          const list = Array.isArray(prov?.data) ? prov.data : [];
+          existing = list.find((p) => providerID(p) === 'codex') || null;
+        } catch (_) {
+          existing = null;
+        }
+        const existingName = String(existing?.DisplayName ?? existing?.displayName ?? '').trim();
+        const existingGroup = String(existing?.GroupName ?? existing?.groupName ?? '').trim();
+        const pendingName = String(codexPendingDisplayName || '').trim();
+        const pendingGroup = String(codexPendingGroupName || '').trim();
+
+        if (CODEX_PROVIDER_NAME) CODEX_PROVIDER_NAME.value = pendingName || existingName || '';
+        if (CODEX_PROVIDER_GROUP) CODEX_PROVIDER_GROUP.value = pendingGroup || existingGroup || '';
+      }
+
+      function setAdvancedVisible(visible) {
+        const show = Boolean(visible);
+        if (ADV_AREA) ADV_AREA.style.display = show ? '' : 'none';
+        for (const el of [F_ID, F_TYPE, F_PROTOCOL, F_ENDPOINT, F_CFG, F_ENABLED].filter(Boolean)) {
+          try { el.disabled = !show; } catch (_) {}
+        }
+      }
+
+      function setAddMode(mode) {
+        addMode = mode === 'advanced' ? 'advanced' : 'auto';
+        selectedAuto = null;
+
+        if (MODE_AUTO) MODE_AUTO.classList.toggle('primary', addMode === 'auto');
+        if (MODE_ADV) MODE_ADV.classList.toggle('primary', addMode === 'advanced');
+
+        if (AUTO_AREA) AUTO_AREA.style.display = addMode === 'auto' ? '' : 'none';
+        if (addMode === 'auto') {
+          setAdvancedVisible(false);
+          if (SELECTED_NAME) SELECTED_NAME.textContent = '-';
+          if (SAVE) SAVE.disabled = true;
+        } else {
+          setAdvancedVisible(true);
+          if (SELECTED_NAME) SELECTED_NAME.textContent = '高级添加';
+          try {
+            if (!String(F_ID.value || '').trim()) {
+              const account = String(F_ACCOUNT?.value || '').trim();
+              const slug = account.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+              F_ID.value = slug || `provider-${Date.now().toString(36)}`;
+            }
+          } catch (_) {}
+          updateSaveState();
+        }
+      }
+
+      function updateSaveState() {
+        if (!SAVE) return;
+        if (dialogMode === 'edit') {
+          SAVE.disabled = false;
+          return;
+        }
+        const account = String(F_ACCOUNT?.value || '').trim();
+        const adv = ADV_AREA && ADV_AREA.style.display !== 'none';
+        const id = String(F_ID?.value || '').trim();
+        const protocol = String(F_PROTOCOL?.value || '').trim();
+        const endpoint = String(F_ENDPOINT?.value || '').trim();
+        SAVE.disabled = !(account && adv && id && protocol && endpoint);
       }
 
       function openDialog(mode, provider) {
         dialogMode = mode;
         editingID = mode === 'edit' ? providerID(provider) : null;
+        codexPendingDisplayName = '';
+        codexPendingGroupName = '';
 
         if (mode === 'edit') {
-          // Ensure step-1 required inputs won't block saving in edit mode.
-          try { if (F_ACCOUNT) F_ACCOUNT.value = providerDisplayName(provider) || editingID || ''; } catch (_) {}
+          try {
+            const raw = String(provider?.DisplayName ?? provider?.displayName ?? '').trim();
+            if (F_ACCOUNT) F_ACCOUNT.value = raw || providerDisplayName(provider) || editingID || '';
+          } catch (_) {}
+          try { if (F_GROUP) F_GROUP.value = providerGroupName(provider) || ''; } catch (_) {}
           TITLE.textContent = `编辑 Provider · ${editingID}`;
           F_ID.value = editingID || '';
           F_ID.disabled = true;
@@ -1431,11 +1539,16 @@
           F_ENDPOINT.value = String(provider?.Endpoint ?? provider?.endpoint ?? '');
           F_CFG.value = String(provider?.ConfigJSON ?? provider?.configJSON ?? '{}');
           F_ENABLED.checked = Boolean(provider?.Enabled ?? provider?.enabled ?? true);
-          STEP2_NAME.textContent = providerDisplayName(provider) || editingID;
-          showStep(2);
+          if (SELECTED_NAME) SELECTED_NAME.textContent = providerDisplayName(provider) || editingID || '-';
+          if (AUTO_AREA) AUTO_AREA.style.display = 'none';
+          if (MODE_AUTO) MODE_AUTO.disabled = true;
+          if (MODE_ADV) MODE_ADV.disabled = true;
+          setAdvancedVisible(true);
+          if (SAVE) SAVE.disabled = false;
         } else {
           TITLE.textContent = '添加 Provider';
-          F_ACCOUNT.value = '';
+          if (F_ACCOUNT) F_ACCOUNT.value = '';
+          if (F_GROUP) F_GROUP.value = '';
           F_ID.value = '';
           F_ID.disabled = false;
           F_TYPE.value = 'builtin';
@@ -1443,13 +1556,17 @@
           F_ENDPOINT.value = '';
           F_CFG.value = '{}';
           F_ENABLED.checked = true;
-          showStep(1);
+          if (MODE_AUTO) MODE_AUTO.disabled = false;
+          if (MODE_ADV) MODE_ADV.disabled = false;
+          setAddMode('auto');
+          loadAutoProviders({ toastOnFail: false });
         }
         DIALOG.showModal();
       }
 
       function closeDialog() {
         editingID = null;
+        selectedAuto = null;
         DIALOG.close();
       }
 
@@ -1460,23 +1577,248 @@
         return JSON.stringify(parsed, null, 2);
       }
 
+      function installedModuleID(it) {
+        return String(it?.module?.ID ?? it?.module?.id ?? it?.Module?.ID ?? it?.Module?.id ?? '').trim();
+      }
+
+      function installedModuleRuntime(it) {
+        const rt = it?.runtime ?? it?.Runtime ?? null;
+        if (!rt) return null;
+        const httpPort = Number(rt?.HTTPPort ?? rt?.httpPort ?? rt?.http_port ?? 0);
+        const grpcPort = Number(rt?.GRPCPort ?? rt?.grpcPort ?? rt?.grpc_port ?? 0);
+        return { httpPort, grpcPort };
+      }
+
+      async function loadModuleManifest(moduleID) {
+        const id = String(moduleID || '').trim();
+        if (!id) return null;
+        try {
+          const res = await LB.apiJSON(`/admin/api/modules/manifest?module_id=${encodeURIComponent(id)}`);
+          return res?.manifest || null;
+        } catch (_) {
+          return null;
+        }
+      }
+
+      function providerAliasEntriesFromManifest(manifest, moduleID) {
+        const out = [];
+        const modID = String(moduleID || '').trim();
+        const name = String(manifest?.Name ?? manifest?.name ?? '').trim() || modID;
+        const services = Array.isArray(manifest?.Services) ? manifest.Services : (Array.isArray(manifest?.services) ? manifest.services : []);
+        for (const svc of services) {
+          const kind = String(svc?.Kind ?? svc?.kind ?? '').trim();
+          if (kind !== 'provider') continue;
+          const protocol = String(svc?.Protocol ?? svc?.protocol ?? '').trim();
+          const aliases = Array.isArray(svc?.ExposeProviderAliases) ? svc.ExposeProviderAliases : (Array.isArray(svc?.expose_provider_aliases) ? svc.expose_provider_aliases : []);
+          for (const aliasRaw of aliases) {
+            const alias = String(aliasRaw || '').trim();
+            if (!alias) continue;
+            out.push({ alias, moduleID: modID, moduleName: name, protocol });
+          }
+        }
+        return out;
+      }
+
+      function autoProviderLabel(entry) {
+        const alias = String(entry?.alias || '').trim();
+        const moduleID = String(entry?.moduleID || '').trim();
+        if (alias.toLowerCase() === 'codex' && moduleID === 'openai-codex-oauth') return 'Codex（OpenAI）';
+        const modName = String(entry?.moduleName || '').trim();
+        return modName || alias || moduleID || '-';
+      }
+
+      async function loadAutoProviders({ toastOnFail = true } = {}) {
+        if (!AUTO_LIST) return [];
+        AUTO_LIST.innerHTML = '';
+        if (AUTO_HINT) AUTO_HINT.textContent = '读取中...';
+        try {
+          const mods = await LB.apiJSON('/admin/api/modules');
+          const list = Array.isArray(mods?.data) ? mods.data : [];
+          const manifestPromises = list.map((it) => {
+            const moduleID = installedModuleID(it);
+            return loadModuleManifest(moduleID).then((m) => ({ moduleID, runtime: installedModuleRuntime(it), manifest: m }));
+          });
+          const manifests = await Promise.all(manifestPromises);
+
+          const entries = [];
+          for (const item of manifests) {
+            if (!item?.manifest || !String(item?.moduleID || '').trim()) continue;
+            const derived = providerAliasEntriesFromManifest(item.manifest, item.moduleID);
+            for (const e of derived) {
+              entries.push({ ...e, runtime: item.runtime });
+            }
+          }
+
+          // Deduplicate by alias (first wins); keep deterministic order.
+          const byAlias = new Map();
+          for (const e of entries) {
+            const key = String(e.alias || '').trim();
+            if (!key || byAlias.has(key)) continue;
+            byAlias.set(key, e);
+          }
+          const out = Array.from(byAlias.values()).sort((a, b) => String(autoProviderLabel(a)).localeCompare(String(autoProviderLabel(b))));
+
+          AUTO_LIST.innerHTML = '';
+          if (!out.length) {
+            if (AUTO_HINT) {
+              AUTO_HINT.innerHTML = `未检测到 Provider 模块。请前往 <a href="/admin/marketplace" style="color:var(--red-primary);text-decoration:underline;">Marketplace</a> 安装支持 Provider 的模块（例如 Codex）。`;
+            }
+            return [];
+          }
+
+          if (AUTO_HINT) AUTO_HINT.textContent = '点击一个模块 Provider 以继续。';
+          for (const e of out) {
+            const label = autoProviderLabel(e);
+            const meta = `${e.alias} · ${e.protocol || 'unknown'} · ${e.moduleID}`.trim();
+            const btn = LB.el('button', { type: 'button', className: 'dialog-btn', style: 'width:100%;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:10px;' }, [
+              LB.el('span', { style: 'display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;' }, [
+                LB.el('span', { style: 'font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;', text: label }),
+                LB.el('span', { className: 'mono', style: 'font-size:12px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;', text: meta }),
+              ]),
+              LB.el('span', { style: 'font-size:12px;color:var(--text-secondary);', text: '选择' }),
+            ]);
+            btn.addEventListener('click', () => selectAutoProvider(e));
+            AUTO_LIST.appendChild(btn);
+          }
+          return out;
+        } catch (err) {
+          if (AUTO_HINT) AUTO_HINT.textContent = '读取失败';
+          if (toastOnFail) LB.toast(err?.message || '读取 Marketplace Provider 失败', 'error', 4200);
+          return [];
+        }
+      }
+
+      function endpointFromRuntime(protocol, rt) {
+        const proto = String(protocol || '').trim();
+        const httpPort = Number(rt?.httpPort ?? 0);
+        const grpcPort = Number(rt?.grpcPort ?? 0);
+        if ((proto === 'http_openai' || proto === 'http_rpc' || proto === 'codex') && httpPort > 0) {
+          return `http://127.0.0.1:${httpPort}`;
+        }
+        if (proto === 'grpc_chat' && grpcPort > 0) {
+          return `127.0.0.1:${grpcPort}`;
+        }
+        return '';
+      }
+
+      async function ensureModuleRuntime(moduleID, protocol, rtHint) {
+        const id = String(moduleID || '').trim();
+        if (!id) throw new Error('module_id 为空');
+
+        const needHTTP = String(protocol || '').trim() === 'http_openai' || String(protocol || '').trim() === 'http_rpc' || String(protocol || '').trim() === 'codex';
+        const needGRPC = String(protocol || '').trim() === 'grpc_chat';
+
+        let rt = rtHint && (rtHint.httpPort || rtHint.grpcPort) ? rtHint : null;
+        if (rt && ((needHTTP && rt.httpPort > 0) || (needGRPC && rt.grpcPort > 0) || (!needHTTP && !needGRPC))) return rt;
+
+        async function refreshFromList() {
+          const mods = await LB.apiJSON('/admin/api/modules');
+          const list = Array.isArray(mods?.data) ? mods.data : [];
+          const found = list.find((it) => installedModuleID(it) === id) || null;
+          return installedModuleRuntime(found);
+        }
+
+        try { rt = await refreshFromList(); } catch (_) { rt = null; }
+        if (rt && ((needHTTP && rt.httpPort > 0) || (needGRPC && rt.grpcPort > 0) || (!needHTTP && !needGRPC))) return rt;
+
+        // Start module (or enable then start).
+        try {
+          const started = await LB.apiJSON('/admin/api/modules/start', { method: 'POST', body: { module_id: id } });
+          const srt = started?.runtime || null;
+          rt = srt ? { httpPort: Number(srt?.HTTPPort ?? srt?.httpPort ?? 0), grpcPort: Number(srt?.GRPCPort ?? srt?.grpcPort ?? 0) } : null;
+        } catch (err) {
+          const msg = String(err?.message || '').toLowerCase();
+          if (msg.includes('disabled')) {
+            await LB.apiJSON('/admin/api/modules/enable', { method: 'POST', body: { module_id: id, enabled: true } });
+            const started = await LB.apiJSON('/admin/api/modules/start', { method: 'POST', body: { module_id: id } });
+            const srt = started?.runtime || null;
+            rt = srt ? { httpPort: Number(srt?.HTTPPort ?? srt?.httpPort ?? 0), grpcPort: Number(srt?.GRPCPort ?? srt?.grpcPort ?? 0) } : null;
+          } else if (msg.includes('already running')) {
+            rt = await refreshFromList();
+          } else {
+            throw err;
+          }
+        }
+
+        if (!rt) throw new Error(`模块 ${id} 运行时信息不可用`);
+        return rt;
+      }
+
+      async function selectAutoProvider(entry) {
+        const account = String(F_ACCOUNT?.value || '').trim();
+        if (!account) {
+          try { F_ACCOUNT.focus(); } catch (_) {}
+          LB.toast('请先填写账户名称', 'error', 3200);
+          return;
+        }
+        const group = String(F_GROUP?.value || '').trim();
+
+        const alias = String(entry?.alias || '').trim();
+        const moduleID = String(entry?.moduleID || '').trim();
+        const protocol = String(entry?.protocol || '').trim();
+
+        if (!alias || !moduleID) {
+          LB.toast('自动读取数据异常：alias/module_id 为空', 'error', 4200);
+          return;
+        }
+
+        // Codex: jump directly to OAuth flow.
+        if (alias.toLowerCase() === 'codex' && moduleID === 'openai-codex-oauth') {
+          codexPendingDisplayName = account;
+          codexPendingGroupName = group;
+          try { closeDialog(); } catch (_) {}
+          await openCodexDialog();
+          return;
+        }
+
+        const existing = lastProviders.find((p) => providerID(p) === alias) || null;
+        if (existing && providerType(existing) && providerType(existing) !== 'module') {
+          LB.toast(`Provider ID 冲突：${alias} 已存在且类型为 ${providerType(existing)}`, 'error', 5200);
+          return;
+        }
+
+        // Switch UI to advanced, but lock key fields to match the module provider alias.
+        setAddMode('advanced');
+        if (MODE_AUTO) MODE_AUTO.disabled = true;
+        if (MODE_ADV) MODE_ADV.disabled = true;
+        if (AUTO_AREA) AUTO_AREA.style.display = 'none';
+        setAdvancedVisible(true);
+
+        try { if (SELECTED_NAME) SELECTED_NAME.textContent = `${autoProviderLabel(entry)} · ${alias}`; } catch (_) {}
+
+        // Lock ID/type/protocol for module-provided entries.
+        F_ID.value = alias;
+        F_ID.disabled = true;
+        F_TYPE.value = 'module';
+        F_TYPE.disabled = true;
+        if (protocol) F_PROTOCOL.value = protocol;
+        F_PROTOCOL.disabled = true;
+
+        // Preserve previous config/enabled if already exists.
+        F_CFG.value = String(existing?.ConfigJSON ?? existing?.configJSON ?? '{}');
+        F_ENABLED.checked = existing ? Boolean(existing?.Enabled ?? existing?.enabled ?? true) : true;
+
+        // Resolve endpoint via runtime ports.
+        const rt = await ensureModuleRuntime(moduleID, protocol, entry?.runtime || null);
+        const endpoint = endpointFromRuntime(protocol, rt);
+        if (!endpoint) {
+          LB.toast(`无法推导 Endpoint（protocol=${protocol}）`, 'error', 5200);
+          return;
+        }
+        F_ENDPOINT.value = endpoint;
+        F_ENDPOINT.disabled = true;
+
+        updateSaveState();
+      }
+
       async function refreshCodexAvailability() {
-        if (!QUICK_CODEX) return false;
         try {
           const res = await LB.apiJSON('/admin/api/modules');
           const list = Array.isArray(res?.data) ? res.data : [];
           codexInstalled = list.some((it) => String(it?.module?.ID ?? it?.module?.id ?? '').trim() === 'openai-codex-oauth');
-          QUICK_CODEX.disabled = !codexInstalled;
-          if (QUICK_CODEX_HINT) {
-            QUICK_CODEX_HINT.textContent = codexInstalled
-              ? '已安装，可进行 OAuth 登录'
-              : '请先在 Marketplace 安装 openai-codex-oauth';
-          }
           return codexInstalled;
         } catch (_) {
           codexInstalled = false;
-          QUICK_CODEX.disabled = true;
-          if (QUICK_CODEX_HINT) QUICK_CODEX_HINT.textContent = '无法检测模块状态';
           return false;
         }
       }
@@ -1546,9 +1888,13 @@
           codexHasCredentials = false;
           if (B_CODEX_SAVE) B_CODEX_SAVE.disabled = true;
           if (CODEX_CB_URL) CODEX_CB_URL.value = '';
+          if (CODEX_PROVIDER_NAME) CODEX_PROVIDER_NAME.value = '';
+          if (CODEX_PROVIDER_GROUP) CODEX_PROVIDER_GROUP.value = '';
+          resetCodexMetaTouched();
           if (CODEX_ADVANCED_MODE) CODEX_ADVANCED_MODE.style.display = 'none';
           if (B_CODEX_ADVANCED_TOGGLE) B_CODEX_ADVANCED_TOGGLE.textContent = '▼ 展开高级选项';
           await loadCodexStatus({ toastOnFail: true });
+          await prefillCodexProviderMeta();
           if (!D_CODEX.open) D_CODEX.showModal();
         } catch (_) {}
       }
@@ -1715,11 +2061,28 @@
           throw new Error('未检测到 openai-codex-oauth 运行端口，请先在 Marketplace 启动模块后再保存');
         }
 
+        const pendingName = String(codexPendingDisplayName || '').trim();
+        const pendingGroup = String(codexPendingGroupName || '').trim();
+        const existingName = String(existing?.DisplayName ?? existing?.displayName ?? '').trim();
+        const existingGroup = String(existing?.GroupName ?? existing?.groupName ?? '').trim();
+
+        let displayName = pendingName || existingName || providerId;
+        if (codexNameTouched) {
+          const v = String(CODEX_PROVIDER_NAME?.value || '').trim();
+          displayName = v || existingName || pendingName || providerId;
+        }
+
+        let groupName = pendingGroup || existingGroup;
+        if (codexGroupTouched) {
+          groupName = String(CODEX_PROVIDER_GROUP?.value || '').trim();
+        }
+
         const payload = {
           id: providerId,
-          displayName: String(existing?.DisplayName ?? existing?.displayName ?? '').trim() || providerId,
+          displayName,
+          groupName,
           type: 'module',
-          protocol: 'http_openai',
+          protocol: 'codex',
           endpoint: endpoint || prevEndpoint,
           configJSON: String(existing?.ConfigJSON ?? existing?.configJSON ?? '{}'),
           enabled: existing ? Boolean(existing?.Enabled ?? existing?.enabled ?? true) : true,
@@ -1742,6 +2105,8 @@
             return;
           }
           await ensureCodexProviderRegistered();
+          codexPendingDisplayName = '';
+          codexPendingGroupName = '';
           closeCodexDialog();
           await load();
           const exists = lastProviders.some((p) => providerID(p) === 'codex');
@@ -1755,7 +2120,14 @@
       }
 
       function isFilterActive() {
-        return Boolean(String(filter.q || '').trim() || String(filter.enabled || '').trim() || String(filter.protocol || '').trim() || String(filter.type || '').trim() || (filter.sort || 'id') !== 'id');
+        return Boolean(
+          String(filter.q || '').trim() ||
+          String(filter.enabled || '').trim() ||
+          String(filter.group || '').trim() ||
+          String(filter.protocol || '').trim() ||
+          String(filter.type || '').trim() ||
+          (filter.sort || 'id') !== 'id'
+        );
       }
 
       function applyFilter(list) {
@@ -1763,6 +2135,7 @@
 
         const qq = String(filter.q || '').trim().toLowerCase();
         const enabledF = String(filter.enabled || '').trim();
+        const groupF = String(filter.group || '').trim();
         const protoF = String(filter.protocol || '').trim();
         const typeF = String(filter.type || '').trim();
 
@@ -1770,15 +2143,17 @@
           out = out.filter((p) => {
             const id = providerID(p);
             const name = providerDisplayName(p);
+            const group = providerGroupName(p);
             const proto = providerProtocol(p);
             const type = providerType(p);
             const endpoint = providerEndpoint(p);
-            const hay = `${id} ${name} ${proto} ${type} ${endpoint}`.toLowerCase();
+            const hay = `${id} ${name} ${group} ${proto} ${type} ${endpoint}`.toLowerCase();
             return hay.includes(qq);
           });
         }
         if (enabledF === 'enabled') out = out.filter((p) => Boolean(p?.Enabled ?? p?.enabled ?? false));
         if (enabledF === 'disabled') out = out.filter((p) => !Boolean(p?.Enabled ?? p?.enabled ?? false));
+        if (groupF) out = out.filter((p) => providerGroupName(p) === groupF);
         if (protoF) out = out.filter((p) => providerProtocol(p) === protoF);
         if (typeF) out = out.filter((p) => providerType(p) === typeF);
 
@@ -1948,6 +2323,7 @@
             const payload = {
               id,
               displayName: String(p?.DisplayName ?? p?.displayName ?? '').trim(),
+              groupName: String(p?.GroupName ?? p?.groupName ?? '').trim(),
               type: providerType(p) || 'builtin',
               protocol: providerProtocol(p) || 'forward',
               endpoint: providerEndpoint(p) || '',
@@ -2008,9 +2384,24 @@
         try {
           F_FILTER.elements.namedItem('q').value = String(filter.q || '');
           F_FILTER.elements.namedItem('enabled').value = String(filter.enabled || '');
+          F_FILTER.elements.namedItem('group').value = String(filter.group || '');
+          F_FILTER.elements.namedItem('protocol').value = String(filter.protocol || '');
           F_FILTER.elements.namedItem('type').value = String(filter.type || '');
           F_FILTER.elements.namedItem('sort').value = String(filter.sort || 'id');
         } catch (_) {}
+
+        const groupSel = F_FILTER.elements.namedItem('group');
+        const currentGroup = String(filter.group || '');
+        const groupSet = new Set();
+        for (const p of lastProviders) {
+          const g = providerGroupName(p);
+          if (g) groupSet.add(g);
+        }
+        const groups = Array.from(groupSet).sort((a, b) => a.localeCompare(b));
+        groupSel.innerHTML = '<option value=\"\">All</option>';
+        for (const v of groups) groupSel.appendChild(LB.el('option', { value: v, text: v }));
+        groupSel.value = currentGroup;
+        if (groupSel.value !== currentGroup) groupSel.value = '';
 
         const protoSel = F_FILTER.elements.namedItem('protocol');
         const currentProto = String(filter.protocol || '');
@@ -2093,6 +2484,7 @@
           const type = providerType(p);
           const endpoint = providerEndpoint(p);
           const display = providerDisplayName(p) || id;
+          const group = providerGroupName(p);
           const showID = Boolean(display && id && display !== id);
           const enabled = Boolean(p?.Enabled ?? p?.enabled ?? false);
 
@@ -2113,6 +2505,7 @@
 
             const metaChildren = [];
             if (showID) metaChildren.push(LB.el('div', { className: 'provider-card-sub mono', text: id }));
+            if (group) metaChildren.push(LB.el('div', { className: 'provider-card-sub', text: `分组：${group}` }));
             if (endpoint) metaChildren.push(LB.el('div', { className: 'provider-card-sub mono', text: endpoint, title: endpoint }));
             if (tags.length) metaChildren.push(LB.el('div', { className: 'provider-card-tags' }, tags));
 
@@ -2147,7 +2540,12 @@
           }
 
           const row = LB.el('div', { className: `table-row data ${isSelected ? 'is-selected' : ''}`, role: 'row', tabIndex: 0 }, [
-            LB.el('div', { className: 'cell account', role: 'cell', text: display || '-' }),
+            LB.el('div', { className: 'cell account', role: 'cell' }, [
+              LB.el('div', { style: 'display:flex;flex-direction:column;gap:2px;min-width:0;' }, [
+                LB.el('div', { text: display || '-' }),
+                group ? LB.el('div', { className: 'mono', style: 'font-size:12px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;', text: group }) : null,
+              ].filter(Boolean)),
+            ]),
             LB.el('div', { className: 'cell', role: 'cell' }, [
               LB.el('div', { className: 'cell-stack' }, [
                 LB.el('div', { className: 'stack-title', text: protocol || 'unknown' }),
@@ -2211,16 +2609,35 @@
         }
       }
 
-      ADD.addEventListener('click', async () => {
-        await refreshCodexAvailability();
+      ADD.addEventListener('click', () => {
         openDialog('add', {});
       });
       REFRESH.addEventListener('click', load);
       CANCEL.addEventListener('click', closeDialog);
-      if (CANCEL2) CANCEL2.addEventListener('click', closeDialog);
-      if (QUICK_CODEX) QUICK_CODEX.addEventListener('click', openCodexDialog);
+      if (MODE_AUTO) MODE_AUTO.addEventListener('click', () => {
+        if (dialogMode !== 'add') return;
+        setAddMode('auto');
+        loadAutoProviders({ toastOnFail: true });
+      });
+      if (MODE_ADV) MODE_ADV.addEventListener('click', () => {
+        if (dialogMode !== 'add') return;
+        setAddMode('advanced');
+      });
+      if (AUTO_REFRESH) AUTO_REFRESH.addEventListener('click', () => loadAutoProviders({ toastOnFail: true }));
+
+      if (F_ACCOUNT) F_ACCOUNT.addEventListener('input', updateSaveState);
+      if (F_GROUP) F_GROUP.addEventListener('input', updateSaveState);
+      if (F_ID) F_ID.addEventListener('input', updateSaveState);
+      if (F_PROTOCOL) F_PROTOCOL.addEventListener('change', updateSaveState);
+      if (F_ENDPOINT) F_ENDPOINT.addEventListener('input', updateSaveState);
 
       if (B_CODEX_SAVE) B_CODEX_SAVE.addEventListener('click', saveCodexAndClose);
+      if (CODEX_PROVIDER_NAME) CODEX_PROVIDER_NAME.addEventListener('input', () => { codexNameTouched = true; });
+      if (CODEX_PROVIDER_GROUP) CODEX_PROVIDER_GROUP.addEventListener('input', () => { codexGroupTouched = true; });
+      if (B_CODEX_GROUP_CLEAR) B_CODEX_GROUP_CLEAR.addEventListener('click', () => {
+        codexGroupTouched = true;
+        if (CODEX_PROVIDER_GROUP) CODEX_PROVIDER_GROUP.value = '';
+      });
       if (B_CODEX_CLOSE) B_CODEX_CLOSE.addEventListener('click', () => {
         closeCodexDialog();
         load();
@@ -2262,21 +2679,6 @@
         importCodexAuthJSONFiles(files);
       });
 
-      if (BTN_NEXT) BTN_NEXT.addEventListener('click', () => {
-        const account = String(F_ACCOUNT.value || '').trim();
-        if (!account) { F_ACCOUNT.focus(); return; }
-        STEP2_NAME.textContent = account;
-        if (!F_ID.value) {
-          const slug = account.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-          F_ID.value = slug || `provider-${Date.now().toString(36)}`;
-        }
-        showStep(2);
-      });
-
-      if (BTN_BACK) BTN_BACK.addEventListener('click', () => {
-        showStep(1);
-      });
-
       const VIEW_DD = document.getElementById('view-dropdown');
 
       if (BTN_VIEW) BTN_VIEW.addEventListener('click', (e) => {
@@ -2316,6 +2718,7 @@
       if (B_FILTER_RESET) B_FILTER_RESET.addEventListener('click', () => {
         filter.q = '';
         filter.enabled = '';
+        filter.group = '';
         filter.protocol = '';
         filter.type = '';
         filter.sort = 'id';
@@ -2327,6 +2730,7 @@
         try {
           filter.q = String(F_FILTER.elements.namedItem('q').value || '');
           filter.enabled = String(F_FILTER.elements.namedItem('enabled').value || '');
+          filter.group = String(F_FILTER.elements.namedItem('group').value || '');
           filter.protocol = String(F_FILTER.elements.namedItem('protocol').value || '');
           filter.type = String(F_FILTER.elements.namedItem('type').value || '');
           filter.sort = String(F_FILTER.elements.namedItem('sort').value || 'id');
@@ -2339,19 +2743,27 @@
         e.preventDefault();
         SAVE.disabled = true;
         try {
+          const account = String(F_ACCOUNT?.value || '').trim();
+          if (!account) throw new Error('账户名称不能为空');
+
+          const advVisible = ADV_AREA && ADV_AREA.style.display !== 'none';
+          if (!advVisible) throw new Error('请先选择「自动读取」的 Provider，或切换到「高级添加」');
+
           const id = String(F_ID.value || '').trim();
           if (!id) throw new Error('ID 不能为空');
-          const account = String(F_ACCOUNT?.value || '').trim();
+          const group = String(F_GROUP?.value || '').trim();
           const cfg = safeJSON(F_CFG.value);
           const payload = {
             id,
             displayName: account || id,
+            groupName: group,
             type: String(F_TYPE.value || '').trim() || 'builtin',
             protocol: String(F_PROTOCOL.value || '').trim() || 'forward',
             endpoint: String(F_ENDPOINT.value || '').trim(),
             configJSON: cfg,
             enabled: Boolean(F_ENABLED.checked),
           };
+          if (!payload.endpoint) throw new Error('Endpoint 不能为空');
           await LB.apiJSON('/admin/api/providers', { method: 'POST', body: payload });
           LB.toast('已保存', 'ok');
           closeDialog();

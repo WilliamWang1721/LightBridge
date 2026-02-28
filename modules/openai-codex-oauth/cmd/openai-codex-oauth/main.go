@@ -60,6 +60,7 @@ func main() {
 	mux.HandleFunc("/auth/oauth/exchange", s.handleAuthOAuthExchange)
 	mux.HandleFunc("/auth/import", s.handleAuthImport)
 	mux.HandleFunc("/auth/status", s.handleAuthStatus)
+	mux.HandleFunc("/responses", s.handleResponses)
 	mux.HandleFunc("/v1/models", s.handleModels)
 	mux.HandleFunc("/v1/chat/completions", s.handleChatCompletions)
 
