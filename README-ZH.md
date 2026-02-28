@@ -13,7 +13,7 @@
 [![Gateway](https://img.shields.io/badge/API-OpenAI%20Compatible-10a37f)](#-核心功能)
 [![Status](https://img.shields.io/badge/Status-MVP%20v0.1-orange)](#-当前-v01-边界)
 
-[**👉 中文**](./README-ZH.md) | [English](./README.md)
+[**📚 Documentation（拆分版）**](./Documentation/README.md) | [README](./README.md)
 
 </div>
 
@@ -33,7 +33,7 @@
 ### 🎯 统一接口，平滑接入
 - **OpenAI 兼容入口**：统一接入 `/v1/models`、`/v1/chat/completions` 及 `/v1/*` 转发路径。
 - **模型路由能力**：支持 `model` 与 `model@provider`，可做别名、优先级、权重与健康筛选。
-- **默认回退策略**：`claude-*` 自动回退 `anthropic`，其他模型默认回退 `forward`。
+- **默认回退策略**：按模型前缀推断 fallback（如 `claude-* → anthropic`、`gpt-*/o* → codex`、其它 → `forward`）；若 fallback 不可用则退到任意健康 Provider。
 
 ### 🚀 可扩展架构
 - **微内核 + 模块化**：核心网关保持轻量，provider 能力通过模块动态扩展。
@@ -51,10 +51,8 @@
 
 - [🚀 快速启动](#-快速启动)
 - [⚙️ 首次初始化](#️-首次初始化)
+- [📚 Documentation（拆分版）](./Documentation/README.md)
 - [📋 核心功能](#-核心功能)
-- [🧩 模块清单字段](#-模块清单字段已实现)
-- [🗂️ 项目结构](#️-项目结构)
-- [🧪 测试](#-测试)
 - [📌 当前 v0.1 边界](#-当前-v01-边界)
 
 ---
@@ -80,7 +78,9 @@ LIGHTBRIDGE_COOKIE_SECRET=your-secret
 ```
 
 默认数据目录：
-- macOS/Linux: `${XDG_CONFIG_HOME:-$HOME/.config}/LightBridge`
+- macOS: `$HOME/Library/Application Support/LightBridge`
+- Linux: `${XDG_CONFIG_HOME:-$HOME/.config}/LightBridge`
+- Windows: `%AppData%\\LightBridge`
 
 Marketplace 默认源：
 - `local`：扫描 `./MODULES`（优先）或 `${LIGHTBRIDGE_DATA_DIR}/MODULES` 里的 `*.zip` 模块包
@@ -95,6 +95,20 @@ Marketplace 默认源：
 2. 创建管理员账号和密码
 3. 复制系统生成的默认客户端 API Key
 4. 使用 `Authorization: Bearer <key>` 调用网关接口
+
+---
+
+## 📚 Documentation（拆分版）
+
+仓库已将文档拆分为多篇小文档，统一入口：
+
+- [`Documentation/README.md`](./Documentation/README.md)
+
+常用主题（建议按顺序阅读）：
+
+- Getting Started（启动 / 初始化 / 客户端接入）
+- Provider 管理、模型路由、模块 Marketplace、Codex OAuth
+- 环境变量、对外 API、Admin API、模块 manifest、数据目录结构
 
 ---
 
@@ -126,61 +140,28 @@ Marketplace 默认源：
 - `forward`：`/v1/*` 透传
 - `anthropic`：`/v1/chat/completions` 请求转换（流式/非流式）
 - `grpc_chat`：占位实现（当前返回 `501_not_supported`）
+- `codex`：在 Router 层完成 OpenAI Chat/Responses ↔ Codex（Responses）转换（流式/非流式）
 
 ---
 
-## 🧩 模块清单字段（已实现）
+## 🧩 模块规范与 Marketplace（文档）
 
-必填字段：
-- `id`, `name`, `version`, `license`, `min_core_version`
-- `entrypoints`（`<os>/<arch>`、`<os>` 或 `default`）
-- `services[]`
-- `config_schema`
-- `config_defaults`
+模块打包、manifest 字段、索引来源与安装流程详见：
 
-`services[]` 中 provider 相关字段：
-- `kind: "provider"`
-- `protocol: "http_openai" | "http_rpc" | "grpc_chat"`
-- `health`
-- `expose_provider_aliases[]`
-
-模块启动时核心注入环境变量：
-- `LIGHTBRIDGE_MODULE_ID`
-- `LIGHTBRIDGE_DATA_DIR`
-- `LIGHTBRIDGE_CONFIG_PATH`
-- `LIGHTBRIDGE_HTTP_PORT`
-- `LIGHTBRIDGE_GRPC_PORT`
-- `LIGHTBRIDGE_LOG_LEVEL`
+- [`Documentation/guide/03-modules-marketplace.md`](./Documentation/guide/03-modules-marketplace.md)
+- [`Documentation/reference/04-module-manifest.md`](./Documentation/reference/04-module-manifest.md)
 
 ---
 
-## 🗂️ 项目结构
+## 🗂️ 项目结构（文档）
 
-- `cmd/lightbridge/main.go`：程序入口
-- `internal/app`：应用装配与启动
-- `internal/db`：SQLite 初始化与迁移
-- `internal/store`：数据访问层
-- `internal/routing`：路由解析与模型聚合
-- `internal/providers`：provider 适配器
-- `internal/modules`：模块市场与运行时管理
-- `internal/gateway`：网关与管理后台
-- `tests/testdata/module-sample`：模块测试样例
+- [`Documentation/development/02-repo-structure.md`](./Documentation/development/02-repo-structure.md)
 
 ---
 
-## 🧪 测试
+## 🧪 测试（文档）
 
-```bash
-go test ./...
-```
-
-当前覆盖：
-- 路由解析与回退策略
-- 模型列表拼装（含 `model@provider`）
-- SQLite 迁移幂等性
-- Forward 透传（流式/非流式）
-- Anthropic 转换（流式/非流式）
-- 模块安装/启动与网关调用链路
+- [`Documentation/development/03-testing.md`](./Documentation/development/03-testing.md)
 
 ---
 

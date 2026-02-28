@@ -99,6 +99,8 @@ curl -s "http://127.0.0.1:3210/admin/api/modules" \
 
 - 「生成 OAuth 链接」
 
+点击后，弹窗会自动显示「回调 URL」快速输入区（位于高级选项之外），用于回调异常时手动换取 Token。
+
 后台会做两件事：
 
 1. Core 会尝试在本机启动一个回调监听：
@@ -119,7 +121,7 @@ curl -s "http://127.0.0.1:3210/admin/api/modules" \
 
 如果你的环境无法启动本地回调服务（常见原因：`1455` 端口被占用），你仍可使用弹窗的备用功能：
 
-1. 在弹窗中找到「粘贴浏览器回调 URL（含 code & state）」输入框
+1. 点击「生成 OAuth 链接」后，在弹窗主区域找到「回调 URL」输入框（无需展开高级选项）
 2. 把浏览器地址栏里的完整回调 URL 粘贴进去（包含 `code` 与 `state`）
 3. 点击「从回调 URL 获取 Token」
 
@@ -210,4 +212,3 @@ curl -s "http://127.0.0.1:3210/v1/chat/completions" \
 - `<DATA_DIR>/module_data/openai-codex-oauth/credentials.json`
 
 权限/安全注意事项见：[数据目录与安全注意事项](./07-security.md)
-

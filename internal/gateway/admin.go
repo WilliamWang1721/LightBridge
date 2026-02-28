@@ -22,6 +22,7 @@ import (
 )
 
 const codexOAuthModuleID = "openai-codex-oauth"
+const passkeyLoginModuleID = "passkey-login"
 
 type adminPayload struct {
 	Username string         `json:"username"`
@@ -106,7 +107,14 @@ func (s *Server) handleLoginPage(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin/setup", http.StatusFound)
 		return
 	}
-	s.renderPage(w, "login", map[string]any{"Page": "Admin Login"})
+	passkeyInstalled := false
+	if mod, err := s.store.GetInstalledModule(r.Context(), passkeyLoginModuleID); err == nil && mod != nil && mod.Enabled {
+		passkeyInstalled = true
+	}
+	s.renderPage(w, "login", map[string]any{
+		"Page":             "Admin Login",
+		"PasskeyInstalled": passkeyInstalled,
+	})
 }
 
 func (s *Server) handleDashboardPage(w http.ResponseWriter, r *http.Request) {

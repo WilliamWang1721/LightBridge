@@ -717,6 +717,14 @@
       color: var(--text-secondary);
     }
 
+    .dialog-label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
     .dialog-input {
       width: 100%;
       border: 1px solid var(--border);
@@ -769,6 +777,28 @@
       background: var(--text-main);
       border-color: var(--text-main);
       color: #ffffff;
+    }
+
+    .dialog-btn--compact {
+      height: 30px;
+      padding: 0 10px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .dialog-field-note {
+      font-family: var(--font-body);
+      font-size: 11px;
+      color: var(--text-secondary);
+      line-height: 1.55;
+    }
+
+    .codex-callback-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
     }
 
     @media (max-width: 860px) {
@@ -1228,7 +1258,10 @@
 
       <div class="dialog-grid">
         <div class="dialog-field dialog-field--full">
-          <span class="dialog-label">当前状态</span>
+          <div class="dialog-label-row">
+            <span class="dialog-label">当前状态</span>
+            <button class="dialog-btn dialog-btn--compact" type="button" id="codex-oauth-refresh">刷新状态</button>
+          </div>
           <div class="dialog-input" id="codex-oauth-summary" style="background:var(--bg-page);white-space:pre-wrap;"></div>
         </div>
 
@@ -1258,6 +1291,15 @@
           </p>
         </div>
 
+        <label class="dialog-field dialog-field--full" id="codex-callback-zone" style="display:none;">
+          <span class="dialog-label">回调 URL</span>
+          <textarea class="dialog-input dialog-textarea" id="codex-oauth-callback" rows="3" placeholder="粘贴浏览器回调 URL（含 code & state），自动获取 Token"></textarea>
+          <div class="codex-callback-actions">
+            <button class="dialog-btn" type="button" id="codex-oauth-exchange">从回调 URL 获取 Token</button>
+            <span class="dialog-field-note">若无法正常显示，或不显示 success，请将登录完成后的链接复制并粘贴到此处</span>
+          </div>
+        </label>
+
         <!-- Advanced toggle -->
         <div class="dialog-field dialog-field--full">
           <button class="dialog-btn" type="button" id="codex-advanced-toggle" style="width:100%;text-align:center;font-size:12px;color:var(--text-secondary);">▼ 展开高级选项</button>
@@ -1266,14 +1308,6 @@
         <!-- Advanced mode (hidden by default) -->
         <div id="codex-advanced-mode" style="display:none;grid-column:1/-1;">
           <div class="dialog-grid">
-            <label class="dialog-field dialog-field--full">
-              <span class="dialog-label">回调 URL</span>
-              <textarea class="dialog-input dialog-textarea" id="codex-oauth-callback" rows="3" placeholder="粘贴浏览器回调 URL（含 code & state），自动获取 Token"></textarea>
-            </label>
-            <div class="dialog-field dialog-field--full">
-              <button class="dialog-btn" type="button" id="codex-oauth-exchange">从回调 URL 获取 Token</button>
-            </div>
-
             <label class="dialog-field dialog-field--full">
               <span class="dialog-label">Refresh Token</span>
               <textarea class="dialog-input dialog-textarea" id="codex-refresh-token" rows="3" placeholder="可仅填 refresh_token（系统会自动刷新获取 access_token）"></textarea>
@@ -1286,7 +1320,6 @@
             <div class="dialog-field dialog-field--full">
               <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
                 <button class="dialog-btn" type="button" id="codex-oauth-import">导入 Token</button>
-                <button class="dialog-btn" type="button" id="codex-oauth-refresh">刷新状态</button>
               </div>
             </div>
 
@@ -1371,6 +1404,7 @@
 
       const D_CODEX = document.getElementById('codex-oauth-dialog');
       const CODEX_SUMMARY = document.getElementById('codex-oauth-summary');
+      const CODEX_CALLBACK_ZONE = document.getElementById('codex-callback-zone');
       const CODEX_CB_URL = document.getElementById('codex-oauth-callback');
       const CODEX_REFRESH_TOKEN = document.getElementById('codex-refresh-token');
       const CODEX_ACCESS_TOKEN = document.getElementById('codex-access-token');
@@ -1922,6 +1956,13 @@
           codexHasCredentials = false;
           if (B_CODEX_SAVE) B_CODEX_SAVE.disabled = true;
           if (CODEX_CB_URL) CODEX_CB_URL.value = '';
+          if (CODEX_CALLBACK_ZONE) CODEX_CALLBACK_ZONE.style.display = 'none';
+          if (CODEX_REFRESH_TOKEN) CODEX_REFRESH_TOKEN.value = '';
+          if (CODEX_ACCESS_TOKEN) CODEX_ACCESS_TOKEN.value = '';
+          if (I_CODEX_AUTH_JSON) I_CODEX_AUTH_JSON.value = '';
+          const fnLabel = document.getElementById('codex-auth-json-filename');
+          if (fnLabel) fnLabel.textContent = '支持选择多个 Auth.json 文件';
+          if (CODEX_DEVICE_INFO) CODEX_DEVICE_INFO.textContent = '';
           if (CODEX_PROVIDER_NAME) CODEX_PROVIDER_NAME.value = '';
           if (CODEX_PROVIDER_GROUP) CODEX_PROVIDER_GROUP.value = '';
           resetCodexMetaTouched();
@@ -1933,8 +1974,73 @@
         } catch (_) {}
       }
 
+      function normalizeCodexCallbackInput(raw) {
+        let text = String(raw || '').trim();
+        if (!text) return '';
+        if (
+          (text.startsWith('"') && text.endsWith('"')) ||
+          (text.startsWith("'") && text.endsWith("'")) ||
+          (text.startsWith('`') && text.endsWith('`'))
+        ) {
+          text = text.slice(1, -1).trim();
+        }
+        text = text.replace(/&amp;/gi, '&');
+        for (let i = 0; i < 2; i++) {
+          try {
+            const decoded = decodeURIComponent(text);
+            if (!decoded || decoded === text) break;
+            text = decoded.trim();
+          } catch (_) {
+            break;
+          }
+        }
+        const match = text.match(/(https?:\/\/[^\s"'<>]+|(?:localhost|127\.0\.0\.1|\[::1\]):\d+[^\s"'<>]*)/i);
+        if (match && match[1]) text = match[1].trim();
+        if (!/^https?:\/\//i.test(text) && /^(localhost|127\.0\.0\.1|\[::1\]):\d+/i.test(text)) {
+          text = `http://${text}`;
+        }
+        return text;
+      }
+
+      function parseCodexCallbackInput(raw) {
+        const normalized = normalizeCodexCallbackInput(raw);
+        if (!normalized) return null;
+
+        let parsed = null;
+        try {
+          parsed = new URL(normalized);
+        } catch (_) {
+          return { normalized, code: '', state: '', error: '回调 URL 格式不正确' };
+        }
+
+        const errCode = String(parsed.searchParams.get('error') || '').trim();
+        if (errCode) {
+          const errDesc = String(parsed.searchParams.get('error_description') || '').trim();
+          return {
+            normalized,
+            code: '',
+            state: '',
+            error: errDesc ? `${errCode}: ${errDesc}` : errCode,
+          };
+        }
+
+        let code = String(parsed.searchParams.get('code') || '').trim();
+        let state = String(parsed.searchParams.get('state') || '').trim();
+        if ((!code || !state) && parsed.hash) {
+          const hashRaw = parsed.hash.replace(/^#/, '').replace(/^\?/, '');
+          try {
+            const hashParams = new URLSearchParams(hashRaw);
+            if (!code) code = String(hashParams.get('code') || '').trim();
+            if (!state) state = String(hashParams.get('state') || '').trim();
+          } catch (_) {}
+        }
+
+        return { normalized, code, state, error: '' };
+      }
+
       async function startCodexOAuth() {
         if (!B_CODEX_START) return;
+        if (CODEX_CALLBACK_ZONE) CODEX_CALLBACK_ZONE.style.display = '';
         B_CODEX_START.disabled = true;
         try {
           const res = await LB.apiJSON('/admin/api/codex/oauth/start', { method: 'POST', body: {} });
@@ -1952,14 +2058,30 @@
 
       async function exchangeCodexFromCallbackURL() {
         if (!B_CODEX_EXCHANGE) return;
-        const cb = String(CODEX_CB_URL?.value || '').trim();
-        if (!cb) {
+        const rawCB = String(CODEX_CB_URL?.value || '').trim();
+        if (!rawCB) {
           LB.toast('请输入回调 URL', 'error', 4200);
           return;
         }
+        const parsed = parseCodexCallbackInput(rawCB);
+        if (!parsed || !parsed.normalized) {
+          LB.toast('回调 URL 格式不正确', 'error', 4200);
+          return;
+        }
+        if (parsed.error) {
+          LB.toast(parsed.error, 'error', 4800);
+          return;
+        }
+        if (CODEX_CB_URL) CODEX_CB_URL.value = parsed.normalized;
+        const payload = { callback_url: parsed.normalized };
+        if (parsed.code && parsed.state) {
+          payload.code = parsed.code;
+          payload.state = parsed.state;
+        }
+
         B_CODEX_EXCHANGE.disabled = true;
         try {
-          await LB.apiJSON('/admin/api/codex/oauth/exchange', { method: 'POST', body: { callback_url: cb } });
+          await LB.apiJSON('/admin/api/codex/oauth/exchange', { method: 'POST', body: payload });
           LB.toast('Token 已获取', 'ok');
           await loadCodexStatus({ toastOnFail: false });
           await load();
@@ -2141,6 +2263,14 @@
           await ensureCodexProviderRegistered();
           codexPendingDisplayName = '';
           codexPendingGroupName = '';
+          if (CODEX_CB_URL) CODEX_CB_URL.value = '';
+          if (CODEX_CALLBACK_ZONE) CODEX_CALLBACK_ZONE.style.display = 'none';
+          if (CODEX_REFRESH_TOKEN) CODEX_REFRESH_TOKEN.value = '';
+          if (CODEX_ACCESS_TOKEN) CODEX_ACCESS_TOKEN.value = '';
+          if (I_CODEX_AUTH_JSON) I_CODEX_AUTH_JSON.value = '';
+          const fnLabel = document.getElementById('codex-auth-json-filename');
+          if (fnLabel) fnLabel.textContent = '支持选择多个 Auth.json 文件';
+          if (CODEX_DEVICE_INFO) CODEX_DEVICE_INFO.textContent = '';
           closeCodexDialog();
           await load();
           const exists = lastProviders.some((p) => providerID(p) === 'codex');

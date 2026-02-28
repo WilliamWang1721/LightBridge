@@ -362,7 +362,7 @@
         <button class="btn primary" type="submit">登录 Login</button>
       </form>
 
-      <button class="btn secondary" type="button" disabled aria-disabled="true" title="暂未开放">以自定义方式登录</button>
+      <button class="btn secondary" id="passkey-login" type="button" {{if not .PasskeyInstalled}}disabled aria-disabled="true" title="未安装 Passkey 登录模块"{{else}}title="使用 Passkey 登录"{{end}}>以其他方式登录</button>
       <p class="note">Produced by MovingDOT Tech.</p>
       <pre id="out"></pre>
     </section>
@@ -454,6 +454,108 @@ If you still can login, consider creating a new admin user or keep a backup of t
       });
       if (c) c.addEventListener('click', () => {
         try { d.close(); } catch (_) {}
+      });
+    })();
+
+    function b64urlToBytes(s) {
+      const str = String(s || '').replace(/-/g, '+').replace(/_/g, '/');
+      const pad = str.length % 4 ? '='.repeat(4 - (str.length % 4)) : '';
+      const bin = atob(str + pad);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return bytes;
+    }
+
+    function bytesToB64url(bytes) {
+      const b = bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : new Uint8Array(bytes || []);
+      let bin = '';
+      for (let i = 0; i < b.length; i++) bin += String.fromCharCode(b[i]);
+      const base64 = btoa(bin);
+      return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+    }
+
+    function normalizePublicKeyRequestOptions(opts) {
+      const out = { ...(opts || {}) };
+      if (out.challenge) out.challenge = b64urlToBytes(out.challenge);
+      if (Array.isArray(out.allowCredentials)) {
+        out.allowCredentials = out.allowCredentials.map((c) => ({
+          ...(c || {}),
+          id: c?.id ? b64urlToBytes(c.id) : c?.id,
+        }));
+      }
+      return out;
+    }
+
+    function credentialToJSON(cred) {
+      if (!cred) return null;
+      return {
+        id: cred.id,
+        rawId: bytesToB64url(cred.rawId),
+        type: cred.type,
+        response: {
+          clientDataJSON: bytesToB64url(cred.response.clientDataJSON),
+          authenticatorData: bytesToB64url(cred.response.authenticatorData),
+          signature: bytesToB64url(cred.response.signature),
+          userHandle: cred.response.userHandle ? bytesToB64url(cred.response.userHandle) : '',
+        }
+      };
+    }
+
+    // Passkey login.
+    (() => {
+      const btn = document.getElementById('passkey-login');
+      const out = document.getElementById('out');
+      if (!btn) return;
+
+      async function api(url, payload) {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'accept': 'application/json' },
+          body: JSON.stringify(payload || {}),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const msg = body?.error || body?.message || res.statusText || 'request failed';
+          const err = new Error(msg);
+          err.status = res.status;
+          err.body = body;
+          throw err;
+        }
+        return body;
+      }
+
+      btn.addEventListener('click', async () => {
+        if (btn.disabled) return;
+        if (!window.PublicKeyCredential || !navigator.credentials) {
+          out.style.display = 'block';
+          out.textContent = '当前浏览器不支持 Passkey（WebAuthn）。请使用较新的 Safari/Chrome/Edge。';
+          return;
+        }
+        btn.disabled = true;
+        out.style.display = 'block';
+        out.textContent = '正在唤起 Passkey 认证…';
+
+        try {
+          const username = String(document.querySelector('input[name="username"]')?.value || '').trim();
+          const remember = Boolean(document.querySelector('input[name="remember"]')?.checked);
+          const begin = await api('/admin/api/passkey/auth/begin', { username });
+          const publicKey = normalizePublicKeyRequestOptions(begin?.publicKey);
+          const cred = await navigator.credentials.get({ publicKey });
+          const finish = await api('/admin/api/passkey/auth/finish', {
+            state: String(begin?.state || ''),
+            credential: credentialToJSON(cred),
+            remember,
+          });
+          out.style.display = 'none';
+          out.textContent = '';
+          location.href = String(finish?.next || '/admin/dashboard');
+        } catch (err) {
+          const msg = err?.name === 'NotAllowedError' ? '已取消 Passkey 验证' : (err?.message || 'Passkey 登录失败');
+          out.style.display = 'block';
+          out.textContent = msg;
+        } finally {
+          btn.disabled = false;
+        }
       });
     })();
   </script>

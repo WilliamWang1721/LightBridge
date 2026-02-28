@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -438,6 +439,124 @@ type oauthExchangeRequest struct {
 	CallbackURL string `json:"callback_url"`
 }
 
+var (
+	callbackURLExtractPattern = regexp.MustCompile(`(?i)(https?://[^\s"'<>]+|(?:localhost|127\.0\.0\.1|\[::1\]):\d+[^\s"'<>]*)`)
+	callbackAmpPattern        = regexp.MustCompile(`(?i)&amp;`)
+	callbackLocalHostPattern  = regexp.MustCompile(`^(localhost|127\.0\.0\.1|\[::1\]):\d+`)
+)
+
+type parsedCallbackURL struct {
+	NormalizedURL string
+	Code          string
+	State         string
+}
+
+func normalizeCallbackURLInput(raw string) string {
+	text := strings.TrimSpace(raw)
+	if text == "" {
+		return ""
+	}
+	if (strings.HasPrefix(text, "\"") && strings.HasSuffix(text, "\"")) ||
+		(strings.HasPrefix(text, "'") && strings.HasSuffix(text, "'")) ||
+		(strings.HasPrefix(text, "`") && strings.HasSuffix(text, "`")) {
+		text = strings.TrimSpace(text[1 : len(text)-1])
+	}
+
+	text = callbackAmpPattern.ReplaceAllString(text, "&")
+
+	if m := callbackURLExtractPattern.FindString(text); strings.TrimSpace(m) != "" {
+		text = strings.TrimSpace(m)
+	}
+	if !strings.HasPrefix(strings.ToLower(text), "http://") &&
+		!strings.HasPrefix(strings.ToLower(text), "https://") &&
+		!callbackLocalHostPattern.MatchString(text) {
+		for i := 0; i < 2; i++ {
+			decoded, err := url.QueryUnescape(text)
+			if err != nil || decoded == text {
+				break
+			}
+			text = strings.TrimSpace(decoded)
+		}
+		if m := callbackURLExtractPattern.FindString(text); strings.TrimSpace(m) != "" {
+			text = strings.TrimSpace(m)
+		}
+	}
+	if callbackLocalHostPattern.MatchString(text) {
+		text = "http://" + text
+	}
+	return strings.TrimSpace(text)
+}
+
+func parseCallbackURLInput(raw string) (*parsedCallbackURL, error) {
+	return parseCallbackURLInputDepth(raw, 0)
+}
+
+func parseCallbackURLInputDepth(raw string, depth int) (*parsedCallbackURL, error) {
+	if depth > 2 {
+		return nil, errors.New("invalid callback_url")
+	}
+	normalized := normalizeCallbackURLInput(raw)
+	if normalized == "" {
+		return nil, errors.New("invalid callback_url")
+	}
+
+	u, err := url.Parse(normalized)
+	if err != nil || u == nil {
+		return nil, errors.New("invalid callback_url")
+	}
+	if strings.TrimSpace(u.Scheme) == "" || strings.TrimSpace(u.Host) == "" {
+		return nil, errors.New("invalid callback_url")
+	}
+	q := u.Query()
+	if errStr := strings.TrimSpace(q.Get("error")); errStr != "" {
+		desc := strings.TrimSpace(q.Get("error_description"))
+		msg := errStr
+		if desc != "" {
+			msg += ": " + desc
+		}
+		return nil, errors.New(msg)
+	}
+
+	code := strings.TrimSpace(q.Get("code"))
+	state := strings.TrimSpace(q.Get("state"))
+	if (code == "" || state == "") && strings.TrimSpace(u.Fragment) != "" {
+		frag := strings.TrimPrefix(strings.TrimSpace(u.Fragment), "#")
+		frag = strings.TrimPrefix(frag, "?")
+		if values, err := url.ParseQuery(frag); err == nil {
+			if code == "" {
+				code = strings.TrimSpace(values.Get("code"))
+			}
+			if state == "" {
+				state = strings.TrimSpace(values.Get("state"))
+			}
+		}
+	}
+
+	if code == "" || state == "" {
+		nested := strings.TrimSpace(q.Get("callback_url"))
+		if nested == "" {
+			nested = strings.TrimSpace(q.Get("callbackUrl"))
+		}
+		if nested != "" {
+			nestedParsed, err := parseCallbackURLInputDepth(nested, depth+1)
+			if err == nil {
+				if code == "" {
+					code = nestedParsed.Code
+				}
+				if state == "" {
+					state = nestedParsed.State
+				}
+			}
+		}
+	}
+
+	return &parsedCallbackURL{
+		NormalizedURL: normalized,
+		Code:          code,
+		State:         state,
+	}, nil
+}
+
 func (s *server) handleAuthOAuthExchange(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeOpenAIError(w, http.StatusMethodNotAllowed, "method not allowed", "invalid_request_error", "method_not_allowed")
@@ -451,24 +570,15 @@ func (s *server) handleAuthOAuthExchange(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Support callback_url parsing (manual URL paste fallback).
-	if strings.TrimSpace(req.CallbackURL) != "" && strings.TrimSpace(req.Code) == "" {
-		u, err := url.Parse(strings.TrimSpace(req.CallbackURL))
-		if err != nil || u == nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "invalid callback_url"})
+	if strings.TrimSpace(req.CallbackURL) != "" && (strings.TrimSpace(req.Code) == "" || strings.TrimSpace(req.State) == "") {
+		parsed, err := parseCallbackURLInput(req.CallbackURL)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
 			return
 		}
-		q := u.Query()
-		if errStr := strings.TrimSpace(q.Get("error")); errStr != "" {
-			desc := strings.TrimSpace(q.Get("error_description"))
-			msg := errStr
-			if desc != "" {
-				msg += ": " + desc
-			}
-			writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": msg})
-			return
-		}
-		req.Code = q.Get("code")
-		req.State = q.Get("state")
+		req.CallbackURL = parsed.NormalizedURL
+		req.Code = parsed.Code
+		req.State = parsed.State
 	}
 
 	code := strings.TrimSpace(req.Code)
