@@ -207,9 +207,15 @@ func TestAnthropicProviderConversion(t *testing.T) {
 		if stream, _ := payload["stream"].(bool); stream {
 			w.Header().Set("content-type", "text/event-stream")
 			fmt.Fprint(w, "event: message_start\n")
-			fmt.Fprint(w, "data: {\"type\":\"message_start\"}\n\n")
+			fmt.Fprint(w, "data: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_stream\",\"model\":\"claude-upstream\",\"usage\":{\"input_tokens\":5}}}\n\n")
+			fmt.Fprint(w, "event: content_block_start\n")
+			fmt.Fprint(w, "data: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n")
 			fmt.Fprint(w, "event: content_block_delta\n")
-			fmt.Fprint(w, "data: {\"delta\":{\"text\":\"hello\"}}\n\n")
+			fmt.Fprint(w, "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hello\"}}\n\n")
+			fmt.Fprint(w, "event: content_block_stop\n")
+			fmt.Fprint(w, "data: {\"type\":\"content_block_stop\",\"index\":0}\n\n")
+			fmt.Fprint(w, "event: message_delta\n")
+			fmt.Fprint(w, "data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":3}}\n\n")
 			fmt.Fprint(w, "event: message_stop\n")
 			fmt.Fprint(w, "data: {\"type\":\"message_stop\"}\n\n")
 			return

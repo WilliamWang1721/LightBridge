@@ -264,6 +264,35 @@ func (s *Store) UpsertModel(ctx context.Context, m types.Model) error {
 	return err
 }
 
+func (s *Store) InsertModelsIfMissing(ctx context.Context, ids []string) (int, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	inserted := 0
+	for _, idRaw := range ids {
+		id := strings.TrimSpace(idRaw)
+		if id == "" {
+			continue
+		}
+		res, err := tx.ExecContext(ctx, `
+			INSERT INTO models(id, display_name, enabled) VALUES (?, ?, 1)
+			ON CONFLICT(id) DO NOTHING
+		`, id, id)
+		if err != nil {
+			_ = tx.Rollback()
+			return inserted, err
+		}
+		if n, _ := res.RowsAffected(); n > 0 {
+			inserted += int(n)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return inserted, err
+	}
+	return inserted, nil
+}
+
 func (s *Store) ListModels(ctx context.Context, includeDisabled bool) ([]types.Model, error) {
 	query := `SELECT id, display_name, enabled FROM models`
 	if !includeDisabled {

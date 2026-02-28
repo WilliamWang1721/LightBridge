@@ -17,7 +17,7 @@
 
 </div>
 
-`LightBridge` 是一个面向本地部署和可扩展代理场景的 AI Gateway。它提供 OpenAI 兼容的 `/v1/*` 接口，支持 `model` 与 `model@provider` 路由表达式，内置 `forward` 与 `anthropic` 提供商，并支持通过模块市场安装第三方 provider（`http_openai` / `http_rpc` / `grpc_chat` 协议）。
+`LightBridge` 是一个面向本地部署和可扩展代理场景的 AI Gateway。它提供 OpenAI 兼容的 `/v1/*` 接口，支持 `model` 与 `model@provider` 路由表达式，内置 `forward` 与 `anthropic` 提供商，并支持通过模块市场安装第三方 provider（`http_openai` / `http_rpc` / `grpc_chat` / `codex` 协议）。
 
 > [!NOTE]
 > **📌 当前版本定位：Go MVP v0.1**
@@ -126,6 +126,7 @@ Marketplace 默认源：
 - `forward`：`/v1/*` 透传
 - `anthropic`：`/v1/chat/completions` 请求转换（流式/非流式）
 - `grpc_chat`：占位实现（当前返回 `501_not_supported`）
+- `codex`：在 Router 层完成 OpenAI Chat/Responses ↔ Codex（Responses）转换（流式/非流式）
 
 ---
 
@@ -140,7 +141,7 @@ Marketplace 默认源：
 
 `services[]` 中 provider 相关字段：
 - `kind: "provider"`
-- `protocol: "http_openai" | "http_rpc" | "grpc_chat"`
+- `protocol: "http_openai" | "http_rpc" | "grpc_chat" | "codex"`
 - `health`
 - `expose_provider_aliases[]`
 
@@ -190,3 +191,11 @@ go test ./...
 - 管理页面是可用 MVP，不是完整富交互 UI
 - API Key/Provider Secret 目前以明文方式写入 SQLite
 - 仅记录请求元数据，不记录完整 prompt/response body
+
+---
+
+## 📎 第三方代码引用与致谢
+
+为避免重复造轮子，LightBridge 复用/移植了参考项目中的成熟实现（遵循其原始开源协议）：
+
+- **CLI Proxy API（MIT License）**：Codex ↔ OpenAI（Chat Completions / Responses）转换与 Usage 映射逻辑（对应本仓库：`internal/translator/codex/openai/*`）。

@@ -85,6 +85,8 @@ func (r *Resolver) Resolve(ctx context.Context, model string) (*types.ResolvedRo
 	fallback := "forward"
 	if strings.HasPrefix(strings.ToLower(model), "claude-") {
 		fallback = "anthropic"
+	} else if strings.HasPrefix(strings.ToLower(model), "gemini-") {
+		fallback = "gemini"
 	}
 	provider, err := r.store.GetProvider(ctx, fallback)
 	if err != nil {
@@ -255,6 +257,73 @@ func (r *Resolver) selectRoute(ctx context.Context, routes []types.ModelRoute) (
 	}
 	chosen := filtered[len(filtered)-1]
 	return &chosen, nil
+}
+
+// ResolveExcluding resolves a route while excluding specific provider IDs.
+// Used for retry/failover when an upstream provider returns a 5xx error.
+func (r *Resolver) ResolveExcluding(ctx context.Context, model string, excludeProviders map[string]struct{}) (*types.ResolvedRoute, error) {
+	model = strings.TrimSpace(model)
+	if model == "" {
+		return nil, errors.New("model is required")
+	}
+
+	// Variant syntax bypasses failover (explicit provider choice)
+	if _, _, ok := splitVariant(model); ok {
+		return r.Resolve(ctx, model)
+	}
+
+	routes, err := r.store.ListModelRoutes(ctx, model, false)
+	if err != nil {
+		return nil, err
+	}
+
+	// Filter out excluded providers
+	var filtered []types.ModelRoute
+	for _, route := range routes {
+		if _, excluded := excludeProviders[route.ProviderID]; excluded {
+			continue
+		}
+		filtered = append(filtered, route)
+	}
+
+	if len(filtered) > 0 {
+		chosen, err := r.selectRoute(ctx, filtered)
+		if err != nil {
+			return nil, err
+		}
+		upstream := chosen.UpstreamModel
+		if upstream == "" {
+			upstream = model
+		}
+		return &types.ResolvedRoute{
+			RequestedModel: model,
+			ProviderID:     chosen.ProviderID,
+			UpstreamModel:  upstream,
+			Variant:        false,
+		}, nil
+	}
+
+	// Try fallback providers not in exclusion set
+	fallback := "forward"
+	if strings.HasPrefix(strings.ToLower(model), "claude-") {
+		fallback = "anthropic"
+	}
+	if _, excluded := excludeProviders[fallback]; excluded {
+		return nil, fmt.Errorf("all providers exhausted after failover: %w", ErrNoHealthyProvider)
+	}
+	provider, err := r.store.GetProvider(ctx, fallback)
+	if err != nil {
+		return nil, err
+	}
+	if provider == nil || !provider.Enabled || !isHealthy(provider.Health) {
+		return nil, fmt.Errorf("fallback provider %s unavailable: %w", fallback, ErrNoHealthyProvider)
+	}
+	return &types.ResolvedRoute{
+		RequestedModel: model,
+		ProviderID:     fallback,
+		UpstreamModel:  model,
+		Variant:        false,
+	}, nil
 }
 
 func splitVariant(model string) (base string, provider string, ok bool) {

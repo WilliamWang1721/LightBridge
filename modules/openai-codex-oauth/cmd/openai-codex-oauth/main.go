@@ -49,7 +49,8 @@ func main() {
 	if err := s.loadCredentials(); err != nil {
 		log.Printf("auth: %v", err)
 	}
-	if err := s.maybeRefreshCredentials(context.Background()); err != nil {
+	// Use retry-based refresh at startup for resilience.
+	if err := s.maybeRefreshCredentials(context.Background()); err != nil && !errors.Is(err, errNoCredentials) {
 		log.Printf("auth refresh: %v", err)
 	}
 
@@ -59,6 +60,7 @@ func main() {
 	mux.HandleFunc("/auth/oauth/start", s.handleAuthOAuthStart)
 	mux.HandleFunc("/auth/oauth/exchange", s.handleAuthOAuthExchange)
 	mux.HandleFunc("/auth/import", s.handleAuthImport)
+	mux.HandleFunc("/auth/refresh", s.handleAuthRefresh)
 	mux.HandleFunc("/auth/status", s.handleAuthStatus)
 	mux.HandleFunc("/responses", s.handleResponses)
 	mux.HandleFunc("/v1/models", s.handleModels)

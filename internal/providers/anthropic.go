@@ -5,14 +5,18 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"time"
 
+	claudechat "lightbridge/internal/translator/claude/openai/chat_completions"
+	clauderesp "lightbridge/internal/translator/claude/openai/responses"
 	"lightbridge/internal/types"
+
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 )
 
 const anthropicVersionHeader = "2023-06-01"
@@ -22,9 +26,9 @@ type AnthropicAdapter struct {
 }
 
 type AnthropicConfig struct {
-	BaseURL      string   `json:"base_url"`
-	APIKey       string   `json:"api_key"`
-	DefaultModel []string `json:"default_models"`
+	BaseURL      string            `json:"base_url"`
+	APIKey       string            `json:"api_key"`
+	ExtraHeaders map[string]string `json:"extra_headers"`
 }
 
 func NewAnthropicAdapter(client *http.Client) *AnthropicAdapter {
@@ -38,100 +42,51 @@ func (a *AnthropicAdapter) Protocol() string {
 	return types.ProtocolAnthropic
 }
 
-type openAIChatRequest struct {
-	Model       string          `json:"model"`
-	Messages    []openAIMessage `json:"messages"`
-	Stream      bool            `json:"stream"`
-	MaxTokens   int             `json:"max_tokens"`
-	Temperature *float64        `json:"temperature,omitempty"`
-}
-
-type openAIMessage struct {
-	Role    string `json:"role"`
-	Content any    `json:"content"`
-}
-
-type anthropicMessageRequest struct {
-	Model       string                  `json:"model"`
-	MaxTokens   int                     `json:"max_tokens"`
-	Messages    []anthropicMessageInput `json:"messages"`
-	System      string                  `json:"system,omitempty"`
-	Stream      bool                    `json:"stream"`
-	Temperature *float64                `json:"temperature,omitempty"`
-}
-
-type anthropicMessageInput struct {
-	Role    string                  `json:"role"`
-	Content []anthropicContentBlock `json:"content"`
-}
-
-type anthropicContentBlock struct {
-	Type string `json:"type"`
-	Text string `json:"text,omitempty"`
-}
-
-type anthropicMessageResponse struct {
-	ID      string `json:"id"`
-	Model   string `json:"model"`
-	Content []struct {
-		Type string `json:"type"`
-		Text string `json:"text"`
-	} `json:"content"`
-	StopReason string `json:"stop_reason"`
-	Usage      struct {
-		InputTokens  int `json:"input_tokens"`
-		OutputTokens int `json:"output_tokens"`
-	} `json:"usage"`
-}
-
 func (a *AnthropicAdapter) Handle(ctx context.Context, w http.ResponseWriter, req *http.Request, provider types.Provider, route *types.ResolvedRoute) (int, string, error) {
-	if req.Method != http.MethodPost || req.URL.Path != "/v1/chat/completions" {
+	switch req.URL.Path {
+	case "/v1/chat/completions":
+		return a.handleChatCompletions(ctx, w, req, provider, route)
+	case "/v1/responses":
+		return a.handleResponses(ctx, w, req, provider, route)
+	default:
 		writeOpenAIError(w, http.StatusNotImplemented, "Endpoint not supported by anthropic provider", "not_supported", "501_not_supported")
 		return http.StatusNotImplemented, "501_not_supported", nil
 	}
+}
 
-	cfg := AnthropicConfig{}
-	if provider.ConfigJSON != "" {
-		_ = json.Unmarshal([]byte(provider.ConfigJSON), &cfg)
+func (a *AnthropicAdapter) handleChatCompletions(ctx context.Context, w http.ResponseWriter, req *http.Request, provider types.Provider, route *types.ResolvedRoute) (int, string, error) {
+	if req.Method != http.MethodPost {
+		writeOpenAIError(w, http.StatusMethodNotAllowed, "Method not allowed", "invalid_request_error", "method_not_allowed")
+		return http.StatusMethodNotAllowed, "method_not_allowed", nil
 	}
-	if cfg.BaseURL == "" {
-		cfg.BaseURL = strings.TrimSpace(provider.Endpoint)
-	}
-	if cfg.BaseURL == "" {
-		cfg.BaseURL = "https://api.anthropic.com"
-	}
+
+	cfg := a.parseConfig(provider)
 	if cfg.APIKey == "" {
 		writeOpenAIError(w, http.StatusBadGateway, "Anthropic API key missing", "provider_misconfigured", "provider_misconfigured")
 		return http.StatusBadGateway, "provider_misconfigured", nil
 	}
 
-	body, err := io.ReadAll(req.Body)
+	body, err := io.ReadAll(io.LimitReader(req.Body, 20<<20))
+	_ = req.Body.Close()
 	if err != nil {
 		writeOpenAIError(w, http.StatusBadRequest, "Invalid request body", "invalid_request_error", "invalid_body")
 		return http.StatusBadRequest, "invalid_body", nil
 	}
-	_ = req.Body.Close()
-
-	var openReq openAIChatRequest
-	if err := json.Unmarshal(body, &openReq); err != nil {
+	if !gjson.ValidBytes(body) {
 		writeOpenAIError(w, http.StatusBadRequest, "Body must be valid JSON", "invalid_request_error", "invalid_json")
 		return http.StatusBadRequest, "invalid_json", nil
 	}
-	anthReq := convertOpenAIToAnthropic(openReq, route)
-	payload, _ := json.Marshal(anthReq)
 
-	upstreamReq, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(cfg.BaseURL, "/")+"/v1/messages", bytes.NewReader(payload))
-	if err != nil {
-		return http.StatusBadGateway, "upstream_request_failed", err
-	}
-	upstreamReq.Header.Set("content-type", "application/json")
-	upstreamReq.Header.Set("x-api-key", cfg.APIKey)
-	upstreamReq.Header.Set("anthropic-version", anthropicVersionHeader)
-	if openReq.Stream {
-		upstreamReq.Header.Set("accept", "text/event-stream")
+	clientWantsStream := gjson.GetBytes(body, "stream").Type == gjson.True
+	upstreamModel := strings.TrimSpace(route.UpstreamModel)
+	if upstreamModel == "" {
+		upstreamModel = gjson.GetBytes(body, "model").String()
 	}
 
-	resp, err := a.client.Do(upstreamReq)
+	// Translate OpenAI Chat Completions → Claude Messages
+	claudeReqBody := claudechat.ConvertOpenAIRequestToClaude(upstreamModel, body, clientWantsStream)
+
+	resp, err := a.doUpstream(ctx, cfg, claudeReqBody, clientWantsStream)
 	if err != nil {
 		return http.StatusBadGateway, "upstream_unreachable", err
 	}
@@ -143,138 +98,95 @@ func (a *AnthropicAdapter) Handle(ctx context.Context, w http.ResponseWriter, re
 		return resp.StatusCode, "anthropic_upstream_error", nil
 	}
 
-	if openReq.Stream {
-		status, code, err := streamAnthropicToOpenAI(w, resp.Body, route.RequestedModel)
-		return status, code, err
+	if clientWantsStream {
+		return a.streamClaudeToOpenAIChatCompletions(w, resp.Body, upstreamModel, body, claudeReqBody)
 	}
 
-	var anthResp anthropicMessageResponse
-	if err := json.NewDecoder(resp.Body).Decode(&anthResp); err != nil {
-		return http.StatusBadGateway, "upstream_decode_failed", err
+	// Non-stream: Claude returns plain JSON (not SSE)
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return http.StatusBadGateway, "upstream_read_failed", err
 	}
-	openResp := mapResponseToOpenAI(anthResp, route.RequestedModel)
-	encoded, _ := json.Marshal(openResp)
+
+	// Check if response is SSE or plain JSON
+	var out string
+	if bytes.HasPrefix(bytes.TrimSpace(respBody), []byte("event:")) || bytes.HasPrefix(bytes.TrimSpace(respBody), []byte("data:")) {
+		out = claudechat.ConvertClaudeResponseToOpenAINonStream(ctx, upstreamModel, body, claudeReqBody, respBody, nil)
+	} else {
+		// Plain JSON response from Claude — convert directly
+		out = convertClaudeJSONToOpenAIChatCompletion(respBody, route.RequestedModel)
+	}
+	if strings.TrimSpace(out) == "" {
+		return http.StatusBadGateway, "anthropic_translate_failed", fmt.Errorf("failed to translate claude response")
+	}
 	w.Header().Set("content-type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(encoded)
+	_, _ = io.WriteString(w, out)
 	return http.StatusOK, "", nil
 }
 
-func convertOpenAIToAnthropic(in openAIChatRequest, route *types.ResolvedRoute) anthropicMessageRequest {
-	msgs := make([]anthropicMessageInput, 0, len(in.Messages))
-	var systemParts []string
-	for _, m := range in.Messages {
-		text := stringifyContent(m.Content)
-		role := strings.ToLower(strings.TrimSpace(m.Role))
-		if text == "" {
-			continue
-		}
-		if role == "system" {
-			systemParts = append(systemParts, text)
-			continue
-		}
-		if role == "assistant" || role == "user" {
-			msgs = append(msgs, anthropicMessageInput{
-				Role: role,
-				Content: []anthropicContentBlock{{
-					Type: "text",
-					Text: text,
-				}},
-			})
-		}
+func (a *AnthropicAdapter) handleResponses(ctx context.Context, w http.ResponseWriter, req *http.Request, provider types.Provider, route *types.ResolvedRoute) (int, string, error) {
+	if req.Method != http.MethodPost {
+		writeOpenAIError(w, http.StatusMethodNotAllowed, "Method not allowed", "invalid_request_error", "method_not_allowed")
+		return http.StatusMethodNotAllowed, "method_not_allowed", nil
 	}
-	if len(msgs) == 0 {
-		msgs = []anthropicMessageInput{{
-			Role: "user",
-			Content: []anthropicContentBlock{{
-				Type: "text",
-				Text: "",
-			}},
-		}}
+
+	cfg := a.parseConfig(provider)
+	if cfg.APIKey == "" {
+		writeOpenAIError(w, http.StatusBadGateway, "Anthropic API key missing", "provider_misconfigured", "provider_misconfigured")
+		return http.StatusBadGateway, "provider_misconfigured", nil
 	}
-	maxTokens := in.MaxTokens
-	if maxTokens <= 0 {
-		maxTokens = 1024
+
+	body, err := io.ReadAll(io.LimitReader(req.Body, 20<<20))
+	_ = req.Body.Close()
+	if err != nil {
+		writeOpenAIError(w, http.StatusBadRequest, "Invalid request body", "invalid_request_error", "invalid_body")
+		return http.StatusBadRequest, "invalid_body", nil
 	}
-	model := in.Model
-	if route != nil && route.UpstreamModel != "" {
-		model = route.UpstreamModel
+	if !gjson.ValidBytes(body) {
+		writeOpenAIError(w, http.StatusBadRequest, "Body must be valid JSON", "invalid_request_error", "invalid_json")
+		return http.StatusBadRequest, "invalid_json", nil
 	}
-	return anthropicMessageRequest{
-		Model:       model,
-		MaxTokens:   maxTokens,
-		Messages:    msgs,
-		System:      strings.Join(systemParts, "\n"),
-		Stream:      in.Stream,
-		Temperature: in.Temperature,
+
+	clientWantsStream := gjson.GetBytes(body, "stream").Type == gjson.True
+	upstreamModel := strings.TrimSpace(route.UpstreamModel)
+	if upstreamModel == "" {
+		upstreamModel = gjson.GetBytes(body, "model").String()
 	}
+
+	// Translate OpenAI Responses → Claude Messages (always stream upstream)
+	claudeReqBody := clauderesp.ConvertOpenAIResponsesRequestToClaude(upstreamModel, body, true)
+
+	resp, err := a.doUpstream(ctx, cfg, claudeReqBody, true)
+	if err != nil {
+		return http.StatusBadGateway, "upstream_unreachable", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		msg := parseUpstreamError(resp.Body)
+		writeOpenAIError(w, resp.StatusCode, msg, "upstream_error", "anthropic_upstream_error")
+		return resp.StatusCode, "anthropic_upstream_error", nil
+	}
+
+	if clientWantsStream {
+		return a.streamClaudeToOpenAIResponses(w, resp.Body, upstreamModel, body, claudeReqBody)
+	}
+
+	// Non-stream: collect all SSE, translate
+	allLines := collectSSELines(resp.Body)
+	out := clauderesp.ConvertClaudeResponseToOpenAIResponsesNonStream(ctx, upstreamModel, body, claudeReqBody, allLines, nil)
+	if strings.TrimSpace(out) == "" {
+		// Fallback: try reading as plain JSON
+		return http.StatusBadGateway, "anthropic_translate_failed", fmt.Errorf("failed to translate claude response")
+	}
+	w.Header().Set("content-type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = io.WriteString(w, out)
+	return http.StatusOK, "", nil
 }
 
-func stringifyContent(v any) string {
-	switch t := v.(type) {
-	case string:
-		return t
-	case []any:
-		parts := make([]string, 0, len(t))
-		for _, item := range t {
-			m, ok := item.(map[string]any)
-			if !ok {
-				continue
-			}
-			if txt, ok := m["text"].(string); ok {
-				parts = append(parts, txt)
-			}
-		}
-		return strings.Join(parts, "")
-	case map[string]any:
-		if txt, ok := t["text"].(string); ok {
-			return txt
-		}
-	}
-	return ""
-}
-
-func mapResponseToOpenAI(in anthropicMessageResponse, requestedModel string) map[string]any {
-	contentParts := make([]string, 0, len(in.Content))
-	for _, block := range in.Content {
-		if block.Type == "text" {
-			contentParts = append(contentParts, block.Text)
-		}
-	}
-	if requestedModel == "" {
-		requestedModel = in.Model
-	}
-	if requestedModel == "" {
-		requestedModel = "claude"
-	}
-	finish := in.StopReason
-	if finish == "" {
-		finish = "stop"
-	}
-	return map[string]any{
-		"id":      in.ID,
-		"object":  "chat.completion",
-		"created": time.Now().Unix(),
-		"model":   requestedModel,
-		"choices": []map[string]any{
-			{
-				"index": 0,
-				"message": map[string]any{
-					"role":    "assistant",
-					"content": strings.Join(contentParts, ""),
-				},
-				"finish_reason": finish,
-			},
-		},
-		"usage": map[string]any{
-			"prompt_tokens":     in.Usage.InputTokens,
-			"completion_tokens": in.Usage.OutputTokens,
-			"total_tokens":      in.Usage.InputTokens + in.Usage.OutputTokens,
-		},
-	}
-}
-
-func streamAnthropicToOpenAI(w http.ResponseWriter, body io.Reader, requestedModel string) (int, string, error) {
+func (a *AnthropicAdapter) streamClaudeToOpenAIChatCompletions(w http.ResponseWriter, body io.Reader, model string, origReq, claudeReq []byte) (int, string, error) {
 	w.Header().Set("content-type", "text/event-stream")
 	w.Header().Set("cache-control", "no-cache")
 	w.Header().Set("connection", "keep-alive")
@@ -282,191 +194,172 @@ func streamAnthropicToOpenAI(w http.ResponseWriter, body io.Reader, requestedMod
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		return http.StatusInternalServerError, "stream_not_supported", errors.New("response writer does not support flushing")
+		return http.StatusInternalServerError, "stream_not_supported", fmt.Errorf("flushing not supported")
 	}
 
-	scanner := bufio.NewScanner(body)
-	buf := make([]byte, 0, 1024*1024)
-	scanner.Buffer(buf, 1024*1024)
+	sc := bufio.NewScanner(body)
+	sc.Buffer(make([]byte, 0, 64*1024), 52_428_800)
 
-	currentEvent := ""
-	var dataLines []string
-	chunkID := fmt.Sprintf("chatcmpl-%d", time.Now().UnixNano())
-	if requestedModel == "" {
-		requestedModel = "claude"
-	}
-	sentRole := false
-	sentStop := false
-
-	emit := func(payload map[string]any) error {
-		bytesPayload, err := json.Marshal(payload)
-		if err != nil {
-			return err
-		}
-		if _, err := fmt.Fprintf(w, "data: %s\n\n", string(bytesPayload)); err != nil {
-			return err
-		}
-		flusher.Flush()
-		return nil
-	}
-
-	processEvent := func(event string, data string) error {
-		if strings.TrimSpace(data) == "" {
-			return nil
-		}
-		if strings.TrimSpace(data) == "[DONE]" {
-			return nil
-		}
-		var obj map[string]any
-		if err := json.Unmarshal([]byte(data), &obj); err != nil {
-			return nil
-		}
-		switch event {
-		case "message_start", "content_block_start":
-			if !sentRole {
-				err := emit(openAIChunk(chunkID, requestedModel, map[string]any{"role": "assistant"}, nil))
-				if err != nil {
-					return err
-				}
-				sentRole = true
+	var param any
+	for sc.Scan() {
+		line := bytes.Clone(sc.Bytes())
+		chunks := claudechat.ConvertClaudeResponseToOpenAI(context.Background(), model, origReq, claudeReq, line, &param)
+		for _, chunk := range chunks {
+			if strings.TrimSpace(chunk) == "" {
+				continue
 			}
-		case "content_block_delta":
-			deltaText := ""
-			if delta, ok := obj["delta"].(map[string]any); ok {
-				if text, ok := delta["text"].(string); ok {
-					deltaText = text
-				}
-			}
-			if deltaText != "" {
-				if !sentRole {
-					err := emit(openAIChunk(chunkID, requestedModel, map[string]any{"role": "assistant"}, nil))
-					if err != nil {
-						return err
-					}
-					sentRole = true
-				}
-				err := emit(openAIChunk(chunkID, requestedModel, map[string]any{"content": deltaText}, nil))
-				if err != nil {
-					return err
-				}
-			}
-		case "message_delta":
-			if delta, ok := obj["delta"].(map[string]any); ok {
-				if stop, ok := delta["stop_reason"].(string); ok && stop != "" {
-					stopReason := stop
-					err := emit(openAIChunk(chunkID, requestedModel, map[string]any{}, &stopReason))
-					if err != nil {
-						return err
-					}
-					sentStop = true
-				}
-			}
-		case "message_stop":
-			if !sentStop {
-				stopReason := "stop"
-				err := emit(openAIChunk(chunkID, requestedModel, map[string]any{}, &stopReason))
-				if err != nil {
-					return err
-				}
-				sentStop = true
-			}
-		}
-		return nil
-	}
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.HasPrefix(line, "event:") {
-			currentEvent = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
-			continue
-		}
-		if strings.HasPrefix(line, "data:") {
-			dataLines = append(dataLines, strings.TrimSpace(strings.TrimPrefix(line, "data:")))
-			continue
-		}
-		if line == "" {
-			if len(dataLines) > 0 {
-				data := strings.Join(dataLines, "\n")
-				if err := processEvent(currentEvent, data); err != nil {
-					return http.StatusBadGateway, "stream_convert_failed", err
-				}
-			}
-			currentEvent = ""
-			dataLines = dataLines[:0]
+			_, _ = io.WriteString(w, "data: "+chunk+"\n\n")
+			flusher.Flush()
 		}
 	}
-	if err := scanner.Err(); err != nil {
-		return http.StatusBadGateway, "stream_read_failed", err
-	}
-	if !sentStop {
-		stopReason := "stop"
-		if err := emit(openAIChunk(chunkID, requestedModel, map[string]any{}, &stopReason)); err != nil {
-			return http.StatusBadGateway, "stream_flush_failed", err
-		}
-	}
-	if _, err := fmt.Fprint(w, "data: [DONE]\n\n"); err != nil {
-		return http.StatusBadGateway, "stream_done_failed", err
-	}
+	_, _ = fmt.Fprint(w, "data: [DONE]\n\n")
 	flusher.Flush()
+	if err := sc.Err(); err != nil {
+		return http.StatusBadGateway, "upstream_stream_failed", err
+	}
 	return http.StatusOK, "", nil
 }
 
-func openAIChunk(id, model string, delta map[string]any, finishReason *string) map[string]any {
-	choice := map[string]any{
-		"index": 0,
-		"delta": delta,
+func (a *AnthropicAdapter) streamClaudeToOpenAIResponses(w http.ResponseWriter, body io.Reader, model string, origReq, claudeReq []byte) (int, string, error) {
+	w.Header().Set("content-type", "text/event-stream")
+	w.Header().Set("cache-control", "no-cache")
+	w.Header().Set("connection", "keep-alive")
+	w.Header().Set("x-accel-buffering", "no")
+	w.WriteHeader(http.StatusOK)
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		return http.StatusInternalServerError, "stream_not_supported", fmt.Errorf("flushing not supported")
 	}
-	if finishReason == nil {
-		choice["finish_reason"] = nil
-	} else {
-		choice["finish_reason"] = *finishReason
+
+	sc := bufio.NewScanner(body)
+	sc.Buffer(make([]byte, 0, 64*1024), 52_428_800)
+
+	var param any
+	for sc.Scan() {
+		line := bytes.Clone(sc.Bytes())
+		outLines := clauderesp.ConvertClaudeResponseToOpenAIResponses(context.Background(), model, origReq, claudeReq, line, &param)
+		for _, outLine := range outLines {
+			_, _ = io.WriteString(w, outLine+"\n")
+		}
+		flusher.Flush()
 	}
-	return map[string]any{
-		"id":      id,
-		"object":  "chat.completion.chunk",
-		"created": time.Now().Unix(),
-		"model":   model,
-		"choices": []map[string]any{choice},
+	if err := sc.Err(); err != nil {
+		return http.StatusBadGateway, "upstream_stream_failed", err
 	}
+	return http.StatusOK, "", nil
 }
 
-func parseUpstreamError(body io.Reader) string {
-	buf, _ := io.ReadAll(io.LimitReader(body, 1<<20))
-	if len(buf) == 0 {
-		return "Upstream provider returned an error"
+func (a *AnthropicAdapter) parseConfig(provider types.Provider) AnthropicConfig {
+	cfg := AnthropicConfig{}
+	if provider.ConfigJSON != "" {
+		_ = json.Unmarshal([]byte(provider.ConfigJSON), &cfg)
 	}
-	var obj map[string]any
-	if err := json.Unmarshal(buf, &obj); err == nil {
-		if errObj, ok := obj["error"].(map[string]any); ok {
-			if msg, ok := errObj["message"].(string); ok && msg != "" {
-				return msg
+	if cfg.BaseURL == "" {
+		cfg.BaseURL = strings.TrimSpace(provider.Endpoint)
+	}
+	if cfg.BaseURL == "" {
+		cfg.BaseURL = "https://api.anthropic.com"
+	}
+	return cfg
+}
+
+func (a *AnthropicAdapter) doUpstream(ctx context.Context, cfg AnthropicConfig, payload []byte, stream bool) (*http.Response, error) {
+	url := strings.TrimRight(cfg.BaseURL, "/") + "/v1/messages"
+	upReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+	upReq.Header.Set("content-type", "application/json")
+	upReq.Header.Set("x-api-key", cfg.APIKey)
+	upReq.Header.Set("anthropic-version", anthropicVersionHeader)
+	if stream {
+		upReq.Header.Set("accept", "text/event-stream")
+	}
+	for k, v := range cfg.ExtraHeaders {
+		if strings.TrimSpace(k) != "" {
+			upReq.Header.Set(k, v)
+		}
+	}
+	return a.client.Do(upReq)
+}
+
+func collectSSELines(body io.Reader) []byte {
+	var buf bytes.Buffer
+	sc := bufio.NewScanner(body)
+	sc.Buffer(make([]byte, 0, 64*1024), 52_428_800)
+	for sc.Scan() {
+		buf.Write(sc.Bytes())
+		buf.WriteByte('\n')
+	}
+	return buf.Bytes()
+}
+
+// convertClaudeJSONToOpenAIChatCompletion converts a plain Claude Messages API
+// JSON response to OpenAI Chat Completions format.
+func convertClaudeJSONToOpenAIChatCompletion(body []byte, requestedModel string) string {
+	root := gjson.ParseBytes(body)
+
+	var contentParts []string
+	var toolCalls []string
+	if output := root.Get("content"); output.IsArray() {
+		for _, block := range output.Array() {
+			switch block.Get("type").String() {
+			case "text":
+				contentParts = append(contentParts, block.Get("text").String())
+			case "tool_use":
+				tc := `{"id":"","type":"function","function":{"name":"","arguments":""}}`
+				tc, _ = sjson.Set(tc, "id", block.Get("id").String())
+				tc, _ = sjson.Set(tc, "function.name", block.Get("name").String())
+				if input := block.Get("input"); input.Exists() {
+					tc, _ = sjson.Set(tc, "function.arguments", input.Raw)
+				}
+				toolCalls = append(toolCalls, tc)
 			}
 		}
-		if msg, ok := obj["message"].(string); ok && msg != "" {
-			return msg
+	}
+
+	model := requestedModel
+	if model == "" {
+		model = root.Get("model").String()
+	}
+	if model == "" {
+		model = "claude"
+	}
+
+	finish := "stop"
+	if sr := root.Get("stop_reason").String(); sr != "" {
+		switch sr {
+		case "end_turn":
+			finish = "stop"
+		case "tool_use":
+			finish = "tool_calls"
+		case "max_tokens":
+			finish = "length"
+		default:
+			finish = "stop"
 		}
 	}
-	msg := strings.TrimSpace(string(buf))
-	if msg == "" {
-		return "Upstream provider returned an error"
-	}
-	return msg
-}
 
-func writeOpenAIError(w http.ResponseWriter, status int, message, errType, code string) {
-	if errType == "" {
-		errType = "invalid_request_error"
+	out := `{"id":"","object":"chat.completion","created":0,"model":"","choices":[{"index":0,"message":{"role":"assistant","content":""},"finish_reason":"stop"}]}`
+	out, _ = sjson.Set(out, "id", root.Get("id").String())
+	out, _ = sjson.Set(out, "created", time.Now().Unix())
+	out, _ = sjson.Set(out, "model", model)
+	out, _ = sjson.Set(out, "choices.0.message.content", strings.Join(contentParts, ""))
+	out, _ = sjson.Set(out, "choices.0.finish_reason", finish)
+
+	if len(toolCalls) > 0 {
+		out, _ = sjson.SetRaw(out, "choices.0.message.tool_calls", "["+strings.Join(toolCalls, ",")+"]")
+		out, _ = sjson.Set(out, "choices.0.finish_reason", "tool_calls")
 	}
-	if code == "" {
-		code = "error"
+
+	if usage := root.Get("usage"); usage.Exists() {
+		input := usage.Get("input_tokens").Int()
+		output := usage.Get("output_tokens").Int()
+		out, _ = sjson.Set(out, "usage.prompt_tokens", input)
+		out, _ = sjson.Set(out, "usage.completion_tokens", output)
+		out, _ = sjson.Set(out, "usage.total_tokens", input+output)
 	}
-	w.Header().Set("content-type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"error": map[string]any{
-			"message": message,
-			"type":    errType,
-			"code":    code,
-		},
-	})
+
+	return out
 }

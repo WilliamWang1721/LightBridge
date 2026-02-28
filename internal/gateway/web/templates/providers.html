@@ -1146,6 +1146,10 @@
             <input class="dialog-input" name="endpoint" required placeholder="https://api.openai.com/v1" />
           </label>
           <label class="dialog-field dialog-field--full">
+            <span class="dialog-label">API Key / Token</span>
+            <input class="dialog-input" name="apiKey" type="password" autocomplete="off" placeholder="sk-..." />
+          </label>
+          <label class="dialog-field dialog-field--full">
             <span class="dialog-label">Config JSON</span>
             <textarea class="dialog-input dialog-textarea" name="configJSON" rows="8" spellcheck="false" placeholder='{"api_key":"","base_url":"..."}'></textarea>
           </label>
@@ -1157,6 +1161,7 @@
       </div>
 
       <div class="dialog-actions">
+        <button class="dialog-btn" type="button" id="provider-pull-models" style="margin-right:auto;display:none;">拉取模型列表</button>
         <button class="dialog-btn" type="button" id="provider-cancel">取消</button>
         <button class="dialog-btn primary" type="submit" id="provider-save" disabled>保存</button>
       </div>
@@ -1337,6 +1342,7 @@
       const TITLE = document.getElementById('provider-dialog-title');
       const CANCEL = document.getElementById('provider-cancel');
       const SAVE = document.getElementById('provider-save');
+      const PULL_MODELS = document.getElementById('provider-pull-models');
 
       const MODE_AUTO = document.getElementById('provider-mode-auto');
       const MODE_ADV = document.getElementById('provider-mode-advanced');
@@ -1356,6 +1362,7 @@
       const F_TYPE = FORM.elements.namedItem('type');
       const F_PROTOCOL = FORM.elements.namedItem('protocol');
       const F_ENDPOINT = FORM.elements.namedItem('endpoint');
+      const F_APIKEY = FORM.elements.namedItem('apiKey');
       const F_CFG = FORM.elements.namedItem('configJSON');
       const F_ENABLED = FORM.elements.namedItem('enabled');
       const F_NAME = null; // removed: providerName field no longer exists
@@ -1474,7 +1481,7 @@
       function setAdvancedVisible(visible) {
         const show = Boolean(visible);
         if (ADV_AREA) ADV_AREA.style.display = show ? '' : 'none';
-        for (const el of [F_ID, F_TYPE, F_PROTOCOL, F_ENDPOINT, F_CFG, F_ENABLED].filter(Boolean)) {
+        for (const el of [F_ID, F_TYPE, F_PROTOCOL, F_ENDPOINT, F_APIKEY, F_CFG, F_ENABLED].filter(Boolean)) {
           try { el.disabled = !show; } catch (_) {}
         }
       }
@@ -1538,12 +1545,20 @@
           F_PROTOCOL.value = String(provider?.Protocol ?? provider?.protocol ?? 'forward');
           F_ENDPOINT.value = String(provider?.Endpoint ?? provider?.endpoint ?? '');
           F_CFG.value = String(provider?.ConfigJSON ?? provider?.configJSON ?? '{}');
+          try {
+            const cfgObj = parseJSONObj(F_CFG.value);
+            if (F_APIKEY) F_APIKEY.value = String(cfgObj?.api_key ?? cfgObj?.apiKey ?? cfgObj?.token ?? '').trim();
+          } catch (_) {}
           F_ENABLED.checked = Boolean(provider?.Enabled ?? provider?.enabled ?? true);
           if (SELECTED_NAME) SELECTED_NAME.textContent = providerDisplayName(provider) || editingID || '-';
           if (AUTO_AREA) AUTO_AREA.style.display = 'none';
           if (MODE_AUTO) MODE_AUTO.disabled = true;
           if (MODE_ADV) MODE_ADV.disabled = true;
           setAdvancedVisible(true);
+          if (PULL_MODELS) {
+            PULL_MODELS.style.display = '';
+            PULL_MODELS.disabled = false;
+          }
           if (SAVE) SAVE.disabled = false;
         } else {
           TITLE.textContent = '添加 Provider';
@@ -1554,10 +1569,15 @@
           F_TYPE.value = 'builtin';
           F_PROTOCOL.value = 'forward';
           F_ENDPOINT.value = '';
+          if (F_APIKEY) F_APIKEY.value = '';
           F_CFG.value = '{}';
           F_ENABLED.checked = true;
           if (MODE_AUTO) MODE_AUTO.disabled = false;
           if (MODE_ADV) MODE_ADV.disabled = false;
+          if (PULL_MODELS) {
+            PULL_MODELS.style.display = 'none';
+            PULL_MODELS.disabled = true;
+          }
           setAddMode('auto');
           loadAutoProviders({ toastOnFail: false });
         }
@@ -1575,6 +1595,16 @@
         if (!raw) return '{}';
         const parsed = JSON.parse(raw);
         return JSON.stringify(parsed, null, 2);
+      }
+
+      function parseJSONObj(text) {
+        const raw = String(text ?? '').trim();
+        if (!raw) return {};
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+        } catch (_) {}
+        return {};
       }
 
       function installedModuleID(it) {
@@ -1796,6 +1826,10 @@
 
         // Preserve previous config/enabled if already exists.
         F_CFG.value = String(existing?.ConfigJSON ?? existing?.configJSON ?? '{}');
+        try {
+          const cfgObj = parseJSONObj(F_CFG.value);
+          if (F_APIKEY) F_APIKEY.value = String(cfgObj?.api_key ?? cfgObj?.apiKey ?? cfgObj?.token ?? '').trim();
+        } catch (_) {}
         F_ENABLED.checked = existing ? Boolean(existing?.Enabled ?? existing?.enabled ?? true) : true;
 
         // Resolve endpoint via runtime ports.
@@ -2609,10 +2643,32 @@
         }
       }
 
+      async function pullModelsForCurrentProvider() {
+        const id = String(F_ID?.value || editingID || '').trim();
+        if (!id) {
+          LB.toast('Provider ID 不能为空', 'error', 4200);
+          return;
+        }
+        if (!confirm(`确定从 Provider「${id}」拉取 /v1/models 并写入本地模型表？`)) return;
+        if (PULL_MODELS) PULL_MODELS.disabled = true;
+        try {
+          const res = await LB.apiJSON('/admin/api/providers/pull_models', { method: 'POST', body: { id } });
+          const total = Number(res?.total || 0);
+          const inserted = Number(res?.inserted || 0);
+          LB.toast(`已拉取 ${LB.formatCompactNumber(total)} 个模型（新增 ${LB.formatCompactNumber(inserted)}）`, 'ok', 4200);
+          await load();
+        } catch (err) {
+          LB.toast(err?.message || '拉取模型失败', 'error', 5200);
+        } finally {
+          if (PULL_MODELS) PULL_MODELS.disabled = false;
+        }
+      }
+
       ADD.addEventListener('click', () => {
         openDialog('add', {});
       });
       REFRESH.addEventListener('click', load);
+      if (PULL_MODELS) PULL_MODELS.addEventListener('click', pullModelsForCurrentProvider);
       CANCEL.addEventListener('click', closeDialog);
       if (MODE_AUTO) MODE_AUTO.addEventListener('click', () => {
         if (dialogMode !== 'add') return;
@@ -2752,7 +2808,16 @@
           const id = String(F_ID.value || '').trim();
           if (!id) throw new Error('ID 不能为空');
           const group = String(F_GROUP?.value || '').trim();
-          const cfg = safeJSON(F_CFG.value);
+          const apiKey = String(F_APIKEY?.value || '').trim();
+          let cfg = safeJSON(F_CFG.value);
+          if (apiKey) {
+            const parsed = JSON.parse(cfg);
+            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+              throw new Error('Config JSON 必须是对象（{}），才能写入 api_key');
+            }
+            parsed.api_key = apiKey;
+            cfg = JSON.stringify(parsed, null, 2);
+          }
           const payload = {
             id,
             displayName: account || id,

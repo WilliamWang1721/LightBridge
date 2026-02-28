@@ -59,7 +59,15 @@ func (a *HTTPForwardAdapter) Handle(ctx context.Context, w http.ResponseWriter, 
 	if !strings.HasPrefix(relPath, "/") {
 		relPath = "/" + relPath
 	}
-	targetURL.Path = strings.TrimRight(targetURL.Path, "/") + relPath
+	basePath := strings.TrimRight(targetURL.Path, "/")
+	if basePath == "" || basePath == "/" {
+		targetURL.Path = relPath
+	} else if relPath == basePath || strings.HasPrefix(relPath, basePath+"/") {
+		// Avoid duplicating base path when the incoming request already includes it (e.g. baseURL ends with /v1).
+		targetURL.Path = relPath
+	} else {
+		targetURL.Path = basePath + relPath
+	}
 	targetURL.RawQuery = req.URL.RawQuery
 
 	var bodyBytes []byte

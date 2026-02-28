@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -35,6 +37,8 @@ type providerUpdatePayload struct {
 	Type        string     `json:"type"`
 	Protocol    string     `json:"protocol"`
 	Endpoint    string     `json:"endpoint"`
+	APIKey      *string    `json:"apiKey"`
+	Token       *string    `json:"token"`
 	ConfigJSON  string     `json:"configJSON"`
 	Enabled     *bool      `json:"enabled"`
 	Health      *string    `json:"health"`
@@ -253,6 +257,24 @@ func (s *Server) handleProvidersAPI(w http.ResponseWriter, r *http.Request) {
 		} else {
 			payload.ConfigJSON = req.ConfigJSON
 		}
+		apiKey := ""
+		if req.APIKey != nil {
+			apiKey = strings.TrimSpace(*req.APIKey)
+		}
+		if apiKey == "" && req.Token != nil {
+			apiKey = strings.TrimSpace(*req.Token)
+		}
+		if apiKey != "" {
+			cfg := map[string]any{}
+			_ = json.Unmarshal([]byte(payload.ConfigJSON), &cfg)
+			if cfg == nil {
+				cfg = map[string]any{}
+			}
+			cfg["api_key"] = apiKey
+			if b, err := json.Marshal(cfg); err == nil {
+				payload.ConfigJSON = string(b)
+			}
+		}
 		if req.Enabled != nil {
 			payload.Enabled = *req.Enabled
 		} else if existing != nil {
@@ -302,6 +324,173 @@ func (s *Server) handleProvidersAPI(w http.ResponseWriter, r *http.Request) {
 	default:
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
 	}
+}
+
+func (s *Server) handleProviderPullModelsAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	var req struct {
+		ID         string `json:"id"`
+		ProviderID string `json:"provider_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid json"})
+		return
+	}
+	providerID := strings.TrimSpace(req.ProviderID)
+	if providerID == "" {
+		providerID = strings.TrimSpace(req.ID)
+	}
+	if providerID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "provider_id is required"})
+		return
+	}
+	provider, err := s.store.GetProvider(r.Context(), providerID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	if provider == nil {
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "provider not found"})
+		return
+	}
+	modelIDs, sourceURL, err := fetchProviderModelIDs(r.Context(), *provider)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+		return
+	}
+	inserted, err := s.store.InsertModelsIfMissing(r.Context(), modelIDs)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":          true,
+		"provider_id": providerID,
+		"source_url":  sourceURL,
+		"total":       len(modelIDs),
+		"inserted":    inserted,
+	})
+}
+
+type providerModelFetchConfig struct {
+	BaseURL string `json:"base_url"`
+	APIKey  string `json:"api_key"`
+}
+
+type openAIModelList struct {
+	Data []struct {
+		ID string `json:"id"`
+	} `json:"data"`
+}
+
+func fetchProviderModelIDs(ctx context.Context, provider types.Provider) ([]string, string, error) {
+	proto := strings.TrimSpace(provider.Protocol)
+	switch proto {
+	case types.ProtocolForward, types.ProtocolHTTPOpenAI, types.ProtocolHTTPRPC, types.ProtocolCodex:
+		// ok
+	default:
+		return nil, "", fmt.Errorf("provider protocol %q does not support model listing", proto)
+	}
+
+	cfg := providerModelFetchConfig{}
+	if strings.TrimSpace(provider.ConfigJSON) != "" {
+		_ = json.Unmarshal([]byte(provider.ConfigJSON), &cfg)
+	}
+	baseURL := strings.TrimSpace(cfg.BaseURL)
+	if baseURL == "" {
+		baseURL = strings.TrimSpace(provider.Endpoint)
+	}
+	if baseURL == "" {
+		return nil, "", fmt.Errorf("provider %s missing endpoint", provider.ID)
+	}
+	modelsURL, err := joinUpstreamURL(baseURL, "/v1/models")
+	if err != nil {
+		return nil, "", err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, modelsURL, nil)
+	if err != nil {
+		return nil, "", err
+	}
+	req.Header.Set("accept", "application/json")
+	if apiKey := strings.TrimSpace(cfg.APIKey); apiKey != "" {
+		req.Header.Set("authorization", "Bearer "+apiKey)
+	}
+
+	httpc := &http.Client{Timeout: 12 * time.Second}
+	resp, err := httpc.Do(req)
+	if err != nil {
+		return nil, modelsURL, err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		msg := strings.TrimSpace(string(body))
+		if msg == "" {
+			msg = resp.Status
+		}
+		return nil, modelsURL, fmt.Errorf("upstream models failed (%d): %s", resp.StatusCode, msg)
+	}
+
+	var parsed openAIModelList
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		return nil, modelsURL, fmt.Errorf("decode models response: %w", err)
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(parsed.Data))
+	for _, item := range parsed.Data {
+		id := strings.TrimSpace(item.ID)
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	if len(out) == 0 {
+		return nil, modelsURL, errors.New("upstream models returned empty list")
+	}
+	sort.Strings(out)
+	return out, modelsURL, nil
+}
+
+func joinUpstreamURL(baseURL, reqPath string) (string, error) {
+	baseURL = strings.TrimSpace(baseURL)
+	if baseURL == "" {
+		return "", errors.New("base url is empty")
+	}
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return "", err
+	}
+	if u.Scheme == "" {
+		return "", fmt.Errorf("base url missing scheme: %s", baseURL)
+	}
+
+	p := strings.TrimSpace(reqPath)
+	if p == "" {
+		return u.String(), nil
+	}
+	if !strings.HasPrefix(p, "/") {
+		p = "/" + p
+	}
+
+	basePath := strings.TrimRight(u.Path, "/")
+	if basePath == "" || basePath == "/" {
+		u.Path = p
+		return u.String(), nil
+	}
+	if p == basePath || strings.HasPrefix(p, basePath+"/") {
+		u.Path = p
+		return u.String(), nil
+	}
+	u.Path = basePath + p
+	return u.String(), nil
 }
 
 type modelRoutePayload struct {

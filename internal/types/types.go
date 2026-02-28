@@ -5,6 +5,7 @@ import "time"
 const (
 	ProtocolForward    = "forward"
 	ProtocolAnthropic  = "anthropic"
+	ProtocolGemini     = "gemini"
 	ProtocolHTTPOpenAI = "http_openai"
 	ProtocolHTTPRPC    = "http_rpc"
 	ProtocolGRPCChat   = "grpc_chat"

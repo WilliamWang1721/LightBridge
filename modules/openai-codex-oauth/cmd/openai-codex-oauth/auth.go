@@ -29,7 +29,9 @@ const (
 	codexDeviceVerificationURL          = "https://auth.openai.com/codex/device"
 	codexDeviceTokenExchangeRedirectURI = "https://auth.openai.com/deviceauth/callback"
 
-	codexDeviceTimeout = 15 * time.Minute
+	codexDeviceTimeout     = 15 * time.Minute
+	codexOAuthFlowTimeout  = 10 * time.Minute
+	defaultRefreshMaxRetry = 3
 )
 
 type credentials struct {
@@ -54,6 +56,10 @@ func (c *credentials) expiryTime() (time.Time, bool) {
 	return t, true
 }
 
+// ---------------------------------------------------------------------------
+// Credential persistence (atomic write)
+// ---------------------------------------------------------------------------
+
 func (s *server) loadCredentials() error {
 	s.credsMu.Lock()
 	defer s.credsMu.Unlock()
@@ -76,6 +82,8 @@ func (s *server) loadCredentials() error {
 	return nil
 }
 
+// saveCredentials persists credentials using atomic write (tmp + rename)
+// to prevent corruption on crash. File mode 0600 for security.
 func (s *server) saveCredentials(c *credentials) error {
 	if c == nil {
 		return errors.New("nil credentials")
@@ -91,7 +99,7 @@ func (s *server) saveCredentials(c *credentials) error {
 	if err := os.MkdirAll(filepath.Dir(s.credsPath), 0o700); err != nil {
 		return err
 	}
-	// Best-effort atomic write.
+	// Atomic write: write to tmp file then rename.
 	tmp := s.credsPath + ".tmp"
 	if err := os.WriteFile(tmp, b, 0o600); err != nil {
 		return err
@@ -111,6 +119,11 @@ func (s *server) getAccessToken() (token, accountID string, ok bool) {
 	return s.creds.AccessToken, strings.TrimSpace(s.creds.AccountID), true
 }
 
+// ---------------------------------------------------------------------------
+// Token refresh with retry + non-retryable error detection
+// (ported from CLIProxyAPI)
+// ---------------------------------------------------------------------------
+
 func (s *server) maybeRefreshCredentials(ctx context.Context) error {
 	s.credsMu.Lock()
 	creds := s.creds
@@ -127,7 +140,7 @@ func (s *server) maybeRefreshCredentials(ctx context.Context) error {
 	if time.Until(exp) > near {
 		return nil
 	}
-	_, err := s.refreshTokens(ctx)
+	_, err := s.refreshTokensWithRetry(ctx, defaultRefreshMaxRetry)
 	return err
 }
 
@@ -156,6 +169,53 @@ func (s *server) refreshTokens(ctx context.Context) (*credentials, error) {
 	return next, nil
 }
 
+// refreshTokensWithRetry retries token refresh with exponential backoff,
+// aborting early on non-retryable errors (e.g. refresh_token_reused).
+// Ported from CLIProxyAPI/internal/auth/codex/openai_auth.go.
+func (s *server) refreshTokensWithRetry(ctx context.Context, maxRetries int) (*credentials, error) {
+	var lastErr error
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if attempt > 0 {
+			delay := time.Duration(1<<uint(attempt-1)) * time.Second
+			if delay > 10*time.Second {
+				delay = 10 * time.Second
+			}
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(delay):
+			}
+		}
+		creds, err := s.refreshTokens(ctx)
+		if err == nil {
+			return creds, nil
+		}
+		if isNonRetryableRefreshErr(err) {
+			return nil, err
+		}
+		lastErr = err
+	}
+	return nil, fmt.Errorf("token refresh failed after %d attempts: %w", maxRetries, lastErr)
+}
+
+// isNonRetryableRefreshErr detects errors that should not be retried.
+// Ported from CLIProxyAPI/internal/auth/codex/openai_auth.go.
+func isNonRetryableRefreshErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	raw := strings.ToLower(err.Error())
+	return strings.Contains(raw, "refresh_token_reused") ||
+		strings.Contains(raw, "invalid_grant") ||
+		strings.Contains(raw, "access_denied")
+}
+
+// ---------------------------------------------------------------------------
+// Core token exchange / refresh (with scope parameter fix)
+// ---------------------------------------------------------------------------
+
+// refreshWithToken exchanges a refresh token for new credentials.
+// Includes scope parameter (openid profile email) matching CLIProxyAPI behavior.
 func refreshWithToken(ctx context.Context, httpc *http.Client, refreshToken string) (*credentials, error) {
 	form := url.Values{
 		"client_id":     {codexOAuthClientID},
@@ -267,7 +327,9 @@ func exchangeAuthCode(ctx context.Context, httpc *http.Client, authCode, redirec
 	}, nil
 }
 
-const codexOAuthFlowTimeout = 10 * time.Minute
+// ---------------------------------------------------------------------------
+// PKCE
+// ---------------------------------------------------------------------------
 
 type pkceCodes struct {
 	CodeVerifier  string `json:"code_verifier"`
@@ -275,7 +337,6 @@ type pkceCodes struct {
 }
 
 func generatePKCECodes() (*pkceCodes, error) {
-	// Generate code verifier: 43-128 characters, URL-safe.
 	buf := make([]byte, 96)
 	if _, err := rand.Read(buf); err != nil {
 		return nil, err
@@ -285,6 +346,10 @@ func generatePKCECodes() (*pkceCodes, error) {
 	challenge := base64.RawURLEncoding.EncodeToString(sum[:])
 	return &pkceCodes{CodeVerifier: verifier, CodeChallenge: challenge}, nil
 }
+
+// ---------------------------------------------------------------------------
+// OAuth Authorization Code flow
+// ---------------------------------------------------------------------------
 
 type oauthFlow struct {
 	StartedAt    time.Time `json:"started_at"`
@@ -385,6 +450,7 @@ func (s *server) handleAuthOAuthExchange(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Support callback_url parsing (manual URL paste fallback).
 	if strings.TrimSpace(req.CallbackURL) != "" && strings.TrimSpace(req.Code) == "" {
 		u, err := url.Parse(strings.TrimSpace(req.CallbackURL))
 		if err != nil || u == nil {
@@ -450,7 +516,6 @@ func (s *server) handleAuthOAuthExchange(w http.ResponseWriter, r *http.Request)
 	if s.oauth != nil && s.oauth.State == state {
 		s.oauth.Status = "authorized"
 		s.oauth.Error = ""
-		// Never return verifier in responses.
 		s.oauth.CodeVerifier = ""
 	}
 	flowCopy := *s.oauth
@@ -465,6 +530,10 @@ func (s *server) handleAuthOAuthExchange(w http.ResponseWriter, r *http.Request)
 
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "credentials": cCopy, "oauth": flowCopy})
 }
+
+// ---------------------------------------------------------------------------
+// Token import (deep JSON search, ported from v0.1.0 + enhanced)
+// ---------------------------------------------------------------------------
 
 type importRequest struct {
 	RefreshToken string `json:"refresh_token"`
@@ -593,6 +662,7 @@ func (s *server) handleAuthImport(w http.ResponseWriter, r *http.Request) {
 		LastRefresh:  pick("last_refresh", "lastRefresh"),
 		Token:        pick("token"),
 	}
+	// Deep search fallback for nested JSON structures.
 	if req.RefreshToken == "" {
 		req.RefreshToken = findStringValueDeep(m, "refresh_token", "refreshToken")
 	}
@@ -633,7 +703,7 @@ func (s *server) handleAuthImport(w http.ResponseWriter, r *http.Request) {
 	var creds *credentials
 
 	if req.AccessToken == "" && req.RefreshToken != "" {
-		// Prefer a refresh-token import: obtain a fresh access token immediately.
+		// Prefer refresh-token import: obtain a fresh access token immediately.
 		creds, err = refreshWithToken(ctx, s.httpc, req.RefreshToken)
 		if err != nil {
 			writeJSON(w, http.StatusBadGateway, map[string]any{"ok": false, "error": err.Error()})
@@ -694,6 +764,10 @@ func (s *server) handleAuthImport(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "credentials": masked})
 }
+
+// ---------------------------------------------------------------------------
+// Device Code flow (ported from CLIProxyAPI)
+// ---------------------------------------------------------------------------
 
 type deviceFlow struct {
 	StartedAt       time.Time `json:"started_at"`
@@ -773,47 +847,6 @@ func (s *server) runDeviceFlow(flow *deviceFlow) {
 		s.flow.Error = ""
 	}
 	s.flowMu.Unlock()
-}
-
-func (s *server) handleAuthStatus(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeOpenAIError(w, http.StatusMethodNotAllowed, "method not allowed", "invalid_request_error", "method_not_allowed")
-		return
-	}
-
-	s.credsMu.Lock()
-	var credsCopy *credentials
-	if s.creds != nil {
-		c := *s.creds
-		c.AccessToken = maskToken(c.AccessToken)
-		c.RefreshToken = maskToken(c.RefreshToken)
-		c.IDToken = ""
-		credsCopy = &c
-	}
-	s.credsMu.Unlock()
-
-	s.flowMu.Lock()
-	var flowCopy *deviceFlow
-	if s.flow != nil {
-		f := *s.flow
-		flowCopy = &f
-	}
-	s.flowMu.Unlock()
-
-	s.oauthMu.Lock()
-	var oauthCopy *oauthFlow
-	if s.oauth != nil {
-		f := *s.oauth
-		oauthCopy = &f
-	}
-	s.oauthMu.Unlock()
-
-	writeJSON(w, http.StatusOK, map[string]any{
-		"ok":          true,
-		"credentials": credsCopy,
-		"flow":        flowCopy,
-		"oauth":       oauthCopy,
-	})
 }
 
 type deviceUserCodeResponse struct {
@@ -948,24 +981,96 @@ func parseDeviceInterval(raw json.RawMessage) time.Duration {
 	return 5 * time.Second
 }
 
+// ---------------------------------------------------------------------------
+// Auth status + explicit refresh endpoint
+// ---------------------------------------------------------------------------
+
+func (s *server) handleAuthStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeOpenAIError(w, http.StatusMethodNotAllowed, "method not allowed", "invalid_request_error", "method_not_allowed")
+		return
+	}
+
+	s.credsMu.Lock()
+	var credsCopy *credentials
+	if s.creds != nil {
+		c := *s.creds
+		c.AccessToken = maskToken(c.AccessToken)
+		c.RefreshToken = maskToken(c.RefreshToken)
+		c.IDToken = ""
+		credsCopy = &c
+	}
+	s.credsMu.Unlock()
+
+	s.flowMu.Lock()
+	var flowCopy *deviceFlow
+	if s.flow != nil {
+		f := *s.flow
+		flowCopy = &f
+	}
+	s.flowMu.Unlock()
+
+	s.oauthMu.Lock()
+	var oauthCopy *oauthFlow
+	if s.oauth != nil {
+		f := *s.oauth
+		oauthCopy = &f
+	}
+	s.oauthMu.Unlock()
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":          true,
+		"credentials": credsCopy,
+		"flow":        flowCopy,
+		"oauth":       oauthCopy,
+	})
+}
+
+// handleAuthRefresh provides an explicit endpoint to force token refresh.
+func (s *server) handleAuthRefresh(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeOpenAIError(w, http.StatusMethodNotAllowed, "method not allowed", "invalid_request_error", "method_not_allowed")
+		return
+	}
+
+	ctx := r.Context()
+	creds, err := s.refreshTokensWithRetry(ctx, defaultRefreshMaxRetry)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+
+	masked := *creds
+	masked.AccessToken = maskToken(masked.AccessToken)
+	masked.RefreshToken = maskToken(masked.RefreshToken)
+	masked.IDToken = ""
+
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "credentials": masked})
+}
+
+// ---------------------------------------------------------------------------
+// JWT parsing
+// ---------------------------------------------------------------------------
+
 type jwtClaims struct {
 	Email     string
 	Sub       string
 	AccountID string
+	PlanType  string
 }
 
 func parseJWTClaims(idToken string) (*jwtClaims, error) {
 	parts := strings.Split(strings.TrimSpace(idToken), ".")
 	if len(parts) != 3 {
-		return nil, errors.New("invalid jwt")
+		return &jwtClaims{}, errors.New("invalid jwt")
 	}
 	payload, err := base64URLDecode(parts[1])
 	if err != nil {
-		return nil, err
+		return &jwtClaims{}, err
 	}
 	var m map[string]any
 	if err := json.Unmarshal(payload, &m); err != nil {
-		return nil, err
+		return &jwtClaims{}, err
 	}
 	out := &jwtClaims{}
 	if v, ok := m["email"].(string); ok {
@@ -978,12 +1083,14 @@ func parseJWTClaims(idToken string) (*jwtClaims, error) {
 		if id, ok := v["chatgpt_account_id"].(string); ok {
 			out.AccountID = id
 		}
+		if pt, ok := v["chatgpt_plan_type"].(string); ok {
+			out.PlanType = pt
+		}
 	}
 	return out, nil
 }
 
 func base64URLDecode(data string) ([]byte, error) {
-	// Add padding.
 	switch len(data) % 4 {
 	case 2:
 		data += "=="

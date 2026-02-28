@@ -49,6 +49,7 @@ type Server struct {
 	staticFS  http.FileSystem
 	sessions  *sessionManager
 	startedAt time.Time
+	rl        *rateLimiter
 
 	mu sync.Mutex
 
@@ -74,6 +75,13 @@ func New(cfg Config, st *store.Store, resolver *routing.Resolver, providerRegist
 	if cookieSecret == "" {
 		cookieSecret, _ = util.RandomToken(32)
 	}
+	rl := newRateLimiter(120, 120) // 120 req/min per key
+	go func() {
+		for {
+			time.Sleep(5 * time.Minute)
+			rl.cleanup()
+		}
+	}()
 	return &Server{
 		cfg:         cfg,
 		store:       st,
@@ -86,6 +94,7 @@ func New(cfg Config, st *store.Store, resolver *routing.Resolver, providerRegist
 		sessions:    newSessionManager(cookieSecret),
 		startedAt:   time.Now().UTC(),
 		voucherCfg:  defaultVoucherConfig(),
+		rl:          rl,
 	}, nil
 }
 
@@ -109,7 +118,7 @@ func (s *Server) Handler() http.Handler {
 		}
 		http.NotFound(w, r)
 	})
-	return requestIDMiddleware(loggingMiddleware(mux))
+	return requestIDMiddleware(loggingMiddleware(rateLimitMiddleware(s.rl, mux)))
 }
 
 func (s *Server) ListenAndServe(ctx context.Context) error {
@@ -383,15 +392,53 @@ func (s *Server) handleV1Proxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	status, code, err := adapter.Handle(r.Context(), w, r, *provider, route)
-	if err != nil {
-		if status == 0 {
-			status = http.StatusBadGateway
+	// Retry/failover: if upstream returns 5xx and this is not a variant (explicit provider),
+	// try resolving to a different provider up to 2 times.
+	const maxRetries = 2
+	excludedProviders := map[string]struct{}{}
+	finalStatus, finalCode := 0, ""
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			// Re-resolve excluding failed providers
+			excludedProviders[route.ProviderID] = struct{}{}
+			newRoute, resolveErr := s.resolver.ResolveExcluding(r.Context(), modelID, excludedProviders)
+			if resolveErr != nil {
+				break // No more providers to try
+			}
+			route = newRoute
+			newProvider, provErr := s.store.GetProvider(r.Context(), route.ProviderID)
+			if provErr != nil || newProvider == nil {
+				break
+			}
+			provider = newProvider
+			newAdapter, adapterOk := s.providers.Get(provider.Protocol)
+			if !adapterOk {
+				break
+			}
+			adapter = newAdapter
+			// Reset request body for retry
+			r.Body = ioNopCloser(bodyBytes)
 		}
-		if code == "" {
-			code = "upstream_error"
+
+		status, code, err := adapter.Handle(r.Context(), w, r, *provider, route)
+		finalStatus = status
+		finalCode = code
+
+		if err != nil {
+			if status == 0 {
+				finalStatus = http.StatusBadGateway
+			}
+			if code == "" {
+				finalCode = "upstream_error"
+			}
+			// Only retry on 5xx errors for non-variant routes
+			if finalStatus >= 500 && !route.Variant && attempt < maxRetries {
+				continue
+			}
+			writeOpenAIError(w, finalStatus, err.Error(), "upstream_error", finalCode)
 		}
-		writeOpenAIError(w, status, err.Error(), "upstream_error", code)
+		break
 	}
 
 	_ = s.store.InsertRequestLog(r.Context(), types.RequestLogMeta{
@@ -401,9 +448,9 @@ func (s *Server) handleV1Proxy(w http.ResponseWriter, r *http.Request) {
 		ProviderID:  route.ProviderID,
 		ModelID:     modelID,
 		Path:        logPath,
-		Status:      statusOrDefault(status, http.StatusOK),
+		Status:      statusOrDefault(finalStatus, http.StatusOK),
 		LatencyMS:   time.Since(start).Milliseconds(),
-		ErrorCode:   code,
+		ErrorCode:   finalCode,
 	})
 }
 
@@ -448,6 +495,8 @@ func (s *Server) routeAdminAPI(w http.ResponseWriter, r *http.Request) {
 		s.handleAdminLoginAPI(w, r)
 	case "/providers":
 		s.wrapAdminAPI(s.handleProvidersAPI)(w, r)
+	case "/providers/pull_models":
+		s.wrapAdminAPI(s.handleProviderPullModelsAPI)(w, r)
 	case "/providers/delete":
 		s.wrapAdminAPI(s.handleProviderDeleteAPI)(w, r)
 	case "/models":

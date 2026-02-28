@@ -1266,7 +1266,41 @@
         try { D_CFG.close(); } catch (_) {}
       }
 
+      async function doUpgrade() {
+        const entry = activeEntry;
+        if (!entry) return;
+        const id = String(entry?.id ?? entry?.ID ?? '').trim();
+        if (!id) return;
+
+        const inst = installedByID.get(id);
+        const oldVer = inst ? installedVersion(inst) : '';
+        const newVer = String(entry?.version ?? entry?.Version ?? '').trim();
+        if (!confirm(`确定将模块 ${id} 从 ${oldVer ? 'v' + oldVer : '?'} 升级到 ${newVer ? 'v' + newVer : '最新版本'}？\n\n升级过程中模块将短暂停止。`)) return;
+
+        B_MODULE_UPGRADE.disabled = true;
+        try {
+          const res = await LB.apiJSON('/admin/api/modules/upgrade', {
+            method: 'POST',
+            body: { module_id: id, index_url: currentIndexURL() },
+          });
+          if (res?.warning) {
+            LB.toast(`升级成功，但启动失败：${res.warning}`, 'error', 5000);
+          } else if (res?.runtime) {
+            LB.toast(`升级并重启成功：${id}`, 'ok');
+          } else {
+            LB.toast(`升级成功：${id}`, 'ok');
+          }
+          await loadAll({ toastOnFail: false });
+          const next = getIndexModules().find((m) => String(m?.id ?? m?.ID ?? '') === id) || entry;
+          openModule(next);
+        } catch (err) {
+          LB.toast(err?.message || '升级失败', 'error', 4200);
+          B_MODULE_UPGRADE.disabled = false;
+        }
+      }
+
       async function doUninstall() {
+        const entry = activeEntry;
         if (!entry) return;
         const id = String(entry?.id ?? entry?.ID ?? '').trim();
         if (!id) return;
@@ -1316,6 +1350,7 @@
       B_MODULE_INSTALL.addEventListener('click', doInstallActive);
       B_MODULE_STARTSTOP.addEventListener('click', doStartStop);
       B_MODULE_UNINSTALL.addEventListener('click', doUninstall);
+      B_MODULE_UPGRADE.addEventListener('click', doUpgrade);
       B_MODULE_CONFIG.addEventListener('click', openConfigDialog);
       C_MODULE_ENABLED.addEventListener('change', doEnableToggle);
 

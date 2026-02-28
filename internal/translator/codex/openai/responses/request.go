@@ -14,6 +14,11 @@ import (
 func ConvertOpenAIResponsesRequestToCodex(modelName string, inputRawJSON []byte, _ bool) []byte {
 	rawJSON := inputRawJSON
 
+	// Codex upstream requires an "instructions" field (empty string is OK).
+	if !gjson.GetBytes(rawJSON, "instructions").Exists() {
+		rawJSON, _ = sjson.SetBytes(rawJSON, "instructions", "")
+	}
+
 	inputResult := gjson.GetBytes(rawJSON, "input")
 	if inputResult.Type == gjson.String {
 		input, _ := sjson.Set(`[{"type":"message","role":"user","content":[{"type":"input_text","text":""}]}]`, "0.content.0.text", inputResult.String())
@@ -64,4 +69,3 @@ func convertSystemRoleToDeveloper(rawJSON []byte) []byte {
 
 	return result
 }
-

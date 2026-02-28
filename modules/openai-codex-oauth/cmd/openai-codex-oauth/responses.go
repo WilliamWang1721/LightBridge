@@ -92,4 +92,3 @@ func (s *server) handleResponses(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 }
-
