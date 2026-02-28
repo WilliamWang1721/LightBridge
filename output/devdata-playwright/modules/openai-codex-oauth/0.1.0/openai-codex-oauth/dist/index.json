@@ -1,0 +1,18 @@
+{
+  "generated_at": "2026-02-28T04:59:54Z",
+  "min_core_version": "0.1.0",
+  "modules": [
+    {
+      "id": "openai-codex-oauth",
+      "name": "Codex OAuth",
+      "version": "0.1.0",
+      "description": "Use OpenAI Codex via OAuth (ChatGPT Codex backend reverse proxy).",
+      "license": "UNLICENSED",
+      "tags": ["OpenAI", "OAuth"],
+      "protocols": ["codex"],
+      "download_url": "http://127.0.0.1:8000/openai-codex-oauth_0.1.0_darwin_arm64.zip",
+      "sha256": "39b60cd33992aa2251c14123346da3c6001722485e174a4eeec4e5ddbcc3dafc",
+      "homepage": ""
+    }
+  ]
+}

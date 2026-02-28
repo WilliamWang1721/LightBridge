@@ -1,0 +1,90 @@
+{
+  "id": "openai-codex-oauth",
+  "name": "Codex OAuth",
+  "description": "Use OpenAI Codex via OAuth (ChatGPT Codex backend reverse proxy).",
+  "tags": [
+    "OpenAI",
+    "OAuth"
+  ],
+  "version": "0.1.0",
+  "license": "UNLICENSED",
+  "min_core_version": "0.1.0",
+  "entrypoints": {
+    "default": {
+      "command": "bin/openai-codex-oauth",
+      "args": []
+    }
+  },
+  "services": [
+    {
+      "kind": "provider",
+      "protocol": "codex",
+      "health": {
+        "type": "http",
+        "path": "/health"
+      },
+      "expose_provider_aliases": [
+        "codex"
+      ]
+    }
+  ],
+  "config_schema": {
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {
+      "base_url": {
+        "type": "string",
+        "title": "Codex base URL",
+        "description": "Upstream Codex endpoint. Default targets ChatGPT Codex backend."
+      },
+      "near_expiry_minutes": {
+        "type": "integer",
+        "title": "Near-expiry minutes",
+        "description": "Refresh access token when expiry is within this many minutes.",
+        "minimum": 0
+      },
+      "client_version": {
+        "type": "string",
+        "title": "Codex client version header",
+        "description": "Sent as the 'Version' header to upstream."
+      },
+      "user_agent": {
+        "type": "string",
+        "title": "User-Agent",
+        "description": "User-Agent header sent to upstream."
+      },
+      "beta_features": {
+        "type": "string",
+        "title": "x-codex-beta-features",
+        "description": "Optional upstream feature flag header."
+      },
+      "web_search_eligible": {
+        "type": "boolean",
+        "title": "x-oai-web-search-eligible",
+        "description": "Optional upstream header toggle."
+      },
+      "models": {
+        "type": "array",
+        "title": "Model list (optional)",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "config_defaults": {
+    "base_url": "https://chatgpt.com/backend-api/codex",
+    "near_expiry_minutes": 20,
+    "client_version": "0.101.0",
+    "user_agent": "codex_cli_rs/0.101.0 (Windows 10.0.26100; x86_64) WindowsTerminal",
+    "beta_features": "powershell_utf8",
+    "web_search_eligible": true,
+    "models": [
+      "gpt-5-codex",
+      "gpt-5-codex-mini",
+      "gpt-5.1-codex",
+      "gpt-5.1-codex-mini",
+      "gpt-5.2-codex"
+    ]
+  }
+}

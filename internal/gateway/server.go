@@ -490,6 +490,8 @@ func (s *Server) routeAdminAPI(w http.ResponseWriter, r *http.Request) {
 		s.wrapAdminAPI(s.handleModuleConfigAPI)(w, r)
 	case "/modules/uninstall":
 		s.wrapAdminAPI(s.handleModuleUninstallAPI)(w, r)
+	case "/modules/upgrade":
+		s.wrapAdminAPI(s.handleModuleUpgradeAPI)(w, r)
 	case "/codex/oauth/status":
 		s.wrapAdminAPI(s.handleCodexOAuthStatusAPI)(w, r)
 	case "/codex/oauth/start":

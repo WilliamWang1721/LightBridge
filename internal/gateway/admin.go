@@ -1408,3 +1408,94 @@ func (s *Server) handleLogsPruneAPI(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "deleted": deleted})
 }
+
+func (s *Server) handleModuleUpgradeAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	var req struct {
+		ModuleID string `json:"module_id"`
+		IndexURL string `json:"index_url"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid json"})
+		return
+	}
+	if strings.TrimSpace(req.ModuleID) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "module_id is required"})
+		return
+	}
+
+	// Verify the module is actually installed.
+	existing, err := s.store.GetInstalledModule(r.Context(), req.ModuleID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	if existing == nil {
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "module not installed"})
+		return
+	}
+
+	// Fetch the marketplace index to get the latest entry.
+	indexURL := s.cfg.ModuleIndexURL
+	if strings.TrimSpace(req.IndexURL) != "" {
+		indexURL = req.IndexURL
+	}
+	index, err := s.marketplace.FetchIndex(r.Context(), indexURL)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+		return
+	}
+	var selected *types.ModuleEntry
+	for i := range index.Modules {
+		if index.Modules[i].ID == req.ModuleID {
+			selected = &index.Modules[i]
+			break
+		}
+	}
+	if selected == nil {
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "module not found in index"})
+		return
+	}
+
+	// Stop the running module before upgrading.
+	stopCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	_ = s.moduleMgr.StopModule(stopCtx, req.ModuleID)
+	cancel()
+
+	// Install the new version (marketplace.Install preserves enabled state).
+	installed, _, err := s.marketplace.Install(r.Context(), *selected)
+	if err != nil {
+		code := http.StatusBadGateway
+		if strings.Contains(err.Error(), "sha256") {
+			code = http.StatusBadRequest
+		}
+		writeJSON(w, code, map[string]any{"error": err.Error()})
+		return
+	}
+
+	// Restart if the module was enabled.
+	var rt *types.ModuleRuntime
+	if installed.Enabled {
+		started, err := s.moduleMgr.StartInstalledModule(r.Context(), installed.ID)
+		if err != nil {
+			// Upgrade succeeded but start failed — still report success with a warning.
+			writeJSON(w, http.StatusOK, map[string]any{
+				"ok":        true,
+				"installed": installed,
+				"runtime":   nil,
+				"warning":   err.Error(),
+			})
+			return
+		}
+		rt = started
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":        true,
+		"installed": installed,
+		"runtime":   rt,
+	})
+}
