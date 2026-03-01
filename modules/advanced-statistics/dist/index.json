@@ -1,0 +1,18 @@
+{
+  "generated_at": "2026-03-01T09:38:44Z",
+  "min_core_version": "0.1.0",
+  "modules": [
+    {
+      "id": "advanced-statistics",
+      "name": "Advanced Statistics",
+      "version": "0.1.0",
+      "description": "Advanced admin statistics for requests, token breakdown, cost estimation, model distribution, and time-range trends.",
+      "license": "UNLICENSED",
+      "tags": ["Admin", "Statistics", "Analytics"],
+      "protocols": ["http_rpc"],
+      "download_url": "http://127.0.0.1:8000/advanced-statistics_0.1.0_universal.zip",
+      "sha256": "9c16b1151245a2d3e2692c065f3e413ea740e1ab4146480f5a06d8898cc9ea44",
+      "homepage": ""
+    }
+  ]
+}
