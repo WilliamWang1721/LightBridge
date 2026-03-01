@@ -320,23 +320,23 @@ func forceProviderByProtocol(ctx context.Context) bool {
 
 func supportsProtocolRoute(sourceProtocol, targetProtocol, endpointKind string) bool {
 	source := types.NormalizeProtocol(sourceProtocol)
-	target := types.NormalizeProtocol(targetProtocol)
+	_ = types.NormalizeProtocol(targetProtocol)
 	kind := strings.TrimSpace(endpointKind)
 
 	if source == types.ProtocolGemini {
 		switch kind {
 		case endpointKindGenerateContent, endpointKindStreamGenerateContent, endpointKindCountTokens:
-			return target == types.ProtocolGemini
+			return true
 		}
 	}
 	if source == types.ProtocolAnthropic {
 		if kind == endpointKindMessages {
-			return target == types.ProtocolAnthropic
+			return true
 		}
 	}
 	if source == types.ProtocolAzureOpenAI {
 		if strings.HasPrefix(kind, "azure_legacy") {
-			return target == types.ProtocolAzureOpenAI
+			return true
 		}
 	}
 	return true

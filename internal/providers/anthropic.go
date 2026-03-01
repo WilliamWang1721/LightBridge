@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -73,6 +74,20 @@ func (a *AnthropicAdapter) handleNativeMessages(ctx context.Context, w http.Resp
 		_ = req.Body.Close()
 	}
 	body = rewriteModel(body, route, nil)
+	upstreamModel := strings.TrimSpace(route.UpstreamModel)
+	if upstreamModel == "" && gjson.ValidBytes(body) {
+		upstreamModel = strings.TrimSpace(gjson.GetBytes(body, "model").String())
+	}
+	if upstreamModel != "" && isOfficialAnthropicHost(cfg.BaseURL) && isOpenAIStyleModel(upstreamModel) {
+		writeOpenAIError(
+			w,
+			http.StatusBadRequest,
+			fmt.Sprintf("model %q is not supported by Anthropic Messages endpoint; use OpenAI-compatible ingress for GPT/o-series models", upstreamModel),
+			"invalid_request_error",
+			"incompatible_model",
+		)
+		return http.StatusBadRequest, "incompatible_model", nil
+	}
 
 	targetURL := strings.TrimRight(cfg.BaseURL, "/") + "/v1/messages"
 	upReq, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(body))
@@ -98,9 +113,20 @@ func (a *AnthropicAdapter) handleNativeMessages(ctx context.Context, w http.Resp
 		return http.StatusBadGateway, "upstream_unreachable", err
 	}
 	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 20<<20))
+	if err != nil {
+		return http.StatusBadGateway, "upstream_read_failed", err
+	}
+	if resp.StatusCode >= 400 {
+		msg := parseUpstreamError(bytes.NewReader(respBody))
+		writeOpenAIError(w, resp.StatusCode, msg, "upstream_error", "anthropic_upstream_error")
+		return resp.StatusCode, "anthropic_upstream_error", nil
+	}
+
 	copyHeaders(w.Header(), resp.Header)
 	w.WriteHeader(resp.StatusCode)
-	if _, err := io.Copy(w, resp.Body); err != nil {
+	if _, err := w.Write(respBody); err != nil {
 		return resp.StatusCode, "upstream_stream_failed", err
 	}
 	return resp.StatusCode, "", nil
@@ -334,6 +360,33 @@ func (a *AnthropicAdapter) doUpstream(ctx context.Context, cfg AnthropicConfig, 
 		}
 	}
 	return a.client.Do(upReq)
+}
+
+func isOfficialAnthropicHost(base string) bool {
+	raw := strings.TrimSpace(base)
+	if raw == "" {
+		return false
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return false
+	}
+	host := strings.ToLower(strings.TrimSpace(u.Hostname()))
+	return host == "api.anthropic.com"
+}
+
+func isOpenAIStyleModel(model string) bool {
+	lower := strings.ToLower(strings.TrimSpace(model))
+	switch {
+	case strings.HasPrefix(lower, "gpt-"),
+		strings.HasPrefix(lower, "o1-"),
+		strings.HasPrefix(lower, "o3-"),
+		strings.HasPrefix(lower, "o4-"),
+		strings.HasPrefix(lower, "chatgpt-"):
+		return true
+	default:
+		return false
+	}
 }
 
 func collectSSELines(body io.Reader) []byte {

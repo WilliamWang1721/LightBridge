@@ -17,6 +17,8 @@ func writeOpenAIError(w http.ResponseWriter, status int, message, errType, code 
 	w.Header().Set("content-type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]any{
+		"type":    "error",
+		"message": message,
 		"error": map[string]any{
 			"message": message,
 			"type":    errType,

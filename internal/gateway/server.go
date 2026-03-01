@@ -512,30 +512,40 @@ func (s *Server) handleV1Proxy(w http.ResponseWriter, r *http.Request) {
 		provider *types.Provider
 	)
 	if forceByProtocol {
-		// Native protocol ingress prefers protocol-matched providers, but if an explicit
-		// model route exists we honor it so unsupported protocol combinations can return
-		// a clear not_supported error instead of provider_not_found.
+		// Native protocol ingress prefers protocol-matched providers.
+		// We still resolve by model first so protocol-incompatible routes/models can return
+		// a clear structured not_supported error instead of ambiguous upstream failures.
 		if modelID != "" {
-			if routes, e := s.store.ListModelRoutes(r.Context(), modelID, false); e == nil && len(routes) > 0 {
+			route, err = s.resolver.Resolve(r.Context(), modelID)
+			if err != nil && errors.Is(err, routing.ErrNoHealthyProvider) {
+				s.startEnabledModulesBestEffort()
 				route, err = s.resolver.Resolve(r.Context(), modelID)
-				if err != nil && errors.Is(err, routing.ErrNoHealthyProvider) {
-					s.startEnabledModulesBestEffort()
-					route, err = s.resolver.Resolve(r.Context(), modelID)
-				}
-				if err != nil {
-					writeOpenAIError(w, http.StatusBadGateway, err.Error(), "routing_error", "routing_failed")
+			}
+			if err == nil && route != nil {
+				provider, _ = s.store.GetProvider(r.Context(), route.ProviderID)
+				if provider != nil && !supportsProtocolRoute(ingressProtocol, provider.Protocol, endpointKind) {
+					writeNotSupportedRouteError(
+						w,
+						types.NormalizeProtocol(ingressProtocol),
+						types.NormalizeProtocol(provider.Protocol),
+						endpointKind,
+					)
 					_ = s.store.InsertRequestLog(r.Context(), types.RequestLogMeta{
 						Timestamp:   time.Now().UTC(),
 						RequestID:   requestID,
 						ClientKeyID: client.ID,
-						ModelID:     modelID,
+						ProviderID:  provider.ID,
+						ModelID:     routeModelID(route, modelID),
 						Path:        logPath,
-						Status:      http.StatusBadGateway,
+						Status:      http.StatusNotImplemented,
 						LatencyMS:   time.Since(start).Milliseconds(),
-						ErrorCode:   "routing_failed",
+						ErrorCode:   "not_supported",
 					})
 					return
 				}
+			}
+			if err != nil {
+				route = nil
 			}
 		}
 		if route == nil {
@@ -699,7 +709,18 @@ func (s *Server) handleV1Proxy(w http.ResponseWriter, r *http.Request) {
 		finalModelID = routeModelID(route, modelID)
 
 		captureW := newUsageCaptureResponseWriter(w, 8<<20)
-		status, code, err := adapter.Handle(r.Context(), captureW, r, *provider, route)
+		var status int
+		var code string
+		var err error
+		if shouldBridgeAnthropicMessages(ingressProtocol, endpointKind, provider.Protocol) {
+			status, code, err = s.handleAnthropicMessagesBridge(r.Context(), captureW, r, adapter, *provider, route, bodyBytes)
+		} else if shouldBridgeGeminiNative(ingressProtocol, endpointKind, provider.Protocol) {
+			status, code, err = s.handleGeminiNativeBridge(r.Context(), captureW, r, adapter, *provider, route, bodyBytes, endpointKind)
+		} else if shouldBridgeAzureLegacy(ingressProtocol, endpointKind, provider.Protocol) {
+			status, code, err = s.handleAzureLegacyBridge(r.Context(), captureW, r, adapter, *provider, route, bodyBytes)
+		} else {
+			status, code, err = adapter.Handle(r.Context(), captureW, r, *provider, route)
+		}
 		finalStatus = status
 		if finalStatus == 0 {
 			finalStatus = captureW.StatusCode()

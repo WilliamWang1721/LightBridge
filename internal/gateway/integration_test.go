@@ -32,6 +32,8 @@ import (
 	"lightbridge/internal/testutil"
 	"lightbridge/internal/types"
 	"lightbridge/internal/util"
+
+	"github.com/tidwall/gjson"
 )
 
 func repoRoot(t *testing.T) string {
@@ -505,6 +507,318 @@ func TestAnthropicProviderConversion(t *testing.T) {
 	}
 }
 
+func TestAnthropicNativeMessagesNormalizesUpstreamBadGateway(t *testing.T) {
+	st, dir := testutil.NewStore(t)
+	ctx := context.Background()
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/messages" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("content-type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = io.WriteString(w, "<html><body>Bad Gateway</body></html>")
+	}))
+	defer upstream.Close()
+
+	cfg := map[string]any{
+		"base_url": upstream.URL,
+		"api_key":  "anthropic-key",
+	}
+	cfgBytes, _ := json.Marshal(cfg)
+	if err := st.UpsertProvider(ctx, types.Provider{
+		ID:         "anthropic",
+		Type:       types.ProviderTypeBuiltin,
+		Protocol:   types.ProtocolAnthropic,
+		Endpoint:   upstream.URL,
+		ConfigJSON: string(cfgBytes),
+		Enabled:    true,
+		Health:     "healthy",
+	}); err != nil {
+		t.Fatalf("upsert anthropic provider: %v", err)
+	}
+
+	apiKey := createClientKey(t, st)
+	ts := setupGateway(t, st, dir, "")
+	defer ts.Close()
+
+	reqBody := `{"model":"gpt-5.2","messages":[{"role":"user","content":"ping"}]}`
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/anthropic/v1/messages", strings.NewReader(reqBody))
+	req.Header.Set("authorization", "Bearer "+apiKey)
+	req.Header.Set("content-type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("anthropic native request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadGateway {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 502, status=%d body=%s", resp.StatusCode, string(b))
+	}
+
+	var payload map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if got := strings.TrimSpace(fmt.Sprint(payload["type"])); got != "error" {
+		t.Fatalf("unexpected root type: %v", got)
+	}
+	if got := strings.TrimSpace(fmt.Sprint(payload["message"])); !strings.Contains(got, "Bad Gateway") {
+		t.Fatalf("unexpected root message: %v", got)
+	}
+	errObj, _ := payload["error"].(map[string]any)
+	if got := strings.TrimSpace(fmt.Sprint(errObj["code"])); got != "anthropic_upstream_error" {
+		t.Fatalf("unexpected error code: %v", got)
+	}
+	if got := strings.TrimSpace(fmt.Sprint(errObj["message"])); !strings.Contains(got, "Bad Gateway") {
+		t.Fatalf("unexpected error message: %v", got)
+	}
+}
+
+func TestAnthropicNativeMessagesRejectsOpenAIModelOnOfficialAnthropicHost(t *testing.T) {
+	st, dir := testutil.NewStore(t)
+	ctx := context.Background()
+
+	cfg := map[string]any{
+		"base_url": "https://api.anthropic.com",
+		"api_key":  "anthropic-key",
+	}
+	cfgBytes, _ := json.Marshal(cfg)
+	if err := st.UpsertProvider(ctx, types.Provider{
+		ID:         "anthropic",
+		Type:       types.ProviderTypeBuiltin,
+		Protocol:   types.ProtocolAnthropic,
+		Endpoint:   "https://api.anthropic.com",
+		ConfigJSON: string(cfgBytes),
+		Enabled:    true,
+		Health:     "healthy",
+	}); err != nil {
+		t.Fatalf("upsert anthropic provider: %v", err)
+	}
+
+	apiKey := createClientKey(t, st)
+	ts := setupGateway(t, st, dir, "")
+	defer ts.Close()
+
+	reqBody := `{"model":"gpt-5.2","messages":[{"role":"user","content":"ping"}]}`
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/anthropic/v1/messages", strings.NewReader(reqBody))
+	req.Header.Set("authorization", "Bearer "+apiKey)
+	req.Header.Set("content-type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("anthropic native request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 400, status=%d body=%s", resp.StatusCode, string(b))
+	}
+
+	var payload map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	errObj, _ := payload["error"].(map[string]any)
+	if got := strings.TrimSpace(fmt.Sprint(errObj["code"])); got != "incompatible_model" {
+		t.Fatalf("unexpected error code: %v", got)
+	}
+	if got := strings.TrimSpace(fmt.Sprint(errObj["message"])); !strings.Contains(got, "gpt-5.2") {
+		t.Fatalf("unexpected error message: %v", got)
+	}
+}
+
+func TestAnthropicNativeMessagesBridgeToForwardNonStream(t *testing.T) {
+	st, dir := testutil.NewStore(t)
+	ctx := context.Background()
+
+	var seenPath atomic.Value
+	var seenModel atomic.Value
+	var seenUserText atomic.Value
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seenPath.Store(r.URL.Path)
+		body, _ := io.ReadAll(r.Body)
+		seenModel.Store(gjson.GetBytes(body, "model").String())
+		seenUserText.Store(gjson.GetBytes(body, "messages.0.content").String())
+
+		w.Header().Set("content-type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id":     "chatcmpl-bridge-1",
+			"object": "chat.completion",
+			"model":  "gpt-upstream",
+			"choices": []map[string]any{{
+				"index": 0,
+				"message": map[string]any{
+					"role":    "assistant",
+					"content": "bridge-ok",
+				},
+				"finish_reason": "stop",
+			}},
+			"usage": map[string]any{
+				"prompt_tokens":     3,
+				"completion_tokens": 2,
+			},
+		})
+	}))
+	defer upstream.Close()
+
+	cfg := map[string]any{
+		"base_url": upstream.URL,
+		"api_key":  "upstream-key",
+	}
+	cfgBytes, _ := json.Marshal(cfg)
+	if err := st.UpsertProvider(ctx, types.Provider{
+		ID:         "forward",
+		Type:       types.ProviderTypeBuiltin,
+		Protocol:   types.ProtocolForward,
+		Endpoint:   upstream.URL,
+		ConfigJSON: string(cfgBytes),
+		Enabled:    true,
+		Health:     "healthy",
+	}); err != nil {
+		t.Fatalf("upsert forward provider: %v", err)
+	}
+	if err := st.UpsertModel(ctx, types.Model{ID: "gpt-bridge", DisplayName: "gpt-bridge", Enabled: true}); err != nil {
+		t.Fatalf("upsert model: %v", err)
+	}
+	if err := st.ReplaceModelRoutes(ctx, "gpt-bridge", []types.ModelRoute{{
+		ModelID:       "gpt-bridge",
+		ProviderID:    "forward",
+		UpstreamModel: "gpt-upstream",
+		Priority:      1,
+		Weight:        1,
+		Enabled:       true,
+	}}); err != nil {
+		t.Fatalf("replace model routes: %v", err)
+	}
+
+	apiKey := createClientKey(t, st)
+	ts := setupGateway(t, st, dir, "")
+	defer ts.Close()
+
+	reqBody := `{"model":"gpt-bridge","messages":[{"role":"user","content":"hello bridge"}],"max_tokens":128}`
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/anthropic/v1/messages", strings.NewReader(reqBody))
+	req.Header.Set("authorization", "Bearer "+apiKey)
+	req.Header.Set("content-type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("anthropic bridge non-stream request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 200, status=%d body=%s", resp.StatusCode, string(b))
+	}
+	var payload map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode anthropic bridge response: %v", err)
+	}
+	if got := strings.TrimSpace(fmt.Sprint(payload["type"])); got != "message" {
+		t.Fatalf("unexpected type: %v", got)
+	}
+	if got := strings.TrimSpace(fmt.Sprint(payload["model"])); got != "gpt-upstream" {
+		t.Fatalf("unexpected model: %v", got)
+	}
+	if got := strings.TrimSpace(fmt.Sprint(payload["stop_reason"])); got != "end_turn" {
+		t.Fatalf("unexpected stop reason: %v", got)
+	}
+	content, _ := payload["content"].([]any)
+	if len(content) == 0 {
+		t.Fatalf("missing content blocks")
+	}
+	firstBlock, _ := content[0].(map[string]any)
+	firstText := strings.TrimSpace(fmt.Sprint(firstBlock["text"]))
+	if firstText != "bridge-ok" {
+		t.Fatalf("unexpected content text: %q", firstText)
+	}
+	if got := fmt.Sprint(seenPath.Load()); got != "/v1/chat/completions" {
+		t.Fatalf("unexpected upstream path: %v", got)
+	}
+	if got := fmt.Sprint(seenModel.Load()); got != "gpt-upstream" {
+		t.Fatalf("unexpected upstream model: %v", got)
+	}
+	if got := fmt.Sprint(seenUserText.Load()); got != "hello bridge" {
+		t.Fatalf("unexpected upstream user text: %v", got)
+	}
+}
+
+func TestAnthropicNativeMessagesBridgeToForwardStream(t *testing.T) {
+	st, dir := testutil.NewStore(t)
+	ctx := context.Background()
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/chat/completions" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("content-type", "text/event-stream")
+		fmt.Fprint(w, "data: {\"id\":\"chatcmpl-bridge-stream\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"gpt-upstream\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"finish_reason\":null}]}\n\n")
+		fmt.Fprint(w, "data: {\"id\":\"chatcmpl-bridge-stream\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"gpt-upstream\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hello\"},\"finish_reason\":null}]}\n\n")
+		fmt.Fprint(w, "data: {\"id\":\"chatcmpl-bridge-stream\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"gpt-upstream\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n")
+		fmt.Fprint(w, "data: [DONE]\n\n")
+	}))
+	defer upstream.Close()
+
+	cfg := map[string]any{
+		"base_url": upstream.URL,
+		"api_key":  "upstream-key",
+	}
+	cfgBytes, _ := json.Marshal(cfg)
+	if err := st.UpsertProvider(ctx, types.Provider{
+		ID:         "forward",
+		Type:       types.ProviderTypeBuiltin,
+		Protocol:   types.ProtocolForward,
+		Endpoint:   upstream.URL,
+		ConfigJSON: string(cfgBytes),
+		Enabled:    true,
+		Health:     "healthy",
+	}); err != nil {
+		t.Fatalf("upsert forward provider: %v", err)
+	}
+	if err := st.UpsertModel(ctx, types.Model{ID: "gpt-bridge-stream", DisplayName: "gpt-bridge-stream", Enabled: true}); err != nil {
+		t.Fatalf("upsert model: %v", err)
+	}
+	if err := st.ReplaceModelRoutes(ctx, "gpt-bridge-stream", []types.ModelRoute{{
+		ModelID:       "gpt-bridge-stream",
+		ProviderID:    "forward",
+		UpstreamModel: "gpt-upstream",
+		Priority:      1,
+		Weight:        1,
+		Enabled:       true,
+	}}); err != nil {
+		t.Fatalf("replace model routes: %v", err)
+	}
+
+	apiKey := createClientKey(t, st)
+	ts := setupGateway(t, st, dir, "")
+	defer ts.Close()
+
+	reqBody := `{"model":"gpt-bridge-stream","stream":true,"messages":[{"role":"user","content":"hello"}]}`
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/anthropic/v1/messages", strings.NewReader(reqBody))
+	req.Header.Set("authorization", "Bearer "+apiKey)
+	req.Header.Set("content-type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("anthropic bridge stream request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 200, status=%d body=%s", resp.StatusCode, string(b))
+	}
+	body, _ := io.ReadAll(resp.Body)
+	text := string(body)
+	if !strings.Contains(text, "event: message_start") ||
+		!strings.Contains(text, "\"type\":\"content_block_delta\"") ||
+		!strings.Contains(text, "hello") ||
+		!strings.Contains(text, "event: message_stop") {
+		t.Fatalf("unexpected anthropic bridged stream: %s", text)
+	}
+}
+
 func TestOpenAIResponsesPrefixAndXAPIKeyAuth(t *testing.T) {
 	st, dir := testutil.NewStore(t)
 	ctx := context.Background()
@@ -643,15 +957,37 @@ func TestGeminiNativeIngressProxy(t *testing.T) {
 	}
 }
 
-func TestGeminiNativeIngressReturnsStructuredNotSupportedForCrossProtocolRoute(t *testing.T) {
+func TestGeminiNativeIngressBridgesCrossProtocolRoute(t *testing.T) {
 	st, dir := testutil.NewStore(t)
 	ctx := context.Background()
 
 	var upstreamCalls atomic.Int64
+	var seenPath atomic.Value
+	var seenModel atomic.Value
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		upstreamCalls.Add(1)
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"ok":true}`))
+		seenPath.Store(r.URL.Path)
+		body, _ := io.ReadAll(r.Body)
+		seenModel.Store(gjson.GetBytes(body, "model").String())
+		w.Header().Set("content-type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id":     "chatcmpl-gem-bridge",
+			"object": "chat.completion",
+			"model":  "gpt-4o-mini",
+			"choices": []map[string]any{{
+				"index": 0,
+				"message": map[string]any{
+					"role":    "assistant",
+					"content": "gem-bridge-ok",
+				},
+				"finish_reason": "stop",
+			}},
+			"usage": map[string]any{
+				"prompt_tokens":     2,
+				"completion_tokens": 1,
+				"total_tokens":      3,
+			},
+		})
 	}))
 	defer upstream.Close()
 
@@ -700,30 +1036,109 @@ func TestGeminiNativeIngressReturnsStructuredNotSupportedForCrossProtocolRoute(t
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusNotImplemented {
+	if resp.StatusCode != http.StatusOK {
 		b, _ := io.ReadAll(resp.Body)
-		t.Fatalf("expected 501, status=%d body=%s", resp.StatusCode, string(b))
+		t.Fatalf("expected 200, status=%d body=%s", resp.StatusCode, string(b))
 	}
 
 	var payload map[string]any
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode error payload: %v", err)
 	}
-	errObj, _ := payload["error"].(map[string]any)
-	if got := strings.TrimSpace(fmt.Sprint(errObj["type"])); got != "not_supported" {
-		t.Fatalf("unexpected error type: %v", got)
+	candidates, _ := payload["candidates"].([]any)
+	if len(candidates) == 0 {
+		t.Fatalf("expected gemini candidates")
 	}
-	if got := strings.TrimSpace(fmt.Sprint(errObj["source_protocol"])); got != "gemini" {
-		t.Fatalf("unexpected source protocol: %v", got)
+	if got := strings.TrimSpace(fmt.Sprint(seenPath.Load())); got != "/v1/chat/completions" {
+		t.Fatalf("unexpected upstream path: %v", got)
 	}
-	if got := strings.TrimSpace(fmt.Sprint(errObj["target_protocol"])); got != "openai" {
-		t.Fatalf("unexpected target protocol: %v", got)
+	if got := strings.TrimSpace(fmt.Sprint(seenModel.Load())); got != "gpt-4o-mini" {
+		t.Fatalf("unexpected upstream model: %v", got)
 	}
-	if got := strings.TrimSpace(fmt.Sprint(errObj["endpoint_kind"])); got != "generate_content" {
-		t.Fatalf("unexpected endpoint kind: %v", got)
+	if upstreamCalls.Load() == 0 {
+		t.Fatalf("expected bridged request to reach upstream")
 	}
-	if upstreamCalls.Load() != 0 {
-		t.Fatalf("upstream should not be called on not_supported route")
+}
+
+func TestAzureLegacyIngressBridgesCrossProtocolRoute(t *testing.T) {
+	st, dir := testutil.NewStore(t)
+	ctx := context.Background()
+
+	var seenPath atomic.Value
+	var seenModel atomic.Value
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seenPath.Store(r.URL.Path)
+		body, _ := io.ReadAll(r.Body)
+		seenModel.Store(gjson.GetBytes(body, "model").String())
+		w.Header().Set("content-type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id":     "chatcmpl-azure-bridge",
+			"object": "chat.completion",
+			"model":  "gpt-upstream",
+			"choices": []map[string]any{{
+				"index": 0,
+				"message": map[string]any{
+					"role":    "assistant",
+					"content": "azure-bridge-ok",
+				},
+				"finish_reason": "stop",
+			}},
+		})
+	}))
+	defer upstream.Close()
+
+	cfg := map[string]any{
+		"base_url": upstream.URL,
+		"api_key":  "unused",
+	}
+	cfgBytes, _ := json.Marshal(cfg)
+	if err := st.UpsertProvider(ctx, types.Provider{
+		ID:         "forward",
+		Type:       types.ProviderTypeBuiltin,
+		Protocol:   types.ProtocolForward,
+		Endpoint:   upstream.URL,
+		ConfigJSON: string(cfgBytes),
+		Enabled:    true,
+		Health:     "healthy",
+	}); err != nil {
+		t.Fatalf("upsert forward provider: %v", err)
+	}
+	if err := st.UpsertModel(ctx, types.Model{ID: "azure-dep", DisplayName: "azure-dep", Enabled: true}); err != nil {
+		t.Fatalf("upsert model: %v", err)
+	}
+	if err := st.ReplaceModelRoutes(ctx, "azure-dep", []types.ModelRoute{{
+		ModelID:       "azure-dep",
+		ProviderID:    "forward",
+		UpstreamModel: "gpt-upstream",
+		Priority:      1,
+		Weight:        1,
+		Enabled:       true,
+	}}); err != nil {
+		t.Fatalf("replace routes: %v", err)
+	}
+
+	apiKey := createClientKey(t, st)
+	ts := setupGateway(t, st, dir, "")
+	defer ts.Close()
+
+	body := `{"messages":[{"role":"user","content":"hello"}]}`
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/azure/openai/deployments/azure-dep/chat/completions?api-version=2024-10-21", strings.NewReader(body))
+	req.Header.Set("authorization", "Bearer "+apiKey)
+	req.Header.Set("content-type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("azure legacy request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 200, status=%d body=%s", resp.StatusCode, string(b))
+	}
+	if got := strings.TrimSpace(fmt.Sprint(seenPath.Load())); got != "/v1/chat/completions" {
+		t.Fatalf("unexpected upstream path: %v", got)
+	}
+	if got := strings.TrimSpace(fmt.Sprint(seenModel.Load())); got != "gpt-upstream" {
+		t.Fatalf("unexpected upstream model: %v", got)
 	}
 }
 

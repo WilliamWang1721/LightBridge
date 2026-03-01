@@ -23,6 +23,8 @@ func writeOpenAIError(w http.ResponseWriter, status int, message, errType, code 
 	w.Header().Set("content-type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]any{
+		"type":    "error",
+		"message": message,
 		"error": map[string]any{
 			"message": message,
 			"type":    errType,
@@ -39,6 +41,8 @@ func writeNotSupportedRouteError(w http.ResponseWriter, sourceProtocol, targetPr
 	w.Header().Set("content-type", "application/json")
 	w.WriteHeader(http.StatusNotImplemented)
 	_ = json.NewEncoder(w).Encode(map[string]any{
+		"type":    "error",
+		"message": msg,
 		"error": map[string]any{
 			"message":           msg,
 			"type":              "not_supported",
