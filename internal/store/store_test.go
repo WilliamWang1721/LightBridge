@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -112,5 +113,74 @@ func TestPathModelUsageSince(t *testing.T) {
 	}
 	if rows[0].Requests != 2 || rows[0].InputTokens != 15 || rows[0].OutputTokens != 5 {
 		t.Fatalf("unexpected top row aggregate: %+v", rows[0])
+	}
+}
+
+func TestChatConversationPersistence(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	dir := t.TempDir()
+	database, err := db.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { _ = database.Close() })
+
+	st := New(database)
+	conversationID := "chat_test_001"
+
+	if err := st.CreateChatConversation(ctx, types.ChatConversation{
+		ID:           conversationID,
+		Title:        "新对话",
+		ModelID:      "gpt-4o-mini",
+		SystemPrompt: "你是测试助手",
+	}); err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	if err := st.AppendChatExchange(
+		ctx,
+		conversationID,
+		"gpt-4o-mini",
+		"测试标题",
+		"请给我一段 Markdown 列表",
+		"- 第一项\n- 第二项",
+		"思维链样例",
+		"forward",
+		"gpt-4o-mini",
+	); err != nil {
+		t.Fatalf("append exchange: %v", err)
+	}
+
+	conv, err := st.GetChatConversation(ctx, conversationID)
+	if err != nil {
+		t.Fatalf("get conversation: %v", err)
+	}
+	if conv == nil {
+		t.Fatalf("conversation should exist")
+	}
+	if conv.Title != "测试标题" {
+		t.Fatalf("unexpected title: %q", conv.Title)
+	}
+	if conv.MessageCount != 2 {
+		t.Fatalf("expected 2 messages, got %d", conv.MessageCount)
+	}
+	if !strings.Contains(conv.LastMessagePreview, "第二项") {
+		t.Fatalf("unexpected last message preview: %q", conv.LastMessagePreview)
+	}
+
+	msgs, err := st.ListChatMessages(ctx, conversationID, 20)
+	if err != nil {
+		t.Fatalf("list messages: %v", err)
+	}
+	if len(msgs) != 2 {
+		t.Fatalf("expected 2 messages, got %d", len(msgs))
+	}
+	if msgs[0].Role != "user" || msgs[1].Role != "assistant" {
+		t.Fatalf("unexpected role order: %#v", []string{msgs[0].Role, msgs[1].Role})
+	}
+	if msgs[1].ReasoningText != "思维链样例" {
+		t.Fatalf("unexpected reasoning text: %q", msgs[1].ReasoningText)
 	}
 }

@@ -51,6 +51,7 @@ func (d *DB) Migrate(ctx context.Context) error {
 		{2, migrationV2},
 		{3, migrationV3},
 		{4, migrationV4},
+		{5, migrationV5},
 	}
 
 	for _, m := range migrations {
@@ -184,4 +185,33 @@ ALTER TABLE providers ADD COLUMN group_name TEXT NOT NULL DEFAULT '';
 const migrationV4 = `
 ALTER TABLE request_logs_meta ADD COLUMN reasoning_tokens INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE request_logs_meta ADD COLUMN cached_tokens INTEGER NOT NULL DEFAULT 0;
+`
+
+const migrationV5 = `
+CREATE TABLE IF NOT EXISTS chat_conversations (
+	id TEXT PRIMARY KEY,
+	title TEXT NOT NULL,
+	model_id TEXT NOT NULL,
+	system_prompt TEXT NOT NULL DEFAULT '',
+	created_at TEXT NOT NULL DEFAULT (datetime('now')),
+	updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	conversation_id TEXT NOT NULL,
+	role TEXT NOT NULL,
+	content TEXT NOT NULL,
+	reasoning_text TEXT NOT NULL DEFAULT '',
+	provider_id TEXT NOT NULL DEFAULT '',
+	route_model TEXT NOT NULL DEFAULT '',
+	created_at TEXT NOT NULL DEFAULT (datetime('now')),
+	FOREIGN KEY(conversation_id) REFERENCES chat_conversations(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_conversations_updated_at
+	ON chat_conversations(updated_at DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS idx_chat_messages_conversation
+	ON chat_messages(conversation_id, id ASC);
 `

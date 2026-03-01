@@ -1,0 +1,1027 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>{{.Page}}</title>
+  <link rel="stylesheet" href="/admin/static/style.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <style>
+    :root {
+      --bg: #f2f5fb;
+      --panel: #ffffff;
+      --ink: #1d2433;
+      --muted: #677186;
+      --border: #d9dfeb;
+      --brand: #2f5dff;
+      --brand-soft: #eef3ff;
+      --assistant-bg: #f8faff;
+      --user-bg: #e8f0ff;
+      --danger: #b42318;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      color: var(--ink);
+      background: radial-gradient(circle at 0 0, #edf2ff 0, #f7f9fc 52%, #eef2fb 100%);
+      font-family: "SF Pro Text", "PingFang SC", "Noto Sans SC", "Segoe UI", sans-serif;
+    }
+
+    .shell {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      width: 248px;
+      border-right: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(255, 255, 255, .94) 0, rgba(247, 250, 255, .98) 100%);
+      padding: 24px 18px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .sidebar-top {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--ink);
+      font-weight: 700;
+      font-size: 18px;
+    }
+
+    .brand-mark {
+      width: 12px;
+      height: 24px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, #5b82ff 0, #2f5dff 100%);
+      box-shadow: 0 4px 12px rgba(47, 93, 255, .35);
+    }
+
+    .menu {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .menu-item {
+      text-decoration: none;
+      color: #3a4559;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: .15s ease;
+    }
+
+    .menu-item:hover {
+      background: #f6f8fc;
+      border-color: var(--border);
+    }
+
+    .menu-item.is-active {
+      color: #16307a;
+      background: var(--brand-soft);
+      border-color: #bfd0ff;
+    }
+
+    .menu-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: currentColor;
+      opacity: .7;
+    }
+
+    .sidebar-bottom {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: #5a6477;
+      font-size: 13px;
+    }
+
+    .admin-chip {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: inline-grid;
+      place-items: center;
+      font-weight: 700;
+      color: #fff;
+      background: linear-gradient(135deg, #355adf 0, #2347bf 100%);
+    }
+
+    .main {
+      flex: 1;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    .topbar h1 {
+      margin: 0;
+      font-size: 36px;
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+    }
+
+    .topbar p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .plugin-tip {
+      font-size: 12px;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      background: #fff;
+      border-radius: 999px;
+      padding: 6px 10px;
+      white-space: nowrap;
+    }
+
+    .chat-layout {
+      flex: 1;
+      min-height: 0;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: 300px minmax(0, 1fr);
+      box-shadow: 0 12px 34px rgba(16, 24, 40, .08);
+    }
+
+    .chat-left {
+      border-right: 1px solid var(--border);
+      background: linear-gradient(180deg, #fbfcff 0, #f7f9fd 100%);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .chat-left-head {
+      padding: 14px;
+      border-bottom: 1px solid var(--border);
+      display: grid;
+      gap: 10px;
+    }
+
+    .chat-list {
+      overflow: auto;
+      padding: 8px 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 0;
+    }
+
+    .chat-item {
+      border: 1px solid var(--border);
+      background: #fff;
+      border-radius: 12px;
+      padding: 10px;
+      cursor: pointer;
+      transition: .15s ease;
+      display: grid;
+      gap: 4px;
+    }
+
+    .chat-item:hover {
+      border-color: #c7d4f5;
+      transform: translateY(-1px);
+    }
+
+    .chat-item.is-active {
+      background: var(--brand-soft);
+      border-color: #b7c8fb;
+      box-shadow: inset 0 0 0 1px rgba(47, 93, 255, .18);
+    }
+
+    .chat-item-title {
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.4;
+      color: #1f2b40;
+      word-break: break-word;
+    }
+
+    .chat-item-meta {
+      font-size: 12px;
+      color: #6a7488;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .chat-item-preview {
+      font-size: 12px;
+      color: #6e7890;
+      line-height: 1.45;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .chat-right {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      min-height: 0;
+    }
+
+    .chat-right-head {
+      border-bottom: 1px solid var(--border);
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+      background: #fff;
+    }
+
+    .chat-right-head h2 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.2;
+    }
+
+    .chat-right-head p {
+      margin: 6px 0 0;
+      color: #657087;
+      font-size: 13px;
+    }
+
+    .chat-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .chat-toggle {
+      font-size: 12px;
+      color: #4a556b;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+    }
+
+    .chat-messages {
+      min-height: 0;
+      overflow: auto;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: linear-gradient(180deg, rgba(247, 250, 255, .5) 0, rgba(244, 248, 255, .85) 100%);
+    }
+
+    .msg {
+      max-width: 88%;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 12px;
+      display: grid;
+      gap: 8px;
+      line-height: 1.6;
+      box-shadow: 0 4px 14px rgba(10, 20, 60, .06);
+    }
+
+    .msg[data-role="user"] {
+      margin-left: auto;
+      background: var(--user-bg);
+      border-color: #c3d8ff;
+    }
+
+    .msg[data-role="assistant"] {
+      margin-right: auto;
+      background: var(--assistant-bg);
+      border-color: #d6e3ff;
+    }
+
+    .msg-head {
+      font-size: 12px;
+      color: #50607b;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .msg-body {
+      font-size: 14px;
+      color: #1f2b40;
+      word-break: break-word;
+    }
+
+    .msg-body p {
+      margin: 0 0 .6em;
+    }
+
+    .msg-body p:last-child {
+      margin-bottom: 0;
+    }
+
+    .msg-body pre {
+      margin: .6em 0;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #111827;
+      color: #f9fafb;
+      overflow: auto;
+      font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: 12px;
+    }
+
+    .msg-body code {
+      font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: .92em;
+      background: #eef2ff;
+      border-radius: 5px;
+      padding: 1px 4px;
+    }
+
+    .msg-body pre code {
+      background: transparent;
+      padding: 0;
+    }
+
+    .msg-reasoning {
+      border-top: 1px dashed #ccd7ef;
+      padding-top: 8px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .msg-reasoning summary {
+      cursor: pointer;
+      font-size: 12px;
+      color: #415372;
+      user-select: none;
+      list-style: none;
+    }
+
+    .msg-reasoning summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .msg-reasoning-body {
+      font-size: 12px;
+      line-height: 1.6;
+      color: #334155;
+      background: #f3f7ff;
+      border: 1px solid #d9e4ff;
+      border-radius: 10px;
+      padding: 8px 10px;
+    }
+
+    .chat-composer {
+      border-top: 1px solid var(--border);
+      padding: 12px 16px 14px;
+      background: #fff;
+      display: grid;
+      gap: 10px;
+    }
+
+    label {
+      font-size: 12px;
+      color: #556176;
+    }
+
+    textarea,
+    select,
+    input {
+      width: 100%;
+      border: 1px solid #cdd7ea;
+      border-radius: 10px;
+      background: #fff;
+      color: #1f2b40;
+      font-size: 13px;
+      padding: 9px 10px;
+      outline: none;
+    }
+
+    textarea:focus,
+    select:focus,
+    input:focus {
+      border-color: #8aa7ff;
+      box-shadow: 0 0 0 3px rgba(47, 93, 255, .14);
+    }
+
+    #chat-input {
+      min-height: 96px;
+      resize: vertical;
+    }
+
+    #chat-system-prompt {
+      min-height: 72px;
+      resize: vertical;
+      font-size: 12px;
+    }
+
+    .composer-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .status {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .btn {
+      border: 1px solid #c5d0e8;
+      border-radius: 10px;
+      background: #fff;
+      color: #1f2b40;
+      font-size: 13px;
+      padding: 7px 11px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: .15s ease;
+    }
+
+    .btn:hover {
+      border-color: #9cb2e5;
+      transform: translateY(-1px);
+    }
+
+    .btn.primary {
+      background: linear-gradient(135deg, #3f67ff 0, #2f55d8 100%);
+      border-color: #335ddf;
+      color: #fff;
+    }
+
+    .btn.danger {
+      color: var(--danger);
+      border-color: #f3c7c2;
+      background: #fff6f5;
+    }
+
+    .empty {
+      border: 1px dashed #cfd9ed;
+      border-radius: 14px;
+      padding: 18px;
+      text-align: center;
+      color: #667089;
+      font-size: 13px;
+      background: rgba(255, 255, 255, .72);
+    }
+
+    @media (max-width: 1080px) {
+      .chat-layout {
+        grid-template-columns: 260px minmax(0, 1fr);
+      }
+    }
+
+    @media (max-width: 920px) {
+      .shell {
+        flex-direction: column;
+      }
+
+      .sidebar {
+        width: 100%;
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .chat-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: 280px minmax(0, 1fr);
+      }
+
+      .chat-left {
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .main {
+        padding: 16px;
+      }
+
+      .topbar h1 {
+        font-size: 30px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Sidebar">
+      <div class="sidebar-top">
+        <a class="brand" href="/admin/dashboard">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span>LightBridge</span>
+        </a>
+        <nav class="menu" aria-label="主导航">
+          <a class="menu-item" href="/admin/dashboard"><span class="menu-dot" aria-hidden="true"></span>概览 Overview</a>
+          <a class="menu-item is-active" href="/admin/chatbox"><span class="menu-dot" aria-hidden="true"></span>对话 Chatbox</a>
+          <a class="menu-item" href="/admin/consumption"><span class="menu-dot" aria-hidden="true"></span>统计 Statistics</a>
+          <a class="menu-item" href="/admin/providers"><span class="menu-dot" aria-hidden="true"></span>提供商 Provider</a>
+          <a class="menu-item" href="/admin/router"><span class="menu-dot" aria-hidden="true"></span>路由 Router</a>
+          <a class="menu-item" href="/admin/marketplace"><span class="menu-dot" aria-hidden="true"></span>模块 Marketplace</a>
+          <a class="menu-item" href="/admin/settings"><span class="menu-dot" aria-hidden="true"></span>设置 Settings</a>
+        </nav>
+      </div>
+      <div class="sidebar-bottom">
+        <span class="admin-chip">A</span>
+        <span>{{.Username}}</span>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1>对话版 Chatbox</h1>
+          <p>持久化存储每条会话与上下文，支持 Markdown / LaTeX 展示与思维链查看。</p>
+        </div>
+        <span class="plugin-tip" id="chat-plugin-tip">Markdown/LaTeX 插件加载中</span>
+      </header>
+
+      <section class="chat-layout">
+        <aside class="chat-left" aria-label="会话列表">
+          <div class="chat-left-head">
+            <button class="btn primary" id="chat-create-btn" type="button">新建对话</button>
+            <div>
+              <label for="chat-create-model">新对话模型</label>
+              <select id="chat-create-model"></select>
+            </div>
+            <div>
+              <label for="chat-system-prompt">System Prompt（可选）</label>
+              <textarea id="chat-system-prompt" placeholder="为新会话设置系统提示词（可空）"></textarea>
+            </div>
+          </div>
+          <div class="chat-list" id="chat-list"></div>
+        </aside>
+
+        <section class="chat-right" aria-label="会话详情">
+          <header class="chat-right-head">
+            <div>
+              <h2 id="chat-title">请选择一个会话</h2>
+              <p id="chat-meta">左侧新建后即可开始对话</p>
+            </div>
+            <div class="chat-actions">
+              <label class="chat-toggle">
+                <input id="chat-show-reasoning" type="checkbox" />
+                <span>显示思维链</span>
+              </label>
+              <button class="btn danger" id="chat-delete-btn" type="button">删除会话</button>
+            </div>
+          </header>
+
+          <div class="chat-messages" id="chat-messages"></div>
+
+          <footer class="chat-composer">
+            <label for="chat-input">输入消息（Cmd/Ctrl + Enter 发送）</label>
+            <textarea id="chat-input" placeholder="输入内容，支持 Markdown / LaTeX 语法。"></textarea>
+            <div class="composer-actions">
+              <span class="status" id="chat-status">准备就绪</span>
+              <button class="btn primary" id="chat-send-btn" type="button">发送消息</button>
+            </div>
+          </footer>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script src="/admin/static/admin.js"></script>
+  <script>
+    (() => {
+      const LB = window.LightBridgeAdmin;
+      if (!LB) return;
+
+      const STATE = {
+        conversations: [],
+        models: [],
+        currentConversation: null,
+        messages: [],
+        sending: false,
+        showReasoning: false,
+      };
+
+      function setStatus(text) {
+        const node = document.getElementById('chat-status');
+        if (node) node.textContent = String(text || '');
+      }
+
+      function formatDate(iso) {
+        if (!iso) return '-';
+        try {
+          return LB.formatISODateTime(iso);
+        } catch (_) {
+          return String(iso);
+        }
+      }
+
+      function collapseText(text) {
+        return String(text || '').replace(/\s+/g, ' ').trim();
+      }
+
+      function shorten(text, maxLen = 68) {
+        const v = collapseText(text);
+        if (v.length <= maxLen) return v;
+        return `${v.slice(0, maxLen)}...`;
+      }
+
+      function escapeHTML(text) {
+        return String(text || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function markdownToHTML(text) {
+        const raw = String(text || '');
+        if (window.marked && typeof window.marked.parse === 'function') {
+          try {
+            const html = window.marked.parse(raw, { breaks: true, gfm: true });
+            if (window.DOMPurify && typeof window.DOMPurify.sanitize === 'function') {
+              return window.DOMPurify.sanitize(String(html || ''));
+            }
+            return String(html || '');
+          } catch (_) {
+            // fallback to escaped text
+          }
+        }
+        return escapeHTML(raw).replace(/\n/g, '<br>');
+      }
+
+      function renderMath(host) {
+        if (!host || !window.renderMathInElement) return;
+        try {
+          window.renderMathInElement(host, {
+            delimiters: [
+              { left: '$$', right: '$$', display: true },
+              { left: '$', right: '$', display: false },
+              { left: '\\(', right: '\\)', display: false },
+              { left: '\\[', right: '\\]', display: true },
+            ],
+            throwOnError: false,
+          });
+        } catch (_) {
+          // keep rendered markdown text as-is
+        }
+      }
+
+      function renderRichText(host, text) {
+        if (!host) return;
+        host.innerHTML = markdownToHTML(text);
+        renderMath(host);
+      }
+
+      function updatePluginHint() {
+        const node = document.getElementById('chat-plugin-tip');
+        if (!node) return;
+        const hasMd = Boolean(window.marked && typeof window.marked.parse === 'function');
+        const hasLatex = Boolean(window.renderMathInElement);
+        if (hasMd && hasLatex) {
+          node.textContent = 'Markdown + LaTeX 插件已启用';
+          return;
+        }
+        if (hasMd) {
+          node.textContent = 'Markdown 已启用，LaTeX 插件未就绪';
+          return;
+        }
+        node.textContent = '插件未就绪，已启用基础文本渲染';
+      }
+
+      function renderConversationList() {
+        const host = document.getElementById('chat-list');
+        if (!host) return;
+        host.innerHTML = '';
+        const rows = Array.isArray(STATE.conversations) ? STATE.conversations : [];
+        if (rows.length === 0) {
+          host.appendChild(LB.el('div', { className: 'empty', text: '暂无会话。先点击“新建对话”。' }));
+          return;
+        }
+
+        for (const item of rows) {
+          const id = String(item?.id || '');
+          const title = String(item?.title || '新对话');
+          const preview = shorten(item?.last_message_preview || '无消息');
+          const model = String(item?.model_id || '-');
+          const updatedAt = formatDate(item?.updated_at);
+          const msgCount = Number(item?.message_count || 0);
+          host.appendChild(LB.el('button', {
+            className: `chat-item${STATE.currentConversation?.id === id ? ' is-active' : ''}`,
+            type: 'button',
+            onClick: () => openConversation(id),
+          }, [
+            LB.el('div', { className: 'chat-item-title', text: title }),
+            LB.el('div', { className: 'chat-item-meta' }, [
+              LB.el('span', { text: model }),
+              LB.el('span', { text: `${msgCount} 条` }),
+            ]),
+            LB.el('div', { className: 'chat-item-preview', text: preview }),
+            LB.el('div', { className: 'chat-item-meta' }, [
+              LB.el('span', { text: updatedAt }),
+            ]),
+          ]));
+        }
+      }
+
+      function renderMessages() {
+        const host = document.getElementById('chat-messages');
+        if (!host) return;
+        host.innerHTML = '';
+
+        if (!STATE.currentConversation) {
+          host.appendChild(LB.el('div', { className: 'empty', text: '请选择左侧会话，或新建对话开始交流。' }));
+          return;
+        }
+        const rows = Array.isArray(STATE.messages) ? STATE.messages : [];
+        if (rows.length === 0) {
+          host.appendChild(LB.el('div', { className: 'empty', text: '当前会话暂无消息，发送第一条消息开始。' }));
+          return;
+        }
+
+        for (const row of rows) {
+          const role = String(row?.role || 'assistant');
+          const content = String(row?.content || '');
+          const reasoning = String(row?.reasoning_text || '').trim();
+          const createdAt = formatDate(row?.created_at);
+          const provider = String(row?.provider_id || '').trim();
+          const routeModel = String(row?.route_model || '').trim();
+
+          const body = LB.el('div', { className: 'msg-body' });
+          renderRichText(body, content || '(空内容)');
+
+          const node = LB.el('article', { className: 'msg', dataset: { role } }, [
+            LB.el('header', { className: 'msg-head' }, [
+              LB.el('span', { text: role }),
+              LB.el('span', { text: createdAt }),
+            ]),
+            body,
+          ]);
+
+          if (STATE.showReasoning && reasoning && role === 'assistant') {
+            const reasoningBody = LB.el('div', { className: 'msg-reasoning-body' });
+            renderRichText(reasoningBody, reasoning);
+            node.appendChild(LB.el('details', { className: 'msg-reasoning' }, [
+              LB.el('summary', { text: '思维链 / Reasoning' }),
+              reasoningBody,
+            ]));
+          }
+
+          if (role === 'assistant' && (provider || routeModel)) {
+            node.appendChild(LB.el('footer', { className: 'msg-head' }, [
+              LB.el('span', { text: provider ? `provider: ${provider}` : '' }),
+              LB.el('span', { text: routeModel ? `model: ${routeModel}` : '' }),
+            ]));
+          }
+
+          host.appendChild(node);
+        }
+
+        host.scrollTop = host.scrollHeight;
+      }
+
+      function renderConversationHeader() {
+        const titleNode = document.getElementById('chat-title');
+        const metaNode = document.getElementById('chat-meta');
+        if (!titleNode || !metaNode) return;
+
+        const conv = STATE.currentConversation;
+        if (!conv) {
+          titleNode.textContent = '请选择一个会话';
+          metaNode.textContent = '左侧新建后即可开始对话';
+          return;
+        }
+        const title = String(conv?.title || '新对话');
+        const model = String(conv?.model_id || '-');
+        const createdAt = formatDate(conv?.created_at);
+        const updatedAt = formatDate(conv?.updated_at);
+        titleNode.textContent = title;
+        metaNode.textContent = `${model} · 创建于 ${createdAt} · 更新于 ${updatedAt}`;
+      }
+
+      async function loadModels() {
+        const createModel = document.getElementById('chat-create-model');
+        if (!createModel) return;
+        const body = await LB.apiJSON('/admin/api/models');
+        const list = Array.isArray(body?.models) ? body.models : [];
+        const ids = [];
+        for (const item of list) {
+          const id = String(item?.ID ?? item?.id ?? '').trim();
+          if (id) ids.push(id);
+        }
+        ids.sort((a, b) => a.localeCompare(b));
+        STATE.models = ids;
+        createModel.innerHTML = '';
+        for (const id of ids) {
+          createModel.appendChild(LB.el('option', { value: id, text: id }));
+        }
+      }
+
+      async function loadConversations(preferID = '') {
+        const body = await LB.apiJSON('/admin/api/chatbox/conversations');
+        STATE.conversations = Array.isArray(body?.conversations) ? body.conversations : [];
+        renderConversationList();
+
+        const wanted = String(preferID || '').trim();
+        if (wanted) {
+          const found = STATE.conversations.find((x) => String(x?.id || '') === wanted);
+          if (found) {
+            await openConversation(wanted);
+            return;
+          }
+        }
+
+        if (!STATE.currentConversation && STATE.conversations.length > 0) {
+          await openConversation(String(STATE.conversations[0]?.id || ''));
+          return;
+        }
+        renderConversationHeader();
+        renderMessages();
+      }
+
+      async function openConversation(id) {
+        const conversationID = String(id || '').trim();
+        if (!conversationID) return;
+        const body = await LB.apiJSON(`/admin/api/chatbox/conversations/${encodeURIComponent(conversationID)}`);
+        STATE.currentConversation = body?.conversation || null;
+        STATE.messages = Array.isArray(body?.messages) ? body.messages : [];
+        renderConversationList();
+        renderConversationHeader();
+        renderMessages();
+      }
+
+      async function createConversation() {
+        const modelNode = document.getElementById('chat-create-model');
+        const systemNode = document.getElementById('chat-system-prompt');
+        const model = String(modelNode?.value || '').trim();
+        if (!model) {
+          LB.toast('请先选择模型', 'error', 3200);
+          return;
+        }
+        setStatus('创建会话中...');
+        const body = await LB.apiJSON('/admin/api/chatbox/conversations', {
+          method: 'POST',
+          body: {
+            model,
+            system_prompt: String(systemNode?.value || '').trim(),
+          },
+        });
+        const conversationID = String(body?.conversation?.id || '').trim();
+        if (!conversationID) {
+          throw new Error('创建会话失败：未返回会话 ID');
+        }
+        LB.toast('已创建新会话', 'ok', 2200);
+        if (systemNode) systemNode.value = '';
+        await loadConversations(conversationID);
+        setStatus('会话已创建');
+      }
+
+      async function sendMessage() {
+        if (STATE.sending) return;
+        const convID = String(STATE.currentConversation?.id || '').trim();
+        if (!convID) {
+          LB.toast('请先新建或选择会话', 'error', 3200);
+          return;
+        }
+        const input = document.getElementById('chat-input');
+        const content = String(input?.value || '').trim();
+        if (!content) {
+          LB.toast('请输入消息', 'error', 2600);
+          return;
+        }
+
+        STATE.sending = true;
+        setStatus('发送中...');
+        try {
+          const body = await LB.apiJSON(`/admin/api/chatbox/conversations/${encodeURIComponent(convID)}/messages`, {
+            method: 'POST',
+            body: {
+              content,
+              model: String(STATE.currentConversation?.model_id || ''),
+            },
+          });
+          STATE.currentConversation = body?.conversation || STATE.currentConversation;
+          STATE.messages = Array.isArray(body?.messages) ? body.messages : STATE.messages;
+          if (input) input.value = '';
+          renderConversationHeader();
+          renderMessages();
+          await loadConversations(convID);
+          setStatus('已完成');
+        } catch (err) {
+          LB.toast(err?.body?.error || err?.message || '发送失败', 'error', 4200);
+          setStatus('发送失败');
+        } finally {
+          STATE.sending = false;
+        }
+      }
+
+      async function deleteConversation() {
+        const convID = String(STATE.currentConversation?.id || '').trim();
+        if (!convID) {
+          LB.toast('当前没有可删除的会话', 'error', 2800);
+          return;
+        }
+        if (!window.confirm('确认删除当前会话？删除后不可恢复。')) return;
+        await LB.apiJSON(`/admin/api/chatbox/conversations/${encodeURIComponent(convID)}`, {
+          method: 'DELETE',
+        });
+        LB.toast('会话已删除', 'ok', 2200);
+        STATE.currentConversation = null;
+        STATE.messages = [];
+        await loadConversations();
+      }
+
+      function bindEvents() {
+        const createBtn = document.getElementById('chat-create-btn');
+        const sendBtn = document.getElementById('chat-send-btn');
+        const deleteBtn = document.getElementById('chat-delete-btn');
+        const input = document.getElementById('chat-input');
+        const reasoningToggle = document.getElementById('chat-show-reasoning');
+
+        if (createBtn) {
+          createBtn.addEventListener('click', () => {
+            createConversation().catch((err) => {
+              LB.toast(err?.message || '创建会话失败', 'error', 4200);
+              setStatus('创建失败');
+            });
+          });
+        }
+        if (sendBtn) sendBtn.addEventListener('click', sendMessage);
+        if (deleteBtn) {
+          deleteBtn.addEventListener('click', () => {
+            deleteConversation().catch((err) => {
+              LB.toast(err?.message || '删除失败', 'error', 4200);
+            });
+          });
+        }
+        if (reasoningToggle) {
+          reasoningToggle.addEventListener('change', () => {
+            STATE.showReasoning = Boolean(reasoningToggle.checked);
+            renderMessages();
+          });
+        }
+        if (input) {
+          input.addEventListener('keydown', (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+              e.preventDefault();
+              sendMessage();
+            }
+          });
+        }
+      }
+
+      async function init() {
+        bindEvents();
+        updatePluginHint();
+        setStatus('加载中...');
+        try {
+          await loadModels();
+          await loadConversations();
+          setStatus('准备就绪');
+        } catch (err) {
+          setStatus('加载失败');
+          LB.toast(err?.message || '初始化失败', 'error', 4200);
+        }
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>

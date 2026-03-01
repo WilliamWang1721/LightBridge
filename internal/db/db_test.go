@@ -25,7 +25,7 @@ func TestMigrationIsIdempotent(t *testing.T) {
 	defer second.Close()
 
 	ctx := context.Background()
-	for _, v := range []int{1, 2, 3} {
+	for _, v := range []int{1, 2, 3, 4, 5} {
 		var migrationCount int
 		if err := second.QueryRowContext(ctx, "SELECT COUNT(1) FROM schema_migrations WHERE version = ?", v).Scan(&migrationCount); err != nil {
 			t.Fatalf("query migrations v%d: %v", v, err)
@@ -38,6 +38,7 @@ func TestMigrationIsIdempotent(t *testing.T) {
 	for _, table := range []string{
 		"settings", "admin_users", "client_api_keys", "providers", "models", "model_routes",
 		"modules_installed", "module_runtime", "request_logs_meta",
+		"chat_conversations", "chat_messages",
 	} {
 		var count int
 		query := `SELECT COUNT(1) FROM sqlite_master WHERE type='table' AND name=?`

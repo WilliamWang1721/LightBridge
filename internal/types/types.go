@@ -117,6 +117,28 @@ type RequestLogMeta struct {
 	ErrorCode       string
 }
 
+type ChatConversation struct {
+	ID                 string    `json:"id"`
+	Title              string    `json:"title"`
+	ModelID            string    `json:"model_id"`
+	SystemPrompt       string    `json:"system_prompt"`
+	LastMessagePreview string    `json:"last_message_preview"`
+	MessageCount       int       `json:"message_count"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
+}
+
+type ChatMessage struct {
+	ID             int64     `json:"id"`
+	ConversationID string    `json:"conversation_id"`
+	Role           string    `json:"role"`
+	Content        string    `json:"content"`
+	ReasoningText  string    `json:"reasoning_text"`
+	ProviderID     string    `json:"provider_id"`
+	RouteModel     string    `json:"route_model"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
 type VirtualModelListing struct {
 	ModelID      string `json:"id"`
 	Object       string `json:"object"`

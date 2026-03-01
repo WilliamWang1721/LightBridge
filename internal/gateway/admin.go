@@ -568,6 +568,18 @@ type experimentChatPayload struct {
 	Params         map[string]any   `json:"params"`
 }
 
+type chatboxConversationCreatePayload struct {
+	Title        string `json:"title"`
+	Model        string `json:"model"`
+	SystemPrompt string `json:"system_prompt"`
+}
+
+type chatboxMessagePayload struct {
+	Content string         `json:"content"`
+	Model   string         `json:"model"`
+	Params  map[string]any `json:"params"`
+}
+
 func (s *Server) handleProviderDeleteAPI(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
@@ -683,6 +695,384 @@ func (s *Server) handleDashboardAPI(w http.ResponseWriter, r *http.Request) {
 		"path_model_24h": pathModel24h,
 		"now":            now.Format(time.RFC3339),
 	})
+}
+
+func (s *Server) handleChatboxConversationsAPI(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		items, err := s.store.ListChatConversations(r.Context(), 300)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"conversations": items})
+	case http.MethodPost:
+		var req chatboxConversationCreatePayload
+		if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid json"})
+			return
+		}
+
+		modelID := strings.TrimSpace(req.Model)
+		if modelID == "" {
+			models, err := s.store.ListModels(r.Context(), false)
+			if err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+				return
+			}
+			if len(models) == 0 {
+				writeJSON(w, http.StatusBadRequest, map[string]any{"error": "no model available, please configure models first"})
+				return
+			}
+			modelID = strings.TrimSpace(models[0].ID)
+		}
+		if modelID == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "model is required"})
+			return
+		}
+
+		model, err := s.store.GetModel(r.Context(), modelID)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+			return
+		}
+		if model == nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "model does not exist"})
+			return
+		}
+
+		conversationID := newChatboxConversationID()
+		title := strings.TrimSpace(req.Title)
+		if title == "" {
+			title = "新对话"
+		}
+		if err := s.store.CreateChatConversation(r.Context(), types.ChatConversation{
+			ID:           conversationID,
+			Title:        title,
+			ModelID:      modelID,
+			SystemPrompt: strings.TrimSpace(req.SystemPrompt),
+		}); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+			return
+		}
+
+		conv, err := s.store.GetChatConversation(r.Context(), conversationID)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"ok":           true,
+			"conversation": conv,
+		})
+	default:
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+	}
+}
+
+func (s *Server) handleChatboxConversationItemAPI(w http.ResponseWriter, r *http.Request, cleanedPath string) {
+	conversationID, action, ok := parseChatboxConversationPath(cleanedPath)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	switch action {
+	case "":
+		switch r.Method {
+		case http.MethodGet:
+			conv, err := s.store.GetChatConversation(r.Context(), conversationID)
+			if err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+				return
+			}
+			if conv == nil {
+				writeJSON(w, http.StatusNotFound, map[string]any{"error": "conversation not found"})
+				return
+			}
+			msgs, err := s.store.ListChatMessages(r.Context(), conversationID, 3000)
+			if err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]any{
+				"conversation": conv,
+				"messages":     msgs,
+			})
+		case http.MethodDelete:
+			if err := s.store.DeleteChatConversation(r.Context(), conversationID); err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+		default:
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		}
+	case "messages":
+		s.handleChatboxMessageAPI(w, r, conversationID)
+	default:
+		http.NotFound(w, r)
+	}
+}
+
+func (s *Server) handleChatboxMessageAPI(w http.ResponseWriter, r *http.Request, conversationID string) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+
+	var req chatboxMessagePayload
+	if err := json.NewDecoder(io.LimitReader(r.Body, 4<<20)).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid json"})
+		return
+	}
+	userInput := strings.TrimSpace(req.Content)
+	if userInput == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "content is required"})
+		return
+	}
+
+	conv, err := s.store.GetChatConversation(r.Context(), conversationID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	if conv == nil {
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "conversation not found"})
+		return
+	}
+
+	modelID := strings.TrimSpace(req.Model)
+	if modelID == "" {
+		modelID = strings.TrimSpace(conv.ModelID)
+	}
+	if modelID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "model is required"})
+		return
+	}
+	model, err := s.store.GetModel(r.Context(), modelID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	if model == nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "model does not exist"})
+		return
+	}
+
+	history, err := s.store.ListChatMessages(r.Context(), conversationID, 4000)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+
+	reqMessages := make([]map[string]any, 0, len(history)+2)
+	if systemPrompt := strings.TrimSpace(conv.SystemPrompt); systemPrompt != "" {
+		reqMessages = append(reqMessages, map[string]any{
+			"role":    "system",
+			"content": systemPrompt,
+		})
+	}
+	for _, item := range history {
+		role := strings.TrimSpace(item.Role)
+		if role != "user" && role != "assistant" && role != "system" {
+			continue
+		}
+		content := strings.TrimSpace(item.Content)
+		if content == "" {
+			continue
+		}
+		reqMessages = append(reqMessages, map[string]any{
+			"role":    role,
+			"content": content,
+		})
+	}
+	reqMessages = append(reqMessages, map[string]any{
+		"role":    "user",
+		"content": userInput,
+	})
+
+	requestBody := map[string]any{
+		"model":    modelID,
+		"messages": reqMessages,
+		"stream":   false,
+	}
+	mergeExperimentParams(requestBody, req.Params)
+	requestBody["model"] = modelID
+	requestBody["messages"] = reqMessages
+	requestBody["stream"] = false
+
+	requestBytes, err := json.Marshal(requestBody)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid request payload"})
+		return
+	}
+
+	baseModelID, tagEffort, hasModelTag, tagErr := parseModelTag(modelID, s.cfg.ModelTagAliases)
+	if tagErr != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": tagErr.Error()})
+		return
+	}
+	if hasModelTag {
+		modelID = baseModelID
+		requestBytes, err = patchReasoningEffort(requestBytes, endpointKindChatCompletions, baseModelID, tagEffort, true)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid request payload"})
+			return
+		}
+	}
+
+	route, err := s.resolver.Resolve(r.Context(), modelID)
+	if err != nil && errors.Is(err, routing.ErrNoHealthyProvider) {
+		s.startEnabledModulesBestEffort()
+		route, err = s.resolver.Resolve(r.Context(), modelID)
+	}
+	if err != nil || route == nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": "routing failed", "details": errString(err)})
+		return
+	}
+
+	provider, err := s.store.GetProvider(r.Context(), route.ProviderID)
+	if err != nil || provider == nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": "provider unavailable"})
+		return
+	}
+	adapter, ok := s.providers.Get(provider.Protocol)
+	if !ok {
+		writeJSON(w, http.StatusNotImplemented, map[string]any{"error": "provider protocol is not supported"})
+		return
+	}
+
+	upstreamReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, "/v1/chat/completions", bytes.NewReader(requestBytes))
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "failed to build upstream request"})
+		return
+	}
+	upstreamReq.Header.Set("content-type", "application/json")
+	upstreamReq.Header.Set("accept", "application/json")
+
+	buffered := newBufferedResponseWriter()
+	status, errorCode, callErr := adapter.Handle(r.Context(), buffered, upstreamReq, *provider, route)
+	if status == 0 {
+		status = buffered.StatusCode()
+	}
+	if status == 0 {
+		status = http.StatusBadGateway
+	}
+
+	rawResp := bytes.TrimSpace(buffered.body.Bytes())
+	respObj := decodeExperimentResponse(rawResp)
+	assistantText := strings.TrimSpace(extractExperimentAssistantText(respObj))
+	reasoningText := strings.TrimSpace(extractExperimentReasoningText(respObj))
+
+	if callErr != nil {
+		writeJSON(w, status, map[string]any{
+			"error":      "chat request failed",
+			"details":    callErr.Error(),
+			"error_code": nonEmpty(errorCode, "upstream_error"),
+			"route":      experimentRouteInfo(route, provider),
+			"response":   respObj,
+		})
+		return
+	}
+	if status >= 400 {
+		writeJSON(w, status, map[string]any{
+			"error":      nonEmpty(extractExperimentError(respObj), "upstream request failed"),
+			"error_code": nonEmpty(errorCode, "upstream_error"),
+			"route":      experimentRouteInfo(route, provider),
+			"response":   respObj,
+		})
+		return
+	}
+
+	if assistantText == "" {
+		assistantText = "[返回成功，但未提取到文本，请查看原始响应]"
+	}
+	title := strings.TrimSpace(conv.Title)
+	if len(history) == 0 || title == "" || title == "新对话" {
+		title = chatboxTitleFromInput(userInput)
+	}
+
+	routeModel := strings.TrimSpace(modelID)
+	if route != nil && strings.TrimSpace(route.UpstreamModel) != "" {
+		routeModel = strings.TrimSpace(route.UpstreamModel)
+	}
+
+	if err := s.store.AppendChatExchange(
+		r.Context(),
+		conversationID,
+		modelID,
+		title,
+		userInput,
+		assistantText,
+		reasoningText,
+		nonEmpty(provider.ID, ""),
+		routeModel,
+	); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+
+	updatedConv, _ := s.store.GetChatConversation(r.Context(), conversationID)
+	msgs, _ := s.store.ListChatMessages(r.Context(), conversationID, 4000)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":              true,
+		"conversation_id": conversationID,
+		"assistant_text":  assistantText,
+		"reasoning_text":  reasoningText,
+		"route":           experimentRouteInfo(route, provider),
+		"response":        respObj,
+		"conversation":    updatedConv,
+		"messages":        msgs,
+	})
+}
+
+func parseChatboxConversationPath(cleanedPath string) (conversationID, action string, ok bool) {
+	const prefix = "/chatbox/conversations/"
+	if !strings.HasPrefix(cleanedPath, prefix) {
+		return "", "", false
+	}
+	rest := strings.Trim(strings.TrimPrefix(cleanedPath, prefix), "/")
+	if rest == "" {
+		return "", "", false
+	}
+	parts := strings.Split(rest, "/")
+	if len(parts) > 2 {
+		return "", "", false
+	}
+	decodedID, err := url.PathUnescape(parts[0])
+	if err != nil {
+		decodedID = parts[0]
+	}
+	conversationID = strings.TrimSpace(decodedID)
+	if conversationID == "" {
+		return "", "", false
+	}
+	if len(parts) == 2 {
+		action = strings.TrimSpace(parts[1])
+	}
+	return conversationID, action, true
+}
+
+func newChatboxConversationID() string {
+	base := strconv.FormatInt(time.Now().UnixNano(), 36)
+	suffix, err := util.RandomToken(4)
+	if err != nil || strings.TrimSpace(suffix) == "" {
+		return "chat_" + base
+	}
+	return "chat_" + base + "_" + strings.ToLower(suffix)
+}
+
+func chatboxTitleFromInput(content string) string {
+	normalized := strings.Join(strings.Fields(strings.ReplaceAll(content, "\n", " ")), " ")
+	normalized = strings.TrimSpace(normalized)
+	if normalized == "" {
+		return "新对话"
+	}
+	runes := []rune(normalized)
+	if len(runes) > 28 {
+		return string(runes[:28]) + "..."
+	}
+	return normalized
 }
 
 func (s *Server) handleExperimentChatAPI(w http.ResponseWriter, r *http.Request) {
@@ -866,6 +1256,118 @@ func extractExperimentAssistantText(resp any) string {
 		return strings.TrimSpace(txt)
 	}
 	return ""
+}
+
+func extractExperimentReasoningText(resp any) string {
+	root, ok := resp.(map[string]any)
+	if !ok || root == nil {
+		return ""
+	}
+	parts := make([]string, 0, 3)
+
+	if choices, ok := root["choices"].([]any); ok && len(choices) > 0 {
+		if choice, ok := choices[0].(map[string]any); ok {
+			if msg, ok := choice["message"].(map[string]any); ok {
+				appendNonEmpty(&parts, extractReasoningFromMessage(msg))
+			}
+			if delta, ok := choice["delta"].(map[string]any); ok {
+				appendNonEmpty(&parts, extractReasoningFromMessage(delta))
+			}
+			appendNonEmpty(&parts, extractReasoningText(choice["reasoning"]))
+			appendNonEmpty(&parts, extractReasoningText(choice["reasoning_content"]))
+		}
+	}
+
+	appendNonEmpty(&parts, extractReasoningText(root["reasoning"]))
+	appendNonEmpty(&parts, extractReasoningText(root["reasoning_content"]))
+
+	if output, ok := root["output"].([]any); ok {
+		for _, item := range output {
+			obj, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			itemType := strings.ToLower(strings.TrimSpace(fmt.Sprintf("%v", obj["type"])))
+			if strings.Contains(itemType, "reasoning") {
+				appendNonEmpty(&parts, extractReasoningText(obj["text"]))
+				appendNonEmpty(&parts, extractReasoningText(obj["content"]))
+				appendNonEmpty(&parts, extractReasoningText(obj["summary"]))
+			}
+			appendNonEmpty(&parts, extractReasoningText(obj["reasoning"]))
+		}
+	}
+
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(strings.Join(parts, "\n\n"))
+}
+
+func extractReasoningFromMessage(msg map[string]any) string {
+	parts := make([]string, 0, 3)
+	appendNonEmpty(&parts, extractReasoningText(msg["reasoning"]))
+	appendNonEmpty(&parts, extractReasoningText(msg["reasoning_content"]))
+	if content, ok := msg["content"]; ok {
+		appendNonEmpty(&parts, extractReasoningFromContentParts(content))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(strings.Join(parts, "\n\n"))
+}
+
+func extractReasoningFromContentParts(content any) string {
+	items, ok := content.([]any)
+	if !ok || len(items) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(items))
+	for _, item := range items {
+		obj, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		itemType := strings.ToLower(strings.TrimSpace(fmt.Sprintf("%v", obj["type"])))
+		if !strings.Contains(itemType, "reasoning") {
+			continue
+		}
+		appendNonEmpty(&parts, extractReasoningText(obj["text"]))
+		appendNonEmpty(&parts, extractReasoningText(obj["content"]))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(strings.Join(parts, "\n"))
+}
+
+func extractReasoningText(v any) string {
+	switch vv := v.(type) {
+	case string:
+		return strings.TrimSpace(vv)
+	case []any:
+		parts := make([]string, 0, len(vv))
+		for _, item := range vv {
+			appendNonEmpty(&parts, extractReasoningText(item))
+		}
+		return strings.TrimSpace(strings.Join(parts, "\n"))
+	case map[string]any:
+		parts := make([]string, 0, 4)
+		appendNonEmpty(&parts, extractReasoningText(vv["text"]))
+		appendNonEmpty(&parts, extractReasoningText(vv["content"]))
+		appendNonEmpty(&parts, extractReasoningText(vv["summary"]))
+		appendNonEmpty(&parts, extractReasoningText(vv["reasoning"]))
+		return strings.TrimSpace(strings.Join(parts, "\n"))
+	default:
+		return ""
+	}
+}
+
+func appendNonEmpty(parts *[]string, text string) {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return
+	}
+	*parts = append(*parts, text)
 }
 
 func extractMessageContentText(content any) string {

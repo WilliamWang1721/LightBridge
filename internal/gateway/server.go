@@ -832,7 +832,7 @@ func (s *Server) routeAdminPages(w http.ResponseWriter, r *http.Request) {
 		s.wrapAdminPage(s.handleSettingsAuth2FAPage)(w, r)
 	case "settings/auth/password":
 		s.wrapAdminPage(s.handleSettingsAuthPasswordPage)(w, r)
-	case "providers", "marketplace", "logs", "docs", "auth", "router", "consumption":
+	case "providers", "marketplace", "logs", "docs", "auth", "router", "consumption", "chatbox":
 		s.wrapAdminPage(func(w http.ResponseWriter, r *http.Request) {
 			username, _ := s.sessions.username(r)
 			if strings.TrimSpace(username) == "" {
@@ -898,6 +898,8 @@ func (s *Server) routeAdminAPI(w http.ResponseWriter, r *http.Request) {
 		s.wrapAdminAPI(s.handleDashboardAPI)(w, r)
 	case "/experiment/chat":
 		s.wrapAdminAPI(s.handleExperimentChatAPI)(w, r)
+	case "/chatbox/conversations":
+		s.wrapAdminAPI(s.handleChatboxConversationsAPI)(w, r)
 	case "/advanced_statistics":
 		s.wrapAdminAPI(s.handleAdvancedStatisticsAPI)(w, r)
 	case "/logs":
@@ -949,6 +951,12 @@ func (s *Server) routeAdminAPI(w http.ResponseWriter, r *http.Request) {
 	case "/codex/device/start":
 		s.wrapAdminAPI(s.handleCodexDeviceStartAPI)(w, r)
 	default:
+		if strings.HasPrefix(p, "/chatbox/conversations/") {
+			s.wrapAdminAPI(func(w http.ResponseWriter, r *http.Request) {
+				s.handleChatboxConversationItemAPI(w, r, p)
+			})(w, r)
+			return
+		}
 		http.NotFound(w, r)
 	}
 }

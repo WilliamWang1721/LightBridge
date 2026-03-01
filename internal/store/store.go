@@ -567,6 +567,277 @@ func (s *Store) ListModuleRuntimes(ctx context.Context) ([]types.ModuleRuntime, 
 	return out, nil
 }
 
+func (s *Store) CreateChatConversation(ctx context.Context, conv types.ChatConversation) error {
+	id := strings.TrimSpace(conv.ID)
+	if id == "" {
+		return fmt.Errorf("conversation id is required")
+	}
+	title := strings.TrimSpace(conv.Title)
+	if title == "" {
+		title = "新对话"
+	}
+	modelID := strings.TrimSpace(conv.ModelID)
+	if modelID == "" {
+		return fmt.Errorf("model id is required")
+	}
+	now := time.Now().UTC()
+	createdAt := conv.CreatedAt.UTC()
+	if createdAt.IsZero() {
+		createdAt = now
+	}
+	updatedAt := conv.UpdatedAt.UTC()
+	if updatedAt.IsZero() {
+		updatedAt = createdAt
+	}
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO chat_conversations(id, title, model_id, system_prompt, created_at, updated_at)
+		VALUES(?, ?, ?, ?, ?, ?)
+	`, id, title, modelID, strings.TrimSpace(conv.SystemPrompt), createdAt.Format(time.RFC3339), updatedAt.Format(time.RFC3339))
+	return err
+}
+
+func (s *Store) GetChatConversation(ctx context.Context, id string) (*types.ChatConversation, error) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return nil, nil
+	}
+	row := s.db.QueryRowContext(ctx, `
+		SELECT
+			c.id,
+			c.title,
+			c.model_id,
+			c.system_prompt,
+			c.created_at,
+			c.updated_at,
+			COALESCE((
+				SELECT m.content
+				FROM chat_messages m
+				WHERE m.conversation_id = c.id
+				ORDER BY m.id DESC
+				LIMIT 1
+			), ''),
+			COALESCE((
+				SELECT COUNT(1)
+				FROM chat_messages m
+				WHERE m.conversation_id = c.id
+			), 0)
+		FROM chat_conversations c
+		WHERE c.id = ?
+	`, id)
+	var out types.ChatConversation
+	var createdAt, updatedAt string
+	if err := row.Scan(
+		&out.ID,
+		&out.Title,
+		&out.ModelID,
+		&out.SystemPrompt,
+		&createdAt,
+		&updatedAt,
+		&out.LastMessagePreview,
+		&out.MessageCount,
+	); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if ts, err := time.Parse(time.RFC3339, createdAt); err == nil {
+		out.CreatedAt = ts
+	}
+	if ts, err := time.Parse(time.RFC3339, updatedAt); err == nil {
+		out.UpdatedAt = ts
+	}
+	return &out, nil
+}
+
+func (s *Store) ListChatConversations(ctx context.Context, limit int) ([]types.ChatConversation, error) {
+	if limit <= 0 {
+		limit = 200
+	}
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT
+			c.id,
+			c.title,
+			c.model_id,
+			c.system_prompt,
+			c.created_at,
+			c.updated_at,
+			COALESCE((
+				SELECT m.content
+				FROM chat_messages m
+				WHERE m.conversation_id = c.id
+				ORDER BY m.id DESC
+				LIMIT 1
+			), ''),
+			COALESCE((
+				SELECT COUNT(1)
+				FROM chat_messages m
+				WHERE m.conversation_id = c.id
+			), 0)
+		FROM chat_conversations c
+		ORDER BY c.updated_at DESC, c.id DESC
+		LIMIT ?
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]types.ChatConversation, 0, limit)
+	for rows.Next() {
+		var item types.ChatConversation
+		var createdAt, updatedAt string
+		if err := rows.Scan(
+			&item.ID,
+			&item.Title,
+			&item.ModelID,
+			&item.SystemPrompt,
+			&createdAt,
+			&updatedAt,
+			&item.LastMessagePreview,
+			&item.MessageCount,
+		); err != nil {
+			return nil, err
+		}
+		if ts, err := time.Parse(time.RFC3339, createdAt); err == nil {
+			item.CreatedAt = ts
+		}
+		if ts, err := time.Parse(time.RFC3339, updatedAt); err == nil {
+			item.UpdatedAt = ts
+		}
+		out = append(out, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (s *Store) ListChatMessages(ctx context.Context, conversationID string, limit int) ([]types.ChatMessage, error) {
+	conversationID = strings.TrimSpace(conversationID)
+	if conversationID == "" {
+		return []types.ChatMessage{}, nil
+	}
+	if limit <= 0 {
+		limit = 2000
+	}
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT
+			id,
+			conversation_id,
+			role,
+			content,
+			reasoning_text,
+			provider_id,
+			route_model,
+			created_at
+		FROM chat_messages
+		WHERE conversation_id = ?
+		ORDER BY id ASC
+		LIMIT ?
+	`, conversationID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]types.ChatMessage, 0)
+	for rows.Next() {
+		var item types.ChatMessage
+		var createdAt string
+		if err := rows.Scan(
+			&item.ID,
+			&item.ConversationID,
+			&item.Role,
+			&item.Content,
+			&item.ReasoningText,
+			&item.ProviderID,
+			&item.RouteModel,
+			&createdAt,
+		); err != nil {
+			return nil, err
+		}
+		if ts, err := time.Parse(time.RFC3339, createdAt); err == nil {
+			item.CreatedAt = ts
+		}
+		out = append(out, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (s *Store) AppendChatExchange(ctx context.Context, conversationID, modelID, title, userContent, assistantContent, reasoningText, providerID, routeModel string) error {
+	conversationID = strings.TrimSpace(conversationID)
+	modelID = strings.TrimSpace(modelID)
+	title = strings.TrimSpace(title)
+	userContent = strings.TrimSpace(userContent)
+	assistantContent = strings.TrimSpace(assistantContent)
+	if conversationID == "" {
+		return fmt.Errorf("conversation id is required")
+	}
+	if modelID == "" {
+		return fmt.Errorf("model id is required")
+	}
+	if title == "" {
+		title = "新对话"
+	}
+	if userContent == "" {
+		return fmt.Errorf("user content is required")
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO chat_messages(conversation_id, role, content, reasoning_text, provider_id, route_model, created_at)
+		VALUES(?, 'user', ?, '', '', '', ?)
+	`, conversationID, userContent, now); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO chat_messages(conversation_id, role, content, reasoning_text, provider_id, route_model, created_at)
+		VALUES(?, 'assistant', ?, ?, ?, ?, ?)
+	`, conversationID, assistantContent, strings.TrimSpace(reasoningText), strings.TrimSpace(providerID), strings.TrimSpace(routeModel), now); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	res, err := tx.ExecContext(ctx, `
+		UPDATE chat_conversations
+		SET title = ?, model_id = ?, updated_at = ?
+		WHERE id = ?
+	`, title, modelID, now, conversationID)
+	if err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		_ = tx.Rollback()
+		return fmt.Errorf("conversation not found")
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Store) DeleteChatConversation(ctx context.Context, conversationID string) error {
+	conversationID = strings.TrimSpace(conversationID)
+	if conversationID == "" {
+		return nil
+	}
+	_, err := s.db.ExecContext(ctx, `DELETE FROM chat_conversations WHERE id = ?`, conversationID)
+	return err
+}
+
 func (s *Store) InsertRequestLog(ctx context.Context, meta types.RequestLogMeta) error {
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO request_logs_meta(
