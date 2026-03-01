@@ -1,0 +1,52 @@
+{
+  "id": "passkey-login",
+  "name": "Passkey Login",
+  "description": "Admin Passkey (WebAuthn) authentication for LightBridge.",
+  "tags": [
+    "Auth",
+    "Passkey",
+    "WebAuthn"
+  ],
+  "version": "0.1.0",
+  "license": "UNLICENSED",
+  "min_core_version": "0.1.0",
+  "entrypoints": {
+    "darwin/arm64": {
+      "command": "bin/darwin/arm64/passkey-login",
+      "args": []
+    },
+    "darwin/amd64": {
+      "command": "bin/darwin/amd64/passkey-login",
+      "args": []
+    },
+    "linux/arm64": {
+      "command": "bin/linux/arm64/passkey-login",
+      "args": []
+    },
+    "linux/amd64": {
+      "command": "bin/linux/amd64/passkey-login",
+      "args": []
+    },
+    "default": {
+      "command": "bin/darwin/arm64/passkey-login",
+      "args": []
+    }
+  },
+  "services": [
+    {
+      "kind": "provider",
+      "protocol": "http_rpc",
+      "health": {
+        "type": "http",
+        "path": "/health"
+      },
+      "expose_provider_aliases": []
+    }
+  ],
+  "config_schema": {
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {}
+  },
+  "config_defaults": {}
+}

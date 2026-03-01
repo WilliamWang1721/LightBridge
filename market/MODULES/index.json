@@ -11,7 +11,8 @@
       "tags": [
         "Admin",
         "Statistics",
-        "Analytics"
+        "Analytics",
+        "Tools"
       ],
       "protocols": [
         "http_rpc"

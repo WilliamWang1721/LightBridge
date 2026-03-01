@@ -700,8 +700,9 @@ func (s *Server) handleAdvancedStatisticsAPI(w http.ResponseWriter, r *http.Requ
 			"cached_tokens":    result.TokenBreakdown.CachedTokens,
 			"total_tokens":     result.TokenBreakdown.TotalTokens,
 		},
-		"model_usage": result.ModelUsage,
-		"trend":       result.Trend,
+		"model_usage":    result.ModelUsage,
+		"provider_usage": result.ProviderUsage,
+		"trend":          result.Trend,
 	})
 }
 
@@ -795,6 +796,7 @@ func toAdvancedStatsLogs(input []types.RequestLogMeta) []advstats.RequestLog {
 		}
 		out = append(out, advstats.RequestLog{
 			Timestamp:       ts,
+			ProviderID:      row.ProviderID,
 			ModelID:         row.ModelID,
 			Path:            row.Path,
 			InputTokens:     row.InputTokens,

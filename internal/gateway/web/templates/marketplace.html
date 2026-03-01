@@ -858,9 +858,9 @@
 
       function inferKind(entry) {
         const tags = normalizeTags(entry?.tags ?? entry?.Tags);
-        if (tags.some((t) => t.includes('provider'))) return 'provider';
-        if (tags.some((t) => t.includes('auth'))) return 'auth';
         if (tags.some((t) => t.includes('tool'))) return 'tools';
+        if (tags.some((t) => t.includes('auth'))) return 'auth';
+        if (tags.some((t) => t.includes('provider'))) return 'provider';
         return 'provider';
       }
 

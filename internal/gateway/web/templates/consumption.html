@@ -172,17 +172,18 @@
 
     .header h1 {
       margin: 0;
-      font-size: 38px;
-      font-weight: 600;
+      font-size: 40px;
+      font-weight: 500;
       line-height: 1.08;
-      letter-spacing: -0.8px;
+      letter-spacing: -1px;
       font-family: var(--font-display);
     }
 
     .header p {
       margin: 8px 0 0;
       color: var(--text-secondary);
-      font-size: 13px;
+      font-size: 14px;
+      font-family: var(--font-body);
     }
 
     .header-actions {
@@ -512,6 +513,49 @@
       font-weight: 500;
     }
 
+    .advanced-only {
+      display: block;
+    }
+
+    .core-only {
+      display: none;
+    }
+
+    .content.mode-core .advanced-only {
+      display: none !important;
+    }
+
+    .content.mode-core .core-only {
+      display: block;
+    }
+
+    .content.mode-core .kpi-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .content.mode-core .settings-card {
+      display: none;
+    }
+
+    .content.mode-core.core-settings-open .settings-card {
+      display: flex;
+    }
+
+    .core-note {
+      border: 1px dashed var(--border);
+      background: #fffaf7;
+      padding: 12px 14px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.55;
+    }
+
+    .core-usage-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
     .empty {
       color: var(--text-secondary);
       font-size: 12px;
@@ -521,6 +565,7 @@
       .settings-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .section-grid { grid-template-columns: 1fr; }
+      .core-usage-grid { grid-template-columns: 1fr; }
     }
 
     @media (max-width: 980px) {
@@ -543,7 +588,7 @@
       .kpi-grid,
       .split-grid { grid-template-columns: 1fr; }
       .pie-layout { grid-template-columns: 1fr; }
-      .header h1 { font-size: 30px; }
+      .header h1 { font-size: 34px; }
     }
   </style>
 </head>
@@ -573,23 +618,24 @@
     <main class="content">
       <header class="header">
         <div>
-          <h1>统计 Statistics</h1>
-          <p>Advanced Statistics：请求数量、Token 分类、金额估算、模型分布和分钟/秒级时间范围趋势。</p>
+          <h1>统计 STATISTICS</h1>
+          <p id="stats-subtitle">Advanced Statistics：请求数量、Token 分类、金额估算、模型分布和分钟/秒级时间范围趋势。</p>
         </div>
         <div class="header-actions">
           <span class="meta-line" id="stats-source">数据源：--</span>
+          <button class="btn core-only" type="button" id="core-settings-toggle">统计设置</button>
           <a class="btn" href="/admin/marketplace">模块管理</a>
         </div>
       </header>
 
-      <section class="settings-card" aria-label="统计设置">
+      <section class="settings-card" id="stats-settings-panel" aria-label="统计设置">
         <h2 class="settings-title">统计设置</h2>
         <div class="settings-grid">
-          <div class="field" style="grid-column: span 2;">
+          <div class="field advanced-only" style="grid-column: span 2;">
             <label for="stats-start">开始时间（精确到秒）</label>
             <input id="stats-start" type="datetime-local" step="1" />
           </div>
-          <div class="field" style="grid-column: span 2;">
+          <div class="field advanced-only" style="grid-column: span 2;">
             <label for="stats-end">结束时间（精确到秒）</label>
             <input id="stats-end" type="datetime-local" step="1" />
           </div>
@@ -597,23 +643,27 @@
             <label for="stats-days">统计天数</label>
             <input id="stats-days" type="number" min="1" max="90" step="1" value="7" />
           </div>
-          <div class="field">
+          <div class="field advanced-only">
             <label for="stats-bucket">折线图粒度(秒)</label>
             <input id="stats-bucket" type="number" min="1" max="86400" step="1" value="300" />
           </div>
-          <div class="field">
+          <div class="field advanced-only">
             <label for="account-balance">账户余额 USD（可选）</label>
             <input id="account-balance" type="number" step="0.01" min="0" placeholder="例如 50" />
           </div>
-          <div class="field">
+          <div class="field advanced-only">
             <label for="account-quota">Token 配额（可选）</label>
             <input id="account-quota" type="number" step="1" min="0" placeholder="例如 5000000" />
           </div>
           <div class="field-actions" style="grid-column: span 2;">
-            <button class="btn" type="button" id="stats-reset-time">重置时间</button>
+            <button class="btn advanced-only" type="button" id="stats-reset-time">重置时间</button>
             <button class="btn primary" type="button" id="stats-refresh">刷新</button>
           </div>
         </div>
+      </section>
+
+      <section class="core-note core-only" aria-label="普通统计提示">
+        当前使用 Core 普通统计模式，仅展示基础指标与趋势。安装并启用 <strong>Advanced Statistics</strong> 模块后，可查看 Token 分类、模型分布饼图和详细明细表。
       </section>
 
       <p class="meta-line" id="stats-updated">最后更新：--</p>
@@ -629,7 +679,7 @@
           <p class="kpi-value mono" id="kpi-today-tokens">--</p>
           <p class="kpi-sub">输入 + 输出</p>
         </article>
-        <article class="kpi-card">
+        <article class="kpi-card advanced-only">
           <p class="kpi-label">今日消耗金额 (USD)</p>
           <p class="kpi-value mono" id="kpi-today-cost">--</p>
           <p class="kpi-sub">估算值</p>
@@ -644,14 +694,14 @@
           <p class="kpi-value mono" id="kpi-window-tokens">--</p>
           <p class="kpi-sub">标准 + 推理 + 缓存读取</p>
         </article>
-        <article class="kpi-card">
+        <article class="kpi-card advanced-only">
           <p class="kpi-label">范围总金额 (USD)</p>
           <p class="kpi-value mono" id="kpi-window-cost">--</p>
           <p class="kpi-sub">按模型费率估算</p>
         </article>
       </section>
 
-      <section class="split-grid">
+      <section class="split-grid advanced-only">
         <article class="mini-card" aria-label="Token 分类详情">
           <h3>Token 分类详情</h3>
           <ul class="mini-list">
@@ -681,7 +731,7 @@
               <h2>时间范围折线图</h2>
               <p class="section-sub" id="line-period">--</p>
             </div>
-            <div class="line-legend">
+            <div class="line-legend advanced-only" id="line-legend">
               <span><i class="legend-dot" style="background:var(--line-a)"></i>总 Token</span>
               <span><i class="legend-dot" style="background:var(--line-b)"></i>输入 Token</span>
               <span><i class="legend-dot" style="background:var(--line-c)"></i>输出 Token</span>
@@ -690,7 +740,7 @@
           <div class="line-wrap" id="trend-line-wrap"></div>
         </article>
 
-        <article class="section-card" aria-label="模型消耗分布饼图">
+        <article class="section-card advanced-only" aria-label="模型消耗分布饼图">
           <div class="section-head">
             <div>
               <h2>模型消耗分布（饼图）</h2>
@@ -701,7 +751,51 @@
         </article>
       </section>
 
-      <section class="table-card" aria-label="模型详细统计">
+      <section class="core-usage-grid core-only" aria-label="普通模式用量排行">
+        <article class="table-card">
+          <div class="section-head">
+            <div>
+              <h2>Provider 用量</h2>
+              <p class="section-sub">每个 Provider 的请求数与总 Token</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Provider</th>
+                  <th class="num">请求数</th>
+                  <th class="num">总 Token</th>
+                </tr>
+              </thead>
+              <tbody id="core-provider-body"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="table-card">
+          <div class="section-head">
+            <div>
+              <h2>模型用量</h2>
+              <p class="section-sub">每个模型的请求数与总 Token</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>模型</th>
+                  <th class="num">请求数</th>
+                  <th class="num">总 Token</th>
+                </tr>
+              </thead>
+              <tbody id="core-model-body"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="table-card advanced-only" aria-label="模型详细统计">
         <div class="section-head">
           <div>
             <h2>模型详细统计</h2>
@@ -745,6 +839,9 @@
       const BUCKET = document.getElementById('stats-bucket');
       const BALANCE = document.getElementById('account-balance');
       const QUOTA = document.getElementById('account-quota');
+      const CONTENT = document.querySelector('.content');
+      const SUBTITLE = document.getElementById('stats-subtitle');
+      const CORE_SETTINGS_TOGGLE = document.getElementById('core-settings-toggle');
 
       const STORE_KEYS = {
         days: 'advanced-stats-days',
@@ -754,6 +851,8 @@
       };
 
       const PIE_COLORS = ['#e42313', '#0f172a', '#0ea5e9', '#10b981', '#f59e0b', '#7c3aed', '#ef4444', '#14b8a6', '#475569'];
+      let currentMode = 'advanced';
+      let coreSettingsOpen = false;
 
       function num(v) {
         const n = Number(v);
@@ -821,13 +920,20 @@
       }
 
       function buildQuery() {
-        const startDate = parseLocalDate(START?.value);
-        const endDate = parseLocalDate(END?.value);
-        if (!startDate || !endDate) throw new Error('请选择有效的开始/结束时间');
-        if (startDate >= endDate) throw new Error('开始时间必须早于结束时间');
-
         const days = clamp(num(DAYS?.value || 7), 1, 90);
         const bucket = clamp(num(BUCKET?.value || 300), 1, 86400);
+        let startDate = parseLocalDate(START?.value);
+        let endDate = parseLocalDate(END?.value);
+
+        if (currentMode === 'core') {
+          endDate = new Date();
+          startDate = new Date(endDate.getTime() - days * 24 * 3600 * 1000);
+          if (END) END.value = toDateTimeLocalValue(endDate);
+          if (START) START.value = toDateTimeLocalValue(startDate);
+        }
+
+        if (!startDate || !endDate) throw new Error('请选择有效的开始/结束时间');
+        if (startDate >= endDate) throw new Error('开始时间必须早于结束时间');
 
         localStorage.setItem(STORE_KEYS.days, String(days));
         localStorage.setItem(STORE_KEYS.bucket, String(bucket));
@@ -842,7 +948,9 @@
         });
       }
 
-      function renderLineChart(points) {
+      function renderLineChart(points, options) {
+        const opts = options || {};
+        const simple = Boolean(opts.simple);
         const host = document.getElementById('trend-line-wrap');
         if (!host) return;
         const list = Array.isArray(points) ? points : [];
@@ -860,7 +968,7 @@
         const totalVals = list.map((p) => num(p?.total_tokens));
         const inputVals = list.map((p) => num(p?.input_tokens));
         const outputVals = list.map((p) => num(p?.output_tokens));
-        const maxVal = Math.max(1, ...totalVals, ...inputVals, ...outputVals);
+        const maxVal = simple ? Math.max(1, ...totalVals) : Math.max(1, ...totalVals, ...inputVals, ...outputVals);
 
         const x = (i) => pad.left + (i * innerW) / Math.max(1, list.length - 1);
         const y = (v) => pad.top + innerH - (num(v) / maxVal) * innerH;
@@ -875,13 +983,60 @@
             <polyline points="${axisY}" fill="none" stroke="#d0d2d6" stroke-width="1" />
             <polyline points="${axisX}" fill="none" stroke="#d0d2d6" stroke-width="1" />
             <polyline points="${mkPolyline(totalVals)}" fill="none" stroke="var(--line-a)" stroke-width="2.4" stroke-linecap="round" />
-            <polyline points="${mkPolyline(inputVals)}" fill="none" stroke="var(--line-b)" stroke-width="2" stroke-linecap="round" />
-            <polyline points="${mkPolyline(outputVals)}" fill="none" stroke="var(--line-c)" stroke-width="2" stroke-linecap="round" />
+            ${simple ? '' : `<polyline points="${mkPolyline(inputVals)}" fill="none" stroke="var(--line-b)" stroke-width="2" stroke-linecap="round" />`}
+            ${simple ? '' : `<polyline points="${mkPolyline(outputVals)}" fill="none" stroke="var(--line-c)" stroke-width="2" stroke-linecap="round" />`}
             <text x="8" y="${pad.top + 10}" font-size="11" fill="#6f6f74">${LB.formatCompactNumber(maxVal)}</text>
             <text x="8" y="${pad.top + innerH}" font-size="11" fill="#6f6f74">0</text>
           </svg>
         `;
         host.innerHTML = svg;
+      }
+
+      function applyMode(mode) {
+        const prevMode = currentMode;
+        currentMode = mode === 'core' ? 'core' : 'advanced';
+        if (!CONTENT) return;
+        CONTENT.classList.remove('mode-core', 'mode-advanced');
+        CONTENT.classList.add(currentMode === 'core' ? 'mode-core' : 'mode-advanced');
+        if (currentMode === 'advanced') {
+          setCoreSettingsOpen(true);
+        } else if (prevMode !== 'core') {
+          setCoreSettingsOpen(false);
+        }
+        if (CORE_SETTINGS_TOGGLE) {
+          CORE_SETTINGS_TOGGLE.textContent = coreSettingsOpen ? '收起设置' : '统计设置';
+        }
+        if (SUBTITLE) {
+          SUBTITLE.textContent = currentMode === 'core'
+            ? '普通统计：基于 Core 数据的简版概览（请求、Token、趋势）。'
+            : 'Advanced Statistics：请求数量、Token 分类、金额估算、模型分布和分钟/秒级时间范围趋势。';
+        }
+      }
+
+      function setCoreSettingsOpen(open) {
+        coreSettingsOpen = Boolean(open);
+        if (!CONTENT) return;
+        CONTENT.classList.toggle('core-settings-open', coreSettingsOpen);
+      }
+
+      function renderCoreSimpleTable(tbodyId, rows, nameKey) {
+        const tbody = document.getElementById(tbodyId);
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        const list = Array.isArray(rows) ? rows : [];
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="3">暂无数据</td></tr>';
+          return;
+        }
+        for (const row of list) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${String(row?.[nameKey] || '-')}</td>
+            <td class="num">${LB.formatCompactNumber(num(row?.requests))}</td>
+            <td class="num">${LB.formatCompactNumber(num(row?.total_tokens))}</td>
+          `;
+          tbody.appendChild(tr);
+        }
       }
 
       function arcPath(cx, cy, r, startAngle, endAngle) {
@@ -1009,6 +1164,7 @@
           const windowData = body?.window || {};
           const token = body?.token_breakdown || {};
           const models = Array.isArray(body?.model_usage) ? body.model_usage : [];
+          const providers = Array.isArray(body?.provider_usage) ? body.provider_usage : [];
           const trend = Array.isArray(body?.trend) ? body.trend : [];
 
           setText('kpi-today-requests', LB.formatCompactNumber(num(today.requests)));
@@ -1026,18 +1182,25 @@
 
           const source = String(body?.source || 'core');
           const sourceEl = document.getElementById('stats-source');
+          const mode = source === 'module' ? 'advanced' : 'core';
+          applyMode(mode);
           if (sourceEl) {
-            sourceEl.textContent = source === 'module' ? '数据源：Advanced Statistics 模块' : '数据源：Core 聚合（模块未启用）';
+            sourceEl.textContent = source === 'module' ? '数据源：Advanced Statistics 模块' : '数据源：Core 普通统计';
             sourceEl.className = source === 'module' ? 'meta-line status-ok' : 'meta-line status-fallback';
           }
 
           setText('stats-updated', `最后更新：${LB.formatISODateTime(body?.now || new Date().toISOString())}`);
           setText('line-period', `${LB.formatISODateTime(body?.start || '')} → ${LB.formatISODateTime(body?.end || '')}`);
 
-          renderLineChart(trend);
-          renderPie(models);
-          renderModelTable(models);
-          renderAccount(today);
+          renderLineChart(trend, { simple: mode === 'core' });
+          if (mode === 'advanced') {
+            renderPie(models);
+            renderModelTable(models);
+            renderAccount(today);
+          } else {
+            renderCoreSimpleTable('core-provider-body', providers, 'provider_id');
+            renderCoreSimpleTable('core-model-body', models, 'model_id');
+          }
         } catch (err) {
           LB.toast(err?.message || '加载统计数据失败', 'error', 4200);
         } finally {
@@ -1051,8 +1214,15 @@
           initDefaults();
         });
       }
+      if (CORE_SETTINGS_TOGGLE) {
+        CORE_SETTINGS_TOGGLE.addEventListener('click', () => {
+          setCoreSettingsOpen(!coreSettingsOpen);
+          CORE_SETTINGS_TOGGLE.textContent = coreSettingsOpen ? '收起设置' : '统计设置';
+        });
+      }
       if (REFRESH) REFRESH.addEventListener('click', loadStatistics);
 
+      applyMode('core');
       initDefaults();
       loadStatistics();
     })();
