@@ -3,9 +3,9 @@ package responses
 import (
 	"strings"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/translator/gemini/common"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+	"lightbridge/internal/translator/gemini/common"
 )
 
 const geminiResponsesThoughtSignature = "skip_thought_signature_validator"

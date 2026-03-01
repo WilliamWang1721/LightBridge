@@ -4,14 +4,13 @@ package chat_completions
 
 import (
 	"fmt"
+	"log"
+	"mime"
 	"strings"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/misc"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/translator/gemini/common"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
-	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+	"lightbridge/internal/translator/gemini/common"
 )
 
 const geminiFunctionThoughtSignature = "skip_thought_signature_validator"
@@ -197,12 +196,12 @@ func ConvertOpenAIRequestToGemini(modelName string, inputRawJSON []byte, _ bool)
 							if sp := strings.Split(filename, "."); len(sp) > 1 {
 								ext = sp[len(sp)-1]
 							}
-							if mimeType, ok := misc.MimeTypes[ext]; ok {
+							if mimeType, ok := mimeTypeByExtension(ext); ok {
 								node, _ = sjson.SetBytes(node, "parts."+itoa(p)+".inlineData.mime_type", mimeType)
 								node, _ = sjson.SetBytes(node, "parts."+itoa(p)+".inlineData.data", fileData)
 								p++
 							} else {
-								log.Warnf("Unknown file name extension '%s' in user message, skip", ext)
+								log.Printf("warn: unknown file name extension '%s' in user message, skip", ext)
 							}
 						}
 					}
@@ -302,33 +301,35 @@ func ConvertOpenAIRequestToGemini(modelName string, inputRawJSON []byte, _ bool)
 				if fn.Exists() && fn.IsObject() {
 					fnRaw := fn.Raw
 					if fn.Get("parameters").Exists() {
-						renamed, errRename := util.RenameKey(fnRaw, "parameters", "parametersJsonSchema")
-						if errRename != nil {
-							log.Warnf("Failed to rename parameters for tool '%s': %v", fn.Get("name").String(), errRename)
+						schema := fn.Get("parameters")
+						renamed, errSet := sjson.SetRaw(fnRaw, "parametersJsonSchema", schema.Raw)
+						if errSet != nil {
+							log.Printf("warn: failed to set parametersJsonSchema for tool '%s': %v", fn.Get("name").String(), errSet)
 							var errSet error
 							fnRaw, errSet = sjson.Set(fnRaw, "parametersJsonSchema.type", "object")
 							if errSet != nil {
-								log.Warnf("Failed to set default schema type for tool '%s': %v", fn.Get("name").String(), errSet)
+								log.Printf("warn: failed to set default schema type for tool '%s': %v", fn.Get("name").String(), errSet)
 								continue
 							}
 							fnRaw, errSet = sjson.SetRaw(fnRaw, "parametersJsonSchema.properties", `{}`)
 							if errSet != nil {
-								log.Warnf("Failed to set default schema properties for tool '%s': %v", fn.Get("name").String(), errSet)
+								log.Printf("warn: failed to set default schema properties for tool '%s': %v", fn.Get("name").String(), errSet)
 								continue
 							}
 						} else {
 							fnRaw = renamed
+							fnRaw, _ = sjson.Delete(fnRaw, "parameters")
 						}
 					} else {
 						var errSet error
 						fnRaw, errSet = sjson.Set(fnRaw, "parametersJsonSchema.type", "object")
 						if errSet != nil {
-							log.Warnf("Failed to set default schema type for tool '%s': %v", fn.Get("name").String(), errSet)
+							log.Printf("warn: failed to set default schema type for tool '%s': %v", fn.Get("name").String(), errSet)
 							continue
 						}
 						fnRaw, errSet = sjson.SetRaw(fnRaw, "parametersJsonSchema.properties", `{}`)
 						if errSet != nil {
-							log.Warnf("Failed to set default schema properties for tool '%s': %v", fn.Get("name").String(), errSet)
+							log.Printf("warn: failed to set default schema properties for tool '%s': %v", fn.Get("name").String(), errSet)
 							continue
 						}
 					}
@@ -338,7 +339,7 @@ func ConvertOpenAIRequestToGemini(modelName string, inputRawJSON []byte, _ bool)
 					}
 					tmp, errSet := sjson.SetRawBytes(functionToolNode, "functionDeclarations.-1", []byte(fnRaw))
 					if errSet != nil {
-						log.Warnf("Failed to append tool declaration for '%s': %v", fn.Get("name").String(), errSet)
+						log.Printf("warn: failed to append tool declaration for '%s': %v", fn.Get("name").String(), errSet)
 						continue
 					}
 					functionToolNode = tmp
@@ -350,7 +351,7 @@ func ConvertOpenAIRequestToGemini(modelName string, inputRawJSON []byte, _ bool)
 				var errSet error
 				googleToolNode, errSet = sjson.SetRawBytes(googleToolNode, "googleSearch", []byte(gs.Raw))
 				if errSet != nil {
-					log.Warnf("Failed to set googleSearch tool: %v", errSet)
+					log.Printf("warn: failed to set googleSearch tool: %v", errSet)
 					continue
 				}
 				googleSearchNodes = append(googleSearchNodes, googleToolNode)
@@ -360,7 +361,7 @@ func ConvertOpenAIRequestToGemini(modelName string, inputRawJSON []byte, _ bool)
 				var errSet error
 				codeToolNode, errSet = sjson.SetRawBytes(codeToolNode, "codeExecution", []byte(ce.Raw))
 				if errSet != nil {
-					log.Warnf("Failed to set codeExecution tool: %v", errSet)
+					log.Printf("warn: failed to set codeExecution tool: %v", errSet)
 					continue
 				}
 				codeExecutionNodes = append(codeExecutionNodes, codeToolNode)
@@ -370,7 +371,7 @@ func ConvertOpenAIRequestToGemini(modelName string, inputRawJSON []byte, _ bool)
 				var errSet error
 				urlToolNode, errSet = sjson.SetRawBytes(urlToolNode, "urlContext", []byte(uc.Raw))
 				if errSet != nil {
-					log.Warnf("Failed to set urlContext tool: %v", errSet)
+					log.Printf("warn: failed to set urlContext tool: %v", errSet)
 					continue
 				}
 				urlContextNodes = append(urlContextNodes, urlToolNode)
@@ -401,3 +402,26 @@ func ConvertOpenAIRequestToGemini(modelName string, inputRawJSON []byte, _ bool)
 
 // itoa converts int to string without strconv import for few usages.
 func itoa(i int) string { return fmt.Sprintf("%d", i) }
+
+func mimeTypeByExtension(ext string) (string, bool) {
+	ext = strings.TrimSpace(strings.ToLower(ext))
+	if ext == "" {
+		return "", false
+	}
+
+	if mimeType := mime.TypeByExtension("." + ext); mimeType != "" {
+		if idx := strings.Index(mimeType, ";"); idx >= 0 {
+			mimeType = mimeType[:idx]
+		}
+		return mimeType, true
+	}
+
+	switch ext {
+	case "md":
+		return "text/markdown", true
+	case "yaml", "yml":
+		return "application/yaml", true
+	default:
+		return "", false
+	}
+}

@@ -1,0 +1,36 @@
+{
+  "id": "totp-2fa-login",
+  "name": "TOTP 2FA Login",
+  "description": "Admin TOTP 2FA module for LightBridge.",
+  "tags": [
+    "Auth",
+    "2FA",
+    "TOTP"
+  ],
+  "version": "0.1.0",
+  "license": "UNLICENSED",
+  "min_core_version": "0.1.0",
+  "entrypoints": {
+    "default": {
+      "command": "bin/totp-2fa-login",
+      "args": []
+    }
+  },
+  "services": [
+    {
+      "kind": "provider",
+      "protocol": "http_rpc",
+      "health": {
+        "type": "http",
+        "path": "/health"
+      },
+      "expose_provider_aliases": []
+    }
+  ],
+  "config_schema": {
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {}
+  },
+  "config_defaults": {}
+}

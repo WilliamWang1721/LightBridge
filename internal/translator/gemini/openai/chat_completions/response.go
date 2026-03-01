@@ -9,11 +9,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"strings"
 	"sync/atomic"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
@@ -111,7 +111,7 @@ func ConvertGeminiResponseToOpenAI(_ context.Context, _ string, originalRequestR
 			var err error
 			baseTemplate, err = sjson.Set(baseTemplate, "usage.prompt_tokens_details.cached_tokens", cachedTokenCount)
 			if err != nil {
-				log.Warnf("gemini openai response: failed to set cached_tokens in streaming: %v", err)
+				log.Printf("warn: gemini openai response: failed to set cached_tokens in streaming: %v", err)
 			}
 		}
 	}
@@ -306,7 +306,7 @@ func ConvertGeminiResponseToOpenAINonStream(_ context.Context, _ string, origina
 			var err error
 			template, err = sjson.Set(template, "usage.prompt_tokens_details.cached_tokens", cachedTokenCount)
 			if err != nil {
-				log.Warnf("gemini openai response: failed to set cached_tokens in non-streaming: %v", err)
+				log.Printf("warn: gemini openai response: failed to set cached_tokens in non-streaming: %v", err)
 			}
 		}
 	}

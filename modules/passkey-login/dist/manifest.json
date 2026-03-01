@@ -1,0 +1,37 @@
+{
+  "id": "passkey-login",
+  "name": "Passkey Login",
+  "description": "Admin Passkey (WebAuthn) authentication for LightBridge.",
+  "tags": [
+    "Auth",
+    "Passkey",
+    "WebAuthn"
+  ],
+  "version": "0.1.0",
+  "license": "UNLICENSED",
+  "min_core_version": "0.1.0",
+  "entrypoints": {
+    "default": {
+      "command": "bin/passkey-login",
+      "args": []
+    }
+  },
+  "services": [
+    {
+      "kind": "provider",
+      "protocol": "http_rpc",
+      "health": {
+        "type": "http",
+        "path": "/health"
+      },
+      "expose_provider_aliases": []
+    }
+  ],
+  "config_schema": {
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {}
+  },
+  "config_defaults": {}
+}
+
