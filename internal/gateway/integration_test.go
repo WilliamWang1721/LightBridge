@@ -356,6 +356,24 @@ func TestForwardProviderPassThrough(t *testing.T) {
 	if !bytes.Contains(modelsBody, []byte("my-gpt@forward")) {
 		t.Fatalf("expected variant model in list, got: %s", string(modelsBody))
 	}
+
+	logs, err := st.ListRequestLogs(ctx, 20)
+	if err != nil {
+		t.Fatalf("list request logs: %v", err)
+	}
+	foundChatLog := false
+	for _, item := range logs {
+		if strings.TrimSpace(item.Path) != "/v1/chat/completions" {
+			continue
+		}
+		foundChatLog = true
+		if got := strings.TrimSpace(item.ModelID); got != "gpt-upstream" {
+			t.Fatalf("expected logged model to be upstream model gpt-upstream, got %q", got)
+		}
+	}
+	if !foundChatLog {
+		t.Fatalf("expected at least one /v1/chat/completions log entry")
+	}
 }
 
 func TestAnthropicProviderConversion(t *testing.T) {

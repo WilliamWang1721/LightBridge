@@ -85,7 +85,10 @@ func rateLimitMiddleware(rl *rateLimiter, next http.Handler) http.Handler {
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Only rate-limit API proxy paths
-		if !strings.HasPrefix(r.URL.Path, "/v1/") && !strings.HasPrefix(r.URL.Path, "/openai/") {
+		if !strings.HasPrefix(r.URL.Path, "/v1/") &&
+			!strings.HasPrefix(r.URL.Path, "/openai/") &&
+			!strings.HasPrefix(r.URL.Path, "/gemini/") &&
+			!strings.HasPrefix(r.URL.Path, "/claude/") {
 			next.ServeHTTP(w, r)
 			return
 		}

@@ -619,17 +619,46 @@ func (s *Server) handleTwoFADeviceDeleteAPI(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "policy_reset": policyReset})
 }
 
-func (s *Server) handleSettingsPage(w http.ResponseWriter, r *http.Request) {
+func (s *Server) authSettingsPageData(r *http.Request) map[string]any {
 	username, _ := s.sessions.username(r)
 	if strings.TrimSpace(username) == "" {
 		username = "Admin"
 	}
 	twoFAInstalled := s.isModuleInstalledAndEnabled(r.Context(), totp2FAModuleID)
 	passkeyInstalled := s.isModuleInstalledAndEnabled(r.Context(), passkeyLoginModuleID)
-	s.renderPage(w, "settings", map[string]any{
-		"Page":             "Settings",
+	return map[string]any{
 		"Username":         username,
 		"TwoFAInstalled":   twoFAInstalled,
 		"PasskeyInstalled": passkeyInstalled,
-	})
+	}
+}
+
+func (s *Server) handleSettingsPage(w http.ResponseWriter, r *http.Request) {
+	data := s.authSettingsPageData(r)
+	data["Page"] = "Settings"
+	s.renderPage(w, "settings_index", data)
+}
+
+func (s *Server) handleSettingsAuthPage(w http.ResponseWriter, r *http.Request) {
+	data := s.authSettingsPageData(r)
+	data["Page"] = "Authentication Settings"
+	s.renderPage(w, "settings_auth", data)
+}
+
+func (s *Server) handleSettingsAuthPasskeyPage(w http.ResponseWriter, r *http.Request) {
+	data := s.authSettingsPageData(r)
+	data["Page"] = "Passkey Settings"
+	s.renderPage(w, "settings_auth_passkey", data)
+}
+
+func (s *Server) handleSettingsAuth2FAPage(w http.ResponseWriter, r *http.Request) {
+	data := s.authSettingsPageData(r)
+	data["Page"] = "2FA Settings"
+	s.renderPage(w, "settings", data)
+}
+
+func (s *Server) handleSettingsAuthPasswordPage(w http.ResponseWriter, r *http.Request) {
+	data := s.authSettingsPageData(r)
+	data["Page"] = "Password Settings"
+	s.renderPage(w, "settings_auth_password", data)
 }

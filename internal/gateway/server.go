@@ -1,6 +1,8 @@
 package gateway
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"embed"
 	"encoding/json"
@@ -20,6 +22,8 @@ import (
 	"lightbridge/internal/store"
 	"lightbridge/internal/types"
 	"lightbridge/internal/util"
+
+	"github.com/tidwall/gjson"
 )
 
 //go:embed web/templates/*.html web/static/*
@@ -66,6 +70,159 @@ type Server struct {
 	codexOAuthCallbackErr     error
 }
 
+type usageCaptureResponseWriter struct {
+	http.ResponseWriter
+	statusCode int
+	captured   []byte
+	maxCapture int
+}
+
+func newUsageCaptureResponseWriter(w http.ResponseWriter, maxCapture int) *usageCaptureResponseWriter {
+	if maxCapture <= 0 {
+		maxCapture = 8 << 20
+	}
+	return &usageCaptureResponseWriter{
+		ResponseWriter: w,
+		maxCapture:     maxCapture,
+	}
+}
+
+func (w *usageCaptureResponseWriter) WriteHeader(statusCode int) {
+	if w.statusCode == 0 {
+		w.statusCode = statusCode
+	}
+	w.ResponseWriter.WriteHeader(statusCode)
+}
+
+func (w *usageCaptureResponseWriter) Write(p []byte) (int, error) {
+	if w.statusCode == 0 {
+		w.statusCode = http.StatusOK
+	}
+	if remain := w.maxCapture - len(w.captured); remain > 0 {
+		if remain > len(p) {
+			remain = len(p)
+		}
+		w.captured = append(w.captured, p[:remain]...)
+	}
+	return w.ResponseWriter.Write(p)
+}
+
+func (w *usageCaptureResponseWriter) Flush() {
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+func (w *usageCaptureResponseWriter) StatusCode() int {
+	if w.statusCode == 0 {
+		return http.StatusOK
+	}
+	return w.statusCode
+}
+
+func (w *usageCaptureResponseWriter) CapturedBody() []byte {
+	return w.captured
+}
+
+func (w *usageCaptureResponseWriter) CapturedContentType() string {
+	return w.Header().Get("content-type")
+}
+
+func usageFromResponse(contentType string, body []byte) (int, int) {
+	body = bytes.TrimSpace(body)
+	if len(body) == 0 {
+		return 0, 0
+	}
+
+	if in, out := usageFromJSON(body); in > 0 || out > 0 {
+		return in, out
+	}
+
+	lowerType := strings.ToLower(strings.TrimSpace(contentType))
+	if strings.Contains(lowerType, "text/event-stream") || bytes.Contains(body, []byte("data:")) {
+		sc := bufio.NewScanner(bytes.NewReader(body))
+		sc.Buffer(make([]byte, 0, 64*1024), 8<<20)
+		maxIn, maxOut := 0, 0
+		for sc.Scan() {
+			line := bytes.TrimSpace(sc.Bytes())
+			if len(line) == 0 || !bytes.HasPrefix(line, []byte("data:")) {
+				continue
+			}
+			payload := bytes.TrimSpace(line[len("data:"):])
+			if len(payload) == 0 || bytes.Equal(payload, []byte("[DONE]")) || !gjson.ValidBytes(payload) {
+				continue
+			}
+			in, out := usageFromJSON(payload)
+			if in > maxIn {
+				maxIn = in
+			}
+			if out > maxOut {
+				maxOut = out
+			}
+		}
+		if maxIn > 0 || maxOut > 0 {
+			return maxIn, maxOut
+		}
+	}
+
+	return 0, 0
+}
+
+func usageFromJSON(raw []byte) (int, int) {
+	if !gjson.ValidBytes(raw) {
+		return 0, 0
+	}
+	pick := func(paths ...string) int {
+		for _, p := range paths {
+			v := gjson.GetBytes(raw, p)
+			if !v.Exists() {
+				continue
+			}
+			n := int(v.Int())
+			if n > 0 {
+				return n
+			}
+		}
+		return 0
+	}
+
+	input := pick(
+		"usage.prompt_tokens",
+		"usage.input_tokens",
+		"response.usage.input_tokens",
+		"message.usage.input_tokens",
+	)
+	output := pick(
+		"usage.completion_tokens",
+		"usage.output_tokens",
+		"response.usage.output_tokens",
+		"message.usage.output_tokens",
+	)
+	if input == 0 && output == 0 {
+		total := pick(
+			"usage.total_tokens",
+			"response.usage.total_tokens",
+			"message.usage.total_tokens",
+		)
+		if total > 0 {
+			output = total
+		}
+	}
+	return input, output
+}
+
+func routeModelID(route *types.ResolvedRoute, fallback string) string {
+	if route != nil {
+		if m := strings.TrimSpace(route.UpstreamModel); m != "" {
+			return m
+		}
+		if m := strings.TrimSpace(route.RequestedModel); m != "" {
+			return m
+		}
+	}
+	return strings.TrimSpace(fallback)
+}
+
 func New(cfg Config, st *store.Store, resolver *routing.Resolver, providerRegistry *providers.Registry, marketplace *modules.Marketplace, moduleMgr *modules.Manager, cookieSecret string) (*Server, error) {
 	tmpl, err := template.ParseFS(webFS, "web/templates/*.html")
 	if err != nil {
@@ -108,6 +265,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/v1/models", s.handleModels)
 	mux.HandleFunc("/v1/", s.handleV1Proxy)
 	mux.HandleFunc("/openai/", s.handleOpenAIAlias)
+	mux.HandleFunc("/gemini/", s.handleGeminiAlias)
+	mux.HandleFunc("/claude/", s.handleClaudeAlias)
 
 	mux.Handle("/admin/static/", http.StripPrefix("/admin/static/", http.FileServer(s.staticFS)))
 	mux.HandleFunc("/admin", s.wrapAdminPage(s.handleDashboardPage))
@@ -227,12 +386,30 @@ func (s *Server) handleModelsForApp(w http.ResponseWriter, r *http.Request, appI
 }
 
 func (s *Server) handleOpenAIAlias(w http.ResponseWriter, r *http.Request) {
+	s.handleCompatAlias("openai", w, r)
+}
+
+func (s *Server) handleGeminiAlias(w http.ResponseWriter, r *http.Request) {
+	s.handleCompatAlias("gemini", w, r)
+}
+
+func (s *Server) handleClaudeAlias(w http.ResponseWriter, r *http.Request) {
+	s.handleCompatAlias("claude", w, r)
+}
+
+func (s *Server) handleCompatAlias(prefix string, w http.ResponseWriter, r *http.Request) {
+	prefix = strings.ToLower(strings.TrimSpace(prefix))
+	if prefix == "" {
+		http.NotFound(w, r)
+		return
+	}
+
 	// Supports:
-	// - Base URL:  {origin}/openai           -> {origin}/openai/v1/*
-	// - App URL:   {origin}/openai/{app}     -> {origin}/openai/{app}/v1/*
+	// - Base URL:  {origin}/{prefix}           -> {origin}/{prefix}/v1/*
+	// - App URL:   {origin}/{prefix}/{app}     -> {origin}/{prefix}/{app}/v1/*
 	// This is only an HTTP path prefix router; auth is still handled by the same client API keys.
 	origPath := r.URL.Path
-	rest := strings.TrimPrefix(origPath, "/openai/")
+	rest := strings.TrimPrefix(origPath, "/"+prefix+"/")
 	rest = strings.TrimPrefix(rest, "/")
 	if rest == "" {
 		http.NotFound(w, r)
@@ -377,7 +554,7 @@ func (s *Server) handleV1Proxy(w http.ResponseWriter, r *http.Request) {
 			RequestID:   requestID,
 			ClientKeyID: client.ID,
 			ProviderID:  route.ProviderID,
-			ModelID:     modelID,
+			ModelID:     routeModelID(route, modelID),
 			Path:        logPath,
 			Status:      http.StatusBadGateway,
 			LatencyMS:   time.Since(start).Milliseconds(),
@@ -394,7 +571,7 @@ func (s *Server) handleV1Proxy(w http.ResponseWriter, r *http.Request) {
 			RequestID:   requestID,
 			ClientKeyID: client.ID,
 			ProviderID:  route.ProviderID,
-			ModelID:     modelID,
+			ModelID:     routeModelID(route, modelID),
 			Path:        logPath,
 			Status:      http.StatusNotImplemented,
 			LatencyMS:   time.Since(start).Milliseconds(),
@@ -408,6 +585,8 @@ func (s *Server) handleV1Proxy(w http.ResponseWriter, r *http.Request) {
 	const maxRetries = 2
 	excludedProviders := map[string]struct{}{}
 	finalStatus, finalCode := 0, ""
+	finalInputTokens, finalOutputTokens := 0, 0
+	finalModelID := routeModelID(route, modelID)
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		if attempt > 0 {
@@ -431,10 +610,16 @@ func (s *Server) handleV1Proxy(w http.ResponseWriter, r *http.Request) {
 			// Reset request body for retry
 			r.Body = ioNopCloser(bodyBytes)
 		}
+		finalModelID = routeModelID(route, modelID)
 
-		status, code, err := adapter.Handle(r.Context(), w, r, *provider, route)
+		captureW := newUsageCaptureResponseWriter(w, 8<<20)
+		status, code, err := adapter.Handle(r.Context(), captureW, r, *provider, route)
 		finalStatus = status
+		if finalStatus == 0 {
+			finalStatus = captureW.StatusCode()
+		}
 		finalCode = code
+		finalInputTokens, finalOutputTokens = usageFromResponse(captureW.CapturedContentType(), captureW.CapturedBody())
 
 		if err != nil {
 			if status == 0 {
@@ -453,15 +638,17 @@ func (s *Server) handleV1Proxy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_ = s.store.InsertRequestLog(r.Context(), types.RequestLogMeta{
-		Timestamp:   time.Now().UTC(),
-		RequestID:   requestID,
-		ClientKeyID: client.ID,
-		ProviderID:  route.ProviderID,
-		ModelID:     modelID,
-		Path:        logPath,
-		Status:      statusOrDefault(finalStatus, http.StatusOK),
-		LatencyMS:   time.Since(start).Milliseconds(),
-		ErrorCode:   finalCode,
+		Timestamp:    time.Now().UTC(),
+		RequestID:    requestID,
+		ClientKeyID:  client.ID,
+		ProviderID:   route.ProviderID,
+		ModelID:      finalModelID,
+		Path:         logPath,
+		Status:       statusOrDefault(finalStatus, http.StatusOK),
+		LatencyMS:    time.Since(start).Milliseconds(),
+		InputTokens:  finalInputTokens,
+		OutputTokens: finalOutputTokens,
+		ErrorCode:    finalCode,
 	})
 }
 
@@ -484,6 +671,14 @@ func (s *Server) routeAdminPages(w http.ResponseWriter, r *http.Request) {
 		s.wrapAdminPage(s.handleDashboardPage)(w, r)
 	case "settings":
 		s.wrapAdminPage(s.handleSettingsPage)(w, r)
+	case "settings/auth":
+		s.wrapAdminPage(s.handleSettingsAuthPage)(w, r)
+	case "settings/auth/passkey":
+		s.wrapAdminPage(s.handleSettingsAuthPasskeyPage)(w, r)
+	case "settings/auth/2fa":
+		s.wrapAdminPage(s.handleSettingsAuth2FAPage)(w, r)
+	case "settings/auth/password":
+		s.wrapAdminPage(s.handleSettingsAuthPasswordPage)(w, r)
 	case "providers", "marketplace", "logs", "docs", "auth", "router", "consumption":
 		s.wrapAdminPage(func(w http.ResponseWriter, r *http.Request) {
 			username, _ := s.sessions.username(r)
@@ -518,6 +713,14 @@ func (s *Server) routeAdminAPI(w http.ResponseWriter, r *http.Request) {
 		s.handlePasskeyAuthBeginAPI(w, r)
 	case "/passkey/auth/finish":
 		s.handlePasskeyAuthFinishAPI(w, r)
+	case "/passkey/register/begin":
+		s.wrapAdminAPI(s.handlePasskeyRegisterBeginAPI)(w, r)
+	case "/passkey/register/finish":
+		s.wrapAdminAPI(s.handlePasskeyRegisterFinishAPI)(w, r)
+	case "/passkey/credentials":
+		s.wrapAdminAPI(s.handlePasskeyCredentialsAPI)(w, r)
+	case "/passkey/credentials/delete":
+		s.wrapAdminAPI(s.handlePasskeyCredentialDeleteAPI)(w, r)
 	case "/2fa/policy":
 		s.wrapAdminAPI(s.handleTwoFAPolicyAPI)(w, r)
 	case "/2fa/enroll/begin":
@@ -578,6 +781,8 @@ func (s *Server) routeAdminAPI(w http.ResponseWriter, r *http.Request) {
 		s.wrapAdminAPI(s.handleModuleUpgradeAPI)(w, r)
 	case "/codex/oauth/status":
 		s.wrapAdminAPI(s.handleCodexOAuthStatusAPI)(w, r)
+	case "/codex/oauth/credentials":
+		s.wrapAdminAPI(s.handleCodexOAuthCredentialsAPI)(w, r)
 	case "/codex/oauth/start":
 		s.wrapAdminAPI(s.handleCodexOAuthStartAPI)(w, r)
 	case "/codex/oauth/exchange":

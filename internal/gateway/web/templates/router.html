@@ -108,7 +108,7 @@
     .main-grid { display: flex; gap: 24px; width: 100%; align-items: flex-start; }
 
     /* Key Section */
-    .key-section { flex: 1; border: 1px solid var(--border); min-width: 0; }
+    .key-section { width: 420px; min-width: 420px; border: 1px solid var(--border); }
     .key-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid var(--border); }
     .key-title-area { display: flex; flex-direction: column; gap: 2px; }
     .key-title { font-family: var(--font-display); font-size: 16px; font-weight: 600; color: var(--text-main); }
@@ -138,7 +138,7 @@
     .key-empty { padding: 32px 24px; text-align: center; color: var(--text-muted); font-size: 13px; }
 
     /* ── App Panel ── */
-    .app-panel { width: 420px; min-width: 420px; border: 1px solid var(--border); display: flex; flex-direction: column; }
+    .app-panel { flex: 1; min-width: 0; border: 1px solid var(--border); display: flex; flex-direction: column; }
     .app-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 12px; }
     .app-title-row { display: flex; justify-content: space-between; align-items: center; }
     .app-title { font-family: var(--font-display); font-size: 16px; font-weight: 600; color: var(--text-main); }
@@ -188,6 +188,7 @@
     /* ── Responsive ── */
     @media (max-width: 1120px) {
       .main-grid { flex-direction: column; }
+      .key-section { width: 100%; min-width: 0; }
       .app-panel { width: 100%; min-width: 0; }
     }
     @media (max-width: 860px) {
@@ -242,27 +243,35 @@
           <div class="hero-left">
             <span class="hero-label">端口 URL  PORT URL</span>
             <div class="hero-url" id="port-url-value">--</div>
-            <span class="hero-hint">OpenAI 兼容接口  /v1/*  ·  Base URL  /openai/v1</span>
+            <span class="hero-hint" id="port-hint">OpenAI 兼容接口  /v1/*  ·  Base URL  /openai/v1</span>
           </div>
           <div class="hero-actions">
-            <button class="hero-btn" type="button" id="detect-ip">自动检测 IP</button>
+            <button class="hero-btn" type="button" id="use-current-host">使用当前地址</button>
             <button class="hero-btn" type="button" id="copy-port-url">复制 URL</button>
-            <button class="hero-btn-primary" type="button" id="save-port-url">编辑配置</button>
+            <button class="hero-btn-primary" type="button" id="save-port-url">保存配置</button>
           </div>
         </div>
         <div class="hero-divider"></div>
         <div class="hero-bottom">
           <div class="hero-kv">
+            <span class="hero-kv-label">接口类型</span>
+            <select class="hero-kv-val" id="port-interface">
+              <option value="openai">OpenAI</option>
+              <option value="gemini">Gemini</option>
+              <option value="claude">Claude</option>
+            </select>
+          </div>
+          <div class="hero-kv">
             <span class="hero-kv-label">协议</span>
             <select class="hero-kv-val" id="port-scheme"><option value="https">HTTPS</option><option value="http">HTTP</option></select>
           </div>
           <div class="hero-kv">
-            <span class="hero-kv-label">域名</span>
-            <input class="hero-kv-input" id="port-host" placeholder="light-bridge.com" spellcheck="false" />
+            <span class="hero-kv-label">域名或 IP</span>
+            <input class="hero-kv-input" id="port-host" placeholder="127.0.0.1:3210 或 gateway.example.com" spellcheck="false" />
           </div>
           <div class="hero-kv">
-            <span class="hero-kv-label">检测 IP</span>
-            <div class="hero-chips" id="ip-suggestions"></div>
+            <span class="hero-kv-label">快捷地址</span>
+            <div class="hero-chips" id="host-suggestions"></div>
           </div>
         </div>
       </section>
@@ -394,11 +403,13 @@
       const BTN_REFRESH = document.getElementById('refresh-keys');
       const BTN_NEW = document.getElementById('new-key');
 
+      const PORT_INTERFACE = document.getElementById('port-interface');
       const PORT_SCHEME = document.getElementById('port-scheme');
       const PORT_HOST = document.getElementById('port-host');
       const PORT_URL_VALUE = document.getElementById('port-url-value');
-      const IP_SUGGESTIONS = document.getElementById('ip-suggestions');
-      const BTN_DETECT_IP = document.getElementById('detect-ip');
+      const PORT_HINT = document.getElementById('port-hint');
+      const HOST_SUGGESTIONS = document.getElementById('host-suggestions');
+      const BTN_USE_CURRENT_HOST = document.getElementById('use-current-host');
       const BTN_COPY_PORT_URL = document.getElementById('copy-port-url');
       const BTN_SAVE_PORT_URL = document.getElementById('save-port-url');
 
@@ -424,6 +435,11 @@
       let keys = [];
       let activeID = '';
       const DEFAULT_APPS = ['codex', 'claude-code', 'opencode', 'gemini-cli', 'cherry-studio'];
+      const COMPAT_INTERFACES = {
+        openai: { id: 'openai', label: 'OpenAI 兼容接口' },
+        gemini: { id: 'gemini', label: 'Gemini 兼容接口' },
+        claude: { id: 'claude', label: 'Claude 兼容接口' },
+      };
       let voucherCfg = { base_url: '', apps: {} };
       let currentApp = DEFAULT_APPS[0];
       let models = [];
@@ -479,16 +495,28 @@
         return v.replace(/\/.*/, '').trim();
       }
 
-      function effectivePortURL() {
-        const host = sanitizeHostInput(PORT_HOST.value);
-        if (host) return `${PORT_SCHEME.value}://${host}/openai`;
-        return `${location.origin}`.replace(/\/$/, '') + '/openai';
+      function currentInterface() {
+        const id = String(PORT_INTERFACE?.value || '').trim().toLowerCase();
+        return COMPAT_INTERFACES[id] || COMPAT_INTERFACES.openai;
       }
 
-      function effectiveOpenAIBaseV1() { return effectivePortURL().replace(/\/$/, '') + '/v1'; }
+      function detectInterfaceFromPath(pathname) {
+        const p = String(pathname || '').trim().replace(/\/+$/, '').toLowerCase();
+        const m = p.match(/\/(openai|gemini|claude)(?:\/v1)?$/);
+        return m ? m[1] : '';
+      }
+
+      function effectivePortURL() {
+        const host = sanitizeHostInput(PORT_HOST.value);
+        const iface = currentInterface();
+        if (host) return `${PORT_SCHEME.value}://${host}/${iface.id}`;
+        return `${location.origin}`.replace(/\/$/, '') + `/${iface.id}`;
+      }
+
+      function effectiveBaseV1() { return effectivePortURL().replace(/\/$/, '') + '/v1'; }
       function effectiveAppBaseV1(appID) {
         const a = String(appID || '').trim();
-        if (!a) return effectiveOpenAIBaseV1();
+        if (!a) return effectiveBaseV1();
         return effectivePortURL().replace(/\/$/, '') + '/' + encodeURIComponent(a) + '/v1';
       }
 
@@ -504,8 +532,33 @@
         const hostBefore = PORT_HOST.value;
         const host = sanitizeHostInput(hostBefore);
         if (hostBefore !== host) PORT_HOST.value = host;
+        if (PORT_HINT) {
+          const iface = currentInterface();
+          PORT_HINT.textContent = `${iface.label}  /v1/*  ·  Base URL  /${iface.id}/v1`;
+        }
         PORT_URL_VALUE.textContent = effectivePortURL();
+        renderHostSuggestions();
         renderAppPanel();
+      }
+
+      function renderHostSuggestions() {
+        if (!HOST_SUGGESTIONS) return;
+        const host = sanitizeHostInput(PORT_HOST.value);
+        const currentHost = String(location.host || '').trim();
+        const currentPort = String(location.port || '').trim();
+        const defaults = currentPort
+          ? [`127.0.0.1:${currentPort}`, `localhost:${currentPort}`]
+          : ['127.0.0.1', 'localhost'];
+        const suggestions = [host, currentHost, ...defaults].filter(Boolean);
+        HOST_SUGGESTIONS.innerHTML = '';
+        for (const s of [...new Set(suggestions)].slice(0, 8)) {
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'hero-chip';
+          chip.textContent = s;
+          chip.addEventListener('click', () => { PORT_HOST.value = s; updatePortPreview(); });
+          HOST_SUGGESTIONS.appendChild(chip);
+        }
       }
 
       function initPortFieldsFromConfig() {
@@ -513,12 +566,25 @@
         if (!base) {
           PORT_SCHEME.value = String(location.protocol || 'https:').replace(':', '') || 'https';
           PORT_HOST.value = String(location.host || '').trim();
+          PORT_INTERFACE.value = 'openai';
           updatePortPreview();
           return;
         }
-        try { const u = new URL(base); const p = String(u.protocol || '').replace(':', ''); if (p === 'http' || p === 'https') PORT_SCHEME.value = p; PORT_HOST.value = String(u.host || '').trim(); } catch (_) {
-          const m = base.match(/^(https?):\/\/([^/]+)/i);
-          if (m) { PORT_SCHEME.value = m[1].toLowerCase(); PORT_HOST.value = m[2]; }
+        try {
+          const u = new URL(base);
+          const p = String(u.protocol || '').replace(':', '');
+          if (p === 'http' || p === 'https') PORT_SCHEME.value = p;
+          PORT_HOST.value = String(u.host || '').trim();
+          const iface = detectInterfaceFromPath(u.pathname);
+          PORT_INTERFACE.value = iface || 'openai';
+        } catch (_) {
+          const m = base.match(/^(https?):\/\/([^/]+)(\/.*)?$/i);
+          if (m) {
+            PORT_SCHEME.value = m[1].toLowerCase();
+            PORT_HOST.value = m[2];
+            const iface = detectInterfaceFromPath(m[3] || '');
+            PORT_INTERFACE.value = iface || 'openai';
+          }
         }
         updatePortPreview();
       }
@@ -732,34 +798,6 @@
         return out.slice(0, 200);
       }
 
-      async function detectIP() {
-        BTN_DETECT_IP.disabled = true;
-        try {
-          const res = await LB.apiJSON('/admin/api/server_addrs');
-          const scheme = String(res?.scheme || '').trim();
-          const host = String(res?.host || '').trim();
-          const port = String(res?.port || '').trim();
-          const hostname = String(res?.hostname || '').trim();
-          const ips = Array.isArray(res?.ips) ? res.ips : [];
-          if (scheme === 'http' || scheme === 'https') PORT_SCHEME.value = scheme;
-          if (host) PORT_HOST.value = host;
-          IP_SUGGESTIONS.innerHTML = '';
-          const suggestions = [];
-          if (host) suggestions.push(host);
-          if (hostname && hostname !== host) suggestions.push(hostname + (port ? `:${port}` : ''));
-          for (const ip of ips) { const s = String(ip || '').trim(); if (s) suggestions.push(s + (port ? `:${port}` : '')); }
-          for (const s of [...new Set(suggestions)].slice(0, 12)) {
-            const chip = document.createElement('button');
-            chip.type = 'button'; chip.className = 'hero-chip'; chip.textContent = s;
-            chip.addEventListener('click', () => { PORT_HOST.value = s; updatePortPreview(); });
-            IP_SUGGESTIONS.appendChild(chip);
-          }
-          updatePortPreview();
-          if (suggestions.length) LB.toast(`已检测到 ${[...new Set(suggestions)].length} 个地址`, 'ok');
-        } catch (err) { LB.toast(err?.message || '检测失败', 'error'); }
-        finally { BTN_DETECT_IP.disabled = false; }
-      }
-
       async function savePortURL() {
         const host = sanitizeHostInput(PORT_HOST.value);
         if (!host) { LB.toast('请输入域名或 IP', 'error'); return; }
@@ -811,9 +849,13 @@
       BTN_COPY_CREATED.addEventListener('click', () => copyText(CREATED_VALUE.textContent));
       F_NEW.addEventListener('submit', (e) => { e.preventDefault(); createKey(F_NEW.elements.namedItem('name')?.value, F_NEW.elements.namedItem('key')?.value); });
 
+      PORT_INTERFACE.addEventListener('change', updatePortPreview);
       PORT_SCHEME.addEventListener('change', updatePortPreview);
       PORT_HOST.addEventListener('input', updatePortPreview);
-      BTN_DETECT_IP.addEventListener('click', detectIP);
+      BTN_USE_CURRENT_HOST.addEventListener('click', () => {
+        PORT_HOST.value = String(location.host || '').trim();
+        updatePortPreview();
+      });
       BTN_COPY_PORT_URL.addEventListener('click', () => copyText(PORT_URL_VALUE.textContent));
       BTN_SAVE_PORT_URL.addEventListener('click', savePortURL);
 

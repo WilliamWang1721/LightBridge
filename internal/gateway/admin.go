@@ -604,6 +604,7 @@ func (s *Server) handleDashboardAPI(w http.ResponseWriter, r *http.Request) {
 	stats24h, _ := s.store.RequestStatsSince(r.Context(), now.Add(-24*time.Hour))
 	startDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC).AddDate(0, 0, -6)
 	tokens7d, _ := s.store.TokenUsageLastNDays(r.Context(), startDay, 7)
+	pathModel24h, _ := s.store.PathModelUsageSince(r.Context(), now.Add(-24*time.Hour), 300)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"providers": providers,
 		"models":    models,
@@ -617,8 +618,9 @@ func (s *Server) handleDashboardAPI(w http.ResponseWriter, r *http.Request) {
 			"tokens_24h":     stats24h.InputTokens + stats24h.OutputTokens,
 			"uptime_sec":     int64(time.Since(s.startedAt).Seconds()),
 		},
-		"tokens_7d": tokens7d,
-		"now":       now.Format(time.RFC3339),
+		"tokens_7d":      tokens7d,
+		"path_model_24h": pathModel24h,
+		"now":            now.Format(time.RFC3339),
 	})
 }
 
@@ -1542,6 +1544,34 @@ func (s *Server) handleCodexOAuthStatusAPI(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	writeProxyResponse(w, status, hdr, body)
+}
+
+func (s *Server) handleCodexOAuthCredentialsAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+
+	credPath := filepath.Join(s.moduleMgr.ModuleDataDir(codexOAuthModuleID), "credentials.json")
+	raw, err := os.ReadFile(credPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			writeJSON(w, http.StatusOK, map[string]any{"ok": true, "credentials": nil})
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+
+	var creds map[string]any
+	if err := json.Unmarshal(raw, &creds); err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": fmt.Sprintf("decode credentials.json: %v", err)})
+		return
+	}
+	if creds == nil {
+		creds = map[string]any{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "credentials": creds})
 }
 
 func (s *Server) handleCodexDeviceStartAPI(w http.ResponseWriter, r *http.Request) {

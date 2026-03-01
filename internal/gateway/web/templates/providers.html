@@ -1603,6 +1603,27 @@
             PULL_MODELS.disabled = false;
           }
           if (SAVE) SAVE.disabled = false;
+          if (providerID(provider) === 'codex' && providerType(provider) === 'module') {
+            (async () => {
+              try {
+                let creds = null;
+                try {
+                  const raw = await LB.apiJSON('/admin/api/codex/oauth/credentials');
+                  creds = raw?.credentials;
+                } catch (_) {}
+                if (!creds || typeof creds !== 'object') {
+                  try {
+                    const st = await LB.apiJSON('/admin/api/codex/oauth/status');
+                    creds = st?.credentials;
+                  } catch (_) {}
+                }
+                const merged = mergeCodexCredentialsToConfigJSON(F_CFG.value, creds);
+                F_CFG.value = safeJSON(merged);
+              } catch (_) {
+                // ignore
+              }
+            })();
+          }
         } else {
           TITLE.textContent = '添加 Provider';
           if (F_ACCOUNT) F_ACCOUNT.value = '';
@@ -2279,7 +2300,11 @@
         B_CODEX_SAVE.disabled = true;
         try {
           const res = await loadCodexStatus({ toastOnFail: true });
-          const creds = res?.credentials;
+          let creds = res?.credentials;
+          try {
+            const raw = await LB.apiJSON('/admin/api/codex/oauth/credentials');
+            if (raw?.credentials && typeof raw.credentials === 'object') creds = raw.credentials;
+          } catch (_) {}
           const has = Boolean(String(creds?.access_token || '').trim() || String(creds?.refresh_token || '').trim());
           if (!has) {
             LB.toast('尚未获取 Token，无法保存', 'error', 4200);

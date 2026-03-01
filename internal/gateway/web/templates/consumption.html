@@ -467,9 +467,9 @@
           <p class="kpi-sub">按日聚合近 7 天总消耗</p>
         </article>
         <article class="kpi-card">
-          <p class="kpi-label">Recent 200 Logs Tokens</p>
+          <p class="kpi-label">24H Path+Model Tokens（全量）</p>
           <p class="kpi-value" id="c-window-tokens">--</p>
-          <p class="kpi-sub" id="c-window-tokens-meta">最近 200 条请求总消耗</p>
+          <p class="kpi-sub" id="c-window-tokens-meta">近 24 小时路径+模型聚合总消耗</p>
         </article>
       </section>
 
@@ -500,22 +500,23 @@
         <article class="section-card">
           <div class="section-head">
             <div>
-              <h2>Provider 消耗排行</h2>
-              <p class="section-sub">统计窗口：最近 200 条请求</p>
+              <h2>页面（Path）+ 模型 消耗排行</h2>
+              <p class="section-sub">统计窗口：近 24 小时（全量聚合）</p>
             </div>
           </div>
           <div class="table-wrap">
-            <table aria-label="Provider Token 消耗排行">
+            <table aria-label="Path + Model Token 消耗排行">
               <thead>
                 <tr>
-                  <th>Provider</th>
+                  <th>Path</th>
+                  <th>Model</th>
                   <th class="num">请求数</th>
                   <th class="num">输入</th>
                   <th class="num">输出</th>
                   <th class="num">合计</th>
                 </tr>
               </thead>
-              <tbody id="c-provider-table"></tbody>
+              <tbody id="c-path-model-table"></tbody>
             </table>
           </div>
         </article>
@@ -625,39 +626,47 @@
         }
       }
 
-      function buildProviderStats(logs) {
+      function buildPathModelStatsFromLogs(logs) {
         const map = new Map();
         for (const row of Array.isArray(logs) ? logs : []) {
-          const id = String(row?.ProviderID ?? row?.providerID ?? '').trim() || '-';
-          const prev = map.get(id) || { provider: id, requests: 0, input: 0, output: 0, total: 0 };
+          const path = String(row?.Path ?? row?.path ?? '').trim() || '-';
+          const model = String(row?.ModelID ?? row?.modelID ?? '').trim() || '-';
+          const key = `${path}\n${model}`;
+          const prev = map.get(key) || { path, model_id: model, requests: 0, input_tokens: 0, output_tokens: 0 };
           const inTok = toInputTokens(row);
           const outTok = toOutputTokens(row);
-          const total = inTok + outTok;
           prev.requests += 1;
-          prev.input += inTok;
-          prev.output += outTok;
-          prev.total += total;
-          map.set(id, prev);
+          prev.input_tokens += inTok;
+          prev.output_tokens += outTok;
+          map.set(key, prev);
         }
-        return Array.from(map.values()).sort((a, b) => Number(b.total || 0) - Number(a.total || 0));
+        return Array.from(map.values()).sort((a, b) => {
+          const ta = Number(a?.input_tokens || 0) + Number(a?.output_tokens || 0);
+          const tb = Number(b?.input_tokens || 0) + Number(b?.output_tokens || 0);
+          return tb - ta;
+        });
       }
 
-      function renderProviderTable(logs) {
-        const tbody = document.getElementById('c-provider-table');
+      function renderPathModelTable(rows) {
+        const tbody = document.getElementById('c-path-model-table');
         if (!tbody) return;
         tbody.innerHTML = '';
-        const list = buildProviderStats(logs);
+        const list = Array.isArray(rows) ? rows : [];
         if (list.length === 0) {
-          tbody.appendChild(LB.el('tr', {}, [LB.el('td', { colSpan: 5, text: '暂无数据' })]));
+          tbody.appendChild(LB.el('tr', {}, [LB.el('td', { colSpan: 6, text: '暂无数据' })]));
           return;
         }
         for (const row of list) {
+          const inTok = Number(row?.input_tokens ?? row?.inputTokens ?? 0);
+          const outTok = Number(row?.output_tokens ?? row?.outputTokens ?? 0);
+          const total = inTok + outTok;
           tbody.appendChild(LB.el('tr', {}, [
-            LB.el('td', { text: row.provider }),
-            LB.el('td', { className: 'num', text: LB.formatCompactNumber(row.requests) }),
-            LB.el('td', { className: 'num', text: LB.formatCompactNumber(row.input) }),
-            LB.el('td', { className: 'num', text: LB.formatCompactNumber(row.output) }),
-            LB.el('td', { className: 'num', text: LB.formatCompactNumber(row.total) }),
+            LB.el('td', { className: 'path', text: String(row?.path ?? row?.Path ?? '-').trim() || '-' }),
+            LB.el('td', { text: String(row?.model_id ?? row?.modelID ?? row?.ModelID ?? '-').trim() || '-' }),
+            LB.el('td', { className: 'num', text: LB.formatCompactNumber(Number(row?.requests ?? row?.Requests ?? 0)) }),
+            LB.el('td', { className: 'num', text: LB.formatCompactNumber(inTok) }),
+            LB.el('td', { className: 'num', text: LB.formatCompactNumber(outTok) }),
+            LB.el('td', { className: 'num', text: LB.formatCompactNumber(total) }),
           ]));
         }
       }
@@ -706,23 +715,29 @@
           const stats = dashboard?.stats || {};
           const tokens7d = Array.isArray(dashboard?.tokens_7d) ? dashboard.tokens_7d : [];
           const logs = Array.isArray(logsRes?.data) ? logsRes.data : [];
+          const pathModel24hRaw = Array.isArray(dashboard?.path_model_24h) ? dashboard.path_model_24h : [];
+          const pathModel24h = pathModel24hRaw.length ? pathModel24hRaw : buildPathModelStatsFromLogs(logs);
 
           const tokens24h = Number(stats.tokens_24h ?? 0);
           const requests24h = Number(stats.requests_24h ?? 0);
           const tokens7dTotal = tokens7d.reduce((acc, row) => acc + Number(row?.input_tokens || 0) + Number(row?.output_tokens || 0), 0);
-          const sampleTokens = logs.reduce((acc, row) => acc + toTokens(row), 0);
+          const pathModel24hTokens = pathModel24h.reduce((acc, row) => {
+            const inTok = Number(row?.input_tokens ?? row?.inputTokens ?? 0);
+            const outTok = Number(row?.output_tokens ?? row?.outputTokens ?? 0);
+            return acc + inTok + outTok;
+          }, 0);
 
           setText('c-24h-tokens', LB.formatCompactNumber(tokens24h));
           setText('c-24h-requests', LB.formatCompactNumber(requests24h));
           setText('c-7d-tokens', LB.formatCompactNumber(tokens7dTotal));
-          setText('c-window-tokens', LB.formatCompactNumber(sampleTokens));
-          setText('c-window-tokens-meta', `最近 ${LB.formatCompactNumber(logs.length)} 条请求总消耗`);
+          setText('c-window-tokens', LB.formatCompactNumber(pathModel24hTokens));
+          setText('c-window-tokens-meta', `近 24 小时 Path+Model 组合 ${LB.formatCompactNumber(pathModel24h.length)} 个`);
           setText('c-24h-tokens-meta', `近 24 小时总消耗 · ${LB.formatCompactNumber(requests24h)} requests`);
           setText('consumption-updated', `最后更新：${LB.formatISODateTime(dashboard?.now || new Date().toISOString())}`);
 
           renderBars(tokens7d);
           renderDayTable(tokens7d);
-          renderProviderTable(logs);
+          renderPathModelTable(pathModel24h);
           renderLogsTable(logs);
 
           const period = document.getElementById('c-token-period');

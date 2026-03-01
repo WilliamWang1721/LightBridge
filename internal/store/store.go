@@ -679,6 +679,14 @@ type DailyTokenUsage struct {
 	OutputTokens int    `json:"output_tokens"`
 }
 
+type PathModelUsage struct {
+	Path         string `json:"path"`
+	ModelID      string `json:"model_id"`
+	Requests     int    `json:"requests"`
+	InputTokens  int    `json:"input_tokens"`
+	OutputTokens int    `json:"output_tokens"`
+}
+
 func (s *Store) TokenUsageLastNDays(ctx context.Context, startDay time.Time, days int) ([]DailyTokenUsage, error) {
 	if days <= 0 {
 		days = 7
@@ -724,6 +732,43 @@ func (s *Store) TokenUsageLastNDays(ctx context.Context, startDay time.Time, day
 			InputTokens:  sum.in,
 			OutputTokens: sum.out,
 		})
+	}
+	return out, nil
+}
+
+func (s *Store) PathModelUsageSince(ctx context.Context, since time.Time, limit int) ([]PathModelUsage, error) {
+	if limit <= 0 {
+		limit = 200
+	}
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT
+			COALESCE(NULLIF(path, ''), '-'),
+			COALESCE(NULLIF(model_id, ''), '-'),
+			COUNT(1),
+			COALESCE(SUM(input_tokens), 0),
+			COALESCE(SUM(output_tokens), 0)
+		FROM request_logs_meta
+		WHERE datetime(ts) >= datetime(?)
+		GROUP BY 1, 2
+		ORDER BY (COALESCE(SUM(input_tokens), 0) + COALESCE(SUM(output_tokens), 0)) DESC, COUNT(1) DESC, 1 ASC, 2 ASC
+		LIMIT ?
+	`, since.UTC().Format(time.RFC3339), limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]PathModelUsage, 0, limit)
+	for rows.Next() {
+		var item PathModelUsage
+		if err := rows.Scan(&item.Path, &item.ModelID, &item.Requests, &item.InputTokens, &item.OutputTokens); err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return out, nil
 }
