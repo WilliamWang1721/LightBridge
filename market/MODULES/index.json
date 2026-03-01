@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-01T14:06:48Z",
+  "generated_at": "2026-03-01T14:21:05Z",
   "min_core_version": "0.1.0",
   "modules": [
     {
@@ -31,7 +31,7 @@
         "chatbox",
         "conversation",
         "persistence",
-        "provider"
+        "tools"
       ],
       "protocols": [
         "http_rpc"

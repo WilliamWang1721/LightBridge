@@ -2,249 +2,274 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{.Page}}</title>
-  <link rel="stylesheet" href="/admin/static/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
   <style>
     :root {
-      --bg: #f2f5fb;
-      --panel: #ffffff;
-      --ink: #1d2433;
-      --muted: #677186;
-      --border: #d9dfeb;
-      --brand: #2f5dff;
-      --brand-soft: #eef3ff;
-      --assistant-bg: #f8faff;
-      --user-bg: #e8f0ff;
-      --danger: #b42318;
+      --bg-page: #ffffff;
+      --bg-surface: #fafafa;
+      --bg-card: #ffffff;
+      --border: #e8e8e8;
+      --text-main: #0d0d0d;
+      --text-secondary: #7a7a7a;
+      --text-muted: #b0b0b0;
+      --red-primary: #e42313;
+      --font-display: "Space Grotesk", "Noto Sans SC", sans-serif;
+      --font-body: "Inter", "Noto Sans SC", sans-serif;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     html,
     body {
       margin: 0;
       min-height: 100%;
-      color: var(--ink);
-      background: radial-gradient(circle at 0 0, #edf2ff 0, #f7f9fc 52%, #eef2fb 100%);
-      font-family: "SF Pro Text", "PingFang SC", "Noto Sans SC", "Segoe UI", sans-serif;
+      height: 100%;
+      background: var(--bg-page);
+      color: var(--text-main);
+      font-family: var(--font-body);
+      font-size: 16px;
+      line-height: 1.45;
+      overflow: hidden;
     }
 
-    .shell {
-      display: flex;
+    .chatbox-page {
+      height: 100vh;
       min-height: 100vh;
-    }
-
-    .sidebar {
-      width: 248px;
-      border-right: 1px solid var(--border);
-      background: linear-gradient(180deg, rgba(255, 255, 255, .94) 0, rgba(247, 250, 255, .98) 100%);
-      padding: 24px 18px;
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
-    }
-
-    .sidebar-top {
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
-    }
-
-    .brand {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      text-decoration: none;
-      color: var(--ink);
-      font-weight: 700;
-      font-size: 18px;
-    }
-
-    .brand-mark {
-      width: 12px;
-      height: 24px;
-      border-radius: 999px;
-      background: linear-gradient(180deg, #5b82ff 0, #2f5dff 100%);
-      box-shadow: 0 4px 12px rgba(47, 93, 255, .35);
-    }
-
-    .menu {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .menu-item {
-      text-decoration: none;
-      color: #3a4559;
-      border: 1px solid transparent;
-      border-radius: 10px;
-      padding: 8px 10px;
-      font-size: 14px;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      transition: .15s ease;
-    }
-
-    .menu-item:hover {
-      background: #f6f8fc;
-      border-color: var(--border);
-    }
-
-    .menu-item.is-active {
-      color: #16307a;
-      background: var(--brand-soft);
-      border-color: #bfd0ff;
-    }
-
-    .menu-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 999px;
-      background: currentColor;
-      opacity: .7;
-    }
-
-    .sidebar-bottom {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      color: #5a6477;
-      font-size: 13px;
-    }
-
-    .admin-chip {
-      width: 26px;
-      height: 26px;
-      border-radius: 50%;
-      display: inline-grid;
-      place-items: center;
-      font-weight: 700;
-      color: #fff;
-      background: linear-gradient(135deg, #355adf 0, #2347bf 100%);
-    }
-
-    .main {
-      flex: 1;
-      padding: 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
+      overflow: hidden;
+      background: var(--bg-page);
     }
 
     .topbar {
+      flex-shrink: 0;
+      border-bottom: 1px solid var(--border);
+      padding: 24px 32px;
       display: flex;
+      align-items: flex-end;
       justify-content: space-between;
-      align-items: flex-start;
-      gap: 16px;
+      gap: 18px;
+      background: var(--bg-page);
     }
 
-    .topbar h1 {
+    .topbar-left {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .title-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .title-row h1 {
       margin: 0;
-      font-size: 36px;
-      line-height: 1.05;
-      letter-spacing: -0.02em;
+      font-family: var(--font-display);
+      font-size: 34px;
+      letter-spacing: -0.8px;
+      line-height: 1.06;
+      font-weight: 600;
+      color: var(--text-main);
+      min-width: 0;
     }
 
-    .topbar p {
-      margin: 6px 0 0;
-      color: var(--muted);
-      font-size: 14px;
+    .topbar-sub {
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-family: var(--font-body);
+    }
+
+    .topbar-right {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
     }
 
     .plugin-tip {
-      font-size: 12px;
-      color: var(--muted);
       border: 1px solid var(--border);
-      background: #fff;
+      background: var(--bg-page);
+      color: var(--text-secondary);
       border-radius: 999px;
+      font-size: 11px;
+      font-family: var(--font-body);
+      font-weight: 500;
       padding: 6px 10px;
       white-space: nowrap;
+      user-select: none;
     }
 
-    .chat-layout {
+    .btn {
+      height: 36px;
+      border: 1px solid var(--border);
+      background: var(--bg-page);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 16px;
+      cursor: pointer;
+      color: var(--text-main);
+      font-family: var(--font-display);
+      font-size: 13px;
+      font-weight: 500;
+      text-decoration: none;
+      user-select: none;
+    }
+
+    .btn:active { transform: translateY(1px); }
+
+    .btn.primary {
+      background: var(--text-main);
+      border-color: var(--text-main);
+      color: #ffffff;
+      padding: 10px 20px;
+    }
+
+    .btn.danger {
+      color: #b42318;
+      border-color: #f1d5d1;
+      background: #fff7f6;
+    }
+
+    .icon {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
+    }
+
+    .chat-body {
       flex: 1;
       min-height: 0;
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      overflow: hidden;
       display: grid;
-      grid-template-columns: 300px minmax(0, 1fr);
-      box-shadow: 0 12px 34px rgba(16, 24, 40, .08);
+      grid-template-columns: 320px minmax(0, 1fr);
+      gap: 0;
+      overflow: hidden;
     }
 
     .chat-left {
-      border-right: 1px solid var(--border);
-      background: linear-gradient(180deg, #fbfcff 0, #f7f9fd 100%);
-      display: flex;
-      flex-direction: column;
       min-height: 0;
+      border-right: 1px solid var(--border);
+      background: var(--bg-page);
+      display: grid;
+      grid-template-rows: auto 1fr;
     }
 
-    .chat-left-head {
-      padding: 14px;
+    .left-head {
       border-bottom: 1px solid var(--border);
+      padding: 14px;
       display: grid;
       gap: 10px;
+      background: var(--bg-card);
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .field label {
+      font-family: var(--font-body);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      line-height: 1.2;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: var(--bg-page);
+      color: var(--text-main);
+      font-family: var(--font-body);
+      font-size: 13px;
+      border-radius: 8px;
+      padding: 8px 10px;
+      outline: none;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: #bdbdbd;
+    }
+
+    #chat-system-prompt {
+      min-height: 62px;
+      resize: vertical;
+      font-size: 12px;
     }
 
     .chat-list {
+      min-height: 0;
       overflow: auto;
-      padding: 8px 10px 12px;
+      padding: 10px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      min-height: 0;
+      gap: 10px;
+      background: var(--bg-surface);
     }
 
     .chat-item {
+      width: 100%;
       border: 1px solid var(--border);
-      background: #fff;
-      border-radius: 12px;
+      background: var(--bg-page);
       padding: 10px;
-      cursor: pointer;
-      transition: .15s ease;
+      border-radius: 10px;
       display: grid;
-      gap: 4px;
-    }
-
-    .chat-item:hover {
-      border-color: #c7d4f5;
-      transform: translateY(-1px);
+      gap: 6px;
+      text-align: left;
+      cursor: pointer;
+      font-family: var(--font-body);
     }
 
     .chat-item.is-active {
-      background: var(--brand-soft);
-      border-color: #b7c8fb;
-      box-shadow: inset 0 0 0 1px rgba(47, 93, 255, .18);
+      border-color: #d0d0d0;
+      background: #f8f8f8;
     }
 
     .chat-item-title {
+      font-family: var(--font-display);
       font-size: 13px;
-      font-weight: 700;
-      line-height: 1.4;
-      color: #1f2b40;
+      font-weight: 500;
+      color: var(--text-main);
+      line-height: 1.35;
       word-break: break-word;
     }
 
+    .chat-item-meta,
+    .chat-item-preview {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
     .chat-item-meta {
-      font-size: 12px;
-      color: #6a7488;
       display: flex;
+      align-items: center;
       justify-content: space-between;
-      gap: 8px;
+      gap: 10px;
     }
 
     .chat-item-preview {
-      font-size: 12px;
-      color: #6e7890;
-      line-height: 1.45;
+      line-height: 1.4;
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
@@ -252,121 +277,125 @@
     }
 
     .chat-right {
+      min-height: 0;
       display: grid;
       grid-template-rows: auto 1fr auto;
-      min-height: 0;
+      background: var(--bg-page);
     }
 
     .chat-right-head {
       border-bottom: 1px solid var(--border);
       padding: 14px 16px;
       display: flex;
-      justify-content: space-between;
       align-items: flex-start;
-      gap: 14px;
-      background: #fff;
+      justify-content: space-between;
+      gap: 12px;
+      background: var(--bg-page);
     }
 
     .chat-right-head h2 {
       margin: 0;
+      font-family: var(--font-display);
       font-size: 20px;
+      font-weight: 600;
       line-height: 1.2;
+      color: var(--text-main);
     }
 
     .chat-right-head p {
       margin: 6px 0 0;
-      color: #657087;
-      font-size: 13px;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-family: var(--font-body);
     }
 
-    .chat-actions {
+    .chat-right-actions {
       display: inline-flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       flex-wrap: wrap;
       justify-content: flex-end;
     }
 
-    .chat-toggle {
-      font-size: 12px;
-      color: #4a556b;
+    .toggle {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      user-select: none;
       cursor: pointer;
+      font-family: var(--font-body);
     }
 
     .chat-messages {
       min-height: 0;
       overflow: auto;
-      padding: 18px;
+      padding: 16px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      background: linear-gradient(180deg, rgba(247, 250, 255, .5) 0, rgba(244, 248, 255, .85) 100%);
+      gap: 10px;
+      background: var(--bg-surface);
     }
 
     .msg {
       max-width: 88%;
+      border-radius: 12px;
       border: 1px solid var(--border);
-      border-radius: 14px;
       padding: 10px 12px;
+      background: var(--bg-page);
       display: grid;
       gap: 8px;
-      line-height: 1.6;
-      box-shadow: 0 4px 14px rgba(10, 20, 60, .06);
+      box-shadow: 0 1px 0 rgba(0,0,0,.02);
     }
 
     .msg[data-role="user"] {
       margin-left: auto;
-      background: var(--user-bg);
-      border-color: #c3d8ff;
+      background: #f5f5f5;
     }
 
     .msg[data-role="assistant"] {
       margin-right: auto;
-      background: var(--assistant-bg);
-      border-color: #d6e3ff;
+      background: #ffffff;
     }
 
     .msg-head {
-      font-size: 12px;
-      color: #50607b;
       display: flex;
+      align-items: center;
       justify-content: space-between;
       gap: 10px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-family: var(--font-body);
     }
 
     .msg-body {
-      font-size: 14px;
-      color: #1f2b40;
+      font-size: 13px;
+      color: var(--text-main);
+      line-height: 1.6;
       word-break: break-word;
+      font-family: var(--font-body);
     }
 
-    .msg-body p {
-      margin: 0 0 .6em;
-    }
-
-    .msg-body p:last-child {
-      margin-bottom: 0;
-    }
+    .msg-body p { margin: 0 0 .55em; }
+    .msg-body p:last-child { margin-bottom: 0; }
 
     .msg-body pre {
       margin: .6em 0;
       padding: 10px 12px;
-      border-radius: 10px;
-      background: #111827;
-      color: #f9fafb;
+      border-radius: 8px;
+      background: #111;
+      color: #f5f5f5;
       overflow: auto;
-      font-family: "SFMono-Regular", Menlo, Consolas, monospace;
       font-size: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
 
     .msg-body code {
-      font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: .92em;
-      background: #eef2ff;
-      border-radius: 5px;
+      background: #f2f2f2;
+      border-radius: 4px;
       padding: 1px 4px;
     }
 
@@ -376,152 +405,87 @@
     }
 
     .msg-reasoning {
-      border-top: 1px dashed #ccd7ef;
+      border-top: 1px dashed var(--border);
       padding-top: 8px;
       display: grid;
       gap: 8px;
     }
 
     .msg-reasoning summary {
+      font-size: 11px;
+      color: var(--text-secondary);
       cursor: pointer;
-      font-size: 12px;
-      color: #415372;
       user-select: none;
       list-style: none;
+      font-family: var(--font-body);
     }
 
-    .msg-reasoning summary::-webkit-details-marker {
-      display: none;
-    }
+    .msg-reasoning summary::-webkit-details-marker { display: none; }
 
     .msg-reasoning-body {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fbfbfb;
       font-size: 12px;
       line-height: 1.6;
-      color: #334155;
-      background: #f3f7ff;
-      border: 1px solid #d9e4ff;
-      border-radius: 10px;
+      color: #303030;
       padding: 8px 10px;
     }
 
     .chat-composer {
       border-top: 1px solid var(--border);
-      padding: 12px 16px 14px;
-      background: #fff;
+      padding: 12px 16px;
       display: grid;
       gap: 10px;
-    }
-
-    label {
-      font-size: 12px;
-      color: #556176;
-    }
-
-    textarea,
-    select,
-    input {
-      width: 100%;
-      border: 1px solid #cdd7ea;
-      border-radius: 10px;
-      background: #fff;
-      color: #1f2b40;
-      font-size: 13px;
-      padding: 9px 10px;
-      outline: none;
-    }
-
-    textarea:focus,
-    select:focus,
-    input:focus {
-      border-color: #8aa7ff;
-      box-shadow: 0 0 0 3px rgba(47, 93, 255, .14);
+      background: var(--bg-page);
     }
 
     #chat-input {
-      min-height: 96px;
+      min-height: 92px;
       resize: vertical;
     }
 
-    #chat-system-prompt {
-      min-height: 72px;
-      resize: vertical;
-      font-size: 12px;
+    .composer-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
     }
 
     .composer-actions {
       display: flex;
-      justify-content: space-between;
       align-items: center;
+      justify-content: space-between;
       gap: 10px;
     }
 
     .status {
       font-size: 12px;
-      color: var(--muted);
-    }
-
-    .btn {
-      border: 1px solid #c5d0e8;
-      border-radius: 10px;
-      background: #fff;
-      color: #1f2b40;
-      font-size: 13px;
-      padding: 7px 11px;
-      cursor: pointer;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      transition: .15s ease;
-    }
-
-    .btn:hover {
-      border-color: #9cb2e5;
-      transform: translateY(-1px);
-    }
-
-    .btn.primary {
-      background: linear-gradient(135deg, #3f67ff 0, #2f55d8 100%);
-      border-color: #335ddf;
-      color: #fff;
-    }
-
-    .btn.danger {
-      color: var(--danger);
-      border-color: #f3c7c2;
-      background: #fff6f5;
+      color: var(--text-secondary);
+      font-family: var(--font-body);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .empty {
-      border: 1px dashed #cfd9ed;
-      border-radius: 14px;
-      padding: 18px;
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      background: #ffffff;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-family: var(--font-body);
       text-align: center;
-      color: #667089;
-      font-size: 13px;
-      background: rgba(255, 255, 255, .72);
+      padding: 18px;
     }
 
-    @media (max-width: 1080px) {
-      .chat-layout {
-        grid-template-columns: 260px minmax(0, 1fr);
-      }
-    }
-
-    @media (max-width: 920px) {
-      .shell {
-        flex-direction: column;
+    @media (max-width: 1100px) {
+      .topbar {
+        padding: 20px 16px;
       }
 
-      .sidebar {
-        width: 100%;
-        border-right: 0;
-        border-bottom: 1px solid var(--border);
-      }
-
-      .chat-layout {
+      .chat-body {
         grid-template-columns: 1fr;
-        grid-template-rows: 280px minmax(0, 1fr);
+        grid-template-rows: 320px minmax(0, 1fr);
       }
 
       .chat-left {
@@ -529,93 +493,116 @@
         border-bottom: 1px solid var(--border);
       }
 
-      .main {
-        padding: 16px;
+      .title-row h1 {
+        font-size: 28px;
+      }
+    }
+
+    @media (max-width: 700px) {
+      .topbar {
+        flex-direction: column;
+        align-items: flex-start;
       }
 
-      .topbar h1 {
-        font-size: 30px;
+      .composer-row {
+        grid-template-columns: 1fr;
+      }
+
+      .msg {
+        max-width: 96%;
       }
     }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <aside class="sidebar" aria-label="Sidebar">
-      <div class="sidebar-top">
-        <a class="brand" href="/admin/dashboard">
-          <span class="brand-mark" aria-hidden="true"></span>
-          <span>LightBridge</span>
-        </a>
-        <nav class="menu" aria-label="主导航">
-          <a class="menu-item" href="/admin/dashboard"><span class="menu-dot" aria-hidden="true"></span>概览 Overview</a>
-          <a class="menu-item is-active" href="/admin/chatbox"><span class="menu-dot" aria-hidden="true"></span>对话 Chatbox</a>
-          <a class="menu-item" href="/admin/consumption"><span class="menu-dot" aria-hidden="true"></span>统计 Statistics</a>
-          <a class="menu-item" href="/admin/providers"><span class="menu-dot" aria-hidden="true"></span>提供商 Provider</a>
-          <a class="menu-item" href="/admin/router"><span class="menu-dot" aria-hidden="true"></span>路由 Router</a>
-          <a class="menu-item" href="/admin/marketplace"><span class="menu-dot" aria-hidden="true"></span>模块 Marketplace</a>
-          <a class="menu-item" href="/admin/settings"><span class="menu-dot" aria-hidden="true"></span>设置 Settings</a>
-        </nav>
-      </div>
-      <div class="sidebar-bottom">
-        <span class="admin-chip">A</span>
-        <span>{{.Username}}</span>
-      </div>
-    </aside>
-
-    <main class="main">
-      <header class="topbar">
-        <div>
-          <h1>对话版 Chatbox</h1>
-          <p>持久化存储每条会话与上下文，支持 Markdown / LaTeX 展示与思维链查看。</p>
+  <div class="chatbox-page">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="title-row">
+          <a class="btn" href="/admin/dashboard" aria-label="返回概览">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+            <span>概览</span>
+          </a>
+          <h1>对话 Chatbox</h1>
         </div>
+        <p class="topbar-sub">全屏会话模式 · 长期存储 · Markdown/LaTeX · 思维链 · 流式传输</p>
+      </div>
+      <div class="topbar-right">
         <span class="plugin-tip" id="chat-plugin-tip">Markdown/LaTeX 插件加载中</span>
-      </header>
+      </div>
+    </header>
 
-      <section class="chat-layout">
-        <aside class="chat-left" aria-label="会话列表">
-          <div class="chat-left-head">
-            <button class="btn primary" id="chat-create-btn" type="button">新建对话</button>
-            <div>
-              <label for="chat-create-model">新对话模型</label>
-              <select id="chat-create-model"></select>
+    <section class="chat-body" aria-label="Chatbox">
+      <aside class="chat-left" aria-label="会话列表">
+        <div class="left-head">
+          <button class="btn primary" id="chat-create-btn" type="button">新建对话</button>
+          <div class="field">
+            <label for="chat-create-model">新对话模型</label>
+            <select id="chat-create-model"></select>
+          </div>
+          <div class="field">
+            <label for="chat-system-prompt">System Prompt（可选）</label>
+            <textarea id="chat-system-prompt" placeholder="为新会话设置系统提示词（可空）"></textarea>
+          </div>
+        </div>
+        <div class="chat-list" id="chat-list"></div>
+      </aside>
+
+      <section class="chat-right" aria-label="会话详情">
+        <header class="chat-right-head">
+          <div>
+            <h2 id="chat-title">请选择一个会话</h2>
+            <p id="chat-meta">左侧新建后即可开始对话</p>
+          </div>
+          <div class="chat-right-actions">
+            <label class="toggle">
+              <input id="chat-show-reasoning" type="checkbox" />
+              <span>显示思维链</span>
+            </label>
+            <button class="btn danger" id="chat-delete-btn" type="button">删除会话</button>
+          </div>
+        </header>
+
+        <div class="chat-messages" id="chat-messages"></div>
+
+        <footer class="chat-composer">
+          <div class="composer-row">
+            <div class="field">
+              <label for="chat-send-model">发送模型</label>
+              <select id="chat-send-model"></select>
             </div>
-            <div>
-              <label for="chat-system-prompt">System Prompt（可选）</label>
-              <textarea id="chat-system-prompt" placeholder="为新会话设置系统提示词（可空）"></textarea>
+            <div class="field">
+              <label for="chat-reasoning-effort">reasoning_efforts</label>
+              <select id="chat-reasoning-effort">
+                <option value="">默认</option>
+                <option value="none">none</option>
+                <option value="minimal">minimal</option>
+                <option value="low">low</option>
+                <option value="medium">medium</option>
+                <option value="high">high</option>
+                <option value="xhigh">xhigh</option>
+              </select>
             </div>
           </div>
-          <div class="chat-list" id="chat-list"></div>
-        </aside>
 
-        <section class="chat-right" aria-label="会话详情">
-          <header class="chat-right-head">
-            <div>
-              <h2 id="chat-title">请选择一个会话</h2>
-              <p id="chat-meta">左侧新建后即可开始对话</p>
-            </div>
-            <div class="chat-actions">
-              <label class="chat-toggle">
-                <input id="chat-show-reasoning" type="checkbox" />
-                <span>显示思维链</span>
-              </label>
-              <button class="btn danger" id="chat-delete-btn" type="button">删除会话</button>
-            </div>
-          </header>
-
-          <div class="chat-messages" id="chat-messages"></div>
-
-          <footer class="chat-composer">
+          <div class="field">
             <label for="chat-input">输入消息（Cmd/Ctrl + Enter 发送）</label>
             <textarea id="chat-input" placeholder="输入内容，支持 Markdown / LaTeX 语法。"></textarea>
-            <div class="composer-actions">
-              <span class="status" id="chat-status">准备就绪</span>
-              <button class="btn primary" id="chat-send-btn" type="button">发送消息</button>
-            </div>
-          </footer>
-        </section>
+          </div>
+
+          <div class="composer-actions">
+            <label class="toggle">
+              <input id="chat-stream" type="checkbox" checked />
+              <span>流式传输</span>
+            </label>
+            <span class="status" id="chat-status">准备就绪</span>
+            <button class="btn primary" id="chat-send-btn" type="button">发送消息</button>
+          </div>
+        </footer>
       </section>
-    </main>
+    </section>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -636,6 +623,8 @@
         sending: false,
         showReasoning: false,
       };
+
+      let renderStamp = 0;
 
       function setStatus(text) {
         const node = document.getElementById('chat-status');
@@ -699,7 +688,7 @@
             throwOnError: false,
           });
         } catch (_) {
-          // keep rendered markdown text as-is
+          // ignore render errors
         }
       }
 
@@ -731,7 +720,7 @@
         host.innerHTML = '';
         const rows = Array.isArray(STATE.conversations) ? STATE.conversations : [];
         if (rows.length === 0) {
-          host.appendChild(LB.el('div', { className: 'empty', text: '暂无会话。先点击“新建对话”。' }));
+          host.appendChild(LB.el('div', { className: 'empty', text: '暂无会话。点击“新建对话”开始。' }));
           return;
         }
 
@@ -760,7 +749,13 @@
         }
       }
 
-      function renderMessages() {
+      function renderMessages(force = true) {
+        if (!force) {
+          const now = Date.now();
+          if (now - renderStamp < 66) return;
+          renderStamp = now;
+        }
+
         const host = document.getElementById('chat-messages');
         if (!host) return;
         host.innerHTML = '';
@@ -835,9 +830,29 @@
         metaNode.textContent = `${model} · 创建于 ${createdAt} · 更新于 ${updatedAt}`;
       }
 
+      function renderModelSelect(selectNode, selected = '') {
+        if (!selectNode) return;
+        const ids = Array.isArray(STATE.models) ? STATE.models : [];
+        selectNode.innerHTML = '';
+        for (const id of ids) {
+          selectNode.appendChild(LB.el('option', { value: id, text: id }));
+        }
+        const chosen = String(selected || '').trim();
+        if (chosen && ids.includes(chosen)) {
+          selectNode.value = chosen;
+          return;
+        }
+        if (ids.length > 0) selectNode.value = ids[0];
+      }
+
+      function syncSendModelFromConversation() {
+        const node = document.getElementById('chat-send-model');
+        if (!node) return;
+        const convModel = String(STATE.currentConversation?.model_id || '').trim();
+        renderModelSelect(node, convModel);
+      }
+
       async function loadModels() {
-        const createModel = document.getElementById('chat-create-model');
-        if (!createModel) return;
         const body = await LB.apiJSON('/admin/api/models');
         const list = Array.isArray(body?.models) ? body.models : [];
         const ids = [];
@@ -847,10 +862,9 @@
         }
         ids.sort((a, b) => a.localeCompare(b));
         STATE.models = ids;
-        createModel.innerHTML = '';
-        for (const id of ids) {
-          createModel.appendChild(LB.el('option', { value: id, text: id }));
-        }
+
+        renderModelSelect(document.getElementById('chat-create-model'));
+        syncSendModelFromConversation();
       }
 
       async function loadConversations(preferID = '') {
@@ -883,6 +897,7 @@
         STATE.messages = Array.isArray(body?.messages) ? body.messages : [];
         renderConversationList();
         renderConversationHeader();
+        syncSendModelFromConversation();
         renderMessages();
       }
 
@@ -912,6 +927,147 @@
         setStatus('会话已创建');
       }
 
+      function buildSendPayload(content, model, streamEnabled) {
+        const effortNode = document.getElementById('chat-reasoning-effort');
+        const reasoningEffort = String(effortNode?.value || '').trim();
+        const params = {};
+        if (reasoningEffort) params.reasoning_effort = reasoningEffort;
+
+        return {
+          content,
+          model,
+          params,
+          stream: Boolean(streamEnabled),
+        };
+      }
+
+      function appendStreamingPlaceholders(content) {
+        const nowISO = new Date().toISOString();
+        STATE.messages = Array.isArray(STATE.messages) ? STATE.messages.slice() : [];
+        STATE.messages.push({
+          role: 'user',
+          content,
+          created_at: nowISO,
+        });
+        STATE.messages.push({
+          role: 'assistant',
+          content: '',
+          reasoning_text: '',
+          created_at: nowISO,
+        });
+      }
+
+      function updateStreamingAssistant(text, reasoning) {
+        const rows = Array.isArray(STATE.messages) ? STATE.messages : [];
+        if (rows.length === 0) return;
+        const last = rows[rows.length - 1];
+        if (!last || String(last.role || '') !== 'assistant') return;
+        last.content = String(text || '');
+        last.reasoning_text = String(reasoning || '');
+      }
+
+      function parseStreamBlock(raw) {
+        const lines = String(raw || '').split(/\r?\n/);
+        let event = 'message';
+        const dataLines = [];
+        for (const line of lines) {
+          if (line.startsWith('event:')) {
+            event = String(line.slice(6) || '').trim() || 'message';
+            continue;
+          }
+          if (line.startsWith('data:')) {
+            dataLines.push(String(line.slice(5) || '').trim());
+          }
+        }
+        const joined = dataLines.join('');
+        let payload = {};
+        if (joined) {
+          try {
+            payload = JSON.parse(joined);
+          } catch (_) {
+            payload = { raw: joined };
+          }
+        }
+        return { event, payload };
+      }
+
+      async function sendMessageStream(convID, content, model) {
+        const payload = buildSendPayload(content, model, true);
+        const resp = await fetch(`/admin/api/chatbox/conversations/${encodeURIComponent(convID)}/messages?stream=1`, {
+          method: 'POST',
+          headers: {
+            accept: 'text/event-stream',
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!resp.ok) {
+          const txt = await resp.text();
+          let parsed = null;
+          try { parsed = txt ? JSON.parse(txt) : null; } catch (_) { parsed = null; }
+          throw new Error(parsed?.error || parsed?.details || txt || `请求失败(${resp.status})`);
+        }
+        if (!resp.body) {
+          throw new Error('浏览器不支持流式响应');
+        }
+
+        appendStreamingPlaceholders(content);
+        renderMessages();
+
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let assistantText = '';
+        let reasoningText = '';
+        let donePayload = null;
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          while (true) {
+            const idx = buffer.indexOf('\n\n');
+            if (idx < 0) break;
+            const block = buffer.slice(0, idx);
+            buffer = buffer.slice(idx + 2);
+            if (!block.trim()) continue;
+
+            const { event, payload: evt } = parseStreamBlock(block);
+            if (event === 'delta') {
+              assistantText += String(evt?.delta || '');
+              updateStreamingAssistant(assistantText, reasoningText);
+              renderMessages(false);
+              continue;
+            }
+            if (event === 'reasoning') {
+              reasoningText += String(evt?.delta || '');
+              updateStreamingAssistant(assistantText, reasoningText);
+              renderMessages(false);
+              continue;
+            }
+            if (event === 'error') {
+              throw new Error(String(evt?.error || evt?.details || '流式传输失败'));
+            }
+            if (event === 'done') {
+              donePayload = evt || {};
+            }
+          }
+        }
+
+        if (donePayload?.conversation) STATE.currentConversation = donePayload.conversation;
+        if (Array.isArray(donePayload?.messages)) {
+          STATE.messages = donePayload.messages;
+        } else {
+          updateStreamingAssistant(assistantText, reasoningText);
+        }
+
+        renderConversationHeader();
+        syncSendModelFromConversation();
+        renderMessages();
+      }
+
       async function sendMessage() {
         if (STATE.sending) return;
         const convID = String(STATE.currentConversation?.id || '').trim();
@@ -919,6 +1075,7 @@
           LB.toast('请先新建或选择会话', 'error', 3200);
           return;
         }
+
         const input = document.getElementById('chat-input');
         const content = String(input?.value || '').trim();
         if (!content) {
@@ -926,21 +1083,34 @@
           return;
         }
 
+        const sendModelNode = document.getElementById('chat-send-model');
+        const model = String(sendModelNode?.value || STATE.currentConversation?.model_id || '').trim();
+        if (!model) {
+          LB.toast('请先选择发送模型', 'error', 2600);
+          return;
+        }
+
+        const streamNode = document.getElementById('chat-stream');
+        const streamEnabled = Boolean(streamNode?.checked);
+
         STATE.sending = true;
-        setStatus('发送中...');
+        setStatus(streamEnabled ? '流式传输中...' : '发送中...');
         try {
-          const body = await LB.apiJSON(`/admin/api/chatbox/conversations/${encodeURIComponent(convID)}/messages`, {
-            method: 'POST',
-            body: {
-              content,
-              model: String(STATE.currentConversation?.model_id || ''),
-            },
-          });
-          STATE.currentConversation = body?.conversation || STATE.currentConversation;
-          STATE.messages = Array.isArray(body?.messages) ? body.messages : STATE.messages;
+          if (streamEnabled) {
+            await sendMessageStream(convID, content, model);
+          } else {
+            const body = await LB.apiJSON(`/admin/api/chatbox/conversations/${encodeURIComponent(convID)}/messages`, {
+              method: 'POST',
+              body: buildSendPayload(content, model, false),
+            });
+            STATE.currentConversation = body?.conversation || STATE.currentConversation;
+            STATE.messages = Array.isArray(body?.messages) ? body.messages : STATE.messages;
+            renderConversationHeader();
+            syncSendModelFromConversation();
+            renderMessages();
+          }
+
           if (input) input.value = '';
-          renderConversationHeader();
-          renderMessages();
           await loadConversations(convID);
           setStatus('已完成');
         } catch (err) {

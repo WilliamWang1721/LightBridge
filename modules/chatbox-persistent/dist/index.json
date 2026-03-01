@@ -1,0 +1,18 @@
+{
+  "generated_at": "2026-03-01T13:56:29Z",
+  "min_core_version": "0.1.0",
+  "modules": [
+    {
+      "id": "chatbox-persistent",
+      "name": "Chatbox Persistent",
+      "version": "0.1.0",
+      "description": "Persistent Chatbox module with conversation history APIs and OpenAI-compatible chat proxy.",
+      "license": "UNLICENSED",
+      "tags": ["chatbox", "conversation", "persistence", "provider"],
+      "protocols": ["http_rpc"],
+      "download_url": "http://127.0.0.1:8000/chatbox-persistent_0.1.0_universal.zip",
+      "sha256": "4fafe77e7df4138cf6fa86d58623cf19fcb5e3e9750881dfe3ed4947d4af1b3c",
+      "homepage": ""
+    }
+  ]
+}

@@ -578,6 +578,7 @@ type chatboxMessagePayload struct {
 	Content string         `json:"content"`
 	Model   string         `json:"model"`
 	Params  map[string]any `json:"params"`
+	Stream  bool           `json:"stream"`
 }
 
 func (s *Server) handleProviderDeleteAPI(w http.ResponseWriter, r *http.Request) {
@@ -825,19 +826,68 @@ func (s *Server) handleChatboxMessageAPI(w http.ResponseWriter, r *http.Request,
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid json"})
 		return
 	}
+	streamMode := req.Stream
+	if !streamMode {
+		streamRaw := strings.TrimSpace(r.URL.Query().Get("stream"))
+		streamMode = streamRaw == "1" || strings.EqualFold(streamRaw, "true")
+	}
+	var flusher http.Flusher
+	if streamMode {
+		if f, ok := w.(http.Flusher); ok {
+			flusher = f
+		} else {
+			streamMode = false
+		}
+	}
+	streamStarted := false
+	startStream := func() bool {
+		if !streamMode {
+			return false
+		}
+		if streamStarted {
+			return true
+		}
+		w.Header().Set("content-type", "text/event-stream")
+		w.Header().Set("cache-control", "no-cache")
+		w.Header().Set("connection", "keep-alive")
+		w.WriteHeader(http.StatusOK)
+		streamStarted = true
+		return true
+	}
+	sendStream := func(event string, payload any) {
+		if !startStream() {
+			return
+		}
+		writeChatboxSSEEvent(w, flusher, event, payload)
+	}
+	writeErr := func(status int, payload map[string]any) {
+		if streamMode && startStream() {
+			body := map[string]any{
+				"ok":     false,
+				"status": status,
+			}
+			for k, v := range payload {
+				body[k] = v
+			}
+			writeChatboxSSEEvent(w, flusher, "error", body)
+			writeChatboxSSEEvent(w, flusher, "done", map[string]any{"ok": false})
+			return
+		}
+		writeJSON(w, status, payload)
+	}
 	userInput := strings.TrimSpace(req.Content)
 	if userInput == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "content is required"})
+		writeErr(http.StatusBadRequest, map[string]any{"error": "content is required"})
 		return
 	}
 
 	conv, err := s.store.GetChatConversation(r.Context(), conversationID)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		writeErr(http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return
 	}
 	if conv == nil {
-		writeJSON(w, http.StatusNotFound, map[string]any{"error": "conversation not found"})
+		writeErr(http.StatusNotFound, map[string]any{"error": "conversation not found"})
 		return
 	}
 
@@ -846,22 +896,22 @@ func (s *Server) handleChatboxMessageAPI(w http.ResponseWriter, r *http.Request,
 		modelID = strings.TrimSpace(conv.ModelID)
 	}
 	if modelID == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "model is required"})
+		writeErr(http.StatusBadRequest, map[string]any{"error": "model is required"})
 		return
 	}
 	model, err := s.store.GetModel(r.Context(), modelID)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		writeErr(http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return
 	}
 	if model == nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "model does not exist"})
+		writeErr(http.StatusBadRequest, map[string]any{"error": "model does not exist"})
 		return
 	}
 
 	history, err := s.store.ListChatMessages(r.Context(), conversationID, 4000)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		writeErr(http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return
 	}
 
@@ -903,20 +953,20 @@ func (s *Server) handleChatboxMessageAPI(w http.ResponseWriter, r *http.Request,
 
 	requestBytes, err := json.Marshal(requestBody)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid request payload"})
+		writeErr(http.StatusBadRequest, map[string]any{"error": "invalid request payload"})
 		return
 	}
 
 	baseModelID, tagEffort, hasModelTag, tagErr := parseModelTag(modelID, s.cfg.ModelTagAliases)
 	if tagErr != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": tagErr.Error()})
+		writeErr(http.StatusBadRequest, map[string]any{"error": tagErr.Error()})
 		return
 	}
 	if hasModelTag {
 		modelID = baseModelID
 		requestBytes, err = patchReasoningEffort(requestBytes, endpointKindChatCompletions, baseModelID, tagEffort, true)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid request payload"})
+			writeErr(http.StatusBadRequest, map[string]any{"error": "invalid request payload"})
 			return
 		}
 	}
@@ -927,24 +977,24 @@ func (s *Server) handleChatboxMessageAPI(w http.ResponseWriter, r *http.Request,
 		route, err = s.resolver.Resolve(r.Context(), modelID)
 	}
 	if err != nil || route == nil {
-		writeJSON(w, http.StatusBadGateway, map[string]any{"error": "routing failed", "details": errString(err)})
+		writeErr(http.StatusBadGateway, map[string]any{"error": "routing failed", "details": errString(err)})
 		return
 	}
 
 	provider, err := s.store.GetProvider(r.Context(), route.ProviderID)
 	if err != nil || provider == nil {
-		writeJSON(w, http.StatusBadGateway, map[string]any{"error": "provider unavailable"})
+		writeErr(http.StatusBadGateway, map[string]any{"error": "provider unavailable"})
 		return
 	}
 	adapter, ok := s.providers.Get(provider.Protocol)
 	if !ok {
-		writeJSON(w, http.StatusNotImplemented, map[string]any{"error": "provider protocol is not supported"})
+		writeErr(http.StatusNotImplemented, map[string]any{"error": "provider protocol is not supported"})
 		return
 	}
 
 	upstreamReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, "/v1/chat/completions", bytes.NewReader(requestBytes))
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "failed to build upstream request"})
+		writeErr(http.StatusInternalServerError, map[string]any{"error": "failed to build upstream request"})
 		return
 	}
 	upstreamReq.Header.Set("content-type", "application/json")
@@ -965,7 +1015,7 @@ func (s *Server) handleChatboxMessageAPI(w http.ResponseWriter, r *http.Request,
 	reasoningText := strings.TrimSpace(extractExperimentReasoningText(respObj))
 
 	if callErr != nil {
-		writeJSON(w, status, map[string]any{
+		writeErr(status, map[string]any{
 			"error":      "chat request failed",
 			"details":    callErr.Error(),
 			"error_code": nonEmpty(errorCode, "upstream_error"),
@@ -975,7 +1025,7 @@ func (s *Server) handleChatboxMessageAPI(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	if status >= 400 {
-		writeJSON(w, status, map[string]any{
+		writeErr(status, map[string]any{
 			"error":      nonEmpty(extractExperimentError(respObj), "upstream request failed"),
 			"error_code": nonEmpty(errorCode, "upstream_error"),
 			"route":      experimentRouteInfo(route, provider),
@@ -1008,12 +1058,40 @@ func (s *Server) handleChatboxMessageAPI(w http.ResponseWriter, r *http.Request,
 		nonEmpty(provider.ID, ""),
 		routeModel,
 	); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		writeErr(http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return
 	}
 
 	updatedConv, _ := s.store.GetChatConversation(r.Context(), conversationID)
 	msgs, _ := s.store.ListChatMessages(r.Context(), conversationID, 4000)
+	if streamMode {
+		sendStream("ack", map[string]any{
+			"ok":              true,
+			"conversation_id": conversationID,
+		})
+		for _, chunk := range chatboxChunkText(assistantText, 14) {
+			sendStream("delta", map[string]any{
+				"delta": chunk,
+			})
+		}
+		for _, chunk := range chatboxChunkText(reasoningText, 18) {
+			sendStream("reasoning", map[string]any{
+				"delta": chunk,
+			})
+		}
+		sendStream("done", map[string]any{
+			"ok":              true,
+			"conversation_id": conversationID,
+			"assistant_text":  assistantText,
+			"reasoning_text":  reasoningText,
+			"route":           experimentRouteInfo(route, provider),
+			"conversation":    updatedConv,
+			"messages":        msgs,
+			"response":        respObj,
+		})
+		return
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":              true,
 		"conversation_id": conversationID,
@@ -1073,6 +1151,44 @@ func chatboxTitleFromInput(content string) string {
 		return string(runes[:28]) + "..."
 	}
 	return normalized
+}
+
+func writeChatboxSSEEvent(w http.ResponseWriter, flusher http.Flusher, event string, payload any) {
+	if strings.TrimSpace(event) != "" {
+		_, _ = fmt.Fprintf(w, "event: %s\n", strings.TrimSpace(event))
+	}
+	if payload != nil {
+		if b, err := json.Marshal(payload); err == nil {
+			_, _ = fmt.Fprintf(w, "data: %s\n\n", b)
+		} else {
+			_, _ = fmt.Fprintf(w, "data: {\"error\":\"marshal_failed\"}\n\n")
+		}
+	} else {
+		_, _ = fmt.Fprintf(w, "data: {}\n\n")
+	}
+	if flusher != nil {
+		flusher.Flush()
+	}
+}
+
+func chatboxChunkText(text string, chunkSize int) []string {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return nil
+	}
+	if chunkSize <= 0 {
+		chunkSize = 16
+	}
+	runes := []rune(text)
+	out := make([]string, 0, (len(runes)/chunkSize)+1)
+	for i := 0; i < len(runes); i += chunkSize {
+		j := i + chunkSize
+		if j > len(runes) {
+			j = len(runes)
+		}
+		out = append(out, string(runes[i:j]))
+	}
+	return out
 }
 
 func (s *Server) handleExperimentChatAPI(w http.ResponseWriter, r *http.Request) {

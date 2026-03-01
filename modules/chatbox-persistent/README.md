@@ -1,6 +1,6 @@
 # Chatbox Persistent Module (LightBridge)
 
-`chatbox-persistent` 是一个可独立安装的持久化 Chatbox 模块：
+`chatbox-persistent` 是一个可独立安装的持久化 Chatbox Tools 模块：
 
 - 提供会话持久化 API（存储于 `LIGHTBRIDGE_DATA_DIR/chatbox_store.json`）
 - 提供 OpenAI 兼容聊天代理端点（`/v1/chat/completions`）
