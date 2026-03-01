@@ -61,12 +61,7 @@ jobs:
               echo "module_id is required" >&2
               exit 1
             fi
-            version="$(python3 - <<PY
-import json
-with open("modules/${module_id}/manifest.json","r",encoding="utf-8") as f:
-  print(json.load(f)["version"])
-PY
-)"
+            version="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1],\"r\",encoding=\"utf-8\"))[\"version\"])' \"modules/${module_id}/manifest.json\")"
             tag="module-${module_id}-v${version}"
             target_sha="$(git rev-parse HEAD)"
           fi
