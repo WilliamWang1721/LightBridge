@@ -26,5 +26,10 @@ func NewRegistry(adapters ...Adapter) *Registry {
 
 func (r *Registry) Get(protocol string) (Adapter, bool) {
 	a, ok := r.adapters[protocol]
+	if ok {
+		return a, true
+	}
+	normalized := types.NormalizeProtocol(protocol)
+	a, ok = r.adapters[normalized]
 	return a, ok
 }

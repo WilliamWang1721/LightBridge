@@ -324,7 +324,7 @@ func validateManifest(m types.ModuleManifest) error {
 			return fmt.Errorf("unsupported service kind %s", svc.Kind)
 		}
 		switch svc.Protocol {
-		case types.ProtocolHTTPOpenAI, types.ProtocolHTTPRPC, types.ProtocolGRPCChat, types.ProtocolCodex:
+		case types.ProtocolOpenAI, types.ProtocolOpenAIResponses, types.ProtocolGemini, types.ProtocolAnthropic, types.ProtocolAzureOpenAI, types.ProtocolHTTPOpenAI, types.ProtocolHTTPRPC, types.ProtocolGRPCChat, types.ProtocolCodex:
 		default:
 			return fmt.Errorf("unsupported service protocol %s", svc.Protocol)
 		}

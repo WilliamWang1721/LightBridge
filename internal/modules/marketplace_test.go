@@ -116,10 +116,14 @@ func setupGatewayForModules(t *testing.T, st *store.Store, dataDir, indexURL str
 	t.Helper()
 	resolver := routing.NewResolver(st, rand.New(rand.NewSource(9)))
 	registry := providers.NewRegistry(
+		providers.NewHTTPForwardAdapter(types.ProtocolOpenAI, nil),
 		providers.NewHTTPForwardAdapter(types.ProtocolForward, nil),
 		providers.NewHTTPForwardAdapter(types.ProtocolHTTPOpenAI, nil),
 		providers.NewHTTPForwardAdapter(types.ProtocolHTTPRPC, nil),
+		providers.NewOpenAIResponsesAdapter(nil),
+		providers.NewGeminiAdapter(nil),
 		providers.NewAnthropicAdapter(nil),
+		providers.NewAzureOpenAIAdapter(nil),
 		providers.NewGRPCChatAdapter(),
 	)
 	market := modules.NewMarketplace(st, dataDir, nil)

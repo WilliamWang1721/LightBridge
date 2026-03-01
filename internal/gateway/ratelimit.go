@@ -17,8 +17,8 @@ type rateLimiter struct {
 }
 
 type bucket struct {
-	tokens    int
-	lastFill  time.Time
+	tokens   int
+	lastFill time.Time
 }
 
 func newRateLimiter(ratePerMinute, burst int) *rateLimiter {
@@ -78,7 +78,7 @@ func (rl *rateLimiter) cleanup() {
 }
 
 // rateLimitMiddleware wraps an http.Handler with per-key rate limiting.
-// It extracts the API key from the Authorization header.
+// It extracts the API key from standard auth headers/query params.
 func rateLimitMiddleware(rl *rateLimiter, next http.Handler) http.Handler {
 	if rl == nil {
 		return next
@@ -87,8 +87,11 @@ func rateLimitMiddleware(rl *rateLimiter, next http.Handler) http.Handler {
 		// Only rate-limit API proxy paths
 		if !strings.HasPrefix(r.URL.Path, "/v1/") &&
 			!strings.HasPrefix(r.URL.Path, "/openai/") &&
+			!strings.HasPrefix(r.URL.Path, "/openai-responses/") &&
 			!strings.HasPrefix(r.URL.Path, "/gemini/") &&
-			!strings.HasPrefix(r.URL.Path, "/claude/") {
+			!strings.HasPrefix(r.URL.Path, "/claude/") &&
+			!strings.HasPrefix(r.URL.Path, "/anthropic/") &&
+			!strings.HasPrefix(r.URL.Path, "/azure/openai/") {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -110,9 +113,5 @@ func rateLimitMiddleware(rl *rateLimiter, next http.Handler) http.Handler {
 }
 
 func extractAPIKey(r *http.Request) string {
-	auth := r.Header.Get("Authorization")
-	if strings.HasPrefix(auth, "Bearer ") {
-		return strings.TrimSpace(strings.TrimPrefix(auth, "Bearer "))
-	}
-	return ""
+	return clientTokenFromRequest(r)
 }

@@ -1,19 +1,41 @@
 package types
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 const (
-	ProtocolForward    = "forward"
-	ProtocolAnthropic  = "anthropic"
-	ProtocolGemini     = "gemini"
-	ProtocolHTTPOpenAI = "http_openai"
-	ProtocolHTTPRPC    = "http_rpc"
-	ProtocolGRPCChat   = "grpc_chat"
-	ProtocolCodex      = "codex"
+	ProtocolOpenAI          = "openai"
+	ProtocolOpenAIResponses = "openai_responses"
+	ProtocolAzureOpenAI     = "azure_openai"
+	ProtocolForward         = "forward"
+	ProtocolAnthropic       = "anthropic"
+	ProtocolGemini          = "gemini"
+	ProtocolHTTPOpenAI      = "http_openai"
+	ProtocolHTTPRPC         = "http_rpc"
+	ProtocolGRPCChat        = "grpc_chat"
+	ProtocolCodex           = "codex"
 
 	ProviderTypeBuiltin = "builtin"
 	ProviderTypeModule  = "module"
 )
+
+// NormalizeProtocol converts legacy aliases into their canonical protocol names.
+func NormalizeProtocol(protocol string) string {
+	switch trimLower(protocol) {
+	case ProtocolForward, ProtocolHTTPOpenAI, ProtocolHTTPRPC:
+		return ProtocolOpenAI
+	case "claude":
+		return ProtocolAnthropic
+	default:
+		return trimLower(protocol)
+	}
+}
+
+func trimLower(s string) string {
+	return strings.ToLower(strings.TrimSpace(s))
+}
 
 type Provider struct {
 	ID          string

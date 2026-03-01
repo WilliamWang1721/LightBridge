@@ -13,6 +13,7 @@ import (
 	"lightbridge/internal/providers"
 	"lightbridge/internal/routing"
 	"lightbridge/internal/store"
+	"lightbridge/internal/types"
 )
 
 func Run(ctx context.Context, cfg Config) error {
@@ -42,11 +43,15 @@ func Run(ctx context.Context, cfg Config) error {
 
 	resolver := routing.NewResolver(st, rand.New(rand.NewSource(42)))
 	providerRegistry := providers.NewRegistry(
+		providers.NewHTTPForwardAdapter(types.ProtocolOpenAI, nil),
 		providers.NewHTTPForwardAdapter("forward", nil),
 		providers.NewHTTPForwardAdapter("http_openai", nil),
 		providers.NewHTTPForwardAdapter("http_rpc", nil),
+		providers.NewOpenAIResponsesAdapter(nil),
 		providers.NewCodexAdapter(nil),
+		providers.NewGeminiAdapter(nil),
 		providers.NewAnthropicAdapter(nil),
+		providers.NewAzureOpenAIAdapter(nil),
 		providers.NewGRPCChatAdapter(),
 	)
 	moduleMgr := modules.NewManager(st, cfg.DataDir)

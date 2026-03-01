@@ -44,6 +44,8 @@ func (a *AnthropicAdapter) Protocol() string {
 
 func (a *AnthropicAdapter) Handle(ctx context.Context, w http.ResponseWriter, req *http.Request, provider types.Provider, route *types.ResolvedRoute) (int, string, error) {
 	switch req.URL.Path {
+	case "/v1/messages":
+		return a.handleNativeMessages(ctx, w, req, provider, route)
 	case "/v1/chat/completions":
 		return a.handleChatCompletions(ctx, w, req, provider, route)
 	case "/v1/responses":
@@ -52,6 +54,56 @@ func (a *AnthropicAdapter) Handle(ctx context.Context, w http.ResponseWriter, re
 		writeOpenAIError(w, http.StatusNotImplemented, "Endpoint not supported by anthropic provider", "not_supported", "501_not_supported")
 		return http.StatusNotImplemented, "501_not_supported", nil
 	}
+}
+
+func (a *AnthropicAdapter) handleNativeMessages(ctx context.Context, w http.ResponseWriter, req *http.Request, provider types.Provider, route *types.ResolvedRoute) (int, string, error) {
+	if req.Method != http.MethodPost {
+		writeOpenAIError(w, http.StatusMethodNotAllowed, "Method not allowed", "invalid_request_error", "method_not_allowed")
+		return http.StatusMethodNotAllowed, "method_not_allowed", nil
+	}
+	cfg := a.parseConfig(provider)
+	if cfg.APIKey == "" {
+		writeOpenAIError(w, http.StatusBadGateway, "Anthropic API key missing", "provider_misconfigured", "provider_misconfigured")
+		return http.StatusBadGateway, "provider_misconfigured", nil
+	}
+
+	var body []byte
+	if req.Body != nil {
+		body, _ = io.ReadAll(io.LimitReader(req.Body, 20<<20))
+		_ = req.Body.Close()
+	}
+	body = rewriteModel(body, route, nil)
+
+	targetURL := strings.TrimRight(cfg.BaseURL, "/") + "/v1/messages"
+	upReq, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(body))
+	if err != nil {
+		return http.StatusBadGateway, "upstream_request_failed", err
+	}
+	copyHeaders(upReq.Header, req.Header)
+	upReq.Header.Set("x-api-key", cfg.APIKey)
+	upReq.Header.Set("anthropic-version", anthropicVersionHeader)
+	upReq.Header.Del("authorization")
+	upReq.Header.Del("accept-encoding")
+	if strings.TrimSpace(upReq.Header.Get("content-type")) == "" {
+		upReq.Header.Set("content-type", "application/json")
+	}
+	for k, v := range cfg.ExtraHeaders {
+		if strings.TrimSpace(k) != "" {
+			upReq.Header.Set(k, v)
+		}
+	}
+
+	resp, err := a.client.Do(upReq)
+	if err != nil {
+		return http.StatusBadGateway, "upstream_unreachable", err
+	}
+	defer resp.Body.Close()
+	copyHeaders(w.Header(), resp.Header)
+	w.WriteHeader(resp.StatusCode)
+	if _, err := io.Copy(w, resp.Body); err != nil {
+		return resp.StatusCode, "upstream_stream_failed", err
+	}
+	return resp.StatusCode, "", nil
 }
 
 func (a *AnthropicAdapter) handleChatCompletions(ctx context.Context, w http.ResponseWriter, req *http.Request, provider types.Provider, route *types.ResolvedRoute) (int, string, error) {

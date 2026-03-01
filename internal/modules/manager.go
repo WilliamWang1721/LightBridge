@@ -416,7 +416,7 @@ func (m *Manager) waitHealth(ctx context.Context, services []types.ManifestServi
 				continue
 			}
 			switch svc.Protocol {
-			case types.ProtocolHTTPOpenAI, types.ProtocolHTTPRPC, types.ProtocolCodex:
+			case types.ProtocolOpenAI, types.ProtocolOpenAIResponses, types.ProtocolGemini, types.ProtocolAnthropic, types.ProtocolAzureOpenAI, types.ProtocolHTTPOpenAI, types.ProtocolHTTPRPC, types.ProtocolCodex:
 				path := svc.Health.Path
 				if path == "" {
 					path = "/health"
@@ -479,7 +479,7 @@ func (m *Manager) registerProviderAliases(ctx context.Context, services []types.
 		}
 		endpoint := ""
 		switch svc.Protocol {
-		case types.ProtocolHTTPOpenAI, types.ProtocolHTTPRPC, types.ProtocolCodex:
+		case types.ProtocolOpenAI, types.ProtocolOpenAIResponses, types.ProtocolGemini, types.ProtocolAnthropic, types.ProtocolAzureOpenAI, types.ProtocolHTTPOpenAI, types.ProtocolHTTPRPC, types.ProtocolCodex:
 			endpoint = fmt.Sprintf("http://127.0.0.1:%d", httpPort)
 		case types.ProtocolGRPCChat:
 			endpoint = fmt.Sprintf("127.0.0.1:%d", grpcPort)

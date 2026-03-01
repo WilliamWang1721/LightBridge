@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"strings"
 	"time"
+
+	"lightbridge/internal/types"
 )
 
 const voucherConfigSettingKey = "voucher_config_v1"
@@ -15,23 +17,27 @@ type voucherModelMapping struct {
 }
 
 type voucherAppConfig struct {
-	KeyID         string               `json:"key_id,omitempty"`
+	KeyID         string                `json:"key_id,omitempty"`
 	ModelMappings []voucherModelMapping `json:"model_mappings,omitempty"`
 }
 
 type voucherConfig struct {
-	BaseURL string                      `json:"base_url"`
-	Apps    map[string]voucherAppConfig `json:"apps"`
+	BaseURL          string                      `json:"base_url"`
+	BaseOrigin       string                      `json:"base_origin,omitempty"`
+	DefaultInterface string                      `json:"default_interface,omitempty"`
+	Apps             map[string]voucherAppConfig `json:"apps"`
 }
 
 func defaultVoucherConfig() voucherConfig {
 	return voucherConfig{
-		BaseURL: "",
+		BaseURL:          "",
+		BaseOrigin:       "",
+		DefaultInterface: types.ProtocolOpenAI,
 		Apps: map[string]voucherAppConfig{
-			"codex":        {},
-			"claude-code":  {},
-			"opencode":     {},
-			"gemini-cli":   {},
+			"codex":         {},
+			"claude-code":   {},
+			"opencode":      {},
+			"gemini-cli":    {},
 			"cherry-studio": {},
 		},
 	}
@@ -39,8 +45,15 @@ func defaultVoucherConfig() voucherConfig {
 
 func normalizeVoucherConfig(in voucherConfig) voucherConfig {
 	out := in
-	out.BaseURL = strings.TrimSpace(out.BaseURL)
-	out.BaseURL = strings.TrimRight(out.BaseURL, "/")
+	out.BaseOrigin = strings.TrimRight(strings.TrimSpace(out.BaseOrigin), "/")
+	if out.BaseOrigin == "" {
+		out.BaseOrigin = strings.TrimRight(strings.TrimSpace(out.BaseURL), "/")
+	}
+	out.BaseURL = out.BaseOrigin // keep compatibility for old readers.
+	out.DefaultInterface = strings.TrimSpace(out.DefaultInterface)
+	if out.DefaultInterface == "" {
+		out.DefaultInterface = types.ProtocolOpenAI
+	}
 
 	if out.Apps == nil {
 		out.Apps = map[string]voucherAppConfig{}
@@ -151,4 +164,3 @@ func (s *Server) mapModelForApp(ctx context.Context, appID, requestedModel strin
 	}
 	return requestedModel
 }
-

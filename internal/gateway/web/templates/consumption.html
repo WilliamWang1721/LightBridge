@@ -234,9 +234,13 @@
 
     .settings-card {
       padding: 16px;
-      display: flex;
+      display: none;
       flex-direction: column;
       gap: 12px;
+    }
+
+    .content.settings-open .settings-card {
+      display: flex;
     }
 
     .settings-title {
@@ -533,14 +537,6 @@
       grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 
-    .content.mode-core .settings-card {
-      display: none;
-    }
-
-    .content.mode-core.core-settings-open .settings-card {
-      display: flex;
-    }
-
     .core-note {
       border: 1px dashed var(--border);
       background: #fffaf7;
@@ -554,6 +550,29 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 12px;
+    }
+
+    .backend-tabs {
+      display: inline-flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .backend-tab {
+      height: 32px;
+      padding: 0 12px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text-main);
+      font-family: var(--font-display);
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .backend-tab.is-active {
+      border-color: var(--text-main);
+      background: var(--text-main);
+      color: #fff;
     }
 
     .empty {
@@ -623,7 +642,7 @@
         </div>
         <div class="header-actions">
           <span class="meta-line" id="stats-source">数据源：--</span>
-          <button class="btn core-only" type="button" id="core-settings-toggle">统计设置</button>
+          <button class="btn" type="button" id="stats-settings-toggle">统计设置</button>
           <a class="btn" href="/admin/marketplace">模块管理</a>
         </div>
       </header>
@@ -751,6 +770,108 @@
         </article>
       </section>
 
+      <section class="table-card advanced-only" aria-label="API 后端 URL 统计">
+        <div class="section-head">
+          <div>
+            <h2>API / 后端 URL 统计</h2>
+            <p class="section-sub">按路由后端 URL 统计请求数、Token 和金额</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>后端标识</th>
+                <th>后端 URL</th>
+                <th class="num">请求数</th>
+                <th class="num">总 Token</th>
+                <th class="num">费用(USD)</th>
+                <th class="num">占比</th>
+              </tr>
+            </thead>
+            <tbody id="api-usage-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="table-card advanced-only" aria-label="特殊后端 URL 统计">
+        <div class="section-head">
+          <div>
+            <h2>特殊后端 URL 统计</h2>
+            <p class="section-sub">可按 Claude Code / Codex / Cherry Studio 查看详细统计</p>
+          </div>
+          <div class="backend-tabs" id="special-backend-tabs">
+            <button type="button" class="backend-tab" data-special-id="claude-code">Claude Code</button>
+            <button type="button" class="backend-tab" data-special-id="codex">Codex</button>
+            <button type="button" class="backend-tab" data-special-id="cherry-studio">Cherry Studio</button>
+          </div>
+        </div>
+
+        <div class="split-grid">
+          <article class="mini-card">
+            <h3 id="special-backend-title">--</h3>
+            <ul class="mini-list">
+              <li class="mini-line"><span>后端 URL</span><strong class="mono" id="special-backend-url">--</strong></li>
+              <li class="mini-line"><span>请求数</span><strong class="mono" id="special-backend-requests">--</strong></li>
+              <li class="mini-line"><span>总 Token</span><strong class="mono" id="special-backend-tokens">--</strong></li>
+              <li class="mini-line"><span>总价值（USD）</span><strong class="mono" id="special-backend-cost">--</strong></li>
+              <li class="mini-line"><span>标准 / 推理 / 缓存</span><strong class="mono" id="special-backend-token-detail">--</strong></li>
+            </ul>
+          </article>
+          <article class="mini-card">
+            <h3>三类后端对比</h3>
+            <ul class="mini-list" id="special-compare-list"></ul>
+          </article>
+        </div>
+
+        <div class="core-usage-grid">
+          <article>
+            <div class="section-head">
+              <div>
+                <h2>该后端 Provider 明细</h2>
+                <p class="section-sub">请求数 / 总 Token / 费用 / 占比</p>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Provider</th>
+                    <th class="num">请求数</th>
+                    <th class="num">总 Token</th>
+                    <th class="num">费用(USD)</th>
+                    <th class="num">占比</th>
+                  </tr>
+                </thead>
+                <tbody id="special-provider-body"></tbody>
+              </table>
+            </div>
+          </article>
+          <article>
+            <div class="section-head">
+              <div>
+                <h2>该后端模型明细</h2>
+                <p class="section-sub">请求数 / 总 Token / 费用 / 占比</p>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>模型</th>
+                    <th class="num">请求数</th>
+                    <th class="num">总 Token</th>
+                    <th class="num">费用(USD)</th>
+                    <th class="num">占比</th>
+                  </tr>
+                </thead>
+                <tbody id="special-model-body"></tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+      </section>
+
       <section class="core-usage-grid core-only" aria-label="普通模式用量排行">
         <article class="table-card">
           <div class="section-head">
@@ -841,7 +962,8 @@
       const QUOTA = document.getElementById('account-quota');
       const CONTENT = document.querySelector('.content');
       const SUBTITLE = document.getElementById('stats-subtitle');
-      const CORE_SETTINGS_TOGGLE = document.getElementById('core-settings-toggle');
+      const SETTINGS_TOGGLE = document.getElementById('stats-settings-toggle');
+      const SPECIAL_BACKEND_TABS = Array.from(document.querySelectorAll('#special-backend-tabs [data-special-id]'));
 
       const STORE_KEYS = {
         days: 'advanced-stats-days',
@@ -851,8 +973,15 @@
       };
 
       const PIE_COLORS = ['#e42313', '#0f172a', '#0ea5e9', '#10b981', '#f59e0b', '#7c3aed', '#ef4444', '#14b8a6', '#475569'];
+      const SPECIAL_BACKENDS = [
+        { id: 'claude-code', name: 'Claude Code', backend_url: '/api/claude-code/v1/*' },
+        { id: 'codex', name: 'Codex', backend_url: '/api/codex/v1/*' },
+        { id: 'cherry-studio', name: 'Cherry Studio', backend_url: '/api/cherry-studio/v1/*' },
+      ];
       let currentMode = 'advanced';
-      let coreSettingsOpen = false;
+      let settingsOpen = false;
+      let activeSpecialBackendID = SPECIAL_BACKENDS[0].id;
+      let specialBackendsCache = [];
 
       function num(v) {
         const n = Number(v);
@@ -993,19 +1122,11 @@
       }
 
       function applyMode(mode) {
-        const prevMode = currentMode;
         currentMode = mode === 'core' ? 'core' : 'advanced';
         if (!CONTENT) return;
         CONTENT.classList.remove('mode-core', 'mode-advanced');
         CONTENT.classList.add(currentMode === 'core' ? 'mode-core' : 'mode-advanced');
-        if (currentMode === 'advanced') {
-          setCoreSettingsOpen(true);
-        } else if (prevMode !== 'core') {
-          setCoreSettingsOpen(false);
-        }
-        if (CORE_SETTINGS_TOGGLE) {
-          CORE_SETTINGS_TOGGLE.textContent = coreSettingsOpen ? '收起设置' : '统计设置';
-        }
+        updateSettingsToggleText();
         if (SUBTITLE) {
           SUBTITLE.textContent = currentMode === 'core'
             ? '普通统计：基于 Core 数据的简版概览（请求、Token、趋势）。'
@@ -1013,10 +1134,16 @@
         }
       }
 
-      function setCoreSettingsOpen(open) {
-        coreSettingsOpen = Boolean(open);
+      function updateSettingsToggleText() {
+        if (!SETTINGS_TOGGLE) return;
+        SETTINGS_TOGGLE.textContent = settingsOpen ? '收起设置' : '统计设置';
+      }
+
+      function setSettingsOpen(open) {
+        settingsOpen = Boolean(open);
         if (!CONTENT) return;
-        CONTENT.classList.toggle('core-settings-open', coreSettingsOpen);
+        CONTENT.classList.toggle('settings-open', settingsOpen);
+        updateSettingsToggleText();
       }
 
       function renderCoreSimpleTable(tbodyId, rows, nameKey) {
@@ -1037,6 +1164,128 @@
           `;
           tbody.appendChild(tr);
         }
+      }
+
+      function renderUsageDetailTable(tbodyId, rows, nameKey) {
+        const tbody = document.getElementById(tbodyId);
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        const list = Array.isArray(rows) ? rows : [];
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="5">暂无数据</td></tr>';
+          return;
+        }
+        for (const row of list) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${String(row?.[nameKey] || '-')}</td>
+            <td class="num">${LB.formatCompactNumber(num(row?.requests))}</td>
+            <td class="num">${LB.formatCompactNumber(num(row?.total_tokens))}</td>
+            <td class="num">${formatMoney(num(row?.estimated_usd))}</td>
+            <td class="num">${num(row?.share).toFixed(2)}%</td>
+          `;
+          tbody.appendChild(tr);
+        }
+      }
+
+      function renderAPIUsageTable(rows) {
+        const tbody = document.getElementById('api-usage-body');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        const list = Array.isArray(rows) ? rows : [];
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="6">暂无 API 后端 URL 统计数据</td></tr>';
+          return;
+        }
+        for (const row of list) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${String(row?.backend_id || '-')}</td>
+            <td class="mono">${String(row?.backend_url || '-')}</td>
+            <td class="num">${LB.formatCompactNumber(num(row?.requests))}</td>
+            <td class="num">${LB.formatCompactNumber(num(row?.total_tokens))}</td>
+            <td class="num">${formatMoney(num(row?.estimated_usd))}</td>
+            <td class="num">${num(row?.share).toFixed(2)}%</td>
+          `;
+          tbody.appendChild(tr);
+        }
+      }
+
+      function normalizeSpecialBackends(rows) {
+        const incoming = Array.isArray(rows) ? rows : [];
+        const byID = new Map();
+        for (const row of incoming) {
+          const id = String(row?.id || '').trim();
+          if (!id) continue;
+          byID.set(id, row || {});
+        }
+        return SPECIAL_BACKENDS.map((meta) => {
+          const row = byID.get(meta.id) || {};
+          return {
+            id: meta.id,
+            name: String(row?.name || meta.name),
+            backend_url: String(row?.backend_url || meta.backend_url),
+            summary: row?.summary || {},
+            model_usage: Array.isArray(row?.model_usage) ? row.model_usage : [],
+            provider_usage: Array.isArray(row?.provider_usage) ? row.provider_usage : [],
+          };
+        });
+      }
+
+      function renderSpecialCompareList(list) {
+        const host = document.getElementById('special-compare-list');
+        if (!host) return;
+        host.innerHTML = '';
+        for (const row of list) {
+          const li = document.createElement('li');
+          li.className = 'mini-line';
+          li.innerHTML = `
+            <span>${String(row?.name || '-')}</span>
+            <strong class="mono">${LB.formatCompactNumber(num(row?.summary?.requests))} req / ${LB.formatCompactNumber(num(row?.summary?.total_tokens))} tok</strong>
+          `;
+          host.appendChild(li);
+        }
+      }
+
+      function renderSpecialBackendDetail(row) {
+        const item = row || {};
+        const summary = item?.summary || {};
+        setText('special-backend-title', `${String(item?.name || '--')} 详细统计`);
+        setText('special-backend-url', String(item?.backend_url || '--'));
+        setText('special-backend-requests', LB.formatCompactNumber(num(summary?.requests)));
+        setText('special-backend-tokens', LB.formatCompactNumber(num(summary?.total_tokens)));
+        setText('special-backend-cost', formatMoney(num(summary?.estimated_usd)));
+        const tokenDetail = `${LB.formatCompactNumber(num(summary?.standard_tokens))} / ${LB.formatCompactNumber(num(summary?.reasoning_tokens))} / ${LB.formatCompactNumber(num(summary?.cached_tokens))}`;
+        setText('special-backend-token-detail', tokenDetail);
+        renderUsageDetailTable('special-provider-body', item?.provider_usage, 'provider_id');
+        renderUsageDetailTable('special-model-body', item?.model_usage, 'model_id');
+      }
+
+      function updateSpecialTabState() {
+        for (const btn of SPECIAL_BACKEND_TABS) {
+          const id = String(btn?.dataset?.specialId || '');
+          btn.classList.toggle('is-active', id === activeSpecialBackendID);
+        }
+      }
+
+      function renderSpecialBackends(rows) {
+        specialBackendsCache = normalizeSpecialBackends(rows);
+        renderSpecialCompareList(specialBackendsCache);
+        if (!specialBackendsCache.some((row) => row.id === activeSpecialBackendID) && specialBackendsCache.length) {
+          activeSpecialBackendID = specialBackendsCache[0].id;
+        }
+        updateSpecialTabState();
+        const active = specialBackendsCache.find((row) => row.id === activeSpecialBackendID) || specialBackendsCache[0];
+        renderSpecialBackendDetail(active);
+      }
+
+      function setActiveSpecialBackend(id) {
+        const next = String(id || '').trim();
+        if (!next) return;
+        activeSpecialBackendID = next;
+        updateSpecialTabState();
+        const active = specialBackendsCache.find((row) => row.id === activeSpecialBackendID) || specialBackendsCache[0];
+        renderSpecialBackendDetail(active);
       }
 
       function arcPath(cx, cy, r, startAngle, endAngle) {
@@ -1165,6 +1414,8 @@
           const token = body?.token_breakdown || {};
           const models = Array.isArray(body?.model_usage) ? body.model_usage : [];
           const providers = Array.isArray(body?.provider_usage) ? body.provider_usage : [];
+          const apiUsage = Array.isArray(body?.api_usage) ? body.api_usage : [];
+          const specialBackends = Array.isArray(body?.special_backends) ? body.special_backends : [];
           const trend = Array.isArray(body?.trend) ? body.trend : [];
 
           setText('kpi-today-requests', LB.formatCompactNumber(num(today.requests)));
@@ -1197,6 +1448,8 @@
             renderPie(models);
             renderModelTable(models);
             renderAccount(today);
+            renderAPIUsageTable(apiUsage);
+            renderSpecialBackends(specialBackends);
           } else {
             renderCoreSimpleTable('core-provider-body', providers, 'provider_id');
             renderCoreSimpleTable('core-model-body', models, 'model_id');
@@ -1214,15 +1467,20 @@
           initDefaults();
         });
       }
-      if (CORE_SETTINGS_TOGGLE) {
-        CORE_SETTINGS_TOGGLE.addEventListener('click', () => {
-          setCoreSettingsOpen(!coreSettingsOpen);
-          CORE_SETTINGS_TOGGLE.textContent = coreSettingsOpen ? '收起设置' : '统计设置';
+      if (SETTINGS_TOGGLE) {
+        SETTINGS_TOGGLE.addEventListener('click', () => {
+          setSettingsOpen(!settingsOpen);
+        });
+      }
+      for (const btn of SPECIAL_BACKEND_TABS) {
+        btn.addEventListener('click', () => {
+          setActiveSpecialBackend(btn.dataset.specialId);
         });
       }
       if (REFRESH) REFRESH.addEventListener('click', loadStatistics);
 
       applyMode('core');
+      setSettingsOpen(false);
       initDefaults();
       loadStatistics();
     })();

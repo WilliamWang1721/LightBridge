@@ -27,6 +27,7 @@ import (
 const codexOAuthModuleID = "openai-codex-oauth"
 const passkeyLoginModuleID = "passkey-login"
 const advancedStatisticsModuleID = "advanced-statistics"
+const anthropicVersionHeaderValue = "2023-06-01"
 
 type adminPayload struct {
 	Username string         `json:"username"`
@@ -389,8 +390,9 @@ func (s *Server) handleProviderPullModelsAPI(w http.ResponseWriter, r *http.Requ
 }
 
 type providerModelFetchConfig struct {
-	BaseURL string `json:"base_url"`
-	APIKey  string `json:"api_key"`
+	BaseURL    string `json:"base_url"`
+	BaseOrigin string `json:"base_origin"`
+	APIKey     string `json:"api_key"`
 }
 
 type openAIModelList struct {
@@ -399,10 +401,16 @@ type openAIModelList struct {
 	} `json:"data"`
 }
 
+type geminiModelList struct {
+	Models []struct {
+		Name string `json:"name"`
+	} `json:"models"`
+}
+
 func fetchProviderModelIDs(ctx context.Context, provider types.Provider) ([]string, string, error) {
 	proto := strings.TrimSpace(provider.Protocol)
 	switch proto {
-	case types.ProtocolForward, types.ProtocolHTTPOpenAI, types.ProtocolHTTPRPC, types.ProtocolCodex:
+	case types.ProtocolOpenAI, types.ProtocolForward, types.ProtocolHTTPOpenAI, types.ProtocolHTTPRPC, types.ProtocolCodex, types.ProtocolOpenAIResponses, types.ProtocolGemini, types.ProtocolAnthropic, types.ProtocolAzureOpenAI:
 		// ok
 	default:
 		return nil, "", fmt.Errorf("provider protocol %q does not support model listing", proto)
@@ -412,14 +420,24 @@ func fetchProviderModelIDs(ctx context.Context, provider types.Provider) ([]stri
 	if strings.TrimSpace(provider.ConfigJSON) != "" {
 		_ = json.Unmarshal([]byte(provider.ConfigJSON), &cfg)
 	}
-	baseURL := strings.TrimSpace(cfg.BaseURL)
+	baseURL := strings.TrimSpace(cfg.BaseOrigin)
+	if baseURL == "" {
+		baseURL = strings.TrimSpace(cfg.BaseURL)
+	}
 	if baseURL == "" {
 		baseURL = strings.TrimSpace(provider.Endpoint)
 	}
 	if baseURL == "" {
 		return nil, "", fmt.Errorf("provider %s missing endpoint", provider.ID)
 	}
-	modelsURL, err := joinUpstreamURL(baseURL, "/v1/models")
+	modelsPath := "/v1/models"
+	switch proto {
+	case types.ProtocolGemini:
+		modelsPath = "/v1beta/models"
+	case types.ProtocolAzureOpenAI:
+		modelsPath = "/openai/v1/models"
+	}
+	modelsURL, err := joinUpstreamURL(baseURL, modelsPath)
 	if err != nil {
 		return nil, "", err
 	}
@@ -430,7 +448,17 @@ func fetchProviderModelIDs(ctx context.Context, provider types.Provider) ([]stri
 	}
 	req.Header.Set("accept", "application/json")
 	if apiKey := strings.TrimSpace(cfg.APIKey); apiKey != "" {
-		req.Header.Set("authorization", "Bearer "+apiKey)
+		switch proto {
+		case types.ProtocolGemini:
+			req.Header.Set("x-goog-api-key", apiKey)
+		case types.ProtocolAnthropic:
+			req.Header.Set("x-api-key", apiKey)
+			req.Header.Set("anthropic-version", anthropicVersionHeaderValue)
+		case types.ProtocolAzureOpenAI:
+			req.Header.Set("api-key", apiKey)
+		default:
+			req.Header.Set("authorization", "Bearer "+apiKey)
+		}
 	}
 
 	httpc := &http.Client{Timeout: 12 * time.Second}
@@ -448,22 +476,43 @@ func fetchProviderModelIDs(ctx context.Context, provider types.Provider) ([]stri
 		return nil, modelsURL, fmt.Errorf("upstream models failed (%d): %s", resp.StatusCode, msg)
 	}
 
-	var parsed openAIModelList
-	if err := json.Unmarshal(body, &parsed); err != nil {
-		return nil, modelsURL, fmt.Errorf("decode models response: %w", err)
-	}
 	seen := map[string]struct{}{}
-	out := make([]string, 0, len(parsed.Data))
-	for _, item := range parsed.Data {
-		id := strings.TrimSpace(item.ID)
-		if id == "" {
-			continue
+	out := make([]string, 0, 64)
+	if proto == types.ProtocolGemini {
+		var parsed geminiModelList
+		if err := json.Unmarshal(body, &parsed); err != nil {
+			return nil, modelsURL, fmt.Errorf("decode models response: %w", err)
 		}
-		if _, ok := seen[id]; ok {
-			continue
+		for _, item := range parsed.Models {
+			id := strings.TrimSpace(item.Name)
+			if i := strings.LastIndex(id, "/"); i >= 0 && i < len(id)-1 {
+				id = id[i+1:]
+			}
+			if id == "" {
+				continue
+			}
+			if _, ok := seen[id]; ok {
+				continue
+			}
+			seen[id] = struct{}{}
+			out = append(out, id)
 		}
-		seen[id] = struct{}{}
-		out = append(out, id)
+	} else {
+		var parsed openAIModelList
+		if err := json.Unmarshal(body, &parsed); err != nil {
+			return nil, modelsURL, fmt.Errorf("decode models response: %w", err)
+		}
+		for _, item := range parsed.Data {
+			id := strings.TrimSpace(item.ID)
+			if id == "" {
+				continue
+			}
+			if _, ok := seen[id]; ok {
+				continue
+			}
+			seen[id] = struct{}{}
+			out = append(out, id)
+		}
 	}
 	if len(out) == 0 {
 		return nil, modelsURL, errors.New("upstream models returned empty list")
@@ -700,9 +749,11 @@ func (s *Server) handleAdvancedStatisticsAPI(w http.ResponseWriter, r *http.Requ
 			"cached_tokens":    result.TokenBreakdown.CachedTokens,
 			"total_tokens":     result.TokenBreakdown.TotalTokens,
 		},
-		"model_usage":    result.ModelUsage,
-		"provider_usage": result.ProviderUsage,
-		"trend":          result.Trend,
+		"model_usage":      result.ModelUsage,
+		"provider_usage":   result.ProviderUsage,
+		"api_usage":        result.APIUsage,
+		"special_backends": result.SpecialBackends,
+		"trend":            result.Trend,
 	})
 }
 
@@ -1964,9 +2015,9 @@ func writeProxyResponse(w http.ResponseWriter, status int, hdr http.Header, body
 }
 
 func (s *Server) authenticateClientKey(w http.ResponseWriter, r *http.Request) (*types.ClientAPIKey, bool) {
-	token := util.ParseBearerToken(r.Header.Get("Authorization"))
+	token := clientTokenFromRequest(r)
 	if token == "" {
-		writeOpenAIError(w, http.StatusUnauthorized, "missing bearer token", "authentication_error", "missing_api_key")
+		writeOpenAIError(w, http.StatusUnauthorized, "missing api key", "authentication_error", "missing_api_key")
 		return nil, false
 	}
 	item, err := s.store.FindClientKeyByValue(r.Context(), token)

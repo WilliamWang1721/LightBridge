@@ -32,8 +32,11 @@ var webFS embed.FS
 type ctxKey string
 
 const (
-	ctxKeyOriginalPath ctxKey = "original_path"
-	ctxKeyAppID        ctxKey = "app_id"
+	ctxKeyOriginalPath        ctxKey = "original_path"
+	ctxKeyAppID               ctxKey = "app_id"
+	ctxKeyIngressProtocol     ctxKey = "ingress_protocol"
+	ctxKeyEndpointKind        ctxKey = "endpoint_kind"
+	ctxKeyForceProviderByType ctxKey = "force_provider_by_type"
 )
 
 type Config struct {
@@ -296,9 +299,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/healthz", s.handleHealth)
 	mux.HandleFunc("/v1/models", s.handleModels)
 	mux.HandleFunc("/v1/", s.handleV1Proxy)
-	mux.HandleFunc("/openai/", s.handleOpenAIAlias)
-	mux.HandleFunc("/gemini/", s.handleGeminiAlias)
-	mux.HandleFunc("/claude/", s.handleClaudeAlias)
+	mux.HandleFunc("/openai/", s.handleProtocolIngress)
+	mux.HandleFunc("/openai-responses/", s.handleProtocolIngress)
+	mux.HandleFunc("/gemini/", s.handleProtocolIngress)
+	mux.HandleFunc("/anthropic/", s.handleProtocolIngress)
+	mux.HandleFunc("/claude/", s.handleProtocolIngress)
+	mux.HandleFunc("/azure/openai/", s.handleProtocolIngress)
 
 	mux.Handle("/admin/static/", http.StripPrefix("/admin/static/", http.FileServer(s.staticFS)))
 	mux.HandleFunc("/admin", s.wrapAdminPage(s.handleDashboardPage))
@@ -418,70 +424,20 @@ func (s *Server) handleModelsForApp(w http.ResponseWriter, r *http.Request, appI
 }
 
 func (s *Server) handleOpenAIAlias(w http.ResponseWriter, r *http.Request) {
-	s.handleCompatAlias("openai", w, r)
+	s.handleProtocolIngress(w, r)
 }
 
 func (s *Server) handleGeminiAlias(w http.ResponseWriter, r *http.Request) {
-	s.handleCompatAlias("gemini", w, r)
+	s.handleProtocolIngress(w, r)
 }
 
 func (s *Server) handleClaudeAlias(w http.ResponseWriter, r *http.Request) {
-	s.handleCompatAlias("claude", w, r)
+	s.handleProtocolIngress(w, r)
 }
 
 func (s *Server) handleCompatAlias(prefix string, w http.ResponseWriter, r *http.Request) {
-	prefix = strings.ToLower(strings.TrimSpace(prefix))
-	if prefix == "" {
-		http.NotFound(w, r)
-		return
-	}
-
-	// Supports:
-	// - Base URL:  {origin}/{prefix}           -> {origin}/{prefix}/v1/*
-	// - App URL:   {origin}/{prefix}/{app}     -> {origin}/{prefix}/{app}/v1/*
-	// This is only an HTTP path prefix router; auth is still handled by the same client API keys.
-	origPath := r.URL.Path
-	rest := strings.TrimPrefix(origPath, "/"+prefix+"/")
-	rest = strings.TrimPrefix(rest, "/")
-	if rest == "" {
-		http.NotFound(w, r)
-		return
-	}
-
-	parts := strings.Split(rest, "/")
-	appID := ""
-	v1Idx := -1
-	if len(parts) >= 2 && parts[0] == "v1" {
-		// /openai/v1/*
-		v1Idx = 0
-	} else if len(parts) >= 3 && parts[1] == "v1" {
-		// /openai/{app}/v1/*
-		appID = parts[0]
-		v1Idx = 1
-	} else {
-		http.NotFound(w, r)
-		return
-	}
-
-	proxyPath := "/v1"
-	if len(parts) > v1Idx+1 {
-		proxyPath += "/" + strings.Join(parts[v1Idx+1:], "/")
-	}
-
-	ctx := context.WithValue(r.Context(), ctxKeyOriginalPath, origPath)
-	ctx = context.WithValue(ctx, ctxKeyAppID, appID)
-	r2 := r.Clone(ctx)
-	r2.URL.Path = proxyPath
-
-	if proxyPath == "/v1/models" {
-		s.handleModelsForApp(w, r2, appID)
-		return
-	}
-	if strings.HasPrefix(proxyPath, "/v1/") {
-		s.handleV1Proxy(w, r2)
-		return
-	}
-	http.NotFound(w, r)
+	_ = prefix
+	s.handleProtocolIngress(w, r)
 }
 
 func (s *Server) handleV1Proxy(w http.ResponseWriter, r *http.Request) {
@@ -538,29 +494,104 @@ func (s *Server) handleV1Proxy(w http.ResponseWriter, r *http.Request) {
 	}
 	r.Body = ioNopCloser(bodyBytes)
 
+	if strings.TrimSpace(modelID) == "" {
+		modelID = requestModelFromPath(r.URL.Path)
+	}
+
 	if modelID != "" && appID != "" {
 		modelID = s.mapModelForApp(r.Context(), appID, modelID)
 	}
 
+	ingressProtocol := ingressProtocolFromContext(r.Context())
+	endpointKind := endpointKindFromContext(r.Context())
+	forceByProtocol := forceProviderByProtocol(r.Context())
+
 	var (
-		route *types.ResolvedRoute
-		err   error
+		route    *types.ResolvedRoute
+		err      error
+		provider *types.Provider
 	)
-	if modelID == "" {
+	if forceByProtocol {
+		// Native protocol ingress prefers protocol-matched providers, but if an explicit
+		// model route exists we honor it so unsupported protocol combinations can return
+		// a clear not_supported error instead of provider_not_found.
+		if modelID != "" {
+			if routes, e := s.store.ListModelRoutes(r.Context(), modelID, false); e == nil && len(routes) > 0 {
+				route, err = s.resolver.Resolve(r.Context(), modelID)
+				if err != nil && errors.Is(err, routing.ErrNoHealthyProvider) {
+					s.startEnabledModulesBestEffort()
+					route, err = s.resolver.Resolve(r.Context(), modelID)
+				}
+				if err != nil {
+					writeOpenAIError(w, http.StatusBadGateway, err.Error(), "routing_error", "routing_failed")
+					_ = s.store.InsertRequestLog(r.Context(), types.RequestLogMeta{
+						Timestamp:   time.Now().UTC(),
+						RequestID:   requestID,
+						ClientKeyID: client.ID,
+						ModelID:     modelID,
+						Path:        logPath,
+						Status:      http.StatusBadGateway,
+						LatencyMS:   time.Since(start).Milliseconds(),
+						ErrorCode:   "routing_failed",
+					})
+					return
+				}
+			}
+		}
+		if route == nil {
+			provider, err = s.findHealthyProviderByProtocol(r.Context(), ingressProtocol)
+			if err != nil || provider == nil {
+				writeOpenAIError(w, http.StatusBadGateway, "provider unavailable", "provider_error", "provider_not_found")
+				_ = s.store.InsertRequestLog(r.Context(), types.RequestLogMeta{
+					Timestamp:   time.Now().UTC(),
+					RequestID:   requestID,
+					ClientKeyID: client.ID,
+					ModelID:     strings.TrimSpace(modelID),
+					Path:        logPath,
+					Status:      http.StatusBadGateway,
+					LatencyMS:   time.Since(start).Milliseconds(),
+					ErrorCode:   "provider_not_found",
+				})
+				return
+			}
+			route = &types.ResolvedRoute{
+				RequestedModel: strings.TrimSpace(modelID),
+				ProviderID:     provider.ID,
+				UpstreamModel:  strings.TrimSpace(modelID),
+				Variant:        true,
+			}
+		}
+	} else if modelID == "" {
+		defaultProviderID := s.defaultProviderIDForIngress(r.Context(), ingressProtocol)
 		route = &types.ResolvedRoute{
 			RequestedModel: "",
-			ProviderID:     "forward",
+			ProviderID:     defaultProviderID,
 			UpstreamModel:  "",
 			Variant:        false,
 		}
 	} else {
-		route, err = s.resolver.Resolve(r.Context(), modelID)
-		if err != nil && errors.Is(err, routing.ErrNoHealthyProvider) {
-			// Auto-heal: if no healthy provider is available, try starting enabled modules (best-effort)
-			// and resolve once more. This helps when a module-backed provider (e.g. codex) is enabled
-			// but not currently running (or was restarted/crashed).
-			s.startEnabledModulesBestEffort()
+		if types.NormalizeProtocol(ingressProtocol) != types.ProtocolOpenAI {
+			if routes, e := s.store.ListModelRoutes(r.Context(), modelID, false); e == nil && len(routes) == 0 {
+				if p, _ := s.findHealthyProviderByProtocol(r.Context(), ingressProtocol); p != nil {
+					provider = p
+					route = &types.ResolvedRoute{
+						RequestedModel: strings.TrimSpace(modelID),
+						ProviderID:     p.ID,
+						UpstreamModel:  strings.TrimSpace(modelID),
+						Variant:        false,
+					}
+				}
+			}
+		}
+		if route == nil {
 			route, err = s.resolver.Resolve(r.Context(), modelID)
+			if err != nil && errors.Is(err, routing.ErrNoHealthyProvider) {
+				// Auto-heal: if no healthy provider is available, try starting enabled modules (best-effort)
+				// and resolve once more. This helps when a module-backed provider (e.g. codex) is enabled
+				// but not currently running (or was restarted/crashed).
+				s.startEnabledModulesBestEffort()
+				route, err = s.resolver.Resolve(r.Context(), modelID)
+			}
 		}
 		if err != nil {
 			writeOpenAIError(w, http.StatusBadGateway, err.Error(), "routing_error", "routing_failed")
@@ -578,7 +609,9 @@ func (s *Server) handleV1Proxy(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	provider, err := s.store.GetProvider(r.Context(), route.ProviderID)
+	if provider == nil {
+		provider, err = s.store.GetProvider(r.Context(), route.ProviderID)
+	}
 	if err != nil || provider == nil {
 		writeOpenAIError(w, http.StatusBadGateway, "provider unavailable", "provider_error", "provider_not_found")
 		_ = s.store.InsertRequestLog(r.Context(), types.RequestLogMeta{
@@ -591,6 +624,27 @@ func (s *Server) handleV1Proxy(w http.ResponseWriter, r *http.Request) {
 			Status:      http.StatusBadGateway,
 			LatencyMS:   time.Since(start).Milliseconds(),
 			ErrorCode:   "provider_not_found",
+		})
+		return
+	}
+
+	if !supportsProtocolRoute(ingressProtocol, provider.Protocol, endpointKind) {
+		writeNotSupportedRouteError(
+			w,
+			types.NormalizeProtocol(ingressProtocol),
+			types.NormalizeProtocol(provider.Protocol),
+			endpointKind,
+		)
+		_ = s.store.InsertRequestLog(r.Context(), types.RequestLogMeta{
+			Timestamp:   time.Now().UTC(),
+			RequestID:   requestID,
+			ClientKeyID: client.ID,
+			ProviderID:  provider.ID,
+			ModelID:     routeModelID(route, modelID),
+			Path:        logPath,
+			Status:      http.StatusNotImplemented,
+			LatencyMS:   time.Since(start).Milliseconds(),
+			ErrorCode:   "not_supported",
 		})
 		return
 	}

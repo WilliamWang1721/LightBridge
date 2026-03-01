@@ -1172,10 +1172,14 @@
           <label class="dialog-field">
             <span class="dialog-label">Protocol</span>
             <select class="dialog-input" name="protocol" required>
+              <option value="openai">openai</option>
+              <option value="openai_responses">openai_responses</option>
+              <option value="gemini">gemini</option>
               <option value="forward">forward</option>
               <option value="anthropic">anthropic</option>
               <option value="http_openai">http_openai</option>
               <option value="http_rpc">http_rpc</option>
+              <option value="azure_openai">azure_openai</option>
               <option value="grpc_chat">grpc_chat</option>
               <option value="codex">codex</option>
             </select>
@@ -1786,7 +1790,7 @@
         const proto = String(protocol || '').trim();
         const httpPort = Number(rt?.httpPort ?? 0);
         const grpcPort = Number(rt?.grpcPort ?? 0);
-        if ((proto === 'http_openai' || proto === 'http_rpc' || proto === 'codex') && httpPort > 0) {
+        if ((proto === 'openai' || proto === 'openai_responses' || proto === 'gemini' || proto === 'anthropic' || proto === 'azure_openai' || proto === 'http_openai' || proto === 'http_rpc' || proto === 'codex') && httpPort > 0) {
           return `http://127.0.0.1:${httpPort}`;
         }
         if (proto === 'grpc_chat' && grpcPort > 0) {
@@ -1799,7 +1803,8 @@
         const id = String(moduleID || '').trim();
         if (!id) throw new Error('module_id 为空');
 
-        const needHTTP = String(protocol || '').trim() === 'http_openai' || String(protocol || '').trim() === 'http_rpc' || String(protocol || '').trim() === 'codex';
+        const p = String(protocol || '').trim();
+        const needHTTP = p === 'openai' || p === 'openai_responses' || p === 'gemini' || p === 'anthropic' || p === 'azure_openai' || p === 'http_openai' || p === 'http_rpc' || p === 'codex';
         const needGRPC = String(protocol || '').trim() === 'grpc_chat';
 
         let rt = rtHint && (rtHint.httpPort || rtHint.grpcPort) ? rtHint : null;

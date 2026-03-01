@@ -121,10 +121,14 @@ func setupGateway(t *testing.T, st *store.Store, dataDir string, moduleIndexURL 
 	t.Helper()
 	resolver := routing.NewResolver(st, rand.New(rand.NewSource(7)))
 	registry := providers.NewRegistry(
+		providers.NewHTTPForwardAdapter(types.ProtocolOpenAI, nil),
 		providers.NewHTTPForwardAdapter(types.ProtocolForward, nil),
 		providers.NewHTTPForwardAdapter(types.ProtocolHTTPOpenAI, nil),
 		providers.NewHTTPForwardAdapter(types.ProtocolHTTPRPC, nil),
+		providers.NewOpenAIResponsesAdapter(nil),
+		providers.NewGeminiAdapter(nil),
 		providers.NewAnthropicAdapter(nil),
+		providers.NewAzureOpenAIAdapter(nil),
 		providers.NewGRPCChatAdapter(),
 	)
 	market := modules.NewMarketplace(st, dataDir, nil)
@@ -193,10 +197,14 @@ func TestAutoStartEnabledModulesOnNoHealthyProvider(t *testing.T) {
 
 	resolver := routing.NewResolver(st, rand.New(rand.NewSource(11)))
 	registry := providers.NewRegistry(
+		providers.NewHTTPForwardAdapter(types.ProtocolOpenAI, nil),
 		providers.NewHTTPForwardAdapter(types.ProtocolForward, nil),
 		providers.NewHTTPForwardAdapter(types.ProtocolHTTPOpenAI, nil),
 		providers.NewHTTPForwardAdapter(types.ProtocolHTTPRPC, nil),
+		providers.NewOpenAIResponsesAdapter(nil),
+		providers.NewGeminiAdapter(nil),
 		providers.NewAnthropicAdapter(nil),
+		providers.NewAzureOpenAIAdapter(nil),
 		providers.NewGRPCChatAdapter(),
 	)
 	srv, err := gateway.New(gateway.Config{ListenAddr: "127.0.0.1:0", ModuleIndexURL: ""}, st, resolver, registry, market, mgr, "test-secret")
@@ -494,6 +502,228 @@ func TestAnthropicProviderConversion(t *testing.T) {
 	str := string(streamResp)
 	if !strings.Contains(str, "chat.completion.chunk") || !strings.Contains(str, "[DONE]") || !strings.Contains(str, "hello") {
 		t.Fatalf("unexpected anthropic stream conversion: %s", str)
+	}
+}
+
+func TestOpenAIResponsesPrefixAndXAPIKeyAuth(t *testing.T) {
+	st, dir := testutil.NewStore(t)
+	ctx := context.Background()
+
+	var seenPath atomic.Value
+	var seenAuth atomic.Value
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seenPath.Store(r.URL.Path)
+		seenAuth.Store(r.Header.Get("Authorization"))
+		body, _ := io.ReadAll(r.Body)
+		var payload map[string]any
+		_ = json.Unmarshal(body, &payload)
+		w.Header().Set("content-type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id":      "chatcmpl-2",
+			"object":  "chat.completion",
+			"model":   payload["model"],
+			"created": time.Now().Unix(),
+			"choices": []map[string]any{{
+				"index":         0,
+				"message":       map[string]any{"role": "assistant", "content": "ok"},
+				"finish_reason": "stop",
+			}},
+		})
+	}))
+	defer upstream.Close()
+
+	cfg := map[string]any{
+		"base_url": upstream.URL,
+		"api_key":  "upstream-secret",
+	}
+	cfgBytes, _ := json.Marshal(cfg)
+	if err := st.UpsertProvider(ctx, types.Provider{
+		ID:         "forward",
+		Type:       types.ProviderTypeBuiltin,
+		Protocol:   types.ProtocolForward,
+		Endpoint:   upstream.URL,
+		ConfigJSON: string(cfgBytes),
+		Enabled:    true,
+		Health:     "healthy",
+	}); err != nil {
+		t.Fatalf("upsert forward: %v", err)
+	}
+	if err := st.UpsertModel(ctx, types.Model{ID: "demo-model", DisplayName: "demo-model", Enabled: true}); err != nil {
+		t.Fatalf("upsert model: %v", err)
+	}
+	if err := st.ReplaceModelRoutes(ctx, "demo-model", []types.ModelRoute{{
+		ModelID:       "demo-model",
+		ProviderID:    "forward",
+		UpstreamModel: "gpt-upstream",
+		Priority:      1,
+		Weight:        1,
+		Enabled:       true,
+	}}); err != nil {
+		t.Fatalf("replace routes: %v", err)
+	}
+
+	apiKey := createClientKey(t, st)
+	ts := setupGateway(t, st, dir, "")
+	defer ts.Close()
+
+	reqBody := `{"model":"demo-model","messages":[{"role":"user","content":"ping"}]}`
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/openai-responses/v1/chat/completions", strings.NewReader(reqBody))
+	req.Header.Set("x-api-key", apiKey)
+	req.Header.Set("content-type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("unexpected status=%d body=%s", resp.StatusCode, string(b))
+	}
+	if got := seenPath.Load(); got != "/v1/chat/completions" {
+		t.Fatalf("expected upstream path /v1/chat/completions, got %v", got)
+	}
+	if got := seenAuth.Load(); got != "Bearer upstream-secret" {
+		t.Fatalf("expected upstream auth Bearer upstream-secret, got %v", got)
+	}
+}
+
+func TestGeminiNativeIngressProxy(t *testing.T) {
+	st, dir := testutil.NewStore(t)
+	ctx := context.Background()
+
+	var seenPath atomic.Value
+	var seenAPIKey atomic.Value
+	geminiUpstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seenPath.Store(r.URL.Path)
+		seenAPIKey.Store(r.URL.Query().Get("key"))
+		w.Header().Set("content-type", "application/json")
+		_, _ = w.Write([]byte(`{"candidates":[{"content":{"parts":[{"text":"ok"}]},"finishReason":"STOP"}],"modelVersion":"gemini-2.5-pro"}`))
+	}))
+	defer geminiUpstream.Close()
+
+	cfg := map[string]any{
+		"base_url": geminiUpstream.URL,
+		"api_key":  "gemini-provider-key",
+	}
+	cfgBytes, _ := json.Marshal(cfg)
+	if err := st.UpsertProvider(ctx, types.Provider{
+		ID:         "gemini",
+		Type:       types.ProviderTypeBuiltin,
+		Protocol:   types.ProtocolGemini,
+		Endpoint:   geminiUpstream.URL,
+		ConfigJSON: string(cfgBytes),
+		Enabled:    true,
+		Health:     "healthy",
+	}); err != nil {
+		t.Fatalf("upsert gemini provider: %v", err)
+	}
+
+	apiKey := createClientKey(t, st)
+	ts := setupGateway(t, st, dir, "")
+	defer ts.Close()
+
+	body := `{"contents":[{"parts":[{"text":"hello"}]}]}`
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/gemini/v1beta/models/gemini-2.5-pro:generateContent", strings.NewReader(body))
+	req.Header.Set("authorization", "Bearer "+apiKey)
+	req.Header.Set("content-type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("gemini native request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("unexpected status=%d body=%s", resp.StatusCode, string(b))
+	}
+	if got := seenPath.Load(); got != "/v1beta/models/gemini-2.5-pro:generateContent" {
+		t.Fatalf("unexpected upstream path: %v", got)
+	}
+	if got := seenAPIKey.Load(); got != "gemini-provider-key" {
+		t.Fatalf("expected provider key in query, got %v", got)
+	}
+}
+
+func TestGeminiNativeIngressReturnsStructuredNotSupportedForCrossProtocolRoute(t *testing.T) {
+	st, dir := testutil.NewStore(t)
+	ctx := context.Background()
+
+	var upstreamCalls atomic.Int64
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		upstreamCalls.Add(1)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer upstream.Close()
+
+	cfg := map[string]any{
+		"base_url": upstream.URL,
+		"api_key":  "unused",
+	}
+	cfgBytes, _ := json.Marshal(cfg)
+	if err := st.UpsertProvider(ctx, types.Provider{
+		ID:         "forward",
+		Type:       types.ProviderTypeBuiltin,
+		Protocol:   types.ProtocolForward,
+		Endpoint:   upstream.URL,
+		ConfigJSON: string(cfgBytes),
+		Enabled:    true,
+		Health:     "healthy",
+	}); err != nil {
+		t.Fatalf("upsert forward provider: %v", err)
+	}
+
+	if err := st.UpsertModel(ctx, types.Model{ID: "gem-route", DisplayName: "gem-route", Enabled: true}); err != nil {
+		t.Fatalf("upsert model: %v", err)
+	}
+	if err := st.ReplaceModelRoutes(ctx, "gem-route", []types.ModelRoute{{
+		ModelID:       "gem-route",
+		ProviderID:    "forward",
+		UpstreamModel: "gpt-4o-mini",
+		Priority:      1,
+		Weight:        1,
+		Enabled:       true,
+	}}); err != nil {
+		t.Fatalf("replace routes: %v", err)
+	}
+
+	apiKey := createClientKey(t, st)
+	ts := setupGateway(t, st, dir, "")
+	defer ts.Close()
+
+	body := `{"contents":[{"parts":[{"text":"hello"}]}]}`
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/gemini/v1beta/models/gem-route:generateContent", strings.NewReader(body))
+	req.Header.Set("authorization", "Bearer "+apiKey)
+	req.Header.Set("content-type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("gemini native request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNotImplemented {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 501, status=%d body=%s", resp.StatusCode, string(b))
+	}
+
+	var payload map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	errObj, _ := payload["error"].(map[string]any)
+	if got := strings.TrimSpace(fmt.Sprint(errObj["type"])); got != "not_supported" {
+		t.Fatalf("unexpected error type: %v", got)
+	}
+	if got := strings.TrimSpace(fmt.Sprint(errObj["source_protocol"])); got != "gemini" {
+		t.Fatalf("unexpected source protocol: %v", got)
+	}
+	if got := strings.TrimSpace(fmt.Sprint(errObj["target_protocol"])); got != "openai" {
+		t.Fatalf("unexpected target protocol: %v", got)
+	}
+	if got := strings.TrimSpace(fmt.Sprint(errObj["endpoint_kind"])); got != "generate_content" {
+		t.Fatalf("unexpected endpoint kind: %v", got)
+	}
+	if upstreamCalls.Load() != 0 {
+		t.Fatalf("upstream should not be called on not_supported route")
 	}
 }
 

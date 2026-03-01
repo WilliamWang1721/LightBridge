@@ -251,7 +251,7 @@
           <div class="hero-left">
             <span class="hero-label">端口 URL  PORT URL</span>
             <div class="hero-url" id="port-url-value">--</div>
-            <span class="hero-hint" id="port-hint">OpenAI 兼容接口  /v1/*  ·  Base URL  /openai/v1</span>
+            <span class="hero-hint" id="port-hint">OpenAI 协议入口  /v1/*  ·  Base URL  /openai/v1</span>
           </div>
           <div class="hero-actions">
             <button class="hero-btn" type="button" id="use-current-host">使用当前地址</button>
@@ -265,8 +265,10 @@
             <span class="hero-kv-label">接口类型</span>
             <select class="hero-kv-val" id="port-interface">
               <option value="openai">OpenAI</option>
+              <option value="openai-responses">OpenAI Responses</option>
               <option value="gemini">Gemini</option>
-              <option value="claude">Claude</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="azure/openai">Azure OpenAI</option>
             </select>
           </div>
           <div class="hero-kv">
@@ -444,11 +446,13 @@
       let activeID = '';
       const DEFAULT_APPS = ['codex', 'claude-code', 'opencode', 'gemini-cli', 'cherry-studio'];
       const COMPAT_INTERFACES = {
-        openai: { id: 'openai', label: 'OpenAI 兼容接口' },
-        gemini: { id: 'gemini', label: 'Gemini 兼容接口' },
-        claude: { id: 'claude', label: 'Claude 兼容接口' },
+        openai: { id: 'openai', label: 'OpenAI 协议入口', apiBase: '/v1' },
+        'openai-responses': { id: 'openai-responses', label: 'OpenAI Responses 协议入口', apiBase: '/v1' },
+        gemini: { id: 'gemini', label: 'Gemini 原生协议入口', apiBase: '/v1beta' },
+        anthropic: { id: 'anthropic', label: 'Anthropic 原生协议入口', apiBase: '/v1' },
+        'azure/openai': { id: 'azure/openai', label: 'Azure OpenAI 协议入口', apiBase: '/v1' },
       };
-      let voucherCfg = { base_url: '', apps: {} };
+      let voucherCfg = { base_url: '', base_origin: '', default_interface: 'openai', apps: {} };
       let currentApp = DEFAULT_APPS[0];
       let models = [];
 
@@ -458,11 +462,14 @@
       function keyName(k) { return String(k?.Name ?? k?.name ?? '').trim(); }
       function keyEnabled(k) { return Boolean(k?.Enabled ?? k?.enabled ?? false); }
       function keyLastUsed(k) { return k?.LastUsedAt ?? k?.lastUsedAt ?? null; }
-      function cfgBaseURL(cfg) { return String(cfg?.base_url ?? cfg?.BaseURL ?? '').trim(); }
+      function cfgBaseOrigin(cfg) { return String(cfg?.base_origin ?? cfg?.BaseOrigin ?? cfg?.base_url ?? cfg?.BaseURL ?? '').trim(); }
+      function cfgDefaultInterface(cfg) { return String(cfg?.default_interface ?? cfg?.DefaultInterface ?? '').trim().toLowerCase(); }
       function cfgApps(cfg) { return (cfg?.apps ?? cfg?.Apps) || {}; }
 
       function ensureVoucherDefaults(cfg) {
-        const out = { base_url: cfgBaseURL(cfg).replace(/\/+$/, ''), apps: { ...(cfgApps(cfg) || {}) } };
+        const origin = cfgBaseOrigin(cfg).replace(/\/+$/, '');
+        const defIface = cfgDefaultInterface(cfg) || 'openai';
+        const out = { base_url: origin, base_origin: origin, default_interface: defIface, apps: { ...(cfgApps(cfg) || {}) } };
         for (const appID of DEFAULT_APPS) { if (!out.apps[appID]) out.apps[appID] = {}; }
         for (const [appID, app] of Object.entries(out.apps)) {
           const kid = String(app?.key_id ?? app?.KeyID ?? '').trim();
@@ -510,7 +517,8 @@
 
       function detectInterfaceFromPath(pathname) {
         const p = String(pathname || '').trim().replace(/\/+$/, '').toLowerCase();
-        const m = p.match(/\/(openai|gemini|claude)(?:\/v1)?$/);
+        if (p.includes('/azure/openai')) return 'azure/openai';
+        const m = p.match(/\/(openai-responses|openai|gemini|anthropic)(?:\/v1|\/v1beta)?$/);
         return m ? m[1] : '';
       }
 
@@ -521,11 +529,15 @@
         return `${location.origin}`.replace(/\/$/, '') + `/${iface.id}`;
       }
 
-      function effectiveBaseV1() { return effectivePortURL().replace(/\/$/, '') + '/v1'; }
+      function effectiveBaseV1() {
+        const iface = currentInterface();
+        return effectivePortURL().replace(/\/$/, '') + (iface.apiBase || '/v1');
+      }
       function effectiveAppBaseV1(appID) {
         const a = String(appID || '').trim();
         if (!a) return effectiveBaseV1();
-        return effectivePortURL().replace(/\/$/, '') + '/' + encodeURIComponent(a) + '/v1';
+        const iface = currentInterface();
+        return effectivePortURL().replace(/\/$/, '') + '/' + encodeURIComponent(a) + (iface.apiBase || '/v1');
       }
 
       async function copyText(text) {
@@ -542,7 +554,7 @@
         if (hostBefore !== host) PORT_HOST.value = host;
         if (PORT_HINT) {
           const iface = currentInterface();
-          PORT_HINT.textContent = `${iface.label}  /v1/*  ·  Base URL  /${iface.id}/v1`;
+          PORT_HINT.textContent = `${iface.label}  ${iface.apiBase || '/v1'}/*  ·  Base URL  /${iface.id}${iface.apiBase || '/v1'}`;
         }
         PORT_URL_VALUE.textContent = effectivePortURL();
         renderHostSuggestions();
@@ -570,11 +582,11 @@
       }
 
       function initPortFieldsFromConfig() {
-        const base = cfgBaseURL(voucherCfg);
+        const base = cfgBaseOrigin(voucherCfg);
         if (!base) {
           PORT_SCHEME.value = String(location.protocol || 'https:').replace(':', '') || 'https';
           PORT_HOST.value = String(location.host || '').trim();
-          PORT_INTERFACE.value = 'openai';
+          PORT_INTERFACE.value = String(voucherCfg.default_interface || 'openai');
           updatePortPreview();
           return;
         }
@@ -584,14 +596,14 @@
           if (p === 'http' || p === 'https') PORT_SCHEME.value = p;
           PORT_HOST.value = String(u.host || '').trim();
           const iface = detectInterfaceFromPath(u.pathname);
-          PORT_INTERFACE.value = iface || 'openai';
+          PORT_INTERFACE.value = iface || String(voucherCfg.default_interface || 'openai');
         } catch (_) {
           const m = base.match(/^(https?):\/\/([^/]+)(\/.*)?$/i);
           if (m) {
             PORT_SCHEME.value = m[1].toLowerCase();
             PORT_HOST.value = m[2];
             const iface = detectInterfaceFromPath(m[3] || '');
-            PORT_INTERFACE.value = iface || 'openai';
+            PORT_INTERFACE.value = iface || String(voucherCfg.default_interface || 'openai');
           }
         }
         updatePortPreview();
@@ -813,6 +825,8 @@
         try {
           voucherCfg = ensureVoucherDefaults(voucherCfg);
           voucherCfg.base_url = effectivePortURL().replace(/\/+$/, '');
+          voucherCfg.base_origin = voucherCfg.base_url;
+          voucherCfg.default_interface = String(PORT_INTERFACE.value || 'openai').trim().toLowerCase();
           await LB.apiJSON('/admin/api/voucher/config', { method: 'POST', body: voucherCfg });
           LB.toast('已保存', 'ok');
         } catch (err) { LB.toast(err?.message || '保存失败', 'error'); }
