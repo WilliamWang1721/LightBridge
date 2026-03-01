@@ -31,13 +31,13 @@ export LIGHTBRIDGE_DATA_DIR="$HOME/.lightbridge-data"
 ### `LIGHTBRIDGE_MODULE_INDEX`
 
 - 作用：Marketplace 索引来源
-- 默认：`local`
+- 默认：`github:WilliamWang1721/LightBridge/market/MODULES@main`
 
 可选：
 
-- `local`
+- GitHub 目录扫描（`github:<owner>/<repo>/<path>@<ref>`）
 - 远程 `index.json` URL
-- GitHub 目录 spec（`github:<owner>/<repo>/<path>@<ref>`）
+- `local`（开发/离线兜底）
 
 ### `LIGHTBRIDGE_COOKIE_SECRET`
 
@@ -51,6 +51,7 @@ export LIGHTBRIDGE_DATA_DIR="$HOME/.lightbridge-data"
 ### `LIGHTBRIDGE_MODULES_DIR`
 
 - 作用：指定 local Marketplace 扫描目录（扫描 `*.zip`）
+- 说明：仅在 `LIGHTBRIDGE_MODULE_INDEX=local` 时生效
 - 默认：未设置时按优先级扫描 `./MODULES`（若存在且大小写匹配）→ `<DATA_DIR>/MODULES`
 
 ### `LIGHTBRIDGE_GITHUB_API_BASE`
@@ -94,4 +95,3 @@ export LIGHTBRIDGE_DATA_DIR="$HOME/.lightbridge-data"
 ### `LIGHTBRIDGE_LOG_LEVEL`
 
 - Core 预留的日志级别字段（当前默认注入 `info`）
-

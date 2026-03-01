@@ -4,14 +4,31 @@
   "description": "Use OpenAI Codex via OAuth (ChatGPT Codex backend reverse proxy).",
   "tags": [
     "OpenAI",
-    "OAuth"
+    "OAuth",
+    "provider"
   ],
   "version": "0.2.0",
   "license": "UNLICENSED",
   "min_core_version": "0.1.0",
   "entrypoints": {
+    "darwin/arm64": {
+      "command": "bin/darwin/arm64/openai-codex-oauth",
+      "args": []
+    },
+    "darwin/amd64": {
+      "command": "bin/darwin/amd64/openai-codex-oauth",
+      "args": []
+    },
+    "linux/arm64": {
+      "command": "bin/linux/arm64/openai-codex-oauth",
+      "args": []
+    },
+    "linux/amd64": {
+      "command": "bin/linux/amd64/openai-codex-oauth",
+      "args": []
+    },
     "default": {
-      "command": "bin/openai-codex-oauth",
+      "command": "bin/darwin/arm64/openai-codex-oauth",
       "args": []
     }
   },

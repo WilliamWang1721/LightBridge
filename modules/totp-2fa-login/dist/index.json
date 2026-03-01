@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-01T03:24:09Z",
+  "generated_at": "2026-03-01T07:45:17Z",
   "min_core_version": "0.1.0",
   "modules": [
     {
@@ -10,8 +10,8 @@
       "license": "UNLICENSED",
       "tags": ["Auth", "2FA", "TOTP"],
       "protocols": ["http_rpc"],
-      "download_url": "http://127.0.0.1:8000/totp-2fa-login_0.1.0_darwin_arm64.zip",
-      "sha256": "94a2b27c76ccf7c966c02c11c54453667bd48945aeb41705ae70e0fdf4dd4a59",
+      "download_url": "http://127.0.0.1:8000/totp-2fa-login_0.1.0_universal.zip",
+      "sha256": "b8207c809360c61316e883857f94aacce7933177839c53289f39272372d7ed63",
       "homepage": ""
     }
   ]

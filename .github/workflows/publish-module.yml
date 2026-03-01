@@ -1,0 +1,152 @@
+name: Publish Module
+
+on:
+  push:
+    tags:
+      - "module-*-v*"
+  workflow_dispatch:
+    inputs:
+      module_id:
+        description: "Module ID (modules/<module_id>)"
+        required: true
+      target:
+        description: "Git ref to build/tag from (default: main)"
+        required: true
+        default: "main"
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.target || github.ref }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Resolve Module Metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+            tag="${GITHUB_REF_NAME}"
+            if [[ "${tag}" != module-*-v* ]]; then
+              echo "unexpected tag: ${tag}" >&2
+              exit 1
+            fi
+            rest="${tag#module-}"
+            module_id="${rest%-v*}"
+            version="${rest##*-v}"
+            version="${version#v}"
+            target_sha="${GITHUB_SHA}"
+          else
+            module_id="${{ github.event.inputs.module_id }}"
+            if [[ -z "${module_id}" ]]; then
+              echo "module_id is required" >&2
+              exit 1
+            fi
+            version="$(python3 - <<PY
+import json
+with open("modules/${module_id}/manifest.json","r",encoding="utf-8") as f:
+  print(json.load(f)["version"])
+PY
+)"
+            tag="module-${module_id}-v${version}"
+            target_sha="$(git rev-parse HEAD)"
+          fi
+
+          echo "module_id=${module_id}" >> "${GITHUB_OUTPUT}"
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+          echo "target_sha=${target_sha}" >> "${GITHUB_OUTPUT}"
+
+      - name: Build Universal ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          module_id="${{ steps.meta.outputs.module_id }}"
+          bash "modules/${module_id}/package.sh"
+
+      - name: Compute SHA256 + Stash Manifest
+        id: art
+        shell: bash
+        run: |
+          set -euo pipefail
+          module_id="${{ steps.meta.outputs.module_id }}"
+          version="${{ steps.meta.outputs.version }}"
+
+          zip_name="${module_id}_${version}_universal.zip"
+          zip_path="modules/${module_id}/dist/${zip_name}"
+          if [[ ! -f "${zip_path}" ]]; then
+            echo "zip not found: ${zip_path}" >&2
+            exit 1
+          fi
+          sha="$(sha256sum "${zip_path}" | awk '{print $1}')"
+          echo "zip_name=${zip_name}" >> "${GITHUB_OUTPUT}"
+          echo "zip_path=${zip_path}" >> "${GITHUB_OUTPUT}"
+          echo "sha256=${sha}" >> "${GITHUB_OUTPUT}"
+
+          cp "modules/${module_id}/manifest.json" "${RUNNER_TEMP}/manifest.json"
+
+      - name: Create/Update GitHub Release Asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${{ steps.meta.outputs.tag }}"
+          target_sha="${{ steps.meta.outputs.target_sha }}"
+          zip_path="${{ steps.art.outputs.zip_path }}"
+
+          if gh release view "${tag}" >/dev/null 2>&1; then
+            gh release upload "${tag}" "${zip_path}" --clobber
+          else
+            gh release create "${tag}" "${zip_path}" \
+              --title "Module ${tag}" \
+              --notes "Automated module release." \
+              --target "${target_sha}"
+          fi
+
+      - name: Update MODULES/index.json On main
+        shell: bash
+        run: |
+          set -euo pipefail
+          module_id="${{ steps.meta.outputs.module_id }}"
+          version="${{ steps.meta.outputs.version }}"
+          tag="${{ steps.meta.outputs.tag }}"
+          sha="${{ steps.art.outputs.sha256 }}"
+          zip_name="${{ steps.art.outputs.zip_name }}"
+
+          download_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag}/${zip_name}"
+          homepage="https://github.com/${GITHUB_REPOSITORY}/tree/main/modules/${module_id}"
+
+          git fetch origin main
+          git checkout main
+
+          python3 scripts/update_modules_index.py \
+            --index "market/MODULES/index.json" \
+            --manifest "${RUNNER_TEMP}/manifest.json" \
+            --download-url "${download_url}" \
+            --sha256 "${sha}" \
+            --homepage "${homepage}"
+
+          if git diff --quiet -- "market/MODULES/index.json"; then
+            echo "index unchanged"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "market/MODULES/index.json"
+          git commit -m "MODULES: update index for ${module_id} ${version}"
+          git push origin main

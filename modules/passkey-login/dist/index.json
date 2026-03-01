@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-01T03:24:09Z",
+  "generated_at": "2026-03-01T07:44:55Z",
   "min_core_version": "0.1.0",
   "modules": [
     {
@@ -10,8 +10,8 @@
       "license": "UNLICENSED",
       "tags": ["Auth", "Passkey", "WebAuthn"],
       "protocols": ["http_rpc"],
-      "download_url": "http://127.0.0.1:8000/passkey-login_0.1.0_darwin_arm64.zip",
-      "sha256": "d1274a3b61cac631f71f3acb02b7486fdb4619b3ba6ffde95f97defda3d213f3",
+      "download_url": "http://127.0.0.1:8000/passkey-login_0.1.0_universal.zip",
+      "sha256": "8dad5e69a03e9735c8fef4262c6c10eb12794ad8ece3017234beb40c194c6e06",
       "homepage": ""
     }
   ]

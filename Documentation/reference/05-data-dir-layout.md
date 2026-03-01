@@ -58,7 +58,7 @@ SQLite 数据库，包含：
 
 ### 2.3 `MODULES/`（本地 Marketplace 扫描目录）
 
-当 `LIGHTBRIDGE_MODULE_INDEX=local` 时，Core 会扫描一个本地目录下的 `*.zip`：
+默认情况下 Core 使用远程 Marketplace；当 `LIGHTBRIDGE_MODULE_INDEX=local` 时，Core 才会扫描一个本地目录下的 `*.zip`：
 
 优先级：
 
@@ -104,4 +104,3 @@ Core 会尝试用较严格权限创建 `<DATA_DIR>`（例如 `0700`）。
 - 备份/迁移时注意保护备份文件
 
 详见：[安全注意事项](../guide/07-security.md)
-
