@@ -1,0 +1,99 @@
+{
+  "id": "chatbox-persistent",
+  "name": "Chatbox Persistent",
+  "description": "Persistent Chatbox module with conversation history APIs and OpenAI-compatible chat proxy.",
+  "tags": [
+    "chatbox",
+    "conversation",
+    "persistence",
+    "provider"
+  ],
+  "version": "0.1.0",
+  "license": "UNLICENSED",
+  "min_core_version": "0.1.0",
+  "entrypoints": {
+    "darwin/arm64": {
+      "command": "bin/darwin/arm64/chatbox-persistent",
+      "args": []
+    },
+    "darwin/amd64": {
+      "command": "bin/darwin/amd64/chatbox-persistent",
+      "args": []
+    },
+    "linux/arm64": {
+      "command": "bin/linux/arm64/chatbox-persistent",
+      "args": []
+    },
+    "linux/amd64": {
+      "command": "bin/linux/amd64/chatbox-persistent",
+      "args": []
+    },
+    "default": {
+      "command": "bin/darwin/arm64/chatbox-persistent",
+      "args": []
+    }
+  },
+  "services": [
+    {
+      "kind": "provider",
+      "protocol": "http_rpc",
+      "health": {
+        "type": "http",
+        "path": "/health"
+      },
+      "expose_provider_aliases": [
+        "chatbox"
+      ]
+    }
+  ],
+  "config_schema": {
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {
+      "base_url": {
+        "type": "string",
+        "title": "Upstream base URL",
+        "description": "Upstream OpenAI-compatible base URL."
+      },
+      "api_key": {
+        "type": "string",
+        "title": "Upstream API Key",
+        "description": "Bearer token used for upstream requests."
+      },
+      "models": {
+        "type": "array",
+        "title": "Model list",
+        "items": {
+          "type": "string"
+        }
+      },
+      "default_model": {
+        "type": "string",
+        "title": "Default model",
+        "description": "Default model used when conversation/model request omits it."
+      },
+      "request_timeout_sec": {
+        "type": "integer",
+        "title": "Upstream request timeout",
+        "minimum": 1
+      },
+      "extra_headers": {
+        "type": "object",
+        "title": "Extra upstream headers",
+        "additionalProperties": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "config_defaults": {
+    "base_url": "https://api.openai.com/v1",
+    "api_key": "",
+    "models": [
+      "gpt-4o-mini"
+    ],
+    "default_model": "gpt-4o-mini",
+    "request_timeout_sec": 90,
+    "extra_headers": {}
+  }
+}
