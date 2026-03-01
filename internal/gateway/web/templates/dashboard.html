@@ -260,6 +260,25 @@
       gap: 20px;
     }
 
+    .kpi-card.is-jump,
+    .chart-card.is-jump {
+      cursor: pointer;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    }
+
+    .kpi-card.is-jump:hover,
+    .chart-card.is-jump:hover {
+      border-color: #d8d8d8;
+      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.06);
+      transform: translateY(-1px);
+    }
+
+    .kpi-card.is-jump:focus-visible,
+    .chart-card.is-jump:focus-visible {
+      outline: 2px solid #d0d0d0;
+      outline-offset: 2px;
+    }
+
     .kpi-label {
       margin: 0;
       font-size: 13px;
@@ -357,6 +376,40 @@
       color: var(--text-secondary);
       white-space: nowrap;
       font-family: var(--font-body);
+    }
+
+    .token-table-wrap {
+      margin-top: 2px;
+      border-top: 1px solid var(--border);
+      overflow-x: auto;
+    }
+
+    .token-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 380px;
+    }
+
+    .token-table th,
+    .token-table td {
+      padding: 10px 6px;
+      border-bottom: 1px solid #efefef;
+      font-family: var(--font-body);
+      font-size: 12px;
+      color: var(--text-main);
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    .token-table th {
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .token-table th:last-child,
+    .token-table td:last-child {
+      text-align: right;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     }
 
     .txn-card {
@@ -766,6 +819,7 @@
         </a>
         <nav class="menu" aria-label="主导航">
           <a class="menu-item is-active" href="/admin/dashboard"><span class="menu-dot" aria-hidden="true"></span>概览 Overview</a>
+          <a class="menu-item" href="/admin/consumption"><span class="menu-dot" aria-hidden="true"></span>消耗 Consumption</a>
           <a class="menu-item" href="/admin/providers"><span class="menu-dot" aria-hidden="true"></span>提供商 Provider</a>
           <a class="menu-item" href="/admin/router"><span class="menu-dot" aria-hidden="true"></span>路由 Router</a>
           <a class="menu-item" href="/admin/marketplace"><span class="menu-dot" aria-hidden="true"></span>模块 Marketplace</a>
@@ -835,7 +889,7 @@
             <span id="kpi-modules-meta">已安装模块</span>
           </p>
         </article>
-        <article class="kpi-card">
+        <article class="kpi-card is-jump" data-jump="/admin/consumption#tokens-24h" role="link" tabindex="0" aria-label="查看 24H Tokens 详情">
           <p class="kpi-label">24H Tokens</p>
           <p class="kpi-value" id="kpi-tokens">--</p>
           <p class="kpi-meta">
@@ -849,12 +903,25 @@
       </section>
 
       <section class="dashboard-grid">
-        <article class="chart-card" aria-label="Token 消耗量">
+        <article class="chart-card is-jump" data-jump="/admin/consumption#token-usage" role="link" tabindex="0" aria-label="查看 Token 消耗量详情">
           <div class="chart-header">
             <h2>Token 消耗量</h2>
             <div class="period-chip" id="chart-period">最近 7 天</div>
           </div>
           <div class="bars-wrap" aria-hidden="true" id="token-bars"></div>
+          <div class="token-table-wrap" data-no-jump="true">
+            <table class="token-table" aria-label="Token 消耗量表格">
+              <thead>
+                <tr>
+                  <th>日期</th>
+                  <th>输入</th>
+                  <th>输出</th>
+                  <th>合计</th>
+                </tr>
+              </thead>
+              <tbody id="token-usage-table"></tbody>
+            </table>
+          </div>
         </article>
 
         <article class="txn-card" aria-label="当前可用服务">
@@ -886,6 +953,26 @@
         if (el) el.textContent = String(text ?? '');
       }
 
+      function attachJumpCards() {
+        document.querySelectorAll('[data-jump]').forEach((node) => {
+          if (!(node instanceof HTMLElement) || node.dataset.jumpBound === '1') return;
+          const href = String(node.getAttribute('data-jump') || '').trim();
+          if (!href) return;
+          const jump = () => { location.href = href; };
+          node.addEventListener('click', (e) => {
+            if (e.target instanceof Element && e.target.closest('[data-no-jump=\"true\"]')) return;
+            jump();
+          });
+          node.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              jump();
+            }
+          });
+          node.dataset.jumpBound = '1';
+        });
+      }
+
       function renderTokenBars(series) {
         const host = document.getElementById('token-bars');
         if (!host) return;
@@ -910,6 +997,30 @@
           host.appendChild(LB.el('div', { className: 'bar-col' }, [
             LB.el('div', { className: 'bar-fill', style: `height: ${height}px` }),
             LB.el('div', { className: 'bar-label', text: label }),
+          ]));
+        }
+      }
+
+      function renderTokenUsageTable(series) {
+        const tbody = document.getElementById('token-usage-table');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        const list = Array.isArray(series) ? series : [];
+        if (list.length === 0) {
+          tbody.appendChild(LB.el('tr', {}, [
+            LB.el('td', { colSpan: 4, text: '暂无数据' }),
+          ]));
+          return;
+        }
+        for (const row of list) {
+          const inTok = Number(row?.input_tokens || 0);
+          const outTok = Number(row?.output_tokens || 0);
+          const total = inTok + outTok;
+          tbody.appendChild(LB.el('tr', {}, [
+            LB.el('td', { text: String(row?.day || '-') }),
+            LB.el('td', { text: LB.formatCompactNumber(inTok) }),
+            LB.el('td', { text: LB.formatCompactNumber(outTok) }),
+            LB.el('td', { text: LB.formatCompactNumber(total) }),
           ]));
         }
       }
@@ -976,12 +1087,13 @@
           setText('kpi-modules', LB.formatCompactNumber(stats.module_total ?? (body?.modules || []).length));
 
           const tokens24h = Number(stats.tokens_24h ?? 0);
-          setText('kpi-tokens', `${LB.formatTokens(tokens24h)} Token`);
+          setText('kpi-tokens', `${LB.formatCompactNumber(tokens24h)} Tokens`);
           setText('kpi-tokens-meta', `近 24 小时请求 ${LB.formatCompactNumber(stats.requests_24h ?? 0)} 次`);
 
-          renderTokenBars(body?.tokens_7d || []);
-          const period = document.getElementById('chart-period');
           const series = Array.isArray(body?.tokens_7d) ? body.tokens_7d : [];
+          renderTokenBars(series);
+          renderTokenUsageTable(series);
+          const period = document.getElementById('chart-period');
           if (period && series.length >= 2 && series[0]?.day && series[series.length - 1]?.day) {
             period.textContent = `${series[0].day} - ${series[series.length - 1].day}`;
           }
@@ -992,6 +1104,7 @@
         }
       }
 
+      attachJumpCards();
       load();
     })();
   </script>

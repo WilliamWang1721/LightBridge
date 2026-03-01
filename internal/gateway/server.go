@@ -484,7 +484,7 @@ func (s *Server) routeAdminPages(w http.ResponseWriter, r *http.Request) {
 		s.wrapAdminPage(s.handleDashboardPage)(w, r)
 	case "settings":
 		s.wrapAdminPage(s.handleSettingsPage)(w, r)
-	case "providers", "marketplace", "logs", "docs", "auth", "router":
+	case "providers", "marketplace", "logs", "docs", "auth", "router", "consumption":
 		s.wrapAdminPage(func(w http.ResponseWriter, r *http.Request) {
 			username, _ := s.sessions.username(r)
 			if strings.TrimSpace(username) == "" {

@@ -1,0 +1,744 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>消耗 Consumption</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-page: #ffffff;
+      --bg-surface: #fafafa;
+      --bg-card: #ffffff;
+      --border: #e8e8e8;
+      --text-main: #0d0d0d;
+      --text-secondary: #7a7a7a;
+      --text-muted: #b0b0b0;
+      --accent-red: #e42313;
+      --ok-green: #22c55e;
+      --font-display: "Space Grotesk", "Noto Sans SC", sans-serif;
+      --font-body: "Inter", "Noto Sans SC", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #ffffff;
+      color: var(--text-main);
+      font-family: var(--font-body);
+      font-size: 16px;
+      line-height: 1.45;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .app-shell {
+      display: flex;
+      height: 100vh;
+      min-height: 100vh;
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    .sidebar {
+      width: 240px;
+      min-width: 240px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 40px 32px;
+      border-right: 1px solid var(--border);
+      overflow: hidden;
+      background: var(--bg-page);
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      margin-bottom: 48px;
+      font-family: var(--font-display);
+    }
+
+    .brand-mark {
+      width: 28px;
+      height: 28px;
+      background: var(--accent-red);
+      display: inline-block;
+    }
+
+    .menu {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .menu-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      font-size: 14px;
+      color: var(--text-secondary);
+      transition: color 0.2s ease;
+      font-family: var(--font-display);
+      font-weight: 400;
+    }
+
+    .menu-item:hover {
+      color: var(--text-main);
+    }
+
+    .menu-item.is-active {
+      color: var(--text-main);
+      font-weight: 500;
+    }
+
+    .menu-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--bg-page);
+      flex-shrink: 0;
+    }
+
+    .menu-item.is-active .menu-dot {
+      background: var(--accent-red);
+    }
+
+    .sidebar-bottom {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .admin-chip {
+      width: 36px;
+      height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--text-main);
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: var(--font-display);
+      border: 0;
+    }
+
+    .sidebar-user {
+      font-size: 13px;
+      color: var(--text-main);
+      font-weight: 500;
+      font-family: var(--font-display);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .content {
+      flex: 1;
+      min-height: 0;
+      background: var(--bg-page);
+      padding: 40px 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    .header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 40px;
+      font-weight: 500;
+      letter-spacing: -1px;
+      line-height: 1.08;
+      font-family: var(--font-display);
+    }
+
+    .header p {
+      margin: 8px 0 0;
+      color: var(--text-secondary);
+      font-size: 14px;
+      font-family: var(--font-body);
+    }
+
+    .header-actions {
+      display: inline-flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .btn {
+      height: 36px;
+      padding: 0 14px;
+      border: 1px solid var(--border);
+      background: #ffffff;
+      color: var(--text-main);
+      font-family: var(--font-display);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn.primary {
+      background: var(--text-main);
+      color: #ffffff;
+      border-color: var(--text-main);
+    }
+
+    .meta-line {
+      margin: 0;
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-family: var(--font-body);
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 20px;
+    }
+
+    .kpi-card {
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      padding: 20px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .kpi-label {
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-family: var(--font-body);
+    }
+
+    .kpi-value {
+      margin: 0;
+      font-size: 30px;
+      line-height: 1.08;
+      letter-spacing: -0.7px;
+      font-family: var(--font-display);
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .kpi-sub {
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-family: var(--font-body);
+    }
+
+    .section-card {
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      font-family: var(--font-display);
+    }
+
+    .section-sub {
+      margin: 4px 0 0;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-family: var(--font-body);
+    }
+
+    .panel-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 20px;
+    }
+
+    .bars-wrap {
+      height: 216px;
+      padding-top: 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: flex-end;
+      gap: 12px;
+    }
+
+    .bar-col {
+      flex: 1;
+      height: 100%;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .bar-fill {
+      width: 100%;
+      background: var(--accent-red);
+    }
+
+    .bar-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      font-family: var(--font-body);
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 680px;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid #efefef;
+      padding: 10px 8px;
+      text-align: left;
+      font-size: 12px;
+      color: var(--text-main);
+      font-family: var(--font-body);
+      white-space: nowrap;
+    }
+
+    th {
+      color: var(--text-secondary);
+      font-weight: 500;
+      background: var(--bg-surface);
+    }
+
+    td.num,
+    th.num {
+      text-align: right;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    td.path {
+      max-width: 260px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    @media (max-width: 1200px) {
+      .kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .panel-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 980px) {
+      html,
+      body {
+        overflow: auto;
+      }
+      .app-shell {
+        height: auto;
+        min-height: 100vh;
+        flex-direction: column;
+      }
+      .sidebar {
+        width: 100%;
+        min-width: 0;
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+        padding: 20px 18px;
+      }
+      .sidebar-bottom {
+        width: 100%;
+        justify-content: flex-start;
+      }
+      .content {
+        padding: 20px 18px 24px;
+      }
+      .header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .header h1 {
+        font-size: 34px;
+      }
+      .kpi-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Sidebar">
+      <div class="sidebar-top">
+        <a class="brand" href="/admin/dashboard">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span>LightBridge</span>
+        </a>
+        <nav class="menu" aria-label="主导航">
+          <a class="menu-item" href="/admin/dashboard"><span class="menu-dot" aria-hidden="true"></span>概览 Overview</a>
+          <a class="menu-item is-active" href="/admin/consumption"><span class="menu-dot" aria-hidden="true"></span>消耗 Consumption</a>
+          <a class="menu-item" href="/admin/providers"><span class="menu-dot" aria-hidden="true"></span>提供商 Provider</a>
+          <a class="menu-item" href="/admin/router"><span class="menu-dot" aria-hidden="true"></span>路由 Router</a>
+          <a class="menu-item" href="/admin/marketplace"><span class="menu-dot" aria-hidden="true"></span>模块 Marketplace</a>
+          <a class="menu-item" href="/admin/settings"><span class="menu-dot" aria-hidden="true"></span>设置 Settings</a>
+        </nav>
+      </div>
+      <div class="sidebar-bottom">
+        <span class="admin-chip">A</span>
+        <span class="sidebar-user">{{.Username}}</span>
+      </div>
+    </aside>
+
+    <main class="content">
+      <header class="header">
+        <div>
+          <h1>消耗 Consumption</h1>
+          <p>集中查看 Token 消耗、24H 趋势和请求明细</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn" type="button" id="consumption-refresh">刷新 Refresh</button>
+          <a class="btn primary" href="/admin/providers">前往 Provider</a>
+        </div>
+      </header>
+
+      <p class="meta-line" id="consumption-updated">最后更新：--</p>
+
+      <section class="kpi-grid" id="tokens-24h" aria-label="Token 概览">
+        <article class="kpi-card">
+          <p class="kpi-label">24H Tokens（完整值）</p>
+          <p class="kpi-value" id="c-24h-tokens">--</p>
+          <p class="kpi-sub" id="c-24h-tokens-meta">近 24 小时总消耗</p>
+        </article>
+        <article class="kpi-card">
+          <p class="kpi-label">24H Requests</p>
+          <p class="kpi-value" id="c-24h-requests">--</p>
+          <p class="kpi-sub">近 24 小时请求数</p>
+        </article>
+        <article class="kpi-card">
+          <p class="kpi-label">7D Tokens</p>
+          <p class="kpi-value" id="c-7d-tokens">--</p>
+          <p class="kpi-sub">按日聚合近 7 天总消耗</p>
+        </article>
+        <article class="kpi-card">
+          <p class="kpi-label">Recent 200 Logs Tokens</p>
+          <p class="kpi-value" id="c-window-tokens">--</p>
+          <p class="kpi-sub" id="c-window-tokens-meta">最近 200 条请求总消耗</p>
+        </article>
+      </section>
+
+      <section class="panel-grid" id="token-usage">
+        <article class="section-card">
+          <div class="section-head">
+            <div>
+              <h2>Token 消耗量趋势</h2>
+              <p class="section-sub" id="c-token-period">最近 7 天</p>
+            </div>
+          </div>
+          <div class="bars-wrap" id="c-token-bars" aria-hidden="true"></div>
+          <div class="table-wrap">
+            <table aria-label="按天 Token 消耗量表">
+              <thead>
+                <tr>
+                  <th>日期</th>
+                  <th class="num">输入</th>
+                  <th class="num">输出</th>
+                  <th class="num">合计</th>
+                </tr>
+              </thead>
+              <tbody id="c-token-day-table"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="section-card">
+          <div class="section-head">
+            <div>
+              <h2>Provider 消耗排行</h2>
+              <p class="section-sub">统计窗口：最近 200 条请求</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table aria-label="Provider Token 消耗排行">
+              <thead>
+                <tr>
+                  <th>Provider</th>
+                  <th class="num">请求数</th>
+                  <th class="num">输入</th>
+                  <th class="num">输出</th>
+                  <th class="num">合计</th>
+                </tr>
+              </thead>
+              <tbody id="c-provider-table"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="section-card">
+        <div class="section-head">
+          <div>
+            <h2>最近请求 Token 明细</h2>
+            <p class="section-sub">来源：/admin/api/logs（最多 200 条）</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table aria-label="Token 请求明细">
+            <thead>
+              <tr>
+                <th>时间</th>
+                <th>Provider</th>
+                <th>Model</th>
+                <th>Path</th>
+                <th class="num">状态</th>
+                <th class="num">输入</th>
+                <th class="num">输出</th>
+                <th class="num">合计</th>
+                <th class="num">延迟(ms)</th>
+              </tr>
+            </thead>
+            <tbody id="c-logs-table"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/admin/static/admin.js"></script>
+  <script>
+    (() => {
+      const LB = window.LightBridgeAdmin;
+      if (!LB) return;
+
+      const weekdayCN = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+      const REFRESH = document.getElementById('consumption-refresh');
+
+      function setText(id, text) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = String(text ?? '');
+      }
+
+      function toInputTokens(item) {
+        return Number(item?.InputTokens ?? item?.inputTokens ?? 0);
+      }
+
+      function toOutputTokens(item) {
+        return Number(item?.OutputTokens ?? item?.outputTokens ?? 0);
+      }
+
+      function toTokens(item) {
+        return toInputTokens(item) + toOutputTokens(item);
+      }
+
+      function renderBars(series) {
+        const host = document.getElementById('c-token-bars');
+        if (!host) return;
+        host.innerHTML = '';
+        const list = Array.isArray(series) ? series : [];
+        if (list.length === 0) {
+          host.appendChild(LB.el('div', { className: 'bar-col' }, [
+            LB.el('div', { className: 'bar-fill', style: 'height:18px;opacity:.35;' }),
+            LB.el('div', { className: 'bar-label', text: '暂无数据' }),
+          ]));
+          return;
+        }
+        const totals = list.map((row) => Number((row?.input_tokens || 0) + (row?.output_tokens || 0)));
+        const max = Math.max(1, ...totals);
+        for (let i = 0; i < list.length; i++) {
+          const row = list[i] || {};
+          const total = totals[i] || 0;
+          const day = row.day ? new Date(`${row.day}T00:00:00Z`) : null;
+          const label = day && !Number.isNaN(day.getTime()) ? weekdayCN[day.getUTCDay()] : String(row?.day || '-');
+          const height = Math.round((total / max) * 184 + 14);
+          host.appendChild(LB.el('div', { className: 'bar-col' }, [
+            LB.el('div', { className: 'bar-fill', style: `height:${height}px;` }),
+            LB.el('div', { className: 'bar-label', text: label }),
+          ]));
+        }
+      }
+
+      function renderDayTable(series) {
+        const tbody = document.getElementById('c-token-day-table');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        const list = Array.isArray(series) ? series : [];
+        if (list.length === 0) {
+          tbody.appendChild(LB.el('tr', {}, [LB.el('td', { colSpan: 4, text: '暂无数据' })]));
+          return;
+        }
+        for (const row of list) {
+          const inTok = Number(row?.input_tokens || 0);
+          const outTok = Number(row?.output_tokens || 0);
+          const total = inTok + outTok;
+          tbody.appendChild(LB.el('tr', {}, [
+            LB.el('td', { text: String(row?.day || '-') }),
+            LB.el('td', { className: 'num', text: LB.formatCompactNumber(inTok) }),
+            LB.el('td', { className: 'num', text: LB.formatCompactNumber(outTok) }),
+            LB.el('td', { className: 'num', text: LB.formatCompactNumber(total) }),
+          ]));
+        }
+      }
+
+      function buildProviderStats(logs) {
+        const map = new Map();
+        for (const row of Array.isArray(logs) ? logs : []) {
+          const id = String(row?.ProviderID ?? row?.providerID ?? '').trim() || '-';
+          const prev = map.get(id) || { provider: id, requests: 0, input: 0, output: 0, total: 0 };
+          const inTok = toInputTokens(row);
+          const outTok = toOutputTokens(row);
+          const total = inTok + outTok;
+          prev.requests += 1;
+          prev.input += inTok;
+          prev.output += outTok;
+          prev.total += total;
+          map.set(id, prev);
+        }
+        return Array.from(map.values()).sort((a, b) => Number(b.total || 0) - Number(a.total || 0));
+      }
+
+      function renderProviderTable(logs) {
+        const tbody = document.getElementById('c-provider-table');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        const list = buildProviderStats(logs);
+        if (list.length === 0) {
+          tbody.appendChild(LB.el('tr', {}, [LB.el('td', { colSpan: 5, text: '暂无数据' })]));
+          return;
+        }
+        for (const row of list) {
+          tbody.appendChild(LB.el('tr', {}, [
+            LB.el('td', { text: row.provider }),
+            LB.el('td', { className: 'num', text: LB.formatCompactNumber(row.requests) }),
+            LB.el('td', { className: 'num', text: LB.formatCompactNumber(row.input) }),
+            LB.el('td', { className: 'num', text: LB.formatCompactNumber(row.output) }),
+            LB.el('td', { className: 'num', text: LB.formatCompactNumber(row.total) }),
+          ]));
+        }
+      }
+
+      function renderLogsTable(logs) {
+        const tbody = document.getElementById('c-logs-table');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        const list = Array.isArray(logs) ? logs.slice() : [];
+        list.sort((a, b) => String(b?.Timestamp ?? b?.timestamp ?? '').localeCompare(String(a?.Timestamp ?? a?.timestamp ?? '')));
+        if (list.length === 0) {
+          tbody.appendChild(LB.el('tr', {}, [LB.el('td', { colSpan: 9, text: '暂无日志数据' })]));
+          return;
+        }
+        for (const row of list) {
+          const inTok = toInputTokens(row);
+          const outTok = toOutputTokens(row);
+          const total = inTok + outTok;
+          const ts = String(row?.Timestamp ?? row?.timestamp ?? '').trim();
+          const pid = String(row?.ProviderID ?? row?.providerID ?? '').trim();
+          const mid = String(row?.ModelID ?? row?.modelID ?? '').trim();
+          const path = String(row?.Path ?? row?.path ?? '').trim();
+          const status = Number(row?.Status ?? row?.status ?? 0);
+          const latency = Number(row?.LatencyMS ?? row?.latencyMS ?? 0);
+          tbody.appendChild(LB.el('tr', {}, [
+            LB.el('td', { text: LB.formatISODateTime(ts) }),
+            LB.el('td', { text: pid || '-' }),
+            LB.el('td', { text: mid || '-' }),
+            LB.el('td', { className: 'path', text: path || '-' }),
+            LB.el('td', { className: 'num', text: status ? String(status) : '-' }),
+            LB.el('td', { className: 'num', text: LB.formatCompactNumber(inTok) }),
+            LB.el('td', { className: 'num', text: LB.formatCompactNumber(outTok) }),
+            LB.el('td', { className: 'num', text: LB.formatCompactNumber(total) }),
+            LB.el('td', { className: 'num', text: latency ? LB.formatCompactNumber(latency) : '-' }),
+          ]));
+        }
+      }
+
+      async function loadConsumption() {
+        if (REFRESH) REFRESH.disabled = true;
+        try {
+          const [dashboard, logsRes] = await Promise.all([
+            LB.apiJSON('/admin/api/dashboard'),
+            LB.apiJSON('/admin/api/logs'),
+          ]);
+          const stats = dashboard?.stats || {};
+          const tokens7d = Array.isArray(dashboard?.tokens_7d) ? dashboard.tokens_7d : [];
+          const logs = Array.isArray(logsRes?.data) ? logsRes.data : [];
+
+          const tokens24h = Number(stats.tokens_24h ?? 0);
+          const requests24h = Number(stats.requests_24h ?? 0);
+          const tokens7dTotal = tokens7d.reduce((acc, row) => acc + Number(row?.input_tokens || 0) + Number(row?.output_tokens || 0), 0);
+          const sampleTokens = logs.reduce((acc, row) => acc + toTokens(row), 0);
+
+          setText('c-24h-tokens', LB.formatCompactNumber(tokens24h));
+          setText('c-24h-requests', LB.formatCompactNumber(requests24h));
+          setText('c-7d-tokens', LB.formatCompactNumber(tokens7dTotal));
+          setText('c-window-tokens', LB.formatCompactNumber(sampleTokens));
+          setText('c-window-tokens-meta', `最近 ${LB.formatCompactNumber(logs.length)} 条请求总消耗`);
+          setText('c-24h-tokens-meta', `近 24 小时总消耗 · ${LB.formatCompactNumber(requests24h)} requests`);
+          setText('consumption-updated', `最后更新：${LB.formatISODateTime(dashboard?.now || new Date().toISOString())}`);
+
+          renderBars(tokens7d);
+          renderDayTable(tokens7d);
+          renderProviderTable(logs);
+          renderLogsTable(logs);
+
+          const period = document.getElementById('c-token-period');
+          if (period && tokens7d.length >= 2 && tokens7d[0]?.day && tokens7d[tokens7d.length - 1]?.day) {
+            period.textContent = `${tokens7d[0].day} - ${tokens7d[tokens7d.length - 1].day}`;
+          }
+        } catch (err) {
+          LB.toast(err?.message || '加载消耗数据失败', 'error', 4200);
+        } finally {
+          if (REFRESH) REFRESH.disabled = false;
+        }
+      }
+
+      if (REFRESH) REFRESH.addEventListener('click', loadConsumption);
+      loadConsumption();
+    })();
+  </script>
+</body>
+</html>

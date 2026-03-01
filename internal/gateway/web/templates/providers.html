@@ -1010,6 +1010,7 @@
         </a>
         <nav class="menu" aria-label="主导航">
           <a class="menu-item" href="/admin/dashboard"><span class="menu-dot" aria-hidden="true"></span>概览 Overview</a>
+          <a class="menu-item" href="/admin/consumption"><span class="menu-dot" aria-hidden="true"></span>消耗 Consumption</a>
           <a class="menu-item is-active" href="/admin/providers"><span class="menu-dot" aria-hidden="true"></span>提供商 Provider</a>
           <a class="menu-item" href="/admin/router"><span class="menu-dot" aria-hidden="true"></span>路由 Router</a>
           <a class="menu-item" href="/admin/marketplace"><span class="menu-dot" aria-hidden="true"></span>模块 Marketplace</a>
@@ -2180,7 +2181,23 @@
         }
       }
 
-      async function ensureCodexProviderRegistered() {
+      function mergeCodexCredentialsToConfigJSON(rawConfigJSON, credentials) {
+        const cfg = parseJSONObj(rawConfigJSON);
+        const creds = credentials && typeof credentials === 'object' ? credentials : {};
+        const accessToken = String(creds?.access_token || '').trim();
+        const refreshToken = String(creds?.refresh_token || '').trim();
+        const accountID = String(creds?.account_id || '').trim();
+        const email = String(creds?.email || '').trim();
+        const expired = String(creds?.expired || '').trim();
+        if (accessToken) cfg.access_token = accessToken;
+        if (refreshToken) cfg.refresh_token = refreshToken;
+        if (accountID) cfg.account_id = accountID;
+        if (email) cfg.email = email;
+        if (expired) cfg.expired = expired;
+        return JSON.stringify(cfg, null, 2);
+      }
+
+      async function ensureCodexProviderRegistered(credentials) {
         const providerId = 'codex';
         const moduleId = 'openai-codex-oauth';
 
@@ -2248,7 +2265,7 @@
           type: 'module',
           protocol: 'codex',
           endpoint: endpoint || prevEndpoint,
-          configJSON: String(existing?.ConfigJSON ?? existing?.configJSON ?? '{}'),
+          configJSON: mergeCodexCredentialsToConfigJSON(String(existing?.ConfigJSON ?? existing?.configJSON ?? '{}'), credentials),
           enabled: existing ? Boolean(existing?.Enabled ?? existing?.enabled ?? true) : true,
         };
         try { payload.configJSON = safeJSON(payload.configJSON); } catch (_) {}
@@ -2268,7 +2285,7 @@
             LB.toast('尚未获取 Token，无法保存', 'error', 4200);
             return;
           }
-          await ensureCodexProviderRegistered();
+          await ensureCodexProviderRegistered(creds);
           codexPendingDisplayName = '';
           codexPendingGroupName = '';
           if (CODEX_CB_URL) CODEX_CB_URL.value = '';
