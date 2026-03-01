@@ -29,9 +29,9 @@ func DefaultConfig() (Config, error) {
 	if v := os.Getenv("LIGHTBRIDGE_ADDR"); v != "" {
 		addr = v
 	}
-	// Default to a remote Marketplace source (GitHub directory scan).
+	// Default to a remote Marketplace source (static index.json on raw.githubusercontent.com).
 	// Keep "local" available for development/offline fallback via env override.
-	moduleIndex := "github:WilliamWang1721/LightBridge/market/MODULES@main"
+	moduleIndex := "https://raw.githubusercontent.com/WilliamWang1721/LightBridge/main/market/MODULES/index.json"
 	if v := os.Getenv("LIGHTBRIDGE_MODULE_INDEX"); v != "" {
 		moduleIndex = v
 	}

@@ -17,6 +17,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: marketplace-index
+  cancel-in-progress: false
+
 jobs:
   publish:
     runs-on: ubuntu-latest

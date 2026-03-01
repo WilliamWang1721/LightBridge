@@ -83,8 +83,8 @@ go run ./cmd/lightbridge
 
 指定 Marketplace 的“索引来源”。常见取值：
 
-- GitHub 目录（默认）：`github:WilliamWang1721/LightBridge/market/MODULES@main`（扫描 `market/MODULES/` 下的 `*.zip` 并即时生成 index）
-- 远程 `index.json`（适合规模化）：例如 `https://raw.githubusercontent.com/WilliamWang1721/LightBridge/main/market/MODULES/index.json`
+- 远程 `index.json`（默认 / Phase 2）：`https://raw.githubusercontent.com/WilliamWang1721/LightBridge/main/market/MODULES/index.json`
+- GitHub 目录扫描（Phase 1，开发/救援路径）：`github:WilliamWang1721/LightBridge/market/MODULES@main`（扫描 `market/MODULES/` 下的 `*.zip` 并即时生成 index）
 - `local`（开发/离线兜底）：扫描本地 `MODULES` 目录里的 `*.zip`
 
 ### 3.4 `LIGHTBRIDGE_COOKIE_SECRET`

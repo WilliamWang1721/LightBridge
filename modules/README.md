@@ -1,13 +1,13 @@
 # Module Marketplace
 
-LightBridge 默认使用 GitHub 目录扫描作为 Marketplace 源：
+LightBridge 默认使用静态 `index.json` 作为 Marketplace 源（Phase 2）：
 
-- 默认：`LIGHTBRIDGE_MODULE_INDEX=github:WilliamWang1721/LightBridge/market/MODULES@main`
-- Core 会扫描该目录下的 `*.zip` 并即时生成模块索引（无需提前生成 `index.json`）
+- 默认：`LIGHTBRIDGE_MODULE_INDEX=https://raw.githubusercontent.com/WilliamWang1721/LightBridge/main/market/MODULES/index.json`
+- Core 会通过 HTTP GET 拉取索引，不依赖 GitHub 目录扫描
 
-静态索引（适合规模化）：
+GitHub 目录扫描（Phase 1，开发/救援路径）：
 
-- `LIGHTBRIDGE_MODULE_INDEX=https://raw.githubusercontent.com/WilliamWang1721/LightBridge/main/market/MODULES/index.json`
+- `LIGHTBRIDGE_MODULE_INDEX=github:WilliamWang1721/LightBridge/market/MODULES@main`（扫描目录下的 `*.zip` 并即时生成索引）
 
 本地扫描仍然支持（开发/离线兜底）：
 

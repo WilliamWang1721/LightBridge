@@ -31,7 +31,7 @@ export LIGHTBRIDGE_DATA_DIR="$HOME/.lightbridge-data"
 ### `LIGHTBRIDGE_MODULE_INDEX`
 
 - 作用：Marketplace 索引来源
-- 默认：`github:WilliamWang1721/LightBridge/market/MODULES@main`
+- 默认：`https://raw.githubusercontent.com/WilliamWang1721/LightBridge/main/market/MODULES/index.json`
 
 可选：
 

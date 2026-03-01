@@ -72,7 +72,7 @@ go run ./cmd/lightbridge
 ```bash
 LIGHTBRIDGE_ADDR=127.0.0.1:3210
 LIGHTBRIDGE_DATA_DIR=/path/to/data
-LIGHTBRIDGE_MODULE_INDEX=github:WilliamWang1721/LightBridge/market/MODULES@main # optional (default)
+LIGHTBRIDGE_MODULE_INDEX=https://raw.githubusercontent.com/WilliamWang1721/LightBridge/main/market/MODULES/index.json # optional (default)
 # LIGHTBRIDGE_MODULE_INDEX=local # dev/offline fallback
 LIGHTBRIDGE_MODULES_DIR=/path/to/MODULES # optional
 LIGHTBRIDGE_COOKIE_SECRET=your-secret
@@ -84,8 +84,8 @@ LIGHTBRIDGE_COOKIE_SECRET=your-secret
 - Windows: `%AppData%\\LightBridge`
 
 Marketplace 默认源：
-- 默认：GitHub 目录扫描（无需提前生成 `index.json`）：`LIGHTBRIDGE_MODULE_INDEX=github:WilliamWang1721/LightBridge/market/MODULES@main`
-- 也可设置为远程 `index.json` URL（适合规模化）：例如 `https://raw.githubusercontent.com/WilliamWang1721/LightBridge/main/market/MODULES/index.json`
+- 默认（Phase 2）：静态 `index.json`：`LIGHTBRIDGE_MODULE_INDEX=https://raw.githubusercontent.com/WilliamWang1721/LightBridge/main/market/MODULES/index.json`
+- GitHub 目录扫描（Phase 1，开发/救援路径）：`LIGHTBRIDGE_MODULE_INDEX=github:WilliamWang1721/LightBridge/market/MODULES@main`
 - `local`（开发/离线兜底）：扫描 `./MODULES`（优先）或 `${LIGHTBRIDGE_DATA_DIR}/MODULES` 里的 `*.zip` 模块包
 
 ---

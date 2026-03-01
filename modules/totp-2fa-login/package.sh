@@ -85,10 +85,14 @@ echo "OK"
 echo "ZIP:    ${ZIP_PATH}"
 echo "SHA256: ${SHA256}"
 echo
-echo "Remote marketplace (Phase 1, GitHub directory scan):"
+echo "Remote marketplace (Phase 2, static index.json + GitHub Releases):"
+echo "  LightBridge default source: https://raw.githubusercontent.com/WilliamWang1721/LightBridge/main/market/MODULES/index.json"
+echo "  Publish: push tag module-${MODULE_ID}-v${VERSION} (see .github/workflows/publish-module.yml)"
+echo
+echo "Remote marketplace (Phase 1, GitHub directory scan fallback):"
 echo "  mkdir -p \"${ROOT}/market/MODULES\" && cp \"${ZIP_PATH}\" \"${ROOT}/market/MODULES/${MODULE_ID}.zip\""
 echo "  git add \"${ROOT}/market/MODULES/${MODULE_ID}.zip\" && git commit -m \"market/MODULES: ${MODULE_ID} ${VERSION}\" && git push"
-echo "  LightBridge default source: github:WilliamWang1721/LightBridge/market/MODULES@main"
+echo "  Source: github:WilliamWang1721/LightBridge/market/MODULES@main"
 echo
 echo "Local marketplace (dev/offline fallback):"
 echo "  cp \"${ZIP_PATH}\" \"${ROOT}/market/MODULES/${MODULE_ID}.zip\""
