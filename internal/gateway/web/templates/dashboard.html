@@ -218,6 +218,28 @@
       font-family: var(--font-body);
     }
 
+    .header-main {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .header-main-top {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .header-tip {
+      font-size: 12px;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+      padding: 6px 10px;
+      font-family: var(--font-body);
+      background: #ffffff;
+    }
+
     .header-actions {
       display: flex;
       align-items: center;
@@ -751,6 +773,213 @@
       font-family: var(--font-body);
     }
 
+    .experiment-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      background: rgba(8, 8, 8, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .experiment-layer[hidden] {
+      display: none;
+    }
+
+    .experiment-dialog {
+      width: min(1140px, calc(100vw - 48px));
+      max-height: calc(100vh - 48px);
+      border: 1px solid var(--border);
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18);
+    }
+
+    .experiment-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .experiment-head h2 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 600;
+      font-family: var(--font-display);
+    }
+
+    .experiment-sub {
+      margin: 6px 0 0;
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-family: var(--font-body);
+    }
+
+    .experiment-body {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+      min-height: 0;
+      flex: 1;
+    }
+
+    .experiment-chat,
+    .experiment-config {
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 16px 18px;
+      gap: 12px;
+    }
+
+    .experiment-chat {
+      border-right: 1px solid var(--border);
+    }
+
+    .experiment-toolbar {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .experiment-toolbar .btn {
+      padding: 8px 12px;
+      font-size: 12px;
+    }
+
+    .experiment-status {
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-family: var(--font-body);
+    }
+
+    .experiment-log {
+      border: 1px solid var(--border);
+      padding: 10px;
+      overflow: auto;
+      min-height: 220px;
+      background: #fcfcfc;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .experiment-msg {
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .experiment-msg[data-role="user"] {
+      border-left: 3px solid var(--text-main);
+    }
+
+    .experiment-msg[data-role="assistant"] {
+      border-left: 3px solid var(--ok-green);
+    }
+
+    .experiment-msg-role {
+      font-family: var(--font-display);
+      font-size: 12px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin: 0;
+    }
+
+    .experiment-msg-body {
+      margin: 0;
+      font-family: var(--font-body);
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text-main);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .experiment-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .experiment-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .experiment-field--full {
+      grid-column: 1 / -1;
+    }
+
+    .experiment-field label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-family: var(--font-body);
+    }
+
+    .experiment-field input,
+    .experiment-field select,
+    .experiment-field textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      font-size: 13px;
+      color: var(--text-main);
+      background: #ffffff;
+      font-family: var(--font-body);
+      resize: vertical;
+      min-height: 38px;
+    }
+
+    .experiment-field textarea {
+      min-height: 88px;
+    }
+
+    .experiment-field .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .experiment-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .experiment-actions .btn {
+      padding: 8px 14px;
+      font-size: 12px;
+    }
+
+    .experiment-raw {
+      border: 1px solid var(--border);
+      background: #fbfbfb;
+      min-height: 120px;
+      max-height: 220px;
+      overflow: auto;
+      padding: 8px 10px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #2a2a2a;
+    }
+
     @media (max-width: 1180px) {
       .kpi-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -803,6 +1032,28 @@
         font-size: 34px;
       }
 
+      .experiment-layer {
+        padding: 12px;
+      }
+
+      .experiment-dialog {
+        width: calc(100vw - 24px);
+        max-height: calc(100vh - 24px);
+      }
+
+      .experiment-body {
+        grid-template-columns: 1fr;
+      }
+
+      .experiment-chat {
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .experiment-grid {
+        grid-template-columns: 1fr;
+      }
+
       .kpi-grid {
         grid-template-columns: 1fr;
       }
@@ -834,7 +1085,11 @@
 
     <main class="content">
       <header class="header">
-        <div>
+        <div class="header-main">
+          <div class="header-main-top">
+            <button class="btn" id="experiment-open-btn" type="button">试验</button>
+            <span class="header-tip">临时对话 · 模型调试</span>
+          </div>
           <h1>概览 Overview</h1>
           <p>在仪表盘中总览服务情况与详情</p>
         </div>
@@ -940,6 +1195,100 @@
       </section>
     </main>
   </div>
+
+  <div class="experiment-layer" id="experiment-layer" hidden>
+    <section class="experiment-dialog" role="dialog" aria-modal="true" aria-label="试验面板">
+      <header class="experiment-head">
+        <div>
+          <h2>试验</h2>
+          <p class="experiment-sub" id="experiment-conversation">临时会话：-</p>
+        </div>
+        <button class="btn" id="experiment-close-btn" type="button">关闭</button>
+      </header>
+      <div class="experiment-body">
+        <section class="experiment-chat" aria-label="临时对话">
+          <div class="experiment-toolbar">
+            <button class="btn" id="experiment-new-conversation" type="button">新建临时对话</button>
+            <button class="btn" id="experiment-clear-log" type="button">清空消息</button>
+            <span class="experiment-status" id="experiment-status">准备就绪</span>
+          </div>
+          <div class="experiment-log" id="experiment-log"></div>
+          <div class="experiment-field">
+            <label for="experiment-user-input">发送消息</label>
+            <textarea id="experiment-user-input" placeholder="输入要测试的用户消息"></textarea>
+          </div>
+        </section>
+
+        <section class="experiment-config" aria-label="试验参数">
+          <div class="experiment-grid">
+            <div class="experiment-field experiment-field--full">
+              <label for="experiment-model">模型（已存在模型）</label>
+              <input id="experiment-model" list="experiment-model-list" placeholder="如 gpt-5.2 或 gpt-5.2@codex" />
+              <datalist id="experiment-model-list"></datalist>
+            </div>
+
+            <div class="experiment-field experiment-field--full">
+              <label for="experiment-system">System Prompt（可选）</label>
+              <textarea id="experiment-system" placeholder="可选：为该临时会话设置系统提示词"></textarea>
+            </div>
+
+            <div class="experiment-field">
+              <label for="experiment-temperature">temperature</label>
+              <input id="experiment-temperature" type="number" step="0.1" min="0" max="2" placeholder="默认不传" />
+            </div>
+            <div class="experiment-field">
+              <label for="experiment-top-p">top_p</label>
+              <input id="experiment-top-p" type="number" step="0.1" min="0" max="1" placeholder="默认不传" />
+            </div>
+            <div class="experiment-field">
+              <label for="experiment-max-tokens">max_tokens</label>
+              <input id="experiment-max-tokens" type="number" step="1" min="1" placeholder="默认不传" />
+            </div>
+            <div class="experiment-field">
+              <label for="experiment-seed">seed</label>
+              <input id="experiment-seed" type="number" step="1" placeholder="默认不传" />
+            </div>
+            <div class="experiment-field">
+              <label for="experiment-presence-penalty">presence_penalty</label>
+              <input id="experiment-presence-penalty" type="number" step="0.1" min="-2" max="2" placeholder="默认不传" />
+            </div>
+            <div class="experiment-field">
+              <label for="experiment-frequency-penalty">frequency_penalty</label>
+              <input id="experiment-frequency-penalty" type="number" step="0.1" min="-2" max="2" placeholder="默认不传" />
+            </div>
+            <div class="experiment-field">
+              <label for="experiment-reasoning-effort">reasoning_effort</label>
+              <select id="experiment-reasoning-effort">
+                <option value="">默认</option>
+                <option value="none">none</option>
+                <option value="minimal">minimal</option>
+                <option value="low">low</option>
+                <option value="medium">medium</option>
+                <option value="high">high</option>
+                <option value="xhigh">xhigh</option>
+              </select>
+            </div>
+            <div class="experiment-field">
+              <label for="experiment-stop">stop（每行一个）</label>
+              <textarea id="experiment-stop" placeholder="例如：\n</think>\nSTOP"></textarea>
+            </div>
+
+            <div class="experiment-field experiment-field--full">
+              <label for="experiment-advanced-params">高级参数 JSON（支持任意参数）</label>
+              <textarea class="mono" id="experiment-advanced-params" placeholder='例如：{"response_format":{"type":"json_object"},"tools":[...]}'>{"stream": false}</textarea>
+            </div>
+          </div>
+
+          <div class="experiment-actions">
+            <button class="btn primary" id="experiment-send-btn" type="button">发送测试请求</button>
+            <span class="experiment-status" id="experiment-send-hint">参数会与基础字段合并，便于完整调参</span>
+          </div>
+          <pre class="experiment-raw" id="experiment-raw-response">暂无响应</pre>
+        </section>
+      </div>
+    </section>
+  </div>
+
   <script src="/admin/static/admin.js"></script>
   <script>
     (() => {
@@ -947,6 +1296,12 @@
       if (!LB) return;
 
       const weekdayCN = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+      const EXP = {
+        conversationId: '',
+        messages: [],
+        modelsLoaded: false,
+        sending: false,
+      };
 
       function setText(id, text) {
         const el = document.getElementById(id);
@@ -1104,7 +1459,293 @@
         }
       }
 
+      function tempConversationID() {
+        const base = Date.now().toString(36);
+        const tail = Math.random().toString(36).slice(2, 8);
+        return `tmp_${base}_${tail}`;
+      }
+
+      function setExperimentStatus(text) {
+        setText('experiment-status', text || '');
+      }
+
+      function setExperimentRaw(payload) {
+        const node = document.getElementById('experiment-raw-response');
+        if (!node) return;
+        if (payload === undefined || payload === null || payload === '') {
+          node.textContent = '暂无响应';
+          return;
+        }
+        if (typeof payload === 'string') {
+          node.textContent = payload;
+          return;
+        }
+        try {
+          node.textContent = JSON.stringify(payload, null, 2);
+        } catch (_) {
+          node.textContent = String(payload);
+        }
+      }
+
+      function renderExperimentConversationInfo() {
+        setText('experiment-conversation', `临时会话：${EXP.conversationId || '-'}`);
+      }
+
+      function renderExperimentLog() {
+        const host = document.getElementById('experiment-log');
+        if (!host) return;
+        host.innerHTML = '';
+        if (!Array.isArray(EXP.messages) || EXP.messages.length === 0) {
+          host.appendChild(LB.el('div', { className: 'experiment-msg', dataset: { role: 'assistant' } }, [
+            LB.el('p', { className: 'experiment-msg-role', text: 'assistant' }),
+            LB.el('p', { className: 'experiment-msg-body', text: '这是一个临时会话，不会写入数据库。请发送一条消息开始测试。' }),
+          ]));
+          return;
+        }
+        for (const item of EXP.messages) {
+          const role = String(item?.role || 'assistant');
+          const content = String(item?.content || '');
+          host.appendChild(LB.el('div', { className: 'experiment-msg', dataset: { role } }, [
+            LB.el('p', { className: 'experiment-msg-role', text: role }),
+            LB.el('p', { className: 'experiment-msg-body', text: content || '(空内容)' }),
+          ]));
+        }
+        host.scrollTop = host.scrollHeight;
+      }
+
+      function resetExperimentConversation() {
+        EXP.conversationId = tempConversationID();
+        EXP.messages = [];
+        renderExperimentConversationInfo();
+        renderExperimentLog();
+        setExperimentRaw('');
+        setExperimentStatus('已创建临时会话');
+      }
+
+      function toNumberIfValid(value) {
+        if (value === undefined || value === null) return null;
+        const trimmed = String(value).trim();
+        if (trimmed === '') return null;
+        const parsed = Number(trimmed);
+        return Number.isFinite(parsed) ? parsed : null;
+      }
+
+      function parseAdvancedJSON() {
+        const input = document.getElementById('experiment-advanced-params');
+        if (!input) return {};
+        const raw = String(input.value || '').trim();
+        if (raw === '') return {};
+        let obj = null;
+        try {
+          obj = JSON.parse(raw);
+        } catch (_) {
+          throw new Error('高级参数 JSON 格式错误');
+        }
+        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+          throw new Error('高级参数 JSON 需为对象');
+        }
+        return obj;
+      }
+
+      function buildExperimentParams() {
+        const out = {};
+
+        const temperature = toNumberIfValid(document.getElementById('experiment-temperature')?.value);
+        const topP = toNumberIfValid(document.getElementById('experiment-top-p')?.value);
+        const maxTokens = toNumberIfValid(document.getElementById('experiment-max-tokens')?.value);
+        const seed = toNumberIfValid(document.getElementById('experiment-seed')?.value);
+        const presencePenalty = toNumberIfValid(document.getElementById('experiment-presence-penalty')?.value);
+        const frequencyPenalty = toNumberIfValid(document.getElementById('experiment-frequency-penalty')?.value);
+        const reasoningEffort = String(document.getElementById('experiment-reasoning-effort')?.value || '').trim();
+
+        if (temperature !== null) out.temperature = temperature;
+        if (topP !== null) out.top_p = topP;
+        if (maxTokens !== null) out.max_tokens = Math.max(1, Math.round(maxTokens));
+        if (seed !== null) out.seed = Math.round(seed);
+        if (presencePenalty !== null) out.presence_penalty = presencePenalty;
+        if (frequencyPenalty !== null) out.frequency_penalty = frequencyPenalty;
+        if (reasoningEffort !== '') out.reasoning_effort = reasoningEffort;
+
+        const stopRaw = String(document.getElementById('experiment-stop')?.value || '').trim();
+        if (stopRaw !== '') {
+          const stops = stopRaw.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+          if (stops.length > 0) out.stop = stops;
+        }
+
+        const advanced = parseAdvancedJSON();
+        for (const [k, v] of Object.entries(advanced)) out[k] = v;
+        return out;
+      }
+
+      function buildExperimentMessages(userInput) {
+        const messages = [];
+        const system = String(document.getElementById('experiment-system')?.value || '').trim();
+        if (system) {
+          messages.push({ role: 'system', content: system });
+        }
+        for (const item of EXP.messages) {
+          if (!item || typeof item !== 'object') continue;
+          const role = String(item.role || '').trim();
+          const content = String(item.content || '');
+          if (!role || !content) continue;
+          messages.push({ role, content });
+        }
+        messages.push({ role: 'user', content: userInput });
+        return messages;
+      }
+
+      function openExperimentPanel() {
+        const layer = document.getElementById('experiment-layer');
+        if (!layer) return;
+        layer.hidden = false;
+        document.body.style.overflow = 'hidden';
+        if (!EXP.modelsLoaded) loadExperimentModels();
+        setTimeout(() => {
+          const input = document.getElementById('experiment-user-input');
+          if (input) input.focus();
+        }, 0);
+      }
+
+      function closeExperimentPanel() {
+        const layer = document.getElementById('experiment-layer');
+        if (!layer) return;
+        layer.hidden = true;
+        document.body.style.overflow = '';
+      }
+
+      async function loadExperimentModels() {
+        const list = document.getElementById('experiment-model-list');
+        const modelInput = document.getElementById('experiment-model');
+        if (!list) return;
+        try {
+          const body = await LB.apiJSON('/admin/api/models');
+          const rows = Array.isArray(body?.models) ? body.models : [];
+          const ids = [];
+          for (const row of rows) {
+            const id = String(row?.ID ?? row?.id ?? '').trim();
+            if (id) ids.push(id);
+          }
+          ids.sort((a, b) => a.localeCompare(b));
+          list.innerHTML = '';
+          for (const id of ids) {
+            const opt = document.createElement('option');
+            opt.value = id;
+            list.appendChild(opt);
+          }
+          if (modelInput && String(modelInput.value || '').trim() === '' && ids.length > 0) {
+            modelInput.value = ids[0];
+          }
+          EXP.modelsLoaded = true;
+        } catch (err) {
+          LB.toast(err?.message || '模型列表加载失败', 'error', 4200);
+        }
+      }
+
+      async function sendExperiment() {
+        if (EXP.sending) return;
+
+        const model = String(document.getElementById('experiment-model')?.value || '').trim();
+        const userInputNode = document.getElementById('experiment-user-input');
+        const userInput = String(userInputNode?.value || '').trim();
+        if (!model) {
+          LB.toast('请先选择模型', 'error', 3600);
+          return;
+        }
+        if (!userInput) {
+          LB.toast('请输入要测试的消息', 'error', 3600);
+          return;
+        }
+
+        let params = {};
+        try {
+          params = buildExperimentParams();
+        } catch (err) {
+          LB.toast(err?.message || '参数错误', 'error', 4200);
+          return;
+        }
+
+        const payload = {
+          conversation_id: EXP.conversationId,
+          model,
+          messages: buildExperimentMessages(userInput),
+          params,
+        };
+
+        EXP.sending = true;
+        setExperimentStatus('请求发送中...');
+        try {
+          const body = await LB.apiJSON('/admin/api/experiment/chat', {
+            method: 'POST',
+            body: payload,
+          });
+
+          const assistantText = String(body?.assistant_text || '').trim();
+          EXP.messages.push({ role: 'user', content: userInput });
+          EXP.messages.push({
+            role: 'assistant',
+            content: assistantText || '[返回成功，但未提取到文本，请查看原始响应]',
+          });
+
+          if (userInputNode) userInputNode.value = '';
+          renderExperimentLog();
+          setExperimentRaw(body?.response || body);
+
+          const provider = String(body?.route?.provider_id || '-');
+          setExperimentStatus(`完成 · provider=${provider}`);
+        } catch (err) {
+          const details = err?.body || err?.message || '请求失败';
+          setExperimentRaw(details);
+          setExperimentStatus('请求失败');
+          LB.toast(err?.body?.error || err?.message || '测试请求失败', 'error', 4200);
+        } finally {
+          EXP.sending = false;
+        }
+      }
+
+      function initExperiment() {
+        const openBtn = document.getElementById('experiment-open-btn');
+        const closeBtn = document.getElementById('experiment-close-btn');
+        const newBtn = document.getElementById('experiment-new-conversation');
+        const clearBtn = document.getElementById('experiment-clear-log');
+        const sendBtn = document.getElementById('experiment-send-btn');
+        const layer = document.getElementById('experiment-layer');
+        const input = document.getElementById('experiment-user-input');
+        if (!openBtn || !closeBtn || !newBtn || !clearBtn || !sendBtn || !layer) return;
+
+        openBtn.addEventListener('click', openExperimentPanel);
+        closeBtn.addEventListener('click', closeExperimentPanel);
+        newBtn.addEventListener('click', () => {
+          resetExperimentConversation();
+          LB.toast('已新建临时会话', 'ok', 2200);
+        });
+        clearBtn.addEventListener('click', () => {
+          EXP.messages = [];
+          renderExperimentLog();
+          setExperimentStatus('已清空当前会话消息');
+        });
+        sendBtn.addEventListener('click', sendExperiment);
+
+        if (input) {
+          input.addEventListener('keydown', (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+              e.preventDefault();
+              sendExperiment();
+            }
+          });
+        }
+
+        layer.addEventListener('click', (e) => {
+          if (e.target === layer) closeExperimentPanel();
+        });
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' && !layer.hidden) closeExperimentPanel();
+        });
+
+        resetExperimentConversation();
+      }
+
       attachJumpCards();
+      initExperiment();
       load();
     })();
   </script>

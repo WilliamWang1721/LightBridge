@@ -9,23 +9,18 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg-page: #f6f7fb;
-      --bg-surface: #f3f4f6;
+      --bg-page: #ffffff;
+      --bg-surface: #fafafa;
       --bg-card: #ffffff;
-      --border: #e5e7eb;
+      --border: #e8e8e8;
       --text-main: #0d0d0d;
-      --text-secondary: #6b7280;
+      --text-secondary: #7a7a7a;
       --accent: #e42313;
-      --accent-soft: rgba(228, 35, 19, 0.14);
       --ok: #1f9d50;
       --warn: #d97706;
       --line-a: #0f172a;
       --line-b: #e42313;
       --line-c: #0ea5e9;
-      --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.08);
-      --radius-lg: 16px;
-      --radius-md: 12px;
-      --radius-sm: 10px;
       --font-display: "Space Grotesk", "Noto Sans SC", sans-serif;
       --font-body: "Inter", "Noto Sans SC", sans-serif;
     }
@@ -41,7 +36,7 @@
       background: var(--bg-page);
       color: var(--text-main);
       font-family: var(--font-body);
-      font-size: 15px;
+      font-size: 16px;
       line-height: 1.45;
     }
 
@@ -86,7 +81,6 @@
       height: 28px;
       background: var(--accent);
       display: inline-block;
-      border-radius: 8px;
     }
 
     .menu {
@@ -146,7 +140,6 @@
       font-weight: 500;
       font-family: var(--font-display);
       border: 0;
-      border-radius: 10px;
     }
 
     .sidebar-user {
@@ -162,10 +155,10 @@
     .content {
       flex: 1;
       min-height: 0;
-      padding: 34px 40px 38px;
+      padding: 40px 48px;
       display: flex;
       flex-direction: column;
-      gap: 18px;
+      gap: 28px;
       overflow-y: auto;
       overflow-x: hidden;
       background: var(--bg-page);
@@ -175,7 +168,7 @@
       display: flex;
       align-items: flex-end;
       justify-content: space-between;
-      gap: 16px;
+      gap: 24px;
       flex-wrap: wrap;
     }
 
@@ -197,7 +190,7 @@
 
     .header-actions {
       display: inline-flex;
-      gap: 8px;
+      gap: 12px;
       align-items: center;
     }
 
@@ -215,18 +208,6 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-      border-radius: var(--radius-sm);
-      transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
-    }
-
-    .btn:hover:not(:disabled) {
-      background: var(--bg-surface);
-      border-color: #d1d5db;
-    }
-
-    .btn:focus-visible {
-      outline: none;
-      box-shadow: 0 0 0 3px var(--accent-soft);
     }
 
     .btn:disabled {
@@ -238,11 +219,6 @@
       background: var(--text-main);
       color: #ffffff;
       border-color: var(--text-main);
-    }
-
-    .btn.primary:hover:not(:disabled) {
-      background: #111827;
-      border-color: #111827;
     }
 
     .meta-line {
@@ -258,16 +234,14 @@
     .table-card {
       border: 1px solid var(--border);
       background: var(--bg-card);
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-sm);
       min-width: 0;
     }
 
     .settings-card {
-      padding: 16px;
+      padding: 20px;
       display: none;
       flex-direction: column;
-      gap: 12px;
+      gap: 16px;
     }
 
     .content.settings-open .settings-card {
@@ -284,7 +258,7 @@
     .settings-grid {
       display: grid;
       grid-template-columns: repeat(6, minmax(0, 1fr));
-      gap: 10px;
+      gap: 12px;
     }
 
     .field {
@@ -308,14 +282,6 @@
       color: var(--text-main);
       background: #fff;
       min-width: 0;
-      border-radius: var(--radius-sm);
-      transition: border-color 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    .field input:focus {
-      outline: none;
-      border-color: rgba(228, 35, 19, 0.55);
-      box-shadow: 0 0 0 3px var(--accent-soft);
     }
 
     .field-actions {
@@ -328,15 +294,15 @@
     .kpi-grid {
       display: grid;
       grid-template-columns: repeat(6, minmax(0, 1fr));
-      gap: 12px;
+      gap: 16px;
     }
 
     .kpi-card {
-      padding: 14px;
+      padding: 20px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      min-height: 118px;
+      gap: 12px;
+      min-height: 132px;
     }
 
     .kpi-label {
@@ -363,15 +329,15 @@
     .section-grid {
       display: grid;
       grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
-      gap: 12px;
+      gap: 16px;
     }
 
     .section-card {
-      padding: 18px;
+      padding: 24px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
-      min-height: 360px;
+      gap: 16px;
+      min-height: 380px;
     }
 
     .section-head {
@@ -427,8 +393,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 12px;
-      border-radius: var(--radius-md);
+      padding: 14px;
     }
 
     .line-wrap svg,
@@ -441,7 +406,7 @@
       width: 100%;
       display: grid;
       grid-template-columns: 230px 1fr;
-      gap: 12px;
+      gap: 16px;
       align-items: center;
     }
 
@@ -473,15 +438,15 @@
     .split-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
+      gap: 16px;
     }
 
     .mini-card {
-      padding: 12px;
+      padding: 16px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      min-height: 132px;
+      gap: 10px;
+      min-height: 152px;
     }
 
     .mini-card h3 {
@@ -497,7 +462,7 @@
       list-style: none;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 8px;
       font-size: 12px;
     }
 
@@ -512,20 +477,18 @@
     }
 
     .table-card {
-      padding: 16px;
+      padding: 20px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 12px;
     }
 
     .table-card.subcard {
       background: var(--bg-surface);
-      box-shadow: none;
     }
 
     .table-wrap {
       border: 1px solid var(--border);
-      border-radius: var(--radius-md);
       overflow-x: auto;
       overflow-y: hidden;
       background: #ffffff;
@@ -542,7 +505,7 @@
     th,
     td {
       border-bottom: 1px solid #ececef;
-      padding: 9px 8px;
+      padding: 10px 10px;
       text-align: left;
       font-size: 12px;
       white-space: nowrap;

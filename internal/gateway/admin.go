@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"lightbridge/internal/advstats"
+	"lightbridge/internal/routing"
 	"lightbridge/internal/types"
 	"lightbridge/internal/util"
 )
@@ -560,6 +561,13 @@ type modelRoutePayload struct {
 	Routes []types.ModelRoute `json:"routes"`
 }
 
+type experimentChatPayload struct {
+	ConversationID string           `json:"conversation_id"`
+	Model          string           `json:"model"`
+	Messages       []map[string]any `json:"messages"`
+	Params         map[string]any   `json:"params"`
+}
+
 func (s *Server) handleProviderDeleteAPI(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
@@ -675,6 +683,274 @@ func (s *Server) handleDashboardAPI(w http.ResponseWriter, r *http.Request) {
 		"path_model_24h": pathModel24h,
 		"now":            now.Format(time.RFC3339),
 	})
+}
+
+func (s *Server) handleExperimentChatAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+
+	var req experimentChatPayload
+	if err := json.NewDecoder(io.LimitReader(r.Body, 4<<20)).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid json"})
+		return
+	}
+
+	modelID := strings.TrimSpace(req.Model)
+	if modelID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "model is required"})
+		return
+	}
+	if len(req.Messages) == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "messages are required"})
+		return
+	}
+
+	requestBody := map[string]any{
+		"model":    modelID,
+		"messages": req.Messages,
+		"stream":   false, // experiment endpoint returns non-stream JSON for easier debugging.
+	}
+	mergeExperimentParams(requestBody, req.Params)
+	requestBody["model"] = modelID
+	requestBody["messages"] = req.Messages
+	requestBody["stream"] = false
+
+	requestBytes, err := json.Marshal(requestBody)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid request payload"})
+		return
+	}
+
+	baseModelID, tagEffort, hasModelTag, tagErr := parseModelTag(modelID, s.cfg.ModelTagAliases)
+	if tagErr != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": tagErr.Error()})
+		return
+	}
+	if hasModelTag {
+		modelID = baseModelID
+		requestBytes, err = patchReasoningEffort(requestBytes, endpointKindChatCompletions, baseModelID, tagEffort, true)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid request payload"})
+			return
+		}
+	}
+
+	route, err := s.resolver.Resolve(r.Context(), modelID)
+	if err != nil && errors.Is(err, routing.ErrNoHealthyProvider) {
+		s.startEnabledModulesBestEffort()
+		route, err = s.resolver.Resolve(r.Context(), modelID)
+	}
+	if err != nil || route == nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": "routing failed", "details": errString(err)})
+		return
+	}
+
+	provider, err := s.store.GetProvider(r.Context(), route.ProviderID)
+	if err != nil || provider == nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": "provider unavailable"})
+		return
+	}
+
+	adapter, ok := s.providers.Get(provider.Protocol)
+	if !ok {
+		writeJSON(w, http.StatusNotImplemented, map[string]any{"error": "provider protocol is not supported"})
+		return
+	}
+
+	upstreamReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, "/v1/chat/completions", bytes.NewReader(requestBytes))
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "failed to build upstream request"})
+		return
+	}
+	upstreamReq.Header.Set("content-type", "application/json")
+	upstreamReq.Header.Set("accept", "application/json")
+
+	buffered := newBufferedResponseWriter()
+	status, errorCode, callErr := adapter.Handle(r.Context(), buffered, upstreamReq, *provider, route)
+	if status == 0 {
+		status = buffered.StatusCode()
+	}
+	if status == 0 {
+		status = http.StatusBadGateway
+	}
+
+	rawResp := bytes.TrimSpace(buffered.body.Bytes())
+	respObj := decodeExperimentResponse(rawResp)
+	assistantText := extractExperimentAssistantText(respObj)
+
+	if callErr != nil {
+		writeJSON(w, status, map[string]any{
+			"error":           "experiment request failed",
+			"details":         callErr.Error(),
+			"error_code":      nonEmpty(errorCode, "upstream_error"),
+			"conversation_id": strings.TrimSpace(req.ConversationID),
+			"route":           experimentRouteInfo(route, provider),
+			"response":        respObj,
+		})
+		return
+	}
+
+	if status >= 400 {
+		writeJSON(w, status, map[string]any{
+			"error":           nonEmpty(extractExperimentError(respObj), "upstream request failed"),
+			"error_code":      nonEmpty(errorCode, "upstream_error"),
+			"conversation_id": strings.TrimSpace(req.ConversationID),
+			"route":           experimentRouteInfo(route, provider),
+			"response":        respObj,
+		})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":              true,
+		"conversation_id": strings.TrimSpace(req.ConversationID),
+		"assistant_text":  assistantText,
+		"route":           experimentRouteInfo(route, provider),
+		"response":        respObj,
+		"request": map[string]any{
+			"model":         modelID,
+			"message_count": len(req.Messages),
+		},
+	})
+}
+
+func mergeExperimentParams(dst map[string]any, params map[string]any) {
+	if len(params) == 0 {
+		return
+	}
+	for k, v := range params {
+		key := strings.TrimSpace(k)
+		if key == "" {
+			continue
+		}
+		dst[key] = v
+	}
+}
+
+func decodeExperimentResponse(raw []byte) any {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 {
+		return map[string]any{}
+	}
+	var out any
+	if err := json.Unmarshal(trimmed, &out); err == nil {
+		return out
+	}
+	return string(trimmed)
+}
+
+func extractExperimentAssistantText(resp any) string {
+	root, ok := resp.(map[string]any)
+	if !ok || root == nil {
+		return ""
+	}
+
+	if choices, ok := root["choices"].([]any); ok && len(choices) > 0 {
+		if choice, ok := choices[0].(map[string]any); ok {
+			if msg, ok := choice["message"].(map[string]any); ok {
+				if txt := extractMessageContentText(msg["content"]); txt != "" {
+					return txt
+				}
+			}
+			if delta, ok := choice["delta"].(map[string]any); ok {
+				if txt := extractMessageContentText(delta["content"]); txt != "" {
+					return txt
+				}
+			}
+		}
+	}
+
+	if txt, ok := root["output_text"].(string); ok {
+		return strings.TrimSpace(txt)
+	}
+	return ""
+}
+
+func extractMessageContentText(content any) string {
+	switch v := content.(type) {
+	case string:
+		return strings.TrimSpace(v)
+	case []any:
+		parts := make([]string, 0, len(v))
+		for _, item := range v {
+			m, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			if txt, ok := m["text"].(string); ok && strings.TrimSpace(txt) != "" {
+				parts = append(parts, strings.TrimSpace(txt))
+				continue
+			}
+			if txt, ok := m["content"].(string); ok && strings.TrimSpace(txt) != "" {
+				parts = append(parts, strings.TrimSpace(txt))
+			}
+		}
+		return strings.TrimSpace(strings.Join(parts, "\n"))
+	default:
+		return ""
+	}
+}
+
+func extractExperimentError(resp any) string {
+	root, ok := resp.(map[string]any)
+	if !ok || root == nil {
+		if text, ok := resp.(string); ok {
+			return strings.TrimSpace(text)
+		}
+		return ""
+	}
+
+	if errObj, ok := root["error"].(map[string]any); ok {
+		if msg, ok := errObj["message"].(string); ok && strings.TrimSpace(msg) != "" {
+			return strings.TrimSpace(msg)
+		}
+	}
+	if msg, ok := root["error"].(string); ok && strings.TrimSpace(msg) != "" {
+		return strings.TrimSpace(msg)
+	}
+	if msg, ok := root["message"].(string); ok && strings.TrimSpace(msg) != "" {
+		return strings.TrimSpace(msg)
+	}
+	return ""
+}
+
+func experimentRouteInfo(route *types.ResolvedRoute, provider *types.Provider) map[string]any {
+	out := map[string]any{
+		"provider_id":     "",
+		"provider_alias":  "",
+		"provider_health": "",
+		"requested_model": "",
+		"upstream_model":  "",
+		"variant":         false,
+	}
+	if provider != nil {
+		out["provider_id"] = provider.ID
+		out["provider_alias"] = provider.ID
+		out["provider_health"] = provider.Health
+	}
+	if route != nil {
+		out["requested_model"] = route.RequestedModel
+		out["upstream_model"] = route.UpstreamModel
+		out["variant"] = route.Variant
+	}
+	return out
+}
+
+func nonEmpty(v, fallback string) string {
+	v = strings.TrimSpace(v)
+	if v != "" {
+		return v
+	}
+	return fallback
+}
+
+func errString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
 }
 
 func (s *Server) handleLogsAPI(w http.ResponseWriter, r *http.Request) {

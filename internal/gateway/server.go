@@ -896,6 +896,8 @@ func (s *Server) routeAdminAPI(w http.ResponseWriter, r *http.Request) {
 		s.wrapAdminAPI(s.handleModelDeleteAPI)(w, r)
 	case "/dashboard":
 		s.wrapAdminAPI(s.handleDashboardAPI)(w, r)
+	case "/experiment/chat":
+		s.wrapAdminAPI(s.handleExperimentChatAPI)(w, r)
 	case "/advanced_statistics":
 		s.wrapAdminAPI(s.handleAdvancedStatisticsAPI)(w, r)
 	case "/logs":
