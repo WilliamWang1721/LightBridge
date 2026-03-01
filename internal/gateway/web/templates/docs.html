@@ -164,6 +164,18 @@ API Key:   sk-lb-xxxxxxxxxxxxxxxx</code></pre>
           </ul>
         </article>
 
+        <article class="doc-section" id="sec-model-tag">
+          <h2 class="doc-section-title">模型括号标签（Reasoning Effort）</h2>
+          <p>在 OpenAI 兼容入口中，您可以把 reasoning effort 写在模型字符串末尾，网关会自动剥离标签并按端点注入对应字段。</p>
+          <ul>
+            <li>语法：<code>&lt;modelExpr&gt;(&lt;tag&gt;)</code>，例如 <code>gpt-5.2(high)</code>、<code>gpt-5.2@codex(low)</code>、<code>gpt-5.2（High）</code></li>
+            <li>支持值（大小写不敏感）：<code>none|minimal|low|medium|high|xhigh|auto</code></li>
+            <li><code>auto</code> 表示不注入 reasoning effort 参数（即走模型默认值）</li>
+            <li>别名：可通过环境变量 <code>LIGHTBRIDGE_MODEL_TAG_ALIASES</code> 配置，例如 <code>{"raisingfaults":"high","fast":"low"}</code></li>
+            <li>优先级：请求体显式传入的 <code>reasoning_effort</code> / <code>reasoning.effort</code> 优先，模型标签仅在未显式设置时生效</li>
+          </ul>
+        </article>
+
         <article class="doc-section" id="sec-modules">
           <h2 class="doc-section-title">模块系统</h2>
           <p>LightBridge 支持通过模块扩展功能。模块可以提供新的 Provider 类型、认证方式或工具。</p>
@@ -184,6 +196,7 @@ API Key:   sk-lb-xxxxxxxxxxxxxxxx</code></pre>
           <li><a class="toc-link" href="#sec-codex">Codex 配置指南</a></li>
           <li><a class="toc-link" href="#sec-provider">Provider 管理</a></li>
           <li><a class="toc-link" href="#sec-routing">路由与模型映射</a></li>
+          <li><a class="toc-link" href="#sec-model-tag">模型括号标签</a></li>
           <li><a class="toc-link" href="#sec-modules">模块系统</a></li>
         </ul>
       </nav>

@@ -1,8 +1,11 @@
 package app
 
 import (
+	"encoding/json"
+	"log"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type Config struct {
@@ -11,6 +14,7 @@ type Config struct {
 	DatabasePath    string
 	ModuleIndexURL  string
 	CookieSecretKey string
+	ModelTagAliases map[string]string
 }
 
 func DefaultConfig() (Config, error) {
@@ -36,6 +40,7 @@ func DefaultConfig() (Config, error) {
 		moduleIndex = v
 	}
 	secret := os.Getenv("LIGHTBRIDGE_COOKIE_SECRET")
+	modelTagAliases := loadModelTagAliasesFromEnv()
 
 	return Config{
 		ListenAddr:      addr,
@@ -43,5 +48,31 @@ func DefaultConfig() (Config, error) {
 		DatabasePath:    filepath.Join(dataDir, "lightbridge.db"),
 		ModuleIndexURL:  moduleIndex,
 		CookieSecretKey: secret,
+		ModelTagAliases: modelTagAliases,
 	}, nil
+}
+
+func loadModelTagAliasesFromEnv() map[string]string {
+	raw := strings.TrimSpace(os.Getenv("LIGHTBRIDGE_MODEL_TAG_ALIASES"))
+	if raw == "" {
+		return nil
+	}
+	var parsed map[string]string
+	if err := json.Unmarshal([]byte(raw), &parsed); err != nil {
+		log.Printf("config: LIGHTBRIDGE_MODEL_TAG_ALIASES parse failed: %v", err)
+		return nil
+	}
+	out := make(map[string]string, len(parsed))
+	for k, v := range parsed {
+		key := strings.ToLower(strings.TrimSpace(k))
+		val := strings.ToLower(strings.TrimSpace(v))
+		if key == "" || val == "" {
+			continue
+		}
+		out[key] = val
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }

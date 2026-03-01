@@ -37,9 +37,10 @@ func main() {
 	credsPath := filepath.Join(dataDir, "credentials.json")
 
 	s := &server{
-		cfg:       cfg,
-		cfgPath:   cfgPath,
-		credsPath: credsPath,
+		cfg:             cfg,
+		cfgPath:         cfgPath,
+		credsPath:       credsPath,
+		modelTagAliases: loadModelTagAliasesFromEnv(),
 		httpc: &http.Client{
 			Timeout: 120 * time.Second,
 		},
@@ -74,6 +75,8 @@ func main() {
 type server struct {
 	cfg     config
 	cfgPath string
+
+	modelTagAliases map[string]string
 
 	httpc *http.Client
 
@@ -161,7 +164,7 @@ func (s *server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	stream := req.Stream
-	codexBody, revToolName, promptCacheKey, err := buildCodexRequest(body, stream)
+	codexBody, revToolName, promptCacheKey, err := buildCodexRequest(body, stream, s.modelTagAliases)
 	if err != nil {
 		writeOpenAIError(w, http.StatusBadRequest, err.Error(), "invalid_request_error", "invalid_request")
 		return

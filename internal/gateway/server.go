@@ -40,8 +40,9 @@ const (
 )
 
 type Config struct {
-	ListenAddr     string
-	ModuleIndexURL string
+	ListenAddr      string
+	ModuleIndexURL  string
+	ModelTagAliases map[string]string
 }
 
 type Server struct {
@@ -259,6 +260,8 @@ func routeModelID(route *types.ResolvedRoute, fallback string) string {
 }
 
 func New(cfg Config, st *store.Store, resolver *routing.Resolver, providerRegistry *providers.Registry, marketplace *modules.Marketplace, moduleMgr *modules.Manager, cookieSecret string) (*Server, error) {
+	cfg.ModelTagAliases = normalizeModelTagAliases(cfg.ModelTagAliases)
+
 	tmpl, err := template.ParseFS(webFS, "web/templates/*.html")
 	if err != nil {
 		return nil, fmt.Errorf("parse templates: %w", err)
@@ -494,6 +497,48 @@ func (s *Server) handleV1Proxy(w http.ResponseWriter, r *http.Request) {
 	}
 	r.Body = ioNopCloser(bodyBytes)
 
+	endpointKind := endpointKindFromContext(r.Context())
+	if endpointKind == endpointKindUnknown {
+		endpointKind = endpointKindFromPath(r.URL.Path)
+	}
+	baseModelID, tagEffort, hasModelTag, tagErr := parseModelTag(modelID, s.cfg.ModelTagAliases)
+	if tagErr != nil {
+		errorCode := "invalid_model_tag"
+		if errors.Is(tagErr, errMissingModelTag) {
+			errorCode = "missing_model"
+		}
+		writeOpenAIError(w, http.StatusBadRequest, tagErr.Error(), "invalid_request_error", errorCode)
+		_ = s.store.InsertRequestLog(r.Context(), types.RequestLogMeta{
+			Timestamp:   time.Now().UTC(),
+			RequestID:   requestID,
+			ClientKeyID: client.ID,
+			Path:        logPath,
+			Status:      http.StatusBadRequest,
+			LatencyMS:   time.Since(start).Milliseconds(),
+			ErrorCode:   errorCode,
+		})
+		return
+	}
+	if hasModelTag {
+		modelID = baseModelID
+		patchedBody, patchErr := patchReasoningEffort(bodyBytes, endpointKind, baseModelID, tagEffort, true)
+		if patchErr != nil {
+			writeOpenAIError(w, http.StatusBadRequest, "Body must be valid JSON", "invalid_request_error", "invalid_json")
+			_ = s.store.InsertRequestLog(r.Context(), types.RequestLogMeta{
+				Timestamp:   time.Now().UTC(),
+				RequestID:   requestID,
+				ClientKeyID: client.ID,
+				Path:        logPath,
+				Status:      http.StatusBadRequest,
+				LatencyMS:   time.Since(start).Milliseconds(),
+				ErrorCode:   "invalid_json",
+			})
+			return
+		}
+		bodyBytes = patchedBody
+		r.Body = ioNopCloser(bodyBytes)
+	}
+
 	if strings.TrimSpace(modelID) == "" {
 		modelID = requestModelFromPath(r.URL.Path)
 	}
@@ -503,7 +548,6 @@ func (s *Server) handleV1Proxy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ingressProtocol := ingressProtocolFromContext(r.Context())
-	endpointKind := endpointKindFromContext(r.Context())
 	forceByProtocol := forceProviderByProtocol(r.Context())
 
 	var (

@@ -24,8 +24,6 @@ func ConvertOpenAIRequestToCodex(modelName string, inputRawJSON []byte, stream b
 	// Map reasoning effort
 	if v := gjson.GetBytes(rawJSON, "reasoning_effort"); v.Exists() {
 		out, _ = sjson.Set(out, "reasoning.effort", v.Value())
-	} else {
-		out, _ = sjson.Set(out, "reasoning.effort", "medium")
 	}
 	out, _ = sjson.Set(out, "parallel_tool_calls", true)
 	out, _ = sjson.Set(out, "reasoning.summary", "auto")
@@ -359,4 +357,3 @@ func buildShortNameMap(names []string) map[string]string {
 	}
 	return m
 }
-

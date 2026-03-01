@@ -9,18 +9,23 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg-page: #ffffff;
-      --bg-surface: #f7f7f8;
+      --bg-page: #f6f7fb;
+      --bg-surface: #f3f4f6;
       --bg-card: #ffffff;
-      --border: #e8e8e8;
+      --border: #e5e7eb;
       --text-main: #0d0d0d;
-      --text-secondary: #6f6f74;
+      --text-secondary: #6b7280;
       --accent: #e42313;
+      --accent-soft: rgba(228, 35, 19, 0.14);
       --ok: #1f9d50;
       --warn: #d97706;
       --line-a: #0f172a;
       --line-b: #e42313;
       --line-c: #0ea5e9;
+      --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.08);
+      --radius-lg: 16px;
+      --radius-md: 12px;
+      --radius-sm: 10px;
       --font-display: "Space Grotesk", "Noto Sans SC", sans-serif;
       --font-body: "Inter", "Noto Sans SC", sans-serif;
     }
@@ -62,6 +67,7 @@
       padding: 40px 32px;
       border-right: 1px solid var(--border);
       overflow: hidden;
+      background: #ffffff;
     }
 
     .brand {
@@ -80,6 +86,7 @@
       height: 28px;
       background: var(--accent);
       display: inline-block;
+      border-radius: 8px;
     }
 
     .menu {
@@ -139,6 +146,7 @@
       font-weight: 500;
       font-family: var(--font-display);
       border: 0;
+      border-radius: 10px;
     }
 
     .sidebar-user {
@@ -160,6 +168,7 @@
       gap: 18px;
       overflow-y: auto;
       overflow-x: hidden;
+      background: var(--bg-page);
     }
 
     .header {
@@ -206,6 +215,18 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
+      border-radius: var(--radius-sm);
+      transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+    }
+
+    .btn:hover:not(:disabled) {
+      background: var(--bg-surface);
+      border-color: #d1d5db;
+    }
+
+    .btn:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px var(--accent-soft);
     }
 
     .btn:disabled {
@@ -219,6 +240,11 @@
       border-color: var(--text-main);
     }
 
+    .btn.primary:hover:not(:disabled) {
+      background: #111827;
+      border-color: #111827;
+    }
+
     .meta-line {
       margin: 0;
       font-size: 12px;
@@ -227,9 +253,14 @@
 
     .settings-card,
     .section-card,
-    .kpi-card {
+    .kpi-card,
+    .mini-card,
+    .table-card {
       border: 1px solid var(--border);
       background: var(--bg-card);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      min-width: 0;
     }
 
     .settings-card {
@@ -277,6 +308,14 @@
       color: var(--text-main);
       background: #fff;
       min-width: 0;
+      border-radius: var(--radius-sm);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .field input:focus {
+      outline: none;
+      border-color: rgba(228, 35, 19, 0.55);
+      box-shadow: 0 0 0 3px var(--accent-soft);
     }
 
     .field-actions {
@@ -323,7 +362,7 @@
 
     .section-grid {
       display: grid;
-      grid-template-columns: 1.15fr 0.85fr;
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
       gap: 12px;
     }
 
@@ -346,6 +385,13 @@
     .section-head h2 {
       margin: 0;
       font-size: 17px;
+      font-family: var(--font-display);
+      font-weight: 600;
+    }
+
+    .section-head h3 {
+      margin: 0;
+      font-size: 15px;
       font-family: var(--font-display);
       font-weight: 600;
     }
@@ -382,6 +428,7 @@
       align-items: center;
       justify-content: center;
       padding: 12px;
+      border-radius: var(--radius-md);
     }
 
     .line-wrap svg,
@@ -425,13 +472,11 @@
 
     .split-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 12px;
     }
 
     .mini-card {
-      border: 1px solid var(--border);
-      background: var(--bg-surface);
       padding: 12px;
       display: flex;
       flex-direction: column;
@@ -467,17 +512,25 @@
     }
 
     .table-card {
-      border: 1px solid var(--border);
-      background: var(--bg-card);
       padding: 16px;
       display: flex;
       flex-direction: column;
       gap: 10px;
     }
 
+    .table-card.subcard {
+      background: var(--bg-surface);
+      box-shadow: none;
+    }
+
     .table-wrap {
-      overflow-x: auto;
       border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow-x: auto;
+      overflow-y: hidden;
+      background: #ffffff;
+      max-width: 100%;
+      min-width: 0;
     }
 
     table {
@@ -499,6 +552,14 @@
       color: var(--text-secondary);
       font-weight: 500;
       background: var(--bg-surface);
+    }
+
+    tbody tr:nth-child(even) {
+      background: rgba(15, 23, 42, 0.015);
+    }
+
+    tbody tr:hover {
+      background: rgba(15, 23, 42, 0.03);
     }
 
     td.num,
@@ -548,8 +609,13 @@
 
     .core-usage-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr;
       gap: 12px;
+      align-items: start;
+    }
+
+    .core-usage-grid > * {
+      min-width: 0;
     }
 
     .backend-tabs {
@@ -567,6 +633,18 @@
       font-family: var(--font-display);
       font-size: 12px;
       cursor: pointer;
+      border-radius: 999px;
+      transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+    }
+
+    .backend-tab:hover:not(.is-active) {
+      background: var(--bg-surface);
+      border-color: #d1d5db;
+    }
+
+    .backend-tab:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px var(--accent-soft);
     }
 
     .backend-tab.is-active {
@@ -578,6 +656,10 @@
     .empty {
       color: var(--text-secondary);
       font-size: 12px;
+    }
+
+    @media (min-width: 1680px) {
+      .core-usage-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
 
     @media (max-width: 1380px) {
@@ -825,10 +907,10 @@
         </div>
 
         <div class="core-usage-grid">
-          <article>
+          <article class="table-card subcard">
             <div class="section-head">
               <div>
-                <h2>该后端 Provider 明细</h2>
+                <h3>该后端 Provider 明细</h3>
                 <p class="section-sub">请求数 / 总 Token / 费用 / 占比</p>
               </div>
             </div>
@@ -847,10 +929,10 @@
               </table>
             </div>
           </article>
-          <article>
+          <article class="table-card subcard">
             <div class="section-head">
               <div>
-                <h2>该后端模型明细</h2>
+                <h3>该后端模型明细</h3>
                 <p class="section-sub">请求数 / 总 Token / 费用 / 占比</p>
               </div>
             </div>

@@ -59,8 +59,9 @@ func Run(ctx context.Context, cfg Config) error {
 	marketplace := modules.NewMarketplace(st, cfg.DataDir, nil)
 
 	server, err := gateway.New(gateway.Config{
-		ListenAddr:     cfg.ListenAddr,
-		ModuleIndexURL: cfg.ModuleIndexURL,
+		ListenAddr:      cfg.ListenAddr,
+		ModuleIndexURL:  cfg.ModuleIndexURL,
+		ModelTagAliases: cfg.ModelTagAliases,
 	}, st, resolver, providerRegistry, marketplace, moduleMgr, cfg.CookieSecretKey)
 	if err != nil {
 		return err

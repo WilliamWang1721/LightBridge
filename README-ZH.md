@@ -76,6 +76,7 @@ LIGHTBRIDGE_MODULE_INDEX=https://raw.githubusercontent.com/WilliamWang1721/Light
 # LIGHTBRIDGE_MODULE_INDEX=local # dev/offline fallback
 LIGHTBRIDGE_MODULES_DIR=/path/to/MODULES # optional
 LIGHTBRIDGE_COOKIE_SECRET=your-secret
+LIGHTBRIDGE_MODEL_TAG_ALIASES='{"raisingfaults":"high","fast":"low","auto":"auto"}' # optional
 ```
 
 默认数据目录：
@@ -141,6 +142,13 @@ Marketplace 默认源：
 - 虚拟模型路由表（`models` + `model_routes`）
 - 按优先级 / 权重 / 健康状态筛选
 - 支持 `model@providerAlias` 变体路由
+
+### 模型括号标签（Reasoning Effort）
+- 支持在模型末尾添加标签：`<modelExpr>(<tag>)`，例如 `gpt-5.2(high)`、`gpt-5.2@codex(low)`、`gpt-5.2（High）`
+- 支持值（大小写不敏感）：`none|minimal|low|medium|high|xhigh|auto`
+- `auto` 表示 **不注入** `reasoning_effort` / `reasoning.effort`（即让模型使用默认值）
+- 可用 `LIGHTBRIDGE_MODEL_TAG_ALIASES` 配置自定义别名（JSON object，key/value 均大小写不敏感）
+- 优先级：请求体显式设置优先；模型标签仅用于剥离括号并在未显式设置时补充 effort
 
 ### 内置 Provider
 - `forward`：`/v1/*` 透传

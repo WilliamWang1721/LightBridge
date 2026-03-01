@@ -25,18 +25,29 @@ type chatMessage struct {
 	ToolCallID string           `json:"tool_call_id,omitempty"`
 }
 
-func buildCodexRequest(openAIReqBytes []byte, clientWantsStream bool) (codexReqBytes []byte, revToolName map[string]string, promptCacheKey string, err error) {
+func buildCodexRequest(openAIReqBytes []byte, clientWantsStream bool, modelTagAliases map[string]string) (codexReqBytes []byte, revToolName map[string]string, promptCacheKey string, err error) {
 	var in chatCompletionRequest
 	if err := json.Unmarshal(openAIReqBytes, &in); err != nil {
 		return nil, nil, "", errors.New("invalid JSON")
 	}
-	if strings.TrimSpace(in.Model) == "" {
+	in.Model = strings.TrimSpace(in.Model)
+	if in.Model == "" {
 		return nil, nil, "", errors.New("model is required")
 	}
 
-	effort := "medium"
+	baseModel, tagEffort, hasTag, tagErr := parseModelTag(in.Model, modelTagAliases)
+	if tagErr != nil {
+		return nil, nil, "", tagErr
+	}
+	if hasTag {
+		in.Model = baseModel
+	}
+
+	effort := ""
 	if v, ok := in.ReasoningEffort.(string); ok && strings.TrimSpace(v) != "" {
 		effort = strings.TrimSpace(v)
+	} else if strings.TrimSpace(tagEffort) != "" {
+		effort = strings.TrimSpace(tagEffort)
 	}
 
 	toolNameMap, rev := buildToolNameMaps(in.Tools)
@@ -141,12 +152,12 @@ func buildCodexRequest(openAIReqBytes []byte, clientWantsStream bool) (codexReqB
 		"instructions":        "",
 		"input":               input,
 		"parallel_tool_calls": true,
-		"reasoning": map[string]any{
-			"effort":  effort,
-			"summary": "auto",
-		},
-		"include": []string{"reasoning.encrypted_content"},
-		"store":   false,
+		"reasoning":           map[string]any{"summary": "auto"},
+		"include":             []string{"reasoning.encrypted_content"},
+		"store":               false,
+	}
+	if effort != "" {
+		out["reasoning"].(map[string]any)["effort"] = effort
 	}
 
 	if tools := convertToolsToCodex(in.Tools, toolNameMap); len(tools) > 0 {
