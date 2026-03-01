@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Passkey 登录</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-surface: #fafafa;
+      --bg-card: #ffffff;
+      --border: #e8e8e8;
+      --text-main: #0d0d0d;
+      --text-secondary: #7a7a7a;
+      --red-primary: #e42313;
+      --font-display: "Space Grotesk", "Noto Sans SC", sans-serif;
+      --font-body: "Inter", "Noto Sans SC", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body { margin: 0; background: var(--bg-surface); color: var(--text-main); font-family: var(--font-body); }
+    a { color: inherit; text-decoration: none; }
+
+    .page { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px 16px; }
+    .card { width: 460px; background: var(--bg-card); border: 1px solid var(--border); padding: 36px; display: flex; flex-direction: column; gap: 20px; }
+
+    .brand-header { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .brand-row { display: inline-flex; align-items: center; gap: 12px; }
+    .logo-mark { width: 28px; height: 28px; background: var(--red-primary); display: inline-block; }
+    .logo-text { font-family: var(--font-display); font-size: 20px; font-weight: 600; line-height: 26px; margin: 0; }
+
+    .title { margin: 0; font-family: var(--font-display); font-size: 30px; font-weight: 600; text-align: center; }
+    .subtitle { margin: 0; font-size: 14px; line-height: 1.55; color: var(--text-secondary); text-align: center; }
+
+    .remember-row { width: 100%; display: flex; align-items: center; justify-content: space-between; }
+    .remember-left { display: inline-flex; align-items: center; gap: 10px; }
+    .checkbox { width: 18px; height: 18px; border: 1px solid var(--border); background: #ffffff; appearance: none; -webkit-appearance: none; margin: 0; display: inline-flex; align-items: center; justify-content: center; }
+    .checkbox:checked::after { content: ""; width: 10px; height: 6px; border-left: 2px solid var(--text-main); border-bottom: 2px solid var(--text-main); transform: rotate(-45deg); margin-top: -1px; }
+    .remember-text { font-size: 13px; font-weight: 400; color: var(--text-secondary); user-select: none; }
+
+    .btn { width: 100%; height: 44px; border: 0; cursor: pointer; font-family: var(--font-display); font-size: 14px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; }
+    .btn.primary { background: var(--red-primary); color: #ffffff; }
+    .btn.secondary { background: #ffffff; color: var(--text-main); border: 1px solid var(--border); font-weight: 500; }
+    .btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+
+    .note { margin: 0; font-size: 12px; line-height: 1.55; color: var(--text-secondary); text-align: center; }
+    #out { margin: 0; display: none; white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; line-height: 1.5; color: #b42318; background: #fff5f5; border: 1px solid #fed7d7; padding: 10px 12px; }
+
+    .menu-wrap { position: relative; width: 100%; }
+    .menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      left: 0;
+      background: #fff;
+      border: 1px solid var(--border);
+      z-index: 8;
+      display: none;
+      padding: 6px;
+      gap: 6px;
+      flex-direction: column;
+    }
+    .menu.show { display: flex; }
+    .menu-item {
+      height: 36px;
+      border: 1px solid var(--border);
+      background: #fff;
+      font-size: 13px;
+      font-family: var(--font-body);
+      text-align: left;
+      padding: 0 10px;
+      cursor: pointer;
+    }
+
+    dialog {
+      border: 1px solid var(--border);
+      padding: 20px;
+      width: min(460px, calc(100% - 24px));
+    }
+
+    .dialog-title { margin: 0 0 8px; font-family: var(--font-display); font-size: 18px; font-weight: 600; }
+    .dialog-body { margin: 0; font-size: 13px; color: var(--text-secondary); }
+    .dialog-input { width: 100%; height: 40px; border: 1px solid var(--border); padding: 0 12px; margin-top: 10px; font-size: 14px; }
+    .dialog-actions { margin-top: 14px; display: flex; justify-content: flex-end; gap: 8px; }
+    .dialog-btn { height: 36px; padding: 0 14px; border: 1px solid var(--border); background: #fff; font-family: var(--font-display); font-size: 13px; font-weight: 600; cursor: pointer; }
+    .dialog-btn.primary { background: var(--text-main); border-color: var(--text-main); color: #fff; }
+
+    @media (max-width: 520px) {
+      .card { width: 100%; padding: 28px 22px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="card" aria-label="Passkey 登录">
+      <header class="brand-header">
+        <div class="brand-row" aria-label="LightBridge">
+          <span class="logo-mark" aria-hidden="true"></span>
+          <p class="logo-text">LightBridge</p>
+        </div>
+        <h1 class="title">Passkey 登录</h1>
+        <p class="subtitle">使用 Passkey（Face ID / Touch ID / Windows Hello / 1Password 等）登录 Admin 后台</p>
+      </header>
+
+      <div class="remember-row">
+        <label class="remember-left">
+          <input class="checkbox" type="checkbox" id="remember" />
+          <span class="remember-text">记住此设备</span>
+        </label>
+      </div>
+
+      <button class="btn primary" id="start" type="button" {{if not .PasskeyInstalled}}disabled aria-disabled="true" title="未安装 Passkey 登录模块"{{else}}title="使用 Passkey 登录"{{end}}>使用 Passkey 继续</button>
+      <a class="btn secondary" href="/admin/login">返回密码登录</a>
+
+      <div class="menu-wrap">
+        <button class="btn secondary" id="other-login" type="button" {{if not .TwoFAInstalled}}disabled aria-disabled="true"{{end}}>使用其他方式登录</button>
+        <div class="menu" id="other-menu"></div>
+      </div>
+
+      <p class="note">Produced by MovingDOT Tech.</p>
+      <pre id="out"></pre>
+    </section>
+  </main>
+
+  <dialog id="code-dialog">
+    <form method="dialog" id="code-form">
+      <h3 class="dialog-title">输入 2FA 验证码</h3>
+      <p class="dialog-body">请输入 6 位代码继续登录。</p>
+      <input class="dialog-input" id="code-input" placeholder="6 位验证码" maxlength="8" />
+      <div class="dialog-actions">
+        <button class="dialog-btn" type="button" id="code-cancel">取消</button>
+        <button class="dialog-btn primary" type="submit">继续</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+    (() => {
+      const out = document.getElementById('out');
+      const remember = document.getElementById('remember');
+      const btn = document.getElementById('start');
+      const codeDialog = document.getElementById('code-dialog');
+      const codeInput = document.getElementById('code-input');
+      const codeForm = document.getElementById('code-form');
+      const codeCancel = document.getElementById('code-cancel');
+      const otherBtn = document.getElementById('other-login');
+      const otherMenu = document.getElementById('other-menu');
+
+      let pendingTicket = '';
+
+      function showError(msg) {
+        out.style.display = 'block';
+        out.textContent = String(msg || 'request failed');
+      }
+
+      function clearError() {
+        out.style.display = 'none';
+        out.textContent = '';
+      }
+
+      function b64urlToBytes(s) {
+        const str = String(s || '').replace(/-/g, '+').replace(/_/g, '/');
+        const pad = str.length % 4 ? '='.repeat(4 - (str.length % 4)) : '';
+        const bin = atob(str + pad);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return bytes;
+      }
+
+      function bytesToB64url(bytes) {
+        const b = bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : new Uint8Array(bytes || []);
+        let bin = '';
+        for (let i = 0; i < b.length; i++) bin += String.fromCharCode(b[i]);
+        const base64 = btoa(bin);
+        return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+      }
+
+      function normalizePublicKeyRequestOptions(opts) {
+        const out = { ...(opts || {}) };
+        if (out.challenge) out.challenge = b64urlToBytes(out.challenge);
+        if (Array.isArray(out.allowCredentials)) {
+          out.allowCredentials = out.allowCredentials.map((c) => ({
+            ...(c || {}),
+            id: c?.id ? b64urlToBytes(c.id) : c?.id,
+          }));
+        }
+        return out;
+      }
+
+      function credentialToJSON(cred) {
+        if (!cred) return null;
+        return {
+          id: cred.id,
+          rawId: bytesToB64url(cred.rawId),
+          type: cred.type,
+          response: {
+            clientDataJSON: bytesToB64url(cred.response.clientDataJSON),
+            authenticatorData: bytesToB64url(cred.response.authenticatorData),
+            signature: bytesToB64url(cred.response.signature),
+            userHandle: cred.response.userHandle ? bytesToB64url(cred.response.userHandle) : '',
+          },
+        };
+      }
+
+      async function api(url, payload, method = 'POST') {
+        const res = await fetch(url, {
+          method,
+          headers: { 'content-type': 'application/json', 'accept': 'application/json' },
+          body: method === 'GET' ? undefined : JSON.stringify(payload || {}),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(String(body?.error || body?.message || res.statusText || 'request failed'));
+        }
+        return body;
+      }
+
+      async function doPasskey() {
+        if (!window.PublicKeyCredential || !navigator.credentials) {
+          throw new Error('当前浏览器不支持 Passkey（WebAuthn）');
+        }
+        const begin = await api('/admin/api/passkey/auth/begin', { username: '' });
+        const publicKey = normalizePublicKeyRequestOptions(begin?.publicKey);
+        const cred = await navigator.credentials.get({ publicKey });
+        const finish = await api('/admin/api/passkey/auth/finish', {
+          state: String(begin?.state || ''),
+          credential: credentialToJSON(cred),
+          remember: Boolean(remember?.checked),
+        });
+        if (finish?.requires_2fa) {
+          pendingTicket = String(finish?.ticket || '');
+          codeInput.value = '';
+          if (!codeDialog.open) codeDialog.showModal();
+          return;
+        }
+        location.href = String(finish?.next || '/admin/dashboard');
+      }
+
+      async function loadMethods() {
+        const res = await api('/admin/api/auth/methods', null, 'GET');
+        const methods = Array.isArray(res?.methods) ? res.methods : [];
+        otherMenu.innerHTML = '';
+        const totp = methods.find((m) => String(m?.id || '') === 'totp');
+        if (!totp) {
+          otherBtn.disabled = true;
+          return;
+        }
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'menu-item';
+        item.textContent = String(totp?.label || '使用 2FA 代码登录');
+        item.addEventListener('click', () => {
+          otherMenu.classList.remove('show');
+          location.href = '/admin/login';
+        });
+        otherMenu.appendChild(item);
+        otherBtn.disabled = false;
+      }
+
+      btn?.addEventListener('click', async () => {
+        if (btn.disabled) return;
+        btn.disabled = true;
+        clearError();
+        try {
+          await doPasskey();
+        } catch (err) {
+          showError(err?.message || 'Passkey 登录失败');
+        } finally {
+          btn.disabled = false;
+        }
+      });
+
+      codeForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+          const code = String(codeInput.value || '').trim();
+          const res = await api('/admin/api/2fa/challenge/verify', { ticket: pendingTicket, code });
+          try { codeDialog.close(); } catch (_) {}
+          location.href = String(res?.next || '/admin/dashboard');
+        } catch (err) {
+          showError(err?.message || '2FA 验证失败');
+        }
+      });
+
+      codeCancel.addEventListener('click', () => { try { codeDialog.close(); } catch (_) {} });
+
+      otherBtn.addEventListener('click', async () => {
+        if (otherBtn.disabled) return;
+        if (otherMenu.classList.contains('show')) {
+          otherMenu.classList.remove('show');
+          return;
+        }
+        try {
+          await loadMethods();
+          if (!otherBtn.disabled) otherMenu.classList.add('show');
+        } catch (err) {
+          showError(err?.message || '无法加载其他方式');
+        }
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!otherMenu.contains(e.target) && e.target !== otherBtn) {
+          otherMenu.classList.remove('show');
+        }
+      });
+
+      loadMethods().catch(() => {});
+    })();
+  </script>
+</body>
+</html>

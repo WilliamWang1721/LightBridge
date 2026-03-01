@@ -10,12 +10,15 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	neturl "net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -28,6 +31,7 @@ import (
 	"lightbridge/internal/store"
 	"lightbridge/internal/testutil"
 	"lightbridge/internal/types"
+	"lightbridge/internal/util"
 )
 
 func repoRoot(t *testing.T) string {
@@ -472,5 +476,304 @@ func TestAnthropicProviderConversion(t *testing.T) {
 	str := string(streamResp)
 	if !strings.Contains(str, "chat.completion.chunk") || !strings.Contains(str, "[DONE]") || !strings.Contains(str, "hello") {
 		t.Fatalf("unexpected anthropic stream conversion: %s", str)
+	}
+}
+
+func upsertInstalledModuleForTest(t *testing.T, st *store.Store, moduleID string, enabled bool) {
+	t.Helper()
+	err := st.SaveInstalledModule(context.Background(), types.ModuleInstalled{
+		ID:          moduleID,
+		Version:     "0.1.0",
+		InstallPath: "/tmp/" + moduleID,
+		Enabled:     enabled,
+		Protocols:   "http_rpc",
+		SHA256:      "",
+		InstalledAt: time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatalf("upsert installed module %s: %v", moduleID, err)
+	}
+}
+
+func saveModuleRuntimeFromBaseURLForTest(t *testing.T, st *store.Store, moduleID, baseURL string) {
+	t.Helper()
+	u, err := neturl.Parse(strings.TrimSpace(baseURL))
+	if err != nil {
+		t.Fatalf("parse base url %q: %v", baseURL, err)
+	}
+	_, portStr, err := net.SplitHostPort(u.Host)
+	if err != nil {
+		t.Fatalf("split host port %q: %v", u.Host, err)
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		t.Fatalf("atoi port %q: %v", portStr, err)
+	}
+	err = st.SaveModuleRuntime(context.Background(), types.ModuleRuntime{
+		ModuleID:    moduleID,
+		PID:         1,
+		HTTPPort:    port,
+		GRPCPort:    0,
+		Status:      "running",
+		LastStartAt: time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatalf("save module runtime %s: %v", moduleID, err)
+	}
+}
+
+func decodeJSONMap(t *testing.T, body io.Reader) map[string]any {
+	t.Helper()
+	out := map[string]any{}
+	if err := json.NewDecoder(body).Decode(&out); err != nil {
+		t.Fatalf("decode json body: %v", err)
+	}
+	return out
+}
+
+func containsMethodID(methods []any, want string) bool {
+	for _, item := range methods {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if strings.TrimSpace(fmt.Sprint(m["id"])) == want {
+			return true
+		}
+	}
+	return false
+}
+
+func TestAuthMethodsExposePasskeyAndConditionalTOTP(t *testing.T) {
+	st, dir := testutil.NewStore(t)
+	ctx := context.Background()
+
+	totpModule := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/totp/devices":
+			username := strings.TrimSpace(r.URL.Query().Get("username"))
+			data := []map[string]any{}
+			if username == "with-device" {
+				data = append(data, map[string]any{
+					"device_id":    "dev_1",
+					"label":        "Authenticator",
+					"created_at":   time.Now().UTC().Format(time.RFC3339),
+					"last_used_at": "",
+				})
+			}
+			w.Header().Set("content-type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": data})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer totpModule.Close()
+
+	upsertInstalledModuleForTest(t, st, "passkey-login", true)
+	upsertInstalledModuleForTest(t, st, "totp-2fa-login", true)
+	saveModuleRuntimeFromBaseURLForTest(t, st, "totp-2fa-login", totpModule.URL)
+
+	if err := st.SetSetting(ctx, "admin_2fa_enabled", "1"); err != nil {
+		t.Fatalf("set policy enabled: %v", err)
+	}
+	if err := st.SetSetting(ctx, "admin_2fa_require_for_password", "0"); err != nil {
+		t.Fatalf("set policy require_for_password: %v", err)
+	}
+	if err := st.SetSetting(ctx, "admin_2fa_require_for_passkey", "0"); err != nil {
+		t.Fatalf("set policy require_for_passkey: %v", err)
+	}
+	if err := st.SetSetting(ctx, "admin_2fa_allow_totp_only", "1"); err != nil {
+		t.Fatalf("set policy allow_totp_only: %v", err)
+	}
+
+	ts := setupGateway(t, st, dir, "")
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/admin/api/auth/methods")
+	if err != nil {
+		t.Fatalf("auth methods request(no username): %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("auth methods(no username) status=%d", resp.StatusCode)
+	}
+	body := decodeJSONMap(t, resp.Body)
+	methods, _ := body["methods"].([]any)
+	if !containsMethodID(methods, "passkey") {
+		t.Fatalf("expected passkey method in no-username response: %+v", body)
+	}
+	if !containsMethodID(methods, "totp") {
+		t.Fatalf("expected totp method in no-username response: %+v", body)
+	}
+
+	resp, err = http.Get(ts.URL + "/admin/api/auth/methods?username=with-device")
+	if err != nil {
+		t.Fatalf("auth methods request(with-device): %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("auth methods(with-device) status=%d", resp.StatusCode)
+	}
+	body = decodeJSONMap(t, resp.Body)
+	methods, _ = body["methods"].([]any)
+	if !containsMethodID(methods, "passkey") || !containsMethodID(methods, "totp") {
+		t.Fatalf("expected passkey+totp for with-device user, got %+v", body)
+	}
+
+	resp, err = http.Get(ts.URL + "/admin/api/auth/methods?username=without-device")
+	if err != nil {
+		t.Fatalf("auth methods request(without-device): %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("auth methods(without-device) status=%d", resp.StatusCode)
+	}
+	body = decodeJSONMap(t, resp.Body)
+	methods, _ = body["methods"].([]any)
+	if !containsMethodID(methods, "passkey") {
+		t.Fatalf("expected passkey for without-device user, got %+v", body)
+	}
+	if containsMethodID(methods, "totp") {
+		t.Fatalf("did not expect totp for without-device user, got %+v", body)
+	}
+}
+
+func TestPasswordLoginRequiresTwoFAChallenge(t *testing.T) {
+	st, dir := testutil.NewStore(t)
+	ctx := context.Background()
+
+	totpModule := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/totp/devices":
+			username := strings.TrimSpace(r.URL.Query().Get("username"))
+			data := []map[string]any{}
+			if username == "admin" {
+				data = append(data, map[string]any{
+					"device_id":    "dev_1",
+					"label":        "Authenticator",
+					"created_at":   time.Now().UTC().Format(time.RFC3339),
+					"last_used_at": "",
+				})
+			}
+			w.Header().Set("content-type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": data})
+		case "/totp/verify":
+			if r.Method != http.MethodPost {
+				w.WriteHeader(http.StatusMethodNotAllowed)
+				return
+			}
+			var req map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&req)
+			username := strings.TrimSpace(fmt.Sprint(req["username"]))
+			code := strings.TrimSpace(fmt.Sprint(req["code"]))
+			if username == "admin" && code == "123456" {
+				w.Header().Set("content-type", "application/json")
+				_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "username": "admin"})
+				return
+			}
+			w.Header().Set("content-type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			_ = json.NewEncoder(w).Encode(map[string]any{"error": "invalid 2fa code"})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer totpModule.Close()
+
+	upsertInstalledModuleForTest(t, st, "totp-2fa-login", true)
+	saveModuleRuntimeFromBaseURLForTest(t, st, "totp-2fa-login", totpModule.URL)
+
+	if err := st.SetSetting(ctx, "admin_2fa_enabled", "1"); err != nil {
+		t.Fatalf("set policy enabled: %v", err)
+	}
+	if err := st.SetSetting(ctx, "admin_2fa_require_for_password", "1"); err != nil {
+		t.Fatalf("set policy require_for_password: %v", err)
+	}
+	if err := st.SetSetting(ctx, "admin_2fa_require_for_passkey", "0"); err != nil {
+		t.Fatalf("set policy require_for_passkey: %v", err)
+	}
+	if err := st.SetSetting(ctx, "admin_2fa_allow_totp_only", "0"); err != nil {
+		t.Fatalf("set policy allow_totp_only: %v", err)
+	}
+
+	passHash, err := util.HashPassword("secret123")
+	if err != nil {
+		t.Fatalf("hash password: %v", err)
+	}
+	if err := st.CreateAdmin(ctx, "admin", passHash); err != nil {
+		t.Fatalf("create admin: %v", err)
+	}
+
+	ts := setupGateway(t, st, dir, "")
+	defer ts.Close()
+
+	loginPayload := map[string]any{
+		"username": "admin",
+		"password": "secret123",
+		"remember": true,
+	}
+	loginBytes, _ := json.Marshal(loginPayload)
+	resp, err := http.Post(ts.URL+"/admin/api/login", "application/json", bytes.NewReader(loginBytes))
+	if err != nil {
+		t.Fatalf("password login request: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("password login status=%d body=%s", resp.StatusCode, string(b))
+	}
+	body := decodeJSONMap(t, resp.Body)
+	if ok, _ := body["ok"].(bool); !ok {
+		t.Fatalf("expected ok=true in login response, got %+v", body)
+	}
+	if required, _ := body["requires_2fa"].(bool); !required {
+		t.Fatalf("expected requires_2fa=true, got %+v", body)
+	}
+	ticket := strings.TrimSpace(fmt.Sprint(body["ticket"]))
+	if ticket == "" {
+		t.Fatalf("expected non-empty ticket in login response, got %+v", body)
+	}
+
+	badVerifyPayload := map[string]any{"ticket": ticket, "code": "000000"}
+	badVerifyBytes, _ := json.Marshal(badVerifyPayload)
+	resp, err = http.Post(ts.URL+"/admin/api/2fa/challenge/verify", "application/json", bytes.NewReader(badVerifyBytes))
+	if err != nil {
+		t.Fatalf("2fa verify bad request: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 401 for bad 2fa code, status=%d body=%s", resp.StatusCode, string(b))
+	}
+
+	verifyPayload := map[string]any{"ticket": ticket, "code": "123456"}
+	verifyBytes, _ := json.Marshal(verifyPayload)
+	resp, err = http.Post(ts.URL+"/admin/api/2fa/challenge/verify", "application/json", bytes.NewReader(verifyBytes))
+	if err != nil {
+		t.Fatalf("2fa verify request: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("2fa verify status=%d body=%s", resp.StatusCode, string(b))
+	}
+	if got := resp.Header.Get("Set-Cookie"); !strings.Contains(got, "lightbridge_admin=") {
+		t.Fatalf("expected session cookie in 2fa verify response, got %q", got)
+	}
+	body = decodeJSONMap(t, resp.Body)
+	if next := strings.TrimSpace(fmt.Sprint(body["next"])); next != "/admin/dashboard" {
+		t.Fatalf("expected next=/admin/dashboard, got %+v", body)
+	}
+
+	replayPayload := map[string]any{"ticket": ticket, "code": "123456"}
+	replayBytes, _ := json.Marshal(replayPayload)
+	resp, err = http.Post(ts.URL+"/admin/api/2fa/challenge/verify", "application/json", bytes.NewReader(replayBytes))
+	if err != nil {
+		t.Fatalf("2fa replay verify request: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 401 for consumed ticket, status=%d body=%s", resp.StatusCode, string(b))
 	}
 }

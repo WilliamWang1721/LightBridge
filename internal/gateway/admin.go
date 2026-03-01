@@ -111,9 +111,14 @@ func (s *Server) handleLoginPage(w http.ResponseWriter, r *http.Request) {
 	if mod, err := s.store.GetInstalledModule(r.Context(), passkeyLoginModuleID); err == nil && mod != nil && mod.Enabled {
 		passkeyInstalled = true
 	}
+	twoFAInstalled := false
+	if mod, err := s.store.GetInstalledModule(r.Context(), totp2FAModuleID); err == nil && mod != nil && mod.Enabled {
+		twoFAInstalled = true
+	}
 	s.renderPage(w, "login", map[string]any{
 		"Page":             "Admin Login",
 		"PasskeyInstalled": passkeyInstalled,
+		"TwoFAInstalled":   twoFAInstalled,
 	})
 }
 
@@ -222,11 +227,7 @@ func (s *Server) handleAdminLoginAPI(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "invalid username or password"})
 		return
 	}
-	if err := s.sessions.newSession(w, payload.Username, payload.Remember); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "next": "/admin/dashboard"})
+	s.finalizePrimaryLogin(w, r, payload.Username, payload.Remember, "password")
 }
 
 func (s *Server) handleProvidersAPI(w http.ResponseWriter, r *http.Request) {

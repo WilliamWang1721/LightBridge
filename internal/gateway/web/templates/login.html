@@ -19,15 +19,8 @@
       --font-body: "Inter", "Noto Sans SC", sans-serif;
     }
 
-    * {
-      box-sizing: border-box;
-    }
-
-    html,
-    body {
-      height: 100%;
-    }
-
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
     body {
       margin: 0;
       background: var(--bg-surface);
@@ -35,10 +28,7 @@
       font-family: var(--font-body);
     }
 
-    a {
-      color: inherit;
-      text-decoration: none;
-    }
+    a { color: inherit; text-decoration: none; }
 
     .page {
       min-height: 100%;
@@ -55,7 +45,7 @@
       padding: 36px;
       display: flex;
       flex-direction: column;
-      gap: 24px;
+      gap: 20px;
     }
 
     .brand-header {
@@ -164,10 +154,6 @@
       opacity: 1;
     }
 
-    .input:focus {
-      border-color: #d0d0d0;
-    }
-
     .remember-row {
       width: 100%;
       display: flex;
@@ -223,6 +209,7 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      gap: 8px;
     }
 
     .btn.primary {
@@ -241,6 +228,40 @@
       opacity: 0.45;
       cursor: not-allowed;
     }
+
+    .menu-wrap {
+      position: relative;
+      width: 100%;
+    }
+
+    .menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      left: 0;
+      background: #fff;
+      border: 1px solid var(--border);
+      z-index: 8;
+      display: none;
+      padding: 6px;
+      gap: 6px;
+      flex-direction: column;
+    }
+
+    .menu.show { display: flex; }
+
+    .menu-item {
+      height: 36px;
+      border: 1px solid var(--border);
+      background: #fff;
+      font-size: 13px;
+      font-family: var(--font-body);
+      text-align: left;
+      padding: 0 10px;
+      cursor: pointer;
+    }
+
+    .menu-item:hover { background: #fafafa; }
 
     .note {
       width: 100%;
@@ -268,18 +289,15 @@
     }
 
     dialog {
-      width: min(560px, calc(100vw - 32px));
       border: 1px solid var(--border);
-      padding: 18px 18px 16px;
-      background: var(--bg-card);
+      padding: 20px;
+      width: min(460px, calc(100% - 24px));
     }
 
-    dialog::backdrop { background: rgba(0, 0, 0, 0.35); }
-
     .dialog-title {
-      margin: 0 0 6px;
+      margin: 0 0 8px;
       font-family: var(--font-display);
-      font-size: 16px;
+      font-size: 18px;
       font-weight: 600;
     }
 
@@ -287,16 +305,16 @@
       margin: 0;
       font-family: var(--font-body);
       font-size: 13px;
-      line-height: 1.55;
       color: var(--text-secondary);
+      line-height: 1.55;
       white-space: pre-wrap;
     }
 
     .dialog-actions {
+      margin-top: 14px;
       display: flex;
       justify-content: flex-end;
-      gap: 10px;
-      margin-top: 16px;
+      gap: 8px;
       flex-wrap: wrap;
     }
 
@@ -316,6 +334,15 @@
       background: var(--text-main);
       border-color: var(--text-main);
       color: #ffffff;
+    }
+
+    .dialog-input {
+      width: 100%;
+      height: 40px;
+      border: 1px solid var(--border);
+      padding: 0 12px;
+      margin-top: 10px;
+      font-size: 14px;
     }
 
     @media (max-width: 520px) {
@@ -341,7 +368,7 @@
       <form id="login-form" class="form">
         <div class="field">
           <p class="label">用户名 Username</p>
-          <input class="input" type="text" name="username" required autocomplete="username" placeholder="admin@lightbridge.com" />
+          <input class="input" id="username" type="text" name="username" required autocomplete="username" placeholder="admin@lightbridge.com" />
         </div>
 
         <div class="field">
@@ -354,7 +381,7 @@
 
         <div class="remember-row">
           <label class="remember-left">
-            <input class="checkbox" type="checkbox" name="remember" />
+            <input class="checkbox" type="checkbox" name="remember" id="remember" />
             <span class="remember-text">记住此设备</span>
           </label>
         </div>
@@ -362,7 +389,11 @@
         <button class="btn primary" type="submit">登录 Login</button>
       </form>
 
-      <button class="btn secondary" id="passkey-login" type="button" {{if not .PasskeyInstalled}}disabled aria-disabled="true" title="未安装 Passkey 登录模块"{{else}}title="使用 Passkey 登录"{{end}}>以其他方式登录</button>
+      <div class="menu-wrap">
+        <button class="btn secondary" id="other-login" type="button" {{if and (not .PasskeyInstalled) (not .TwoFAInstalled)}}disabled aria-disabled="true"{{end}}>使用其他方式登录</button>
+        <div class="menu" id="other-menu" aria-label="其他登录方式"></div>
+      </div>
+
       <p class="note">Produced by MovingDOT Tech.</p>
       <pre id="out"></pre>
     </section>
@@ -378,185 +409,277 @@
 2) 删除数据库文件（会清空所有配置）
    - macOS 默认：~/Library/Application Support/LightBridge/lightbridge.db
    - 如设置了环境变量 LIGHTBRIDGE_DATA_DIR：$LIGHTBRIDGE_DATA_DIR/lightbridge.db
-3) 重新启动后访问 /admin/setup 重新初始化
-
-If you still can login, consider creating a new admin user or keep a backup of the DB file.</p>
+3) 重新启动后访问 /admin/setup 重新初始化</p>
       <div class="dialog-actions">
         <button class="dialog-btn" type="button" id="forgot-close">关闭</button>
         <button class="dialog-btn primary" type="submit">我知道了</button>
       </div>
     </form>
   </dialog>
+
+  <dialog id="code-dialog">
+    <form method="dialog" id="code-form">
+      <h3 class="dialog-title" id="code-title">输入 2FA 验证码</h3>
+      <p class="dialog-body" id="code-help">请输入验证器上的 6 位代码完成验证。</p>
+      <input class="dialog-input" id="code-input" placeholder="6 位验证码" maxlength="8" />
+      <div class="dialog-actions">
+        <button class="dialog-btn" type="button" id="code-cancel">取消</button>
+        <button class="dialog-btn primary" type="submit" id="code-submit">继续</button>
+      </div>
+    </form>
+  </dialog>
+
   <script>
-    const DEVICE_STORAGE_KEY = 'lightbridge_admin_device';
-
-    function collectDeviceInfo() {
-      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      return {
-        userAgent: navigator.userAgent,
-        language: navigator.language,
-        platform: navigator.platform,
-        timezone: tz,
-        screen: { w: screen.width, h: screen.height, dpr: window.devicePixelRatio || 1 },
-        savedAt: new Date().toISOString(),
-      };
-    }
-
-    document.getElementById('login-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const formData = new FormData(e.target);
-      const remember = formData.get('remember') === 'on';
-      const data = {
-        username: String(formData.get('username') || ''),
-        password: String(formData.get('password') || ''),
-        remember,
-      };
-
-      // If "remember device" is enabled, store browser info locally and send it to server.
-      if (remember) {
-        const device = collectDeviceInfo();
-        try {
-          localStorage.setItem(DEVICE_STORAGE_KEY, JSON.stringify(device));
-        } catch (_) {
-          // Ignore storage errors; remember still works via cookie.
-        }
-        data.device = device;
-      }
-
-      const res = await fetch('/admin/api/login', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-      const body = await res.json();
+    (() => {
       const out = document.getElementById('out');
-      if (!res.ok) {
+      const usernameEl = document.getElementById('username');
+      const rememberEl = document.getElementById('remember');
+      const otherBtn = document.getElementById('other-login');
+      const otherMenu = document.getElementById('other-menu');
+      const codeDialog = document.getElementById('code-dialog');
+      const codeInput = document.getElementById('code-input');
+      const codeTitle = document.getElementById('code-title');
+      const codeHelp = document.getElementById('code-help');
+      const codeForm = document.getElementById('code-form');
+      const codeCancel = document.getElementById('code-cancel');
+
+      let dialogMode = '';
+      let pendingTicket = '';
+
+      function showError(message) {
         out.style.display = 'block';
-        out.textContent = JSON.stringify(body, null, 2);
-        return;
+        out.textContent = String(message || 'request failed');
       }
-      out.style.display = 'none';
-      out.textContent = '';
-      if (res.ok) {
-        location.href = '/admin/dashboard';
+
+      function clearError() {
+        out.style.display = 'none';
+        out.textContent = '';
       }
-    });
 
-    // "Forgot password" should not be a dead link.
-    (() => {
-      const a = document.getElementById('forgot-password');
-      const d = document.getElementById('forgot-dialog');
-      const c = document.getElementById('forgot-close');
-      if (!a || !d) return;
-      a.addEventListener('click', (e) => {
-        e.preventDefault();
-        if (!d.open) d.showModal();
-      });
-      if (c) c.addEventListener('click', () => {
-        try { d.close(); } catch (_) {}
-      });
-    })();
-
-    function b64urlToBytes(s) {
-      const str = String(s || '').replace(/-/g, '+').replace(/_/g, '/');
-      const pad = str.length % 4 ? '='.repeat(4 - (str.length % 4)) : '';
-      const bin = atob(str + pad);
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      return bytes;
-    }
-
-    function bytesToB64url(bytes) {
-      const b = bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : new Uint8Array(bytes || []);
-      let bin = '';
-      for (let i = 0; i < b.length; i++) bin += String.fromCharCode(b[i]);
-      const base64 = btoa(bin);
-      return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-    }
-
-    function normalizePublicKeyRequestOptions(opts) {
-      const out = { ...(opts || {}) };
-      if (out.challenge) out.challenge = b64urlToBytes(out.challenge);
-      if (Array.isArray(out.allowCredentials)) {
-        out.allowCredentials = out.allowCredentials.map((c) => ({
-          ...(c || {}),
-          id: c?.id ? b64urlToBytes(c.id) : c?.id,
-        }));
-      }
-      return out;
-    }
-
-    function credentialToJSON(cred) {
-      if (!cred) return null;
-      return {
-        id: cred.id,
-        rawId: bytesToB64url(cred.rawId),
-        type: cred.type,
-        response: {
-          clientDataJSON: bytesToB64url(cred.response.clientDataJSON),
-          authenticatorData: bytesToB64url(cred.response.authenticatorData),
-          signature: bytesToB64url(cred.response.signature),
-          userHandle: cred.response.userHandle ? bytesToB64url(cred.response.userHandle) : '',
-        }
-      };
-    }
-
-    // Passkey login.
-    (() => {
-      const btn = document.getElementById('passkey-login');
-      const out = document.getElementById('out');
-      if (!btn) return;
-
-      async function api(url, payload) {
+      async function api(url, payload, method = 'POST') {
         const res = await fetch(url, {
-          method: 'POST',
+          method,
           headers: { 'content-type': 'application/json', 'accept': 'application/json' },
-          body: JSON.stringify(payload || {}),
+          body: method === 'GET' ? undefined : JSON.stringify(payload || {}),
         });
         const body = await res.json().catch(() => ({}));
         if (!res.ok) {
-          const msg = body?.error || body?.message || res.statusText || 'request failed';
-          const err = new Error(msg);
+          const err = new Error(String(body?.error || body?.message || res.statusText || 'request failed'));
           err.status = res.status;
-          err.body = body;
           throw err;
         }
         return body;
       }
 
-      btn.addEventListener('click', async () => {
-        if (btn.disabled) return;
-        if (!window.PublicKeyCredential || !navigator.credentials) {
-          out.style.display = 'block';
-          out.textContent = '当前浏览器不支持 Passkey（WebAuthn）。请使用较新的 Safari/Chrome/Edge。';
+      function b64urlToBytes(s) {
+        const str = String(s || '').replace(/-/g, '+').replace(/_/g, '/');
+        const pad = str.length % 4 ? '='.repeat(4 - (str.length % 4)) : '';
+        const bin = atob(str + pad);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return bytes;
+      }
+
+      function bytesToB64url(bytes) {
+        const b = bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : new Uint8Array(bytes || []);
+        let bin = '';
+        for (let i = 0; i < b.length; i++) bin += String.fromCharCode(b[i]);
+        const base64 = btoa(bin);
+        return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+      }
+
+      function normalizePublicKeyRequestOptions(opts) {
+        const out = { ...(opts || {}) };
+        if (out.challenge) out.challenge = b64urlToBytes(out.challenge);
+        if (Array.isArray(out.allowCredentials)) {
+          out.allowCredentials = out.allowCredentials.map((c) => ({
+            ...(c || {}),
+            id: c?.id ? b64urlToBytes(c.id) : c?.id,
+          }));
+        }
+        return out;
+      }
+
+      function credentialToJSON(cred) {
+        if (!cred) return null;
+        return {
+          id: cred.id,
+          rawId: bytesToB64url(cred.rawId),
+          type: cred.type,
+          response: {
+            clientDataJSON: bytesToB64url(cred.response.clientDataJSON),
+            authenticatorData: bytesToB64url(cred.response.authenticatorData),
+            signature: bytesToB64url(cred.response.signature),
+            userHandle: cred.response.userHandle ? bytesToB64url(cred.response.userHandle) : '',
+          },
+        };
+      }
+
+      function openCodeDialog(mode, ticket) {
+        dialogMode = mode;
+        pendingTicket = String(ticket || '');
+        codeInput.value = '';
+        if (mode === 'challenge') {
+          codeTitle.textContent = '输入 2FA 验证码';
+          codeHelp.textContent = '密码/Passkey 已验证，请输入 6 位 2FA 代码。';
+        } else {
+          codeTitle.textContent = '使用 2FA 登录';
+          codeHelp.textContent = '输入当前用户的 6 位 2FA 代码，不需要密码。';
+        }
+        if (!codeDialog.open) codeDialog.showModal();
+      }
+
+      async function submitCodeDialog() {
+        const code = String(codeInput.value || '').trim();
+        if (!code) throw new Error('请输入 2FA 验证码');
+        if (dialogMode === 'challenge') {
+          return api('/admin/api/2fa/challenge/verify', { ticket: pendingTicket, code });
+        }
+        return api('/admin/api/2fa/totp-only/login', {
+          username: String(usernameEl.value || '').trim(),
+          code,
+          remember: Boolean(rememberEl.checked),
+        });
+      }
+
+      async function handlePrimaryLoginResult(res) {
+        if (res?.requires_2fa) {
+          openCodeDialog('challenge', String(res?.ticket || ''));
           return;
         }
-        btn.disabled = true;
-        out.style.display = 'block';
-        out.textContent = '正在唤起 Passkey 认证…';
+        location.href = String(res?.next || '/admin/dashboard');
+      }
 
-        try {
-          const username = String(document.querySelector('input[name="username"]')?.value || '').trim();
-          const remember = Boolean(document.querySelector('input[name="remember"]')?.checked);
-          const begin = await api('/admin/api/passkey/auth/begin', { username });
-          const publicKey = normalizePublicKeyRequestOptions(begin?.publicKey);
-          const cred = await navigator.credentials.get({ publicKey });
-          const finish = await api('/admin/api/passkey/auth/finish', {
-            state: String(begin?.state || ''),
-            credential: credentialToJSON(cred),
-            remember,
+      async function startPasskeyLogin() {
+        if (!window.PublicKeyCredential || !navigator.credentials) {
+          throw new Error('当前浏览器不支持 Passkey（WebAuthn）');
+        }
+        const username = String(usernameEl.value || '').trim();
+        const remember = Boolean(rememberEl.checked);
+        const begin = await api('/admin/api/passkey/auth/begin', { username });
+        const publicKey = normalizePublicKeyRequestOptions(begin?.publicKey);
+        const cred = await navigator.credentials.get({ publicKey });
+        const finish = await api('/admin/api/passkey/auth/finish', {
+          state: String(begin?.state || ''),
+          credential: credentialToJSON(cred),
+          remember,
+        });
+        await handlePrimaryLoginResult(finish);
+      }
+
+      async function refreshMethods() {
+        const username = String(usernameEl.value || '').trim();
+        const res = await api(`/admin/api/auth/methods?username=${encodeURIComponent(username)}`, null, 'GET');
+        const methods = Array.isArray(res?.methods) ? res.methods : [];
+
+        otherMenu.innerHTML = '';
+        if (!methods.length) {
+          otherBtn.disabled = true;
+          otherMenu.classList.remove('show');
+          return;
+        }
+
+        otherBtn.disabled = false;
+        for (const m of methods) {
+          const id = String(m?.id || '');
+          const label = String(m?.label || id || '未知方式');
+          const item = document.createElement('button');
+          item.type = 'button';
+          item.className = 'menu-item';
+          item.textContent = label;
+          item.addEventListener('click', async () => {
+            otherMenu.classList.remove('show');
+            clearError();
+            try {
+              if (id === 'passkey') {
+                await startPasskeyLogin();
+                return;
+              }
+              if (id === 'totp') {
+                if (!String(usernameEl.value || '').trim()) {
+                  throw new Error('请先输入用户名');
+                }
+                openCodeDialog('totp', '');
+                return;
+              }
+              throw new Error('不支持的登录方式');
+            } catch (err) {
+              showError(err?.message || '登录失败');
+            }
           });
-          out.style.display = 'none';
-          out.textContent = '';
-          location.href = String(finish?.next || '/admin/dashboard');
+          otherMenu.appendChild(item);
+        }
+      }
+
+      document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        clearError();
+        const formData = new FormData(e.target);
+        try {
+          const res = await api('/admin/api/login', {
+            username: String(formData.get('username') || ''),
+            password: String(formData.get('password') || ''),
+            remember: formData.get('remember') === 'on',
+          });
+          await handlePrimaryLoginResult(res);
         } catch (err) {
-          const msg = err?.name === 'NotAllowedError' ? '已取消 Passkey 验证' : (err?.message || 'Passkey 登录失败');
-          out.style.display = 'block';
-          out.textContent = msg;
-        } finally {
-          btn.disabled = false;
+          showError(err?.message || '登录失败');
         }
       });
+
+      otherBtn.addEventListener('click', async () => {
+        if (otherBtn.disabled) return;
+        if (otherMenu.classList.contains('show')) {
+          otherMenu.classList.remove('show');
+          return;
+        }
+        try {
+          await refreshMethods();
+          if (!otherBtn.disabled) otherMenu.classList.add('show');
+        } catch (err) {
+          showError(err?.message || '无法加载其他登录方式');
+        }
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!otherMenu.contains(e.target) && e.target !== otherBtn) {
+          otherMenu.classList.remove('show');
+        }
+      });
+
+      codeForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+          const res = await submitCodeDialog();
+          try { codeDialog.close(); } catch (_) {}
+          clearError();
+          location.href = String(res?.next || '/admin/dashboard');
+        } catch (err) {
+          showError(err?.message || '2FA 验证失败');
+        }
+      });
+
+      codeCancel.addEventListener('click', () => {
+        try { codeDialog.close(); } catch (_) {}
+      });
+
+      usernameEl.addEventListener('blur', () => { refreshMethods().catch(() => {}); });
+
+      (() => {
+        const a = document.getElementById('forgot-password');
+        const d = document.getElementById('forgot-dialog');
+        const c = document.getElementById('forgot-close');
+        if (!a || !d) return;
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          if (!d.open) d.showModal();
+        });
+        if (c) c.addEventListener('click', () => {
+          try { d.close(); } catch (_) {}
+        });
+      })();
+
+      refreshMethods().catch(() => {});
     })();
   </script>
 </body>

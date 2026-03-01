@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Settings</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-page: #f6f6f6;
+      --bg-card: #ffffff;
+      --border: #e8e8e8;
+      --text-main: #0d0d0d;
+      --text-secondary: #7a7a7a;
+      --red-primary: #e42313;
+      --font-display: "Space Grotesk", "Noto Sans SC", sans-serif;
+      --font-body: "Inter", "Noto Sans SC", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font-body);
+      color: var(--text-main);
+      background: var(--bg-page);
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 240px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      border-right: 1px solid var(--border);
+      background: #fff;
+      padding: 36px 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 20px;
+    }
+
+    .mark {
+      width: 22px;
+      height: 22px;
+      background: var(--red-primary);
+      display: inline-block;
+    }
+
+    .menu {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .menu-item {
+      display: block;
+      padding: 10px 12px;
+      border: 1px solid transparent;
+      color: var(--text-main);
+      text-decoration: none;
+      font-size: 14px;
+    }
+
+    .menu-item:hover { border-color: var(--border); background: #fafafa; }
+    .menu-item.active {
+      border-color: #d9d9d9;
+      background: #f8f8f8;
+      font-weight: 600;
+    }
+
+    .user {
+      font-family: var(--font-display);
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .main {
+      padding: 30px;
+      display: grid;
+      gap: 18px;
+      align-content: flex-start;
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      padding: 18px;
+    }
+
+    .title {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: 26px;
+      font-weight: 600;
+    }
+
+    .desc {
+      margin: 8px 0 0;
+      color: var(--text-secondary);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .section-title {
+      margin: 0 0 10px;
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 10px 0;
+      border-top: 1px solid #f2f2f2;
+    }
+    .row:first-of-type { border-top: 0; }
+
+    .label {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .hint {
+      margin: 4px 0 0;
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .switch {
+      width: 40px;
+      height: 24px;
+      border-radius: 999px;
+      position: relative;
+      border: 1px solid #d6d6d6;
+      background: #efefef;
+      appearance: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+      transition: .2s ease;
+    }
+
+    .switch::after {
+      content: "";
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: #fff;
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      transition: .2s ease;
+      border: 1px solid #d6d6d6;
+    }
+
+    .switch:checked {
+      background: #ffdfdc;
+      border-color: #ffb8b1;
+    }
+
+    .switch:checked::after {
+      transform: translateX(16px);
+      border-color: #ff8a7f;
+    }
+
+    .input,
+    .btn {
+      height: 38px;
+      border: 1px solid var(--border);
+      font-size: 14px;
+      font-family: var(--font-body);
+    }
+
+    .input {
+      width: 100%;
+      padding: 0 12px;
+      background: #fff;
+    }
+
+    .btn {
+      padding: 0 14px;
+      background: #fff;
+      cursor: pointer;
+      font-weight: 600;
+      font-family: var(--font-display);
+    }
+
+    .btn.primary {
+      background: var(--red-primary);
+      color: #fff;
+      border-color: var(--red-primary);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+      line-height: 1.55;
+      word-break: break-all;
+      white-space: pre-wrap;
+      background: #fafafa;
+      border: 1px solid #ededed;
+      padding: 8px;
+    }
+
+    .qr-wrap {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .qr {
+      width: 220px;
+      height: 220px;
+      border: 1px solid var(--border);
+      object-fit: contain;
+      background: #fff;
+      padding: 6px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      text-align: left;
+      border-bottom: 1px solid #f2f2f2;
+      padding: 8px;
+      font-size: 13px;
+      vertical-align: top;
+    }
+
+    .msg {
+      margin: 0;
+      display: none;
+      border: 1px solid #f9ceca;
+      background: #fff5f5;
+      color: #ba1f14;
+      padding: 10px;
+      font-size: 13px;
+      white-space: pre-wrap;
+      line-height: 1.55;
+    }
+
+    @media (max-width: 980px) {
+      .shell { grid-template-columns: 1fr; }
+      .sidebar {
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+        padding: 20px;
+      }
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Sidebar">
+      <div>
+        <div class="brand"><span class="mark"></span>LightBridge</div>
+        <nav class="menu" aria-label="主导航">
+          <a class="menu-item" href="/admin/dashboard">Dashboard</a>
+          <a class="menu-item" href="/admin/providers">Provider Settings</a>
+          <a class="menu-item" href="/admin/marketplace">模块 Marketplace</a>
+          <a class="menu-item" href="/admin/logs">请求日志 Logs</a>
+          <a class="menu-item active" href="/admin/settings">设置 Settings</a>
+        </nav>
+      </div>
+      <div class="user">{{.Username}}</div>
+    </aside>
+
+    <main class="main">
+      <section class="card">
+        <h1 class="title">Settings</h1>
+        <p class="desc">账户与登录安全设置。变更将实时生效。</p>
+      </section>
+
+      {{if .TwoFAInstalled}}
+      <section class="card" id="twofa-policy-card">
+        <h2 class="section-title">2FA 策略</h2>
+        <div class="row">
+          <div>
+            <p class="label">启用 2FA</p>
+            <p class="hint">关闭后不会要求输入 2FA 验证码。</p>
+          </div>
+          <input class="switch" id="p-enabled" type="checkbox" />
+        </div>
+        <div class="row">
+          <div>
+            <p class="label">密码登录后必须 2FA</p>
+            <p class="hint">适用于“密码 + 2FA”模式。</p>
+          </div>
+          <input class="switch" id="p-require-password" type="checkbox" />
+        </div>
+        <div class="row">
+          <div>
+            <p class="label">Passkey 登录后仍需 2FA</p>
+            <p class="hint">开启后实现“全方式强制 2FA”。</p>
+          </div>
+          <input class="switch" id="p-require-passkey" type="checkbox" />
+        </div>
+        <div class="row">
+          <div>
+            <p class="label">允许仅使用 2FA 代码登录</p>
+            <p class="hint">无密码模式。建议至少绑定两个验证器再开启。</p>
+          </div>
+          <input class="switch" id="p-allow-totp-only" type="checkbox" />
+        </div>
+        <div style="margin-top:12px;display:flex;gap:10px;align-items:center;">
+          <button class="btn primary" id="save-policy" type="button">保存策略</button>
+          <span id="device-count" class="hint"></span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="section-title">添加 2FA 验证器</h2>
+        <div class="grid" style="margin-bottom:10px;">
+          <input class="input" id="new-label" placeholder="设备名称（如 iPhone / 1Password）" />
+          <button class="btn" id="begin-enroll" type="button">生成二维码</button>
+        </div>
+        <div id="enroll-box" style="display:none;">
+          <div class="qr-wrap">
+            <img id="qr-img" class="qr" alt="2FA QR" />
+            <div style="flex:1;min-width:280px;display:grid;gap:8px;">
+              <p class="hint" style="margin:0;">扫码后输入 6 位验证码完成绑定。</p>
+              <div id="otpauth" class="mono"></div>
+              <div id="secret" class="mono"></div>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <input class="input" id="verify-code" placeholder="输入 6 位验证码" maxlength="8" style="max-width:220px;" />
+                <button class="btn primary" id="confirm-enroll" type="button">确认绑定</button>
+              </div>
+              <p class="hint" style="margin:0;">二维码由浏览器直接渲染，如无法加载请手动输入 Secret。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="section-title">已绑定验证器</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>设备</th>
+              <th>创建时间</th>
+              <th>最后使用</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="device-rows">
+            <tr><td colspan="4" class="hint">加载中...</td></tr>
+          </tbody>
+        </table>
+      </section>
+      {{end}}
+
+      <p id="msg" class="msg"></p>
+    </main>
+  </div>
+
+  <script>
+    (() => {
+      const msgEl = document.getElementById('msg');
+      function showMsg(text, isError = false) {
+        if (!msgEl) return;
+        msgEl.style.display = 'block';
+        msgEl.textContent = String(text || '');
+        msgEl.style.background = isError ? '#fff5f5' : '#f6fff5';
+        msgEl.style.borderColor = isError ? '#f9ceca' : '#cce9c7';
+        msgEl.style.color = isError ? '#ba1f14' : '#24691b';
+      }
+
+      async function api(url, opts) {
+        const res = await fetch(url, Object.assign({
+          headers: { 'content-type': 'application/json', 'accept': 'application/json' }
+        }, opts || {}));
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(String(body?.error || body?.message || res.statusText || 'request failed'));
+        }
+        return body;
+      }
+
+      {{if .TwoFAInstalled}}
+      const ui = {
+        enabled: document.getElementById('p-enabled'),
+        requirePwd: document.getElementById('p-require-password'),
+        requirePasskey: document.getElementById('p-require-passkey'),
+        allowTOTPOnly: document.getElementById('p-allow-totp-only'),
+        savePolicy: document.getElementById('save-policy'),
+        deviceCount: document.getElementById('device-count'),
+        newLabel: document.getElementById('new-label'),
+        beginEnroll: document.getElementById('begin-enroll'),
+        enrollBox: document.getElementById('enroll-box'),
+        qrImg: document.getElementById('qr-img'),
+        otpauth: document.getElementById('otpauth'),
+        secret: document.getElementById('secret'),
+        verifyCode: document.getElementById('verify-code'),
+        confirmEnroll: document.getElementById('confirm-enroll'),
+        deviceRows: document.getElementById('device-rows'),
+      };
+
+      let enrollState = '';
+
+      function setPolicyDisabled(disabled) {
+        ui.requirePwd.disabled = disabled;
+        ui.requirePasskey.disabled = disabled;
+        ui.allowTOTPOnly.disabled = disabled;
+      }
+
+      async function loadPolicy() {
+        const res = await api('/admin/api/2fa/policy');
+        const p = res?.policy || {};
+        ui.enabled.checked = Boolean(p.enabled);
+        ui.requirePwd.checked = Boolean(p.require_for_password);
+        ui.requirePasskey.checked = Boolean(p.require_for_passkey);
+        ui.allowTOTPOnly.checked = Boolean(p.allow_totp_only_login);
+        setPolicyDisabled(!ui.enabled.checked);
+        ui.deviceCount.textContent = `当前绑定验证器数量：${Number(res?.device_count || 0)}`;
+      }
+
+      async function loadDevices() {
+        const res = await api('/admin/api/2fa/devices');
+        const list = Array.isArray(res?.data) ? res.data : [];
+        if (!list.length) {
+          ui.deviceRows.innerHTML = '<tr><td colspan="4" class="hint">暂无验证器，请先添加。</td></tr>';
+          return;
+        }
+        ui.deviceRows.innerHTML = '';
+        for (const item of list) {
+          const tr = document.createElement('tr');
+          const created = String(item?.created_at || '');
+          const last = String(item?.last_used_at || '');
+          tr.innerHTML = [
+            `<td>${String(item?.label || 'Authenticator')}</td>`,
+            `<td>${created ? new Date(created).toLocaleString() : '-'}</td>`,
+            `<td>${last ? new Date(last).toLocaleString() : '-'}</td>`,
+            '<td><button class="btn" type="button">删除</button></td>'
+          ].join('');
+          const btn = tr.querySelector('button');
+          btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            try {
+              await api('/admin/api/2fa/devices/delete', {
+                method: 'POST',
+                body: JSON.stringify({ device_id: String(item?.device_id || '') })
+              });
+              showMsg('验证器已删除');
+              await Promise.all([loadDevices(), loadPolicy()]);
+            } catch (err) {
+              showMsg(err?.message || '删除失败', true);
+            } finally {
+              btn.disabled = false;
+            }
+          });
+          ui.deviceRows.appendChild(tr);
+        }
+      }
+
+      ui.enabled.addEventListener('change', () => setPolicyDisabled(!ui.enabled.checked));
+
+      ui.savePolicy.addEventListener('click', async () => {
+        ui.savePolicy.disabled = true;
+        try {
+          await api('/admin/api/2fa/policy', {
+            method: 'POST',
+            body: JSON.stringify({
+              enabled: ui.enabled.checked,
+              require_for_password: ui.requirePwd.checked,
+              require_for_passkey: ui.requirePasskey.checked,
+              allow_totp_only_login: ui.allowTOTPOnly.checked,
+            })
+          });
+          showMsg('2FA 策略已保存');
+          await loadPolicy();
+        } catch (err) {
+          showMsg(err?.message || '保存失败', true);
+        } finally {
+          ui.savePolicy.disabled = false;
+        }
+      });
+
+      ui.beginEnroll.addEventListener('click', async () => {
+        ui.beginEnroll.disabled = true;
+        try {
+          const res = await api('/admin/api/2fa/enroll/begin', {
+            method: 'POST',
+            body: JSON.stringify({ label: String(ui.newLabel.value || '').trim() })
+          });
+          enrollState = String(res?.state || '');
+          const otpauth = String(res?.otpauth_uri || '');
+          const secret = String(res?.secret || '');
+          if (!enrollState || !otpauth) throw new Error('生成二维码失败');
+          ui.enrollBox.style.display = 'block';
+          ui.otpauth.textContent = `otpauth URI: ${otpauth}`;
+          ui.secret.textContent = `Secret: ${secret}`;
+          ui.qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(otpauth)}`;
+          showMsg('二维码已生成，请扫码并输入验证码完成绑定');
+        } catch (err) {
+          showMsg(err?.message || '生成失败', true);
+        } finally {
+          ui.beginEnroll.disabled = false;
+        }
+      });
+
+      ui.confirmEnroll.addEventListener('click', async () => {
+        ui.confirmEnroll.disabled = true;
+        try {
+          if (!enrollState) throw new Error('请先生成二维码');
+          await api('/admin/api/2fa/enroll/confirm', {
+            method: 'POST',
+            body: JSON.stringify({
+              state: enrollState,
+              code: String(ui.verifyCode.value || '').trim(),
+            })
+          });
+          enrollState = '';
+          ui.enrollBox.style.display = 'none';
+          ui.verifyCode.value = '';
+          showMsg('验证器已绑定');
+          await Promise.all([loadDevices(), loadPolicy()]);
+        } catch (err) {
+          showMsg(err?.message || '绑定失败', true);
+        } finally {
+          ui.confirmEnroll.disabled = false;
+        }
+      });
+
+      Promise.all([loadPolicy(), loadDevices()]).catch((err) => {
+        showMsg(err?.message || '加载失败', true);
+      });
+      {{end}}
+    })();
+  </script>
+</body>
+</html>

@@ -131,6 +131,11 @@ Marketplace 默认源：
 - `POST /admin/api/modules/start`
 - `POST /admin/api/modules/stop`
 
+### Admin 登录安全
+- 支持密码登录与 Passkey 登录（需安装并启用 `passkey-login` 模块）
+- 支持 TOTP 2FA 策略与多验证器绑定（需安装并启用 `totp-2fa-login` 模块）
+- 支持“密码后 2FA / Passkey 后 2FA / 仅 2FA 登录”策略组合
+
 ### 路由与调度
 - 虚拟模型路由表（`models` + `model_routes`）
 - 按优先级 / 权重 / 健康状态筛选

@@ -58,6 +58,9 @@ type Server struct {
 	voucherCfgAt   time.Time
 	voucherCfgOnce bool
 
+	authTicketMu sync.Mutex
+	authTickets  map[string]authTicket
+
 	codexOAuthCallbackMu      sync.Mutex
 	codexOAuthCallbackStarted bool
 	codexOAuthCallbackErr     error
@@ -95,6 +98,7 @@ func New(cfg Config, st *store.Store, resolver *routing.Resolver, providerRegist
 		startedAt:   time.Now().UTC(),
 		voucherCfg:  defaultVoucherConfig(),
 		rl:          rl,
+		authTickets: map[string]authTicket{},
 	}, nil
 }
 
@@ -474,8 +478,12 @@ func (s *Server) routeAdminPages(w http.ResponseWriter, r *http.Request) {
 		s.handleSetupPage(w, r)
 	case "login":
 		s.handleLoginPage(w, r)
+	case "login/passkey":
+		s.handlePasskeyLoginPage(w, r)
 	case "dashboard":
 		s.wrapAdminPage(s.handleDashboardPage)(w, r)
+	case "settings":
+		s.wrapAdminPage(s.handleSettingsPage)(w, r)
 	case "providers", "marketplace", "logs", "docs", "auth", "router":
 		s.wrapAdminPage(func(w http.ResponseWriter, r *http.Request) {
 			username, _ := s.sessions.username(r)
@@ -500,6 +508,26 @@ func (s *Server) routeAdminAPI(w http.ResponseWriter, r *http.Request) {
 		s.handleAdminSetupAPI(w, r)
 	case "/login":
 		s.handleAdminLoginAPI(w, r)
+	case "/auth/methods":
+		s.handleAuthMethodsAPI(w, r)
+	case "/2fa/challenge/verify":
+		s.handleTwoFAChallengeVerifyAPI(w, r)
+	case "/2fa/totp-only/login":
+		s.handleTwoFATOTPOnlyLoginAPI(w, r)
+	case "/passkey/auth/begin":
+		s.handlePasskeyAuthBeginAPI(w, r)
+	case "/passkey/auth/finish":
+		s.handlePasskeyAuthFinishAPI(w, r)
+	case "/2fa/policy":
+		s.wrapAdminAPI(s.handleTwoFAPolicyAPI)(w, r)
+	case "/2fa/enroll/begin":
+		s.wrapAdminAPI(s.handleTwoFAEnrollBeginAPI)(w, r)
+	case "/2fa/enroll/confirm":
+		s.wrapAdminAPI(s.handleTwoFAEnrollConfirmAPI)(w, r)
+	case "/2fa/devices":
+		s.wrapAdminAPI(s.handleTwoFADevicesAPI)(w, r)
+	case "/2fa/devices/delete":
+		s.wrapAdminAPI(s.handleTwoFADeviceDeleteAPI)(w, r)
 	case "/providers":
 		s.wrapAdminAPI(s.handleProvidersAPI)(w, r)
 	case "/providers/pull_models":

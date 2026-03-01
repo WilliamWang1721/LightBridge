@@ -79,10 +79,30 @@ func (s *Server) handlePasskeyAuthFinishAPI(w http.ResponseWriter, r *http.Reque
 		writeJSON(w, http.StatusBadGateway, map[string]any{"error": "invalid module response"})
 		return
 	}
-	if err := s.sessions.newSession(w, strings.TrimSpace(moduleResp.Username), req.Remember); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "next": "/admin/dashboard"})
+	s.finalizePrimaryLogin(w, r, strings.TrimSpace(moduleResp.Username), req.Remember, "passkey")
 }
 
+func (s *Server) handlePasskeyLoginPage(w http.ResponseWriter, r *http.Request) {
+	hasAdmin, err := s.store.HasAdmin(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if !hasAdmin {
+		http.Redirect(w, r, "/admin/setup", http.StatusFound)
+		return
+	}
+	passkeyInstalled := false
+	if mod, err := s.store.GetInstalledModule(r.Context(), passkeyLoginModuleID); err == nil && mod != nil && mod.Enabled {
+		passkeyInstalled = true
+	}
+	twoFAInstalled := false
+	if mod, err := s.store.GetInstalledModule(r.Context(), totp2FAModuleID); err == nil && mod != nil && mod.Enabled {
+		twoFAInstalled = true
+	}
+	s.renderPage(w, "login_passkey", map[string]any{
+		"Page":             "Passkey Login",
+		"PasskeyInstalled": passkeyInstalled,
+		"TwoFAInstalled":   twoFAInstalled,
+	})
+}
