@@ -3,28 +3,29 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>消耗 Consumption</title>
+  <title>统计 Statistics · Advanced Statistics</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
   <style>
     :root {
       --bg-page: #ffffff;
-      --bg-surface: #fafafa;
+      --bg-surface: #f7f7f8;
       --bg-card: #ffffff;
       --border: #e8e8e8;
       --text-main: #0d0d0d;
-      --text-secondary: #7a7a7a;
-      --text-muted: #b0b0b0;
-      --accent-red: #e42313;
-      --ok-green: #22c55e;
+      --text-secondary: #6f6f74;
+      --accent: #e42313;
+      --ok: #1f9d50;
+      --warn: #d97706;
+      --line-a: #0f172a;
+      --line-b: #e42313;
+      --line-c: #0ea5e9;
       --font-display: "Space Grotesk", "Noto Sans SC", sans-serif;
       --font-body: "Inter", "Noto Sans SC", sans-serif;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     html,
     body {
@@ -32,10 +33,10 @@
       min-height: 100%;
       height: 100%;
       overflow: hidden;
-      background: #ffffff;
+      background: var(--bg-page);
       color: var(--text-main);
       font-family: var(--font-body);
-      font-size: 16px;
+      font-size: 15px;
       line-height: 1.45;
     }
 
@@ -49,7 +50,7 @@
       height: 100vh;
       min-height: 100vh;
       overflow: hidden;
-      background: #ffffff;
+      background: var(--bg-page);
     }
 
     .sidebar {
@@ -61,7 +62,6 @@
       padding: 40px 32px;
       border-right: 1px solid var(--border);
       overflow: hidden;
-      background: var(--bg-page);
     }
 
     .brand {
@@ -78,7 +78,7 @@
     .brand-mark {
       width: 28px;
       height: 28px;
-      background: var(--accent-red);
+      background: var(--accent);
       display: inline-block;
     }
 
@@ -113,12 +113,12 @@
       width: 6px;
       height: 6px;
       border-radius: 50%;
-      background: var(--bg-page);
+      background: #ffffff;
       flex-shrink: 0;
     }
 
     .menu-item.is-active .menu-dot {
-      background: var(--accent-red);
+      background: var(--accent);
     }
 
     .sidebar-bottom {
@@ -154,11 +154,10 @@
     .content {
       flex: 1;
       min-height: 0;
-      background: var(--bg-page);
-      padding: 40px 48px;
+      padding: 34px 40px 38px;
       display: flex;
       flex-direction: column;
-      gap: 24px;
+      gap: 18px;
       overflow-y: auto;
       overflow-x: hidden;
     }
@@ -167,28 +166,28 @@
       display: flex;
       align-items: flex-end;
       justify-content: space-between;
-      gap: 24px;
+      gap: 16px;
+      flex-wrap: wrap;
     }
 
     .header h1 {
       margin: 0;
-      font-size: 40px;
-      font-weight: 500;
-      letter-spacing: -1px;
+      font-size: 38px;
+      font-weight: 600;
       line-height: 1.08;
+      letter-spacing: -0.8px;
       font-family: var(--font-display);
     }
 
     .header p {
       margin: 8px 0 0;
       color: var(--text-secondary);
-      font-size: 14px;
-      font-family: var(--font-body);
+      font-size: 13px;
     }
 
     .header-actions {
       display: inline-flex;
-      gap: 10px;
+      gap: 8px;
       align-items: center;
     }
 
@@ -208,6 +207,11 @@
       gap: 8px;
     }
 
+    .btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
     .btn.primary {
       background: var(--text-main);
       color: #ffffff;
@@ -218,134 +222,271 @@
       margin: 0;
       font-size: 12px;
       color: var(--text-secondary);
+    }
+
+    .settings-card,
+    .section-card,
+    .kpi-card {
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+    }
+
+    .settings-card {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .settings-title {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .field label {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .field input {
+      height: 36px;
+      border: 1px solid var(--border);
+      padding: 0 10px;
+      font-size: 13px;
       font-family: var(--font-body);
+      color: var(--text-main);
+      background: #fff;
+      min-width: 0;
+    }
+
+    .field-actions {
+      align-self: end;
+      display: inline-flex;
+      gap: 8px;
+      justify-content: flex-end;
     }
 
     .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 20px;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 12px;
     }
 
     .kpi-card {
-      border: 1px solid var(--border);
-      background: var(--bg-card);
-      padding: 20px 22px;
+      padding: 14px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 8px;
+      min-height: 118px;
     }
 
     .kpi-label {
       margin: 0;
-      color: var(--text-secondary);
       font-size: 12px;
-      font-family: var(--font-body);
+      color: var(--text-secondary);
     }
 
     .kpi-value {
       margin: 0;
-      font-size: 30px;
-      line-height: 1.08;
-      letter-spacing: -0.7px;
+      font-size: 26px;
+      line-height: 1.1;
+      letter-spacing: -0.4px;
       font-family: var(--font-display);
       font-weight: 600;
-      color: var(--text-main);
     }
 
     .kpi-sub {
       margin: 0;
-      color: var(--text-secondary);
       font-size: 12px;
-      font-family: var(--font-body);
+      color: var(--text-secondary);
+    }
+
+    .section-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 12px;
     }
 
     .section-card {
-      border: 1px solid var(--border);
-      background: var(--bg-card);
-      padding: 22px;
+      padding: 18px;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 14px;
+      min-height: 360px;
     }
 
     .section-head {
       display: flex;
-      align-items: center;
+      align-items: baseline;
       justify-content: space-between;
-      gap: 16px;
+      gap: 12px;
+      flex-wrap: wrap;
     }
 
     .section-head h2 {
       margin: 0;
-      font-size: 18px;
-      font-weight: 600;
+      font-size: 17px;
       font-family: var(--font-display);
+      font-weight: 600;
     }
 
     .section-sub {
-      margin: 4px 0 0;
-      color: var(--text-secondary);
+      margin: 0;
       font-size: 12px;
-      font-family: var(--font-body);
+      color: var(--text-secondary);
     }
 
-    .panel-grid {
-      display: grid;
-      grid-template-columns: 1.1fr 1fr;
-      gap: 20px;
+    .line-legend,
+    .pie-legend {
+      display: inline-flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: var(--text-secondary);
     }
 
-    .bars-wrap {
-      height: 216px;
-      padding-top: 20px;
-      border-bottom: 1px solid var(--border);
+    .legend-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 5px;
+    }
+
+    .line-wrap,
+    .pie-wrap {
+      min-height: 240px;
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
       display: flex;
-      align-items: flex-end;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+    }
+
+    .line-wrap svg,
+    .pie-wrap svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .pie-layout {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 230px 1fr;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .pie-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .pie-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .pie-item-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .split-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
       gap: 12px;
     }
 
-    .bar-col {
-      flex: 1;
-      height: 100%;
-      min-width: 0;
+    .mini-card {
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      padding: 12px;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: flex-end;
+      gap: 8px;
+      min-height: 132px;
+    }
+
+    .mini-card h3 {
+      margin: 0;
+      font-size: 13px;
+      font-family: var(--font-display);
+      font-weight: 600;
+    }
+
+    .mini-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 12px;
+    }
+
+    .mini-line {
+      display: flex;
+      justify-content: space-between;
       gap: 8px;
     }
 
-    .bar-fill {
-      width: 100%;
-      background: var(--accent-red);
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     }
 
-    .bar-label {
-      font-size: 12px;
-      color: var(--text-secondary);
-      white-space: nowrap;
-      font-family: var(--font-body);
+    .table-card {
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
 
     .table-wrap {
       overflow-x: auto;
+      border: 1px solid var(--border);
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 680px;
+      min-width: 980px;
     }
 
     th,
     td {
-      border-bottom: 1px solid #efefef;
-      padding: 10px 8px;
+      border-bottom: 1px solid #ececef;
+      padding: 9px 8px;
       text-align: left;
       font-size: 12px;
-      color: var(--text-main);
-      font-family: var(--font-body);
       white-space: nowrap;
     }
 
@@ -361,26 +502,30 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     }
 
-    td.path {
-      max-width: 260px;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    .status-ok {
+      color: var(--ok);
+      font-weight: 500;
     }
 
-    @media (max-width: 1200px) {
-      .kpi-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-      .panel-grid {
-        grid-template-columns: 1fr;
-      }
+    .status-fallback {
+      color: var(--warn);
+      font-weight: 500;
+    }
+
+    .empty {
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    @media (max-width: 1380px) {
+      .settings-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .section-grid { grid-template-columns: 1fr; }
     }
 
     @media (max-width: 980px) {
       html,
-      body {
-        overflow: auto;
-      }
+      body { overflow: auto; }
       .app-shell {
         height: auto;
         min-height: 100vh;
@@ -393,23 +538,12 @@
         border-bottom: 1px solid var(--border);
         padding: 20px 18px;
       }
-      .sidebar-bottom {
-        width: 100%;
-        justify-content: flex-start;
-      }
-      .content {
-        padding: 20px 18px 24px;
-      }
-      .header {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-      .header h1 {
-        font-size: 34px;
-      }
-      .kpi-grid {
-        grid-template-columns: 1fr;
-      }
+      .content { padding: 20px 16px 24px; }
+      .settings-grid,
+      .kpi-grid,
+      .split-grid { grid-template-columns: 1fr; }
+      .pie-layout { grid-template-columns: 1fr; }
+      .header h1 { font-size: 30px; }
     }
   </style>
 </head>
@@ -423,7 +557,7 @@
         </a>
         <nav class="menu" aria-label="主导航">
           <a class="menu-item" href="/admin/dashboard"><span class="menu-dot" aria-hidden="true"></span>概览 Overview</a>
-          <a class="menu-item is-active" href="/admin/consumption"><span class="menu-dot" aria-hidden="true"></span>消耗 Consumption</a>
+          <a class="menu-item is-active" href="/admin/consumption"><span class="menu-dot" aria-hidden="true"></span>统计 Statistics</a>
           <a class="menu-item" href="/admin/providers"><span class="menu-dot" aria-hidden="true"></span>提供商 Provider</a>
           <a class="menu-item" href="/admin/router"><span class="menu-dot" aria-hidden="true"></span>路由 Router</a>
           <a class="menu-item" href="/admin/marketplace"><span class="menu-dot" aria-hidden="true"></span>模块 Marketplace</a>
@@ -439,112 +573,158 @@
     <main class="content">
       <header class="header">
         <div>
-          <h1>消耗 Consumption</h1>
-          <p>集中查看 Token 消耗、24H 趋势和请求明细</p>
+          <h1>统计 Statistics</h1>
+          <p>Advanced Statistics：请求数量、Token 分类、金额估算、模型分布和分钟/秒级时间范围趋势。</p>
         </div>
         <div class="header-actions">
-          <button class="btn" type="button" id="consumption-refresh">刷新 Refresh</button>
-          <a class="btn primary" href="/admin/providers">前往 Provider</a>
+          <span class="meta-line" id="stats-source">数据源：--</span>
+          <a class="btn" href="/admin/marketplace">模块管理</a>
         </div>
       </header>
 
-      <p class="meta-line" id="consumption-updated">最后更新：--</p>
+      <section class="settings-card" aria-label="统计设置">
+        <h2 class="settings-title">统计设置</h2>
+        <div class="settings-grid">
+          <div class="field" style="grid-column: span 2;">
+            <label for="stats-start">开始时间（精确到秒）</label>
+            <input id="stats-start" type="datetime-local" step="1" />
+          </div>
+          <div class="field" style="grid-column: span 2;">
+            <label for="stats-end">结束时间（精确到秒）</label>
+            <input id="stats-end" type="datetime-local" step="1" />
+          </div>
+          <div class="field">
+            <label for="stats-days">统计天数</label>
+            <input id="stats-days" type="number" min="1" max="90" step="1" value="7" />
+          </div>
+          <div class="field">
+            <label for="stats-bucket">折线图粒度(秒)</label>
+            <input id="stats-bucket" type="number" min="1" max="86400" step="1" value="300" />
+          </div>
+          <div class="field">
+            <label for="account-balance">账户余额 USD（可选）</label>
+            <input id="account-balance" type="number" step="0.01" min="0" placeholder="例如 50" />
+          </div>
+          <div class="field">
+            <label for="account-quota">Token 配额（可选）</label>
+            <input id="account-quota" type="number" step="1" min="0" placeholder="例如 5000000" />
+          </div>
+          <div class="field-actions" style="grid-column: span 2;">
+            <button class="btn" type="button" id="stats-reset-time">重置时间</button>
+            <button class="btn primary" type="button" id="stats-refresh">刷新</button>
+          </div>
+        </div>
+      </section>
 
-      <section class="kpi-grid" id="tokens-24h" aria-label="Token 概览">
+      <p class="meta-line" id="stats-updated">最后更新：--</p>
+
+      <section class="kpi-grid" aria-label="统计概览">
         <article class="kpi-card">
-          <p class="kpi-label">24H Tokens（完整值）</p>
-          <p class="kpi-value" id="c-24h-tokens">--</p>
-          <p class="kpi-sub" id="c-24h-tokens-meta">近 24 小时总消耗</p>
+          <p class="kpi-label">当日请求数量</p>
+          <p class="kpi-value mono" id="kpi-today-requests">--</p>
+          <p class="kpi-sub">今日总请求次数</p>
         </article>
         <article class="kpi-card">
-          <p class="kpi-label">24H Requests</p>
-          <p class="kpi-value" id="c-24h-requests">--</p>
-          <p class="kpi-sub">近 24 小时请求数</p>
+          <p class="kpi-label">今日总 Token</p>
+          <p class="kpi-value mono" id="kpi-today-tokens">--</p>
+          <p class="kpi-sub">输入 + 输出</p>
         </article>
         <article class="kpi-card">
-          <p class="kpi-label">7D Tokens</p>
-          <p class="kpi-value" id="c-7d-tokens">--</p>
-          <p class="kpi-sub">按日聚合近 7 天总消耗</p>
+          <p class="kpi-label">今日消耗金额 (USD)</p>
+          <p class="kpi-value mono" id="kpi-today-cost">--</p>
+          <p class="kpi-sub">估算值</p>
         </article>
         <article class="kpi-card">
-          <p class="kpi-label">24H Path+Model Tokens（全量）</p>
-          <p class="kpi-value" id="c-window-tokens">--</p>
-          <p class="kpi-sub" id="c-window-tokens-meta">近 24 小时路径+模型聚合总消耗</p>
+          <p class="kpi-label">范围请求数量</p>
+          <p class="kpi-value mono" id="kpi-window-requests">--</p>
+          <p class="kpi-sub">所选时间范围内</p>
+        </article>
+        <article class="kpi-card">
+          <p class="kpi-label">范围总 Token</p>
+          <p class="kpi-value mono" id="kpi-window-tokens">--</p>
+          <p class="kpi-sub">标准 + 推理 + 缓存读取</p>
+        </article>
+        <article class="kpi-card">
+          <p class="kpi-label">范围总金额 (USD)</p>
+          <p class="kpi-value mono" id="kpi-window-cost">--</p>
+          <p class="kpi-sub">按模型费率估算</p>
         </article>
       </section>
 
-      <section class="panel-grid" id="token-usage">
-        <article class="section-card">
-          <div class="section-head">
-            <div>
-              <h2>Token 消耗量趋势</h2>
-              <p class="section-sub" id="c-token-period">最近 7 天</p>
-            </div>
-          </div>
-          <div class="bars-wrap" id="c-token-bars" aria-hidden="true"></div>
-          <div class="table-wrap">
-            <table aria-label="按天 Token 消耗量表">
-              <thead>
-                <tr>
-                  <th>日期</th>
-                  <th class="num">输入</th>
-                  <th class="num">输出</th>
-                  <th class="num">合计</th>
-                </tr>
-              </thead>
-              <tbody id="c-token-day-table"></tbody>
-            </table>
-          </div>
+      <section class="split-grid">
+        <article class="mini-card" aria-label="Token 分类详情">
+          <h3>Token 分类详情</h3>
+          <ul class="mini-list">
+            <li class="mini-line"><span>标准 Token</span><strong class="mono" id="detail-standard">--</strong></li>
+            <li class="mini-line"><span>推理 Token</span><strong class="mono" id="detail-reasoning">--</strong></li>
+            <li class="mini-line"><span>缓存读取 Token</span><strong class="mono" id="detail-cached">--</strong></li>
+            <li class="mini-line"><span>总 Token</span><strong class="mono" id="detail-total">--</strong></li>
+            <li class="mini-line"><span>总价值（USD）</span><strong class="mono" id="detail-cost">--</strong></li>
+          </ul>
         </article>
-
-        <article class="section-card">
-          <div class="section-head">
-            <div>
-              <h2>页面（Path）+ 模型 消耗排行</h2>
-              <p class="section-sub">统计窗口：近 24 小时（全量聚合）</p>
-            </div>
-          </div>
-          <div class="table-wrap">
-            <table aria-label="Path + Model Token 消耗排行">
-              <thead>
-                <tr>
-                  <th>Path</th>
-                  <th>Model</th>
-                  <th class="num">请求数</th>
-                  <th class="num">输入</th>
-                  <th class="num">输出</th>
-                  <th class="num">合计</th>
-                </tr>
-              </thead>
-              <tbody id="c-path-model-table"></tbody>
-            </table>
-          </div>
+        <article class="mini-card" aria-label="账户余额与配额情况">
+          <h3>账户余额与配额情况</h3>
+          <ul class="mini-list">
+            <li class="mini-line"><span>设置余额 (USD)</span><strong class="mono" id="account-balance-show">--</strong></li>
+            <li class="mini-line"><span>今日后剩余 (USD)</span><strong class="mono" id="account-balance-left">--</strong></li>
+            <li class="mini-line"><span>设置配额 (Token)</span><strong class="mono" id="account-quota-show">--</strong></li>
+            <li class="mini-line"><span>今日配额占比</span><strong class="mono" id="account-quota-usage">--</strong></li>
+            <li class="mini-line"><span>今日后剩余配额</span><strong class="mono" id="account-quota-left">--</strong></li>
+          </ul>
         </article>
       </section>
 
-      <section class="section-card">
+      <section class="section-grid">
+        <article class="section-card" aria-label="范围折线图">
+          <div class="section-head">
+            <div>
+              <h2>时间范围折线图</h2>
+              <p class="section-sub" id="line-period">--</p>
+            </div>
+            <div class="line-legend">
+              <span><i class="legend-dot" style="background:var(--line-a)"></i>总 Token</span>
+              <span><i class="legend-dot" style="background:var(--line-b)"></i>输入 Token</span>
+              <span><i class="legend-dot" style="background:var(--line-c)"></i>输出 Token</span>
+            </div>
+          </div>
+          <div class="line-wrap" id="trend-line-wrap"></div>
+        </article>
+
+        <article class="section-card" aria-label="模型消耗分布饼图">
+          <div class="section-head">
+            <div>
+              <h2>模型消耗分布（饼图）</h2>
+              <p class="section-sub">按模型总 Token 占比</p>
+            </div>
+          </div>
+          <div class="pie-wrap" id="model-pie-wrap"></div>
+        </article>
+      </section>
+
+      <section class="table-card" aria-label="模型详细统计">
         <div class="section-head">
           <div>
-            <h2>最近请求 Token 明细</h2>
-            <p class="section-sub">来源：/admin/api/logs（最多 200 条）</p>
+            <h2>模型详细统计</h2>
+            <p class="section-sub">每个模型的请求数量、Token 分类、费用估算与占比</p>
           </div>
         </div>
         <div class="table-wrap">
-          <table aria-label="Token 请求明细">
+          <table>
             <thead>
               <tr>
-                <th>时间</th>
-                <th>Provider</th>
-                <th>Model</th>
-                <th>Path</th>
-                <th class="num">状态</th>
+                <th>模型</th>
+                <th class="num">请求数</th>
                 <th class="num">输入</th>
                 <th class="num">输出</th>
-                <th class="num">合计</th>
-                <th class="num">延迟(ms)</th>
+                <th class="num">推理</th>
+                <th class="num">缓存读取</th>
+                <th class="num">标准</th>
+                <th class="num">总 Token</th>
+                <th class="num">费用(USD)</th>
+                <th class="num">占比</th>
               </tr>
             </thead>
-            <tbody id="c-logs-table"></tbody>
+            <tbody id="model-table-body"></tbody>
           </table>
         </div>
       </section>
@@ -557,202 +737,324 @@
       const LB = window.LightBridgeAdmin;
       if (!LB) return;
 
-      const weekdayCN = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-      const REFRESH = document.getElementById('consumption-refresh');
+      const REFRESH = document.getElementById('stats-refresh');
+      const RESET_TIME = document.getElementById('stats-reset-time');
+      const START = document.getElementById('stats-start');
+      const END = document.getElementById('stats-end');
+      const DAYS = document.getElementById('stats-days');
+      const BUCKET = document.getElementById('stats-bucket');
+      const BALANCE = document.getElementById('account-balance');
+      const QUOTA = document.getElementById('account-quota');
+
+      const STORE_KEYS = {
+        days: 'advanced-stats-days',
+        bucket: 'advanced-stats-bucket',
+        balance: 'advanced-stats-balance',
+        quota: 'advanced-stats-quota',
+      };
+
+      const PIE_COLORS = ['#e42313', '#0f172a', '#0ea5e9', '#10b981', '#f59e0b', '#7c3aed', '#ef4444', '#14b8a6', '#475569'];
+
+      function num(v) {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+      }
+
+      function clamp(n, min, max) {
+        return Math.max(min, Math.min(max, n));
+      }
 
       function setText(id, text) {
         const el = document.getElementById(id);
         if (el) el.textContent = String(text ?? '');
       }
 
-      function toInputTokens(item) {
-        return Number(item?.InputTokens ?? item?.inputTokens ?? 0);
+      function formatMoney(v) {
+        const n = num(v);
+        return `$${n.toFixed(4)}`;
       }
 
-      function toOutputTokens(item) {
-        return Number(item?.OutputTokens ?? item?.outputTokens ?? 0);
+      function toDateTimeLocalValue(date) {
+        const d = new Date(date);
+        if (!(d instanceof Date) || Number.isNaN(d.getTime())) return '';
+        const pad = (x) => String(x).padStart(2, '0');
+        const y = d.getFullYear();
+        const m = pad(d.getMonth() + 1);
+        const day = pad(d.getDate());
+        const h = pad(d.getHours());
+        const min = pad(d.getMinutes());
+        const s = pad(d.getSeconds());
+        return `${y}-${m}-${day}T${h}:${min}:${s}`;
       }
 
-      function toTokens(item) {
-        return toInputTokens(item) + toOutputTokens(item);
+      function parseLocalDate(value) {
+        const raw = String(value || '').trim();
+        if (!raw) return null;
+        const d = new Date(raw);
+        if (Number.isNaN(d.getTime())) return null;
+        return d;
       }
 
-      function renderBars(series) {
-        const host = document.getElementById('c-token-bars');
-        if (!host) return;
-        host.innerHTML = '';
-        const list = Array.isArray(series) ? series : [];
-        if (list.length === 0) {
-          host.appendChild(LB.el('div', { className: 'bar-col' }, [
-            LB.el('div', { className: 'bar-fill', style: 'height:18px;opacity:.35;' }),
-            LB.el('div', { className: 'bar-label', text: '暂无数据' }),
-          ]));
-          return;
-        }
-        const totals = list.map((row) => Number((row?.input_tokens || 0) + (row?.output_tokens || 0)));
-        const max = Math.max(1, ...totals);
-        for (let i = 0; i < list.length; i++) {
-          const row = list[i] || {};
-          const total = totals[i] || 0;
-          const day = row.day ? new Date(`${row.day}T00:00:00Z`) : null;
-          const label = day && !Number.isNaN(day.getTime()) ? weekdayCN[day.getUTCDay()] : String(row?.day || '-');
-          const height = Math.round((total / max) * 184 + 14);
-          host.appendChild(LB.el('div', { className: 'bar-col' }, [
-            LB.el('div', { className: 'bar-fill', style: `height:${height}px;` }),
-            LB.el('div', { className: 'bar-label', text: label }),
-          ]));
-        }
-      }
+      function initDefaults() {
+        const now = new Date();
+        const savedDays = clamp(num(localStorage.getItem(STORE_KEYS.days) || 7), 1, 90) || 7;
+        const savedBucket = clamp(num(localStorage.getItem(STORE_KEYS.bucket) || 300), 1, 86400) || 300;
 
-      function renderDayTable(series) {
-        const tbody = document.getElementById('c-token-day-table');
-        if (!tbody) return;
-        tbody.innerHTML = '';
-        const list = Array.isArray(series) ? series : [];
-        if (list.length === 0) {
-          tbody.appendChild(LB.el('tr', {}, [LB.el('td', { colSpan: 4, text: '暂无数据' })]));
-          return;
-        }
-        for (const row of list) {
-          const inTok = Number(row?.input_tokens || 0);
-          const outTok = Number(row?.output_tokens || 0);
-          const total = inTok + outTok;
-          tbody.appendChild(LB.el('tr', {}, [
-            LB.el('td', { text: String(row?.day || '-') }),
-            LB.el('td', { className: 'num', text: LB.formatCompactNumber(inTok) }),
-            LB.el('td', { className: 'num', text: LB.formatCompactNumber(outTok) }),
-            LB.el('td', { className: 'num', text: LB.formatCompactNumber(total) }),
-          ]));
+        if (DAYS) DAYS.value = String(savedDays);
+        if (BUCKET) BUCKET.value = String(savedBucket);
+        if (BALANCE) BALANCE.value = String(localStorage.getItem(STORE_KEYS.balance) || '');
+        if (QUOTA) QUOTA.value = String(localStorage.getItem(STORE_KEYS.quota) || '');
+
+        if (END) END.value = toDateTimeLocalValue(now);
+        if (START) {
+          const start = new Date(now.getTime() - savedDays * 24 * 3600 * 1000);
+          START.value = toDateTimeLocalValue(start);
         }
       }
 
-      function buildPathModelStatsFromLogs(logs) {
-        const map = new Map();
-        for (const row of Array.isArray(logs) ? logs : []) {
-          const path = String(row?.Path ?? row?.path ?? '').trim() || '-';
-          const model = String(row?.ModelID ?? row?.modelID ?? '').trim() || '-';
-          const key = `${path}\n${model}`;
-          const prev = map.get(key) || { path, model_id: model, requests: 0, input_tokens: 0, output_tokens: 0 };
-          const inTok = toInputTokens(row);
-          const outTok = toOutputTokens(row);
-          prev.requests += 1;
-          prev.input_tokens += inTok;
-          prev.output_tokens += outTok;
-          map.set(key, prev);
-        }
-        return Array.from(map.values()).sort((a, b) => {
-          const ta = Number(a?.input_tokens || 0) + Number(a?.output_tokens || 0);
-          const tb = Number(b?.input_tokens || 0) + Number(b?.output_tokens || 0);
-          return tb - ta;
+      function applyDaysToStart() {
+        const endDate = parseLocalDate(END?.value);
+        if (!endDate || !START) return;
+        const days = clamp(num(DAYS?.value || 7), 1, 90);
+        const start = new Date(endDate.getTime() - days * 24 * 3600 * 1000);
+        START.value = toDateTimeLocalValue(start);
+      }
+
+      function buildQuery() {
+        const startDate = parseLocalDate(START?.value);
+        const endDate = parseLocalDate(END?.value);
+        if (!startDate || !endDate) throw new Error('请选择有效的开始/结束时间');
+        if (startDate >= endDate) throw new Error('开始时间必须早于结束时间');
+
+        const days = clamp(num(DAYS?.value || 7), 1, 90);
+        const bucket = clamp(num(BUCKET?.value || 300), 1, 86400);
+
+        localStorage.setItem(STORE_KEYS.days, String(days));
+        localStorage.setItem(STORE_KEYS.bucket, String(bucket));
+        localStorage.setItem(STORE_KEYS.balance, String(BALANCE?.value || ''));
+        localStorage.setItem(STORE_KEYS.quota, String(QUOTA?.value || ''));
+
+        return new URLSearchParams({
+          start: startDate.toISOString(),
+          end: endDate.toISOString(),
+          days: String(days),
+          bucket_seconds: String(bucket),
         });
       }
 
-      function renderPathModelTable(rows) {
-        const tbody = document.getElementById('c-path-model-table');
+      function renderLineChart(points) {
+        const host = document.getElementById('trend-line-wrap');
+        if (!host) return;
+        const list = Array.isArray(points) ? points : [];
+        if (!list.length) {
+          host.innerHTML = '<div class="empty">暂无趋势数据</div>';
+          return;
+        }
+
+        const width = 920;
+        const height = 260;
+        const pad = { top: 16, right: 20, bottom: 28, left: 42 };
+        const innerW = width - pad.left - pad.right;
+        const innerH = height - pad.top - pad.bottom;
+
+        const totalVals = list.map((p) => num(p?.total_tokens));
+        const inputVals = list.map((p) => num(p?.input_tokens));
+        const outputVals = list.map((p) => num(p?.output_tokens));
+        const maxVal = Math.max(1, ...totalVals, ...inputVals, ...outputVals);
+
+        const x = (i) => pad.left + (i * innerW) / Math.max(1, list.length - 1);
+        const y = (v) => pad.top + innerH - (num(v) / maxVal) * innerH;
+
+        const mkPolyline = (vals) => vals.map((v, i) => `${x(i)},${y(v)}`).join(' ');
+
+        const axisY = `${pad.left},${pad.top} ${pad.left},${pad.top + innerH}`;
+        const axisX = `${pad.left},${pad.top + innerH} ${pad.left + innerW},${pad.top + innerH}`;
+
+        const svg = `
+          <svg viewBox="0 0 ${width} ${height}" aria-label="趋势折线图">
+            <polyline points="${axisY}" fill="none" stroke="#d0d2d6" stroke-width="1" />
+            <polyline points="${axisX}" fill="none" stroke="#d0d2d6" stroke-width="1" />
+            <polyline points="${mkPolyline(totalVals)}" fill="none" stroke="var(--line-a)" stroke-width="2.4" stroke-linecap="round" />
+            <polyline points="${mkPolyline(inputVals)}" fill="none" stroke="var(--line-b)" stroke-width="2" stroke-linecap="round" />
+            <polyline points="${mkPolyline(outputVals)}" fill="none" stroke="var(--line-c)" stroke-width="2" stroke-linecap="round" />
+            <text x="8" y="${pad.top + 10}" font-size="11" fill="#6f6f74">${LB.formatCompactNumber(maxVal)}</text>
+            <text x="8" y="${pad.top + innerH}" font-size="11" fill="#6f6f74">0</text>
+          </svg>
+        `;
+        host.innerHTML = svg;
+      }
+
+      function arcPath(cx, cy, r, startAngle, endAngle) {
+        const start = {
+          x: cx + r * Math.cos(startAngle),
+          y: cy + r * Math.sin(startAngle),
+        };
+        const end = {
+          x: cx + r * Math.cos(endAngle),
+          y: cy + r * Math.sin(endAngle),
+        };
+        const largeArc = endAngle - startAngle > Math.PI ? 1 : 0;
+        return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y} Z`;
+      }
+
+      function renderPie(models) {
+        const host = document.getElementById('model-pie-wrap');
+        if (!host) return;
+        const list = (Array.isArray(models) ? models : []).slice(0, 8);
+        if (!list.length) {
+          host.innerHTML = '<div class="empty">暂无模型分布数据</div>';
+          return;
+        }
+
+        const total = list.reduce((acc, row) => acc + num(row?.total_tokens), 0);
+        if (total <= 0) {
+          host.innerHTML = '<div class="empty">暂无模型分布数据</div>';
+          return;
+        }
+
+        let angle = -Math.PI / 2;
+        const slices = [];
+        const legends = [];
+        for (let i = 0; i < list.length; i++) {
+          const row = list[i] || {};
+          const model = String(row?.model_id || '-');
+          const value = num(row?.total_tokens);
+          const ratio = value / total;
+          const next = angle + Math.PI * 2 * ratio;
+          const color = PIE_COLORS[i % PIE_COLORS.length];
+          slices.push(`<path d="${arcPath(120, 120, 100, angle, next)}" fill="${color}"></path>`);
+          legends.push(`
+            <li class="pie-item">
+              <span class="pie-item-name"><i class="legend-dot" style="background:${color}"></i>${model}</span>
+              <span class="mono">${(ratio * 100).toFixed(2)}%</span>
+            </li>
+          `);
+          angle = next;
+        }
+
+        host.innerHTML = `
+          <div class="pie-layout">
+            <svg viewBox="0 0 240 240" aria-label="模型分布饼图">
+              ${slices.join('')}
+              <circle cx="120" cy="120" r="55" fill="#fff" />
+              <text x="120" y="116" text-anchor="middle" font-size="12" fill="#6f6f74">Models</text>
+              <text x="120" y="136" text-anchor="middle" font-size="13" fill="#0d0d0d" class="mono">${LB.formatCompactNumber(total)}</text>
+            </svg>
+            <ul class="pie-list">${legends.join('')}</ul>
+          </div>
+        `;
+      }
+
+      function renderModelTable(rows) {
+        const tbody = document.getElementById('model-table-body');
         if (!tbody) return;
         tbody.innerHTML = '';
         const list = Array.isArray(rows) ? rows : [];
-        if (list.length === 0) {
-          tbody.appendChild(LB.el('tr', {}, [LB.el('td', { colSpan: 6, text: '暂无数据' })]));
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="10">暂无数据</td></tr>';
           return;
         }
+
         for (const row of list) {
-          const inTok = Number(row?.input_tokens ?? row?.inputTokens ?? 0);
-          const outTok = Number(row?.output_tokens ?? row?.outputTokens ?? 0);
-          const total = inTok + outTok;
-          tbody.appendChild(LB.el('tr', {}, [
-            LB.el('td', { className: 'path', text: String(row?.path ?? row?.Path ?? '-').trim() || '-' }),
-            LB.el('td', { text: String(row?.model_id ?? row?.modelID ?? row?.ModelID ?? '-').trim() || '-' }),
-            LB.el('td', { className: 'num', text: LB.formatCompactNumber(Number(row?.requests ?? row?.Requests ?? 0)) }),
-            LB.el('td', { className: 'num', text: LB.formatCompactNumber(inTok) }),
-            LB.el('td', { className: 'num', text: LB.formatCompactNumber(outTok) }),
-            LB.el('td', { className: 'num', text: LB.formatCompactNumber(total) }),
-          ]));
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${String(row?.model_id || '-')}</td>
+            <td class="num">${LB.formatCompactNumber(num(row?.requests))}</td>
+            <td class="num">${LB.formatCompactNumber(num(row?.input_tokens))}</td>
+            <td class="num">${LB.formatCompactNumber(num(row?.output_tokens))}</td>
+            <td class="num">${LB.formatCompactNumber(num(row?.reasoning_tokens))}</td>
+            <td class="num">${LB.formatCompactNumber(num(row?.cached_tokens))}</td>
+            <td class="num">${LB.formatCompactNumber(num(row?.standard_tokens))}</td>
+            <td class="num">${LB.formatCompactNumber(num(row?.total_tokens))}</td>
+            <td class="num">${formatMoney(num(row?.estimated_usd))}</td>
+            <td class="num">${num(row?.share).toFixed(2)}%</td>
+          `;
+          tbody.appendChild(tr);
         }
       }
 
-      function renderLogsTable(logs) {
-        const tbody = document.getElementById('c-logs-table');
-        if (!tbody) return;
-        tbody.innerHTML = '';
-        const list = Array.isArray(logs) ? logs.slice() : [];
-        list.sort((a, b) => String(b?.Timestamp ?? b?.timestamp ?? '').localeCompare(String(a?.Timestamp ?? a?.timestamp ?? '')));
-        if (list.length === 0) {
-          tbody.appendChild(LB.el('tr', {}, [LB.el('td', { colSpan: 9, text: '暂无日志数据' })]));
-          return;
+      function renderAccount(today) {
+        const balance = num(BALANCE?.value);
+        const quota = num(QUOTA?.value);
+        const todayCost = num(today?.estimated_usd);
+        const todayTokens = num(today?.total_tokens);
+
+        setText('account-balance-show', balance > 0 ? formatMoney(balance) : '--');
+        setText('account-quota-show', quota > 0 ? LB.formatCompactNumber(quota) : '--');
+
+        if (balance > 0) {
+          const left = balance - todayCost;
+          setText('account-balance-left', formatMoney(Math.max(0, left)));
+        } else {
+          setText('account-balance-left', '--');
         }
-        for (const row of list) {
-          const inTok = toInputTokens(row);
-          const outTok = toOutputTokens(row);
-          const total = inTok + outTok;
-          const ts = String(row?.Timestamp ?? row?.timestamp ?? '').trim();
-          const pid = String(row?.ProviderID ?? row?.providerID ?? '').trim();
-          const mid = String(row?.ModelID ?? row?.modelID ?? '').trim();
-          const path = String(row?.Path ?? row?.path ?? '').trim();
-          const status = Number(row?.Status ?? row?.status ?? 0);
-          const latency = Number(row?.LatencyMS ?? row?.latencyMS ?? 0);
-          tbody.appendChild(LB.el('tr', {}, [
-            LB.el('td', { text: LB.formatISODateTime(ts) }),
-            LB.el('td', { text: pid || '-' }),
-            LB.el('td', { text: mid || '-' }),
-            LB.el('td', { className: 'path', text: path || '-' }),
-            LB.el('td', { className: 'num', text: status ? String(status) : '-' }),
-            LB.el('td', { className: 'num', text: LB.formatCompactNumber(inTok) }),
-            LB.el('td', { className: 'num', text: LB.formatCompactNumber(outTok) }),
-            LB.el('td', { className: 'num', text: LB.formatCompactNumber(total) }),
-            LB.el('td', { className: 'num', text: latency ? LB.formatCompactNumber(latency) : '-' }),
-          ]));
+
+        if (quota > 0) {
+          const pct = Math.min(100, (todayTokens / quota) * 100);
+          setText('account-quota-usage', `${pct.toFixed(2)}%`);
+          setText('account-quota-left', LB.formatCompactNumber(Math.max(0, quota - todayTokens)));
+        } else {
+          setText('account-quota-usage', '--');
+          setText('account-quota-left', '--');
         }
       }
 
-      async function loadConsumption() {
+      async function loadStatistics() {
         if (REFRESH) REFRESH.disabled = true;
         try {
-          const [dashboard, logsRes] = await Promise.all([
-            LB.apiJSON('/admin/api/dashboard'),
-            LB.apiJSON('/admin/api/logs'),
-          ]);
-          const stats = dashboard?.stats || {};
-          const tokens7d = Array.isArray(dashboard?.tokens_7d) ? dashboard.tokens_7d : [];
-          const logs = Array.isArray(logsRes?.data) ? logsRes.data : [];
-          const pathModel24hRaw = Array.isArray(dashboard?.path_model_24h) ? dashboard.path_model_24h : [];
-          const pathModel24h = pathModel24hRaw.length ? pathModel24hRaw : buildPathModelStatsFromLogs(logs);
+          const q = buildQuery();
+          const body = await LB.apiJSON(`/admin/api/advanced_statistics?${q.toString()}`);
 
-          const tokens24h = Number(stats.tokens_24h ?? 0);
-          const requests24h = Number(stats.requests_24h ?? 0);
-          const tokens7dTotal = tokens7d.reduce((acc, row) => acc + Number(row?.input_tokens || 0) + Number(row?.output_tokens || 0), 0);
-          const pathModel24hTokens = pathModel24h.reduce((acc, row) => {
-            const inTok = Number(row?.input_tokens ?? row?.inputTokens ?? 0);
-            const outTok = Number(row?.output_tokens ?? row?.outputTokens ?? 0);
-            return acc + inTok + outTok;
-          }, 0);
+          const today = body?.today || {};
+          const windowData = body?.window || {};
+          const token = body?.token_breakdown || {};
+          const models = Array.isArray(body?.model_usage) ? body.model_usage : [];
+          const trend = Array.isArray(body?.trend) ? body.trend : [];
 
-          setText('c-24h-tokens', LB.formatCompactNumber(tokens24h));
-          setText('c-24h-requests', LB.formatCompactNumber(requests24h));
-          setText('c-7d-tokens', LB.formatCompactNumber(tokens7dTotal));
-          setText('c-window-tokens', LB.formatCompactNumber(pathModel24hTokens));
-          setText('c-window-tokens-meta', `近 24 小时 Path+Model 组合 ${LB.formatCompactNumber(pathModel24h.length)} 个`);
-          setText('c-24h-tokens-meta', `近 24 小时总消耗 · ${LB.formatCompactNumber(requests24h)} requests`);
-          setText('consumption-updated', `最后更新：${LB.formatISODateTime(dashboard?.now || new Date().toISOString())}`);
+          setText('kpi-today-requests', LB.formatCompactNumber(num(today.requests)));
+          setText('kpi-today-tokens', LB.formatCompactNumber(num(today.total_tokens)));
+          setText('kpi-today-cost', formatMoney(num(today.estimated_usd)));
+          setText('kpi-window-requests', LB.formatCompactNumber(num(windowData.requests)));
+          setText('kpi-window-tokens', LB.formatCompactNumber(num(windowData.total_tokens)));
+          setText('kpi-window-cost', formatMoney(num(windowData.estimated_usd)));
 
-          renderBars(tokens7d);
-          renderDayTable(tokens7d);
-          renderPathModelTable(pathModel24h);
-          renderLogsTable(logs);
+          setText('detail-standard', LB.formatCompactNumber(num(token.standard_tokens)));
+          setText('detail-reasoning', LB.formatCompactNumber(num(token.reasoning_tokens)));
+          setText('detail-cached', LB.formatCompactNumber(num(token.cached_tokens)));
+          setText('detail-total', LB.formatCompactNumber(num(token.total_tokens)));
+          setText('detail-cost', formatMoney(num(windowData.estimated_usd)));
 
-          const period = document.getElementById('c-token-period');
-          if (period && tokens7d.length >= 2 && tokens7d[0]?.day && tokens7d[tokens7d.length - 1]?.day) {
-            period.textContent = `${tokens7d[0].day} - ${tokens7d[tokens7d.length - 1].day}`;
+          const source = String(body?.source || 'core');
+          const sourceEl = document.getElementById('stats-source');
+          if (sourceEl) {
+            sourceEl.textContent = source === 'module' ? '数据源：Advanced Statistics 模块' : '数据源：Core 聚合（模块未启用）';
+            sourceEl.className = source === 'module' ? 'meta-line status-ok' : 'meta-line status-fallback';
           }
+
+          setText('stats-updated', `最后更新：${LB.formatISODateTime(body?.now || new Date().toISOString())}`);
+          setText('line-period', `${LB.formatISODateTime(body?.start || '')} → ${LB.formatISODateTime(body?.end || '')}`);
+
+          renderLineChart(trend);
+          renderPie(models);
+          renderModelTable(models);
+          renderAccount(today);
         } catch (err) {
-          LB.toast(err?.message || '加载消耗数据失败', 'error', 4200);
+          LB.toast(err?.message || '加载统计数据失败', 'error', 4200);
         } finally {
           if (REFRESH) REFRESH.disabled = false;
         }
       }
 
-      if (REFRESH) REFRESH.addEventListener('click', loadConsumption);
-      loadConsumption();
+      if (DAYS) DAYS.addEventListener('change', applyDaysToStart);
+      if (RESET_TIME) {
+        RESET_TIME.addEventListener('click', () => {
+          initDefaults();
+        });
+      }
+      if (REFRESH) REFRESH.addEventListener('click', loadStatistics);
+
+      initDefaults();
+      loadStatistics();
     })();
   </script>
 </body>

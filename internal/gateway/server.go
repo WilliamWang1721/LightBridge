@@ -128,21 +128,28 @@ func (w *usageCaptureResponseWriter) CapturedContentType() string {
 	return w.Header().Get("content-type")
 }
 
-func usageFromResponse(contentType string, body []byte) (int, int) {
+type usageStats struct {
+	InputTokens     int
+	OutputTokens    int
+	ReasoningTokens int
+	CachedTokens    int
+}
+
+func usageFromResponse(contentType string, body []byte) usageStats {
 	body = bytes.TrimSpace(body)
 	if len(body) == 0 {
-		return 0, 0
+		return usageStats{}
 	}
 
-	if in, out := usageFromJSON(body); in > 0 || out > 0 {
-		return in, out
+	if stats := usageFromJSON(body); stats.InputTokens > 0 || stats.OutputTokens > 0 || stats.ReasoningTokens > 0 || stats.CachedTokens > 0 {
+		return stats
 	}
 
 	lowerType := strings.ToLower(strings.TrimSpace(contentType))
 	if strings.Contains(lowerType, "text/event-stream") || bytes.Contains(body, []byte("data:")) {
 		sc := bufio.NewScanner(bytes.NewReader(body))
 		sc.Buffer(make([]byte, 0, 64*1024), 8<<20)
-		maxIn, maxOut := 0, 0
+		maxStats := usageStats{}
 		for sc.Scan() {
 			line := bytes.TrimSpace(sc.Bytes())
 			if len(line) == 0 || !bytes.HasPrefix(line, []byte("data:")) {
@@ -152,25 +159,31 @@ func usageFromResponse(contentType string, body []byte) (int, int) {
 			if len(payload) == 0 || bytes.Equal(payload, []byte("[DONE]")) || !gjson.ValidBytes(payload) {
 				continue
 			}
-			in, out := usageFromJSON(payload)
-			if in > maxIn {
-				maxIn = in
+			item := usageFromJSON(payload)
+			if item.InputTokens > maxStats.InputTokens {
+				maxStats.InputTokens = item.InputTokens
 			}
-			if out > maxOut {
-				maxOut = out
+			if item.OutputTokens > maxStats.OutputTokens {
+				maxStats.OutputTokens = item.OutputTokens
+			}
+			if item.ReasoningTokens > maxStats.ReasoningTokens {
+				maxStats.ReasoningTokens = item.ReasoningTokens
+			}
+			if item.CachedTokens > maxStats.CachedTokens {
+				maxStats.CachedTokens = item.CachedTokens
 			}
 		}
-		if maxIn > 0 || maxOut > 0 {
-			return maxIn, maxOut
+		if maxStats.InputTokens > 0 || maxStats.OutputTokens > 0 || maxStats.ReasoningTokens > 0 || maxStats.CachedTokens > 0 {
+			return maxStats
 		}
 	}
 
-	return 0, 0
+	return usageStats{}
 }
 
-func usageFromJSON(raw []byte) (int, int) {
+func usageFromJSON(raw []byte) usageStats {
 	if !gjson.ValidBytes(raw) {
-		return 0, 0
+		return usageStats{}
 	}
 	pick := func(paths ...string) int {
 		for _, p := range paths {
@@ -208,7 +221,26 @@ func usageFromJSON(raw []byte) (int, int) {
 			output = total
 		}
 	}
-	return input, output
+	return usageStats{
+		InputTokens:  input,
+		OutputTokens: output,
+		ReasoningTokens: pick(
+			"usage.completion_tokens_details.reasoning_tokens",
+			"usage.output_tokens_details.reasoning_tokens",
+			"response.usage.completion_tokens_details.reasoning_tokens",
+			"response.usage.output_tokens_details.reasoning_tokens",
+			"message.usage.completion_tokens_details.reasoning_tokens",
+			"message.usage.output_tokens_details.reasoning_tokens",
+		),
+		CachedTokens: pick(
+			"usage.prompt_tokens_details.cached_tokens",
+			"usage.input_tokens_details.cached_tokens",
+			"response.usage.prompt_tokens_details.cached_tokens",
+			"response.usage.input_tokens_details.cached_tokens",
+			"message.usage.prompt_tokens_details.cached_tokens",
+			"message.usage.input_tokens_details.cached_tokens",
+		),
+	}
 }
 
 func routeModelID(route *types.ResolvedRoute, fallback string) string {
@@ -585,7 +617,7 @@ func (s *Server) handleV1Proxy(w http.ResponseWriter, r *http.Request) {
 	const maxRetries = 2
 	excludedProviders := map[string]struct{}{}
 	finalStatus, finalCode := 0, ""
-	finalInputTokens, finalOutputTokens := 0, 0
+	finalUsage := usageStats{}
 	finalModelID := routeModelID(route, modelID)
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
@@ -619,7 +651,7 @@ func (s *Server) handleV1Proxy(w http.ResponseWriter, r *http.Request) {
 			finalStatus = captureW.StatusCode()
 		}
 		finalCode = code
-		finalInputTokens, finalOutputTokens = usageFromResponse(captureW.CapturedContentType(), captureW.CapturedBody())
+		finalUsage = usageFromResponse(captureW.CapturedContentType(), captureW.CapturedBody())
 
 		if err != nil {
 			if status == 0 {
@@ -638,17 +670,19 @@ func (s *Server) handleV1Proxy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_ = s.store.InsertRequestLog(r.Context(), types.RequestLogMeta{
-		Timestamp:    time.Now().UTC(),
-		RequestID:    requestID,
-		ClientKeyID:  client.ID,
-		ProviderID:   route.ProviderID,
-		ModelID:      finalModelID,
-		Path:         logPath,
-		Status:       statusOrDefault(finalStatus, http.StatusOK),
-		LatencyMS:    time.Since(start).Milliseconds(),
-		InputTokens:  finalInputTokens,
-		OutputTokens: finalOutputTokens,
-		ErrorCode:    finalCode,
+		Timestamp:       time.Now().UTC(),
+		RequestID:       requestID,
+		ClientKeyID:     client.ID,
+		ProviderID:      route.ProviderID,
+		ModelID:         finalModelID,
+		Path:            logPath,
+		Status:          statusOrDefault(finalStatus, http.StatusOK),
+		LatencyMS:       time.Since(start).Milliseconds(),
+		InputTokens:     finalUsage.InputTokens,
+		OutputTokens:    finalUsage.OutputTokens,
+		ReasoningTokens: finalUsage.ReasoningTokens,
+		CachedTokens:    finalUsage.CachedTokens,
+		ErrorCode:       finalCode,
 	})
 }
 
@@ -743,6 +777,8 @@ func (s *Server) routeAdminAPI(w http.ResponseWriter, r *http.Request) {
 		s.wrapAdminAPI(s.handleModelDeleteAPI)(w, r)
 	case "/dashboard":
 		s.wrapAdminAPI(s.handleDashboardAPI)(w, r)
+	case "/advanced_statistics":
+		s.wrapAdminAPI(s.handleAdvancedStatisticsAPI)(w, r)
 	case "/logs":
 		s.wrapAdminAPI(s.handleLogsAPI)(w, r)
 	case "/logs/prune":

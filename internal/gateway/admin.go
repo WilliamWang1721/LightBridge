@@ -8,21 +8,25 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"lightbridge/internal/advstats"
 	"lightbridge/internal/types"
 	"lightbridge/internal/util"
 )
 
 const codexOAuthModuleID = "openai-codex-oauth"
 const passkeyLoginModuleID = "passkey-login"
+const advancedStatisticsModuleID = "advanced-statistics"
 
 type adminPayload struct {
 	Username string         `json:"username"`
@@ -631,6 +635,201 @@ func (s *Server) handleLogsAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": logs})
+}
+
+func (s *Server) handleAdvancedStatisticsAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+
+	now := time.Now().UTC()
+	start, end, bucketSeconds, err := parseAdvancedStatisticsRange(r, now)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		return
+	}
+
+	windowLogsRaw, err := s.store.ListRequestLogsBetween(r.Context(), start, end, 50000)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	todayLogsRaw, err := s.store.ListRequestLogsBetween(r.Context(), todayStart, now.Add(time.Second), 50000)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+
+	payload := advstats.AggregateRequest{
+		Start:         start.Format(time.RFC3339),
+		End:           end.Format(time.RFC3339),
+		BucketSeconds: bucketSeconds,
+		WindowLogs:    toAdvancedStatsLogs(windowLogsRaw),
+		TodayLogs:     toAdvancedStatsLogs(todayLogsRaw),
+	}
+
+	moduleEnabled := s.isModuleInstalledAndEnabled(r.Context(), advancedStatisticsModuleID)
+	if moduleEnabled {
+		if result, err := s.callAdvancedStatisticsModule(r.Context(), payload); err == nil {
+			result["source"] = "module"
+			result["module"] = map[string]any{
+				"id":      advancedStatisticsModuleID,
+				"enabled": true,
+			}
+			writeJSON(w, http.StatusOK, result)
+			return
+		}
+	}
+
+	result := advstats.Aggregate(payload, now)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":             true,
+		"source":         "core",
+		"module":         map[string]any{"id": advancedStatisticsModuleID, "enabled": moduleEnabled},
+		"start":          result.Start,
+		"end":            result.End,
+		"now":            result.Now,
+		"bucket_seconds": result.BucketSeconds,
+		"today":          result.Today,
+		"window":         result.Window,
+		"token_breakdown": map[string]any{
+			"standard_tokens":  result.TokenBreakdown.StandardTokens,
+			"reasoning_tokens": result.TokenBreakdown.ReasoningTokens,
+			"cached_tokens":    result.TokenBreakdown.CachedTokens,
+			"total_tokens":     result.TokenBreakdown.TotalTokens,
+		},
+		"model_usage": result.ModelUsage,
+		"trend":       result.Trend,
+	})
+}
+
+func parseAdvancedStatisticsRange(r *http.Request, now time.Time) (time.Time, time.Time, int, error) {
+	q := r.URL.Query()
+	days := 7
+	if raw := strings.TrimSpace(q.Get("days")); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n <= 0 {
+			return time.Time{}, time.Time{}, 0, fmt.Errorf("invalid days")
+		}
+		if n > 90 {
+			n = 90
+		}
+		days = n
+	}
+
+	end := now
+	if raw := strings.TrimSpace(q.Get("end")); raw != "" {
+		t, err := parseAdminTime(raw)
+		if err != nil {
+			return time.Time{}, time.Time{}, 0, fmt.Errorf("invalid end")
+		}
+		end = t
+	}
+
+	start := end.AddDate(0, 0, -days)
+	if raw := strings.TrimSpace(q.Get("start")); raw != "" {
+		t, err := parseAdminTime(raw)
+		if err != nil {
+			return time.Time{}, time.Time{}, 0, fmt.Errorf("invalid start")
+		}
+		start = t
+	}
+	if !start.Before(end) {
+		return time.Time{}, time.Time{}, 0, fmt.Errorf("start must be earlier than end")
+	}
+
+	seconds := end.Sub(start).Seconds()
+	defaultBucket := 300
+	if seconds > 0 {
+		defaultBucket = int(math.Ceil(seconds / 96.0))
+	}
+	if defaultBucket < 60 {
+		defaultBucket = 60
+	}
+	if defaultBucket > 3600 {
+		defaultBucket = 3600
+	}
+	bucketSeconds := defaultBucket
+	if raw := strings.TrimSpace(q.Get("bucket_seconds")); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n <= 0 {
+			return time.Time{}, time.Time{}, 0, fmt.Errorf("invalid bucket_seconds")
+		}
+		if n < 1 {
+			n = 1
+		}
+		if n > 24*3600 {
+			n = 24 * 3600
+		}
+		bucketSeconds = n
+	}
+	return start.UTC(), end.UTC(), bucketSeconds, nil
+}
+
+func parseAdminTime(raw string) (time.Time, error) {
+	raw = strings.TrimSpace(raw)
+	formats := []string{
+		time.RFC3339,
+		time.RFC3339Nano,
+		"2006-01-02T15:04:05",
+		"2006-01-02T15:04",
+		"2006-01-02 15:04:05",
+		"2006-01-02 15:04",
+	}
+	for _, layout := range formats {
+		if t, err := time.Parse(layout, raw); err == nil {
+			return t.UTC(), nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("invalid time format")
+}
+
+func toAdvancedStatsLogs(input []types.RequestLogMeta) []advstats.RequestLog {
+	out := make([]advstats.RequestLog, 0, len(input))
+	for _, row := range input {
+		ts := row.Timestamp.UTC().Format(time.RFC3339)
+		if row.Timestamp.IsZero() {
+			ts = ""
+		}
+		out = append(out, advstats.RequestLog{
+			Timestamp:       ts,
+			ModelID:         row.ModelID,
+			Path:            row.Path,
+			InputTokens:     row.InputTokens,
+			OutputTokens:    row.OutputTokens,
+			ReasoningTokens: row.ReasoningTokens,
+			CachedTokens:    row.CachedTokens,
+		})
+	}
+	return out
+}
+
+func (s *Server) callAdvancedStatisticsModule(ctx context.Context, payload advstats.AggregateRequest) (map[string]any, error) {
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	status, respBody, _, err := s.proxyModuleHTTP(ctx, advancedStatisticsModuleID, http.MethodPost, "/stats/aggregate", body)
+	if err != nil {
+		return nil, err
+	}
+	if status < 200 || status >= 300 {
+		msg := strings.TrimSpace(string(respBody))
+		if msg == "" {
+			msg = fmt.Sprintf("module request failed (%d)", status)
+		}
+		return nil, errors.New(msg)
+	}
+	var out map[string]any
+	if err := json.Unmarshal(respBody, &out); err != nil {
+		return nil, err
+	}
+	if out == nil {
+		out = map[string]any{}
+	}
+	return out, nil
 }
 
 func (s *Server) handleVoucherConfigAPI(w http.ResponseWriter, r *http.Request) {

@@ -1,0 +1,52 @@
+{
+  "id": "advanced-statistics",
+  "name": "Advanced Statistics",
+  "description": "Advanced admin statistics for requests, token breakdown, cost estimation, model distribution, and time-range trends.",
+  "tags": [
+    "Admin",
+    "Statistics",
+    "Analytics"
+  ],
+  "version": "0.1.0",
+  "license": "UNLICENSED",
+  "min_core_version": "0.1.0",
+  "entrypoints": {
+    "darwin/arm64": {
+      "command": "bin/darwin/arm64/advanced-statistics",
+      "args": []
+    },
+    "darwin/amd64": {
+      "command": "bin/darwin/amd64/advanced-statistics",
+      "args": []
+    },
+    "linux/arm64": {
+      "command": "bin/linux/arm64/advanced-statistics",
+      "args": []
+    },
+    "linux/amd64": {
+      "command": "bin/linux/amd64/advanced-statistics",
+      "args": []
+    },
+    "default": {
+      "command": "bin/darwin/arm64/advanced-statistics",
+      "args": []
+    }
+  },
+  "services": [
+    {
+      "kind": "provider",
+      "protocol": "http_rpc",
+      "health": {
+        "type": "http",
+        "path": "/health"
+      },
+      "expose_provider_aliases": []
+    }
+  ],
+  "config_schema": {
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {}
+  },
+  "config_defaults": {}
+}

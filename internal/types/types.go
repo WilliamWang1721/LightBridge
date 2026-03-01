@@ -79,18 +79,20 @@ type ClientAPIKey struct {
 }
 
 type RequestLogMeta struct {
-	ID           int64
-	Timestamp    time.Time
-	RequestID    string
-	ClientKeyID  string
-	ProviderID   string
-	ModelID      string
-	Path         string
-	Status       int
-	LatencyMS    int64
-	InputTokens  int
-	OutputTokens int
-	ErrorCode    string
+	ID              int64
+	Timestamp       time.Time
+	RequestID       string
+	ClientKeyID     string
+	ProviderID      string
+	ModelID         string
+	Path            string
+	Status          int
+	LatencyMS       int64
+	InputTokens     int
+	OutputTokens    int
+	ReasoningTokens int
+	CachedTokens    int
+	ErrorCode       string
 }
 
 type VirtualModelListing struct {

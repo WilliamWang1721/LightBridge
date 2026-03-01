@@ -50,6 +50,7 @@ func (d *DB) Migrate(ctx context.Context) error {
 		{1, migrationV1},
 		{2, migrationV2},
 		{3, migrationV3},
+		{4, migrationV4},
 	}
 
 	for _, m := range migrations {
@@ -178,4 +179,9 @@ ALTER TABLE providers ADD COLUMN display_name TEXT NOT NULL DEFAULT '';
 
 const migrationV3 = `
 ALTER TABLE providers ADD COLUMN group_name TEXT NOT NULL DEFAULT '';
+`
+
+const migrationV4 = `
+ALTER TABLE request_logs_meta ADD COLUMN reasoning_tokens INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE request_logs_meta ADD COLUMN cached_tokens INTEGER NOT NULL DEFAULT 0;
 `

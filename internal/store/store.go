@@ -569,9 +569,12 @@ func (s *Store) ListModuleRuntimes(ctx context.Context) ([]types.ModuleRuntime, 
 
 func (s *Store) InsertRequestLog(ctx context.Context, meta types.RequestLogMeta) error {
 	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO request_logs_meta(ts, request_id, client_key_id, provider_id, model_id, path, status, latency_ms, input_tokens, output_tokens, error_code)
-		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, meta.Timestamp.UTC().Format(time.RFC3339), meta.RequestID, nullIfEmpty(meta.ClientKeyID), nullIfEmpty(meta.ProviderID), nullIfEmpty(meta.ModelID), meta.Path, meta.Status, meta.LatencyMS, meta.InputTokens, meta.OutputTokens, nullIfEmpty(meta.ErrorCode))
+		INSERT INTO request_logs_meta(
+			ts, request_id, client_key_id, provider_id, model_id, path, status, latency_ms,
+			input_tokens, output_tokens, reasoning_tokens, cached_tokens, error_code
+		)
+		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, meta.Timestamp.UTC().Format(time.RFC3339), meta.RequestID, nullIfEmpty(meta.ClientKeyID), nullIfEmpty(meta.ProviderID), nullIfEmpty(meta.ModelID), meta.Path, meta.Status, meta.LatencyMS, meta.InputTokens, meta.OutputTokens, meta.ReasoningTokens, meta.CachedTokens, nullIfEmpty(meta.ErrorCode))
 	return err
 }
 
@@ -580,7 +583,21 @@ func (s *Store) ListRequestLogs(ctx context.Context, limit int) ([]types.Request
 		limit = 100
 	}
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, ts, request_id, COALESCE(client_key_id,''), COALESCE(provider_id,''), COALESCE(model_id,''), path, status, latency_ms, input_tokens, output_tokens, COALESCE(error_code,'')
+		SELECT
+			id,
+			ts,
+			request_id,
+			COALESCE(client_key_id,''),
+			COALESCE(provider_id,''),
+			COALESCE(model_id,''),
+			path,
+			status,
+			latency_ms,
+			input_tokens,
+			output_tokens,
+			COALESCE(reasoning_tokens, 0),
+			COALESCE(cached_tokens, 0),
+			COALESCE(error_code,'')
 		FROM request_logs_meta
 		ORDER BY id DESC LIMIT ?
 	`, limit)
@@ -593,7 +610,85 @@ func (s *Store) ListRequestLogs(ctx context.Context, limit int) ([]types.Request
 	for rows.Next() {
 		var item types.RequestLogMeta
 		var ts string
-		if err := rows.Scan(&item.ID, &ts, &item.RequestID, &item.ClientKeyID, &item.ProviderID, &item.ModelID, &item.Path, &item.Status, &item.LatencyMS, &item.InputTokens, &item.OutputTokens, &item.ErrorCode); err != nil {
+		if err := rows.Scan(
+			&item.ID,
+			&ts,
+			&item.RequestID,
+			&item.ClientKeyID,
+			&item.ProviderID,
+			&item.ModelID,
+			&item.Path,
+			&item.Status,
+			&item.LatencyMS,
+			&item.InputTokens,
+			&item.OutputTokens,
+			&item.ReasoningTokens,
+			&item.CachedTokens,
+			&item.ErrorCode,
+		); err != nil {
+			return nil, err
+		}
+		if parsed, err := time.Parse(time.RFC3339, ts); err == nil {
+			item.Timestamp = parsed
+		}
+		out = append(out, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (s *Store) ListRequestLogsBetween(ctx context.Context, start, end time.Time, limit int) ([]types.RequestLogMeta, error) {
+	if limit <= 0 {
+		limit = 20000
+	}
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT
+			id,
+			ts,
+			COALESCE(request_id,''),
+			COALESCE(client_key_id,''),
+			COALESCE(provider_id,''),
+			COALESCE(model_id,''),
+			COALESCE(path,''),
+			COALESCE(status, 0),
+			COALESCE(latency_ms, 0),
+			COALESCE(input_tokens, 0),
+			COALESCE(output_tokens, 0),
+			COALESCE(reasoning_tokens, 0),
+			COALESCE(cached_tokens, 0),
+			COALESCE(error_code,'')
+		FROM request_logs_meta
+		WHERE datetime(ts) >= datetime(?) AND datetime(ts) < datetime(?)
+		ORDER BY datetime(ts) ASC, id ASC
+		LIMIT ?
+	`, start.UTC().Format(time.RFC3339), end.UTC().Format(time.RFC3339), limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]types.RequestLogMeta, 0)
+	for rows.Next() {
+		var item types.RequestLogMeta
+		var ts string
+		if err := rows.Scan(
+			&item.ID,
+			&ts,
+			&item.RequestID,
+			&item.ClientKeyID,
+			&item.ProviderID,
+			&item.ModelID,
+			&item.Path,
+			&item.Status,
+			&item.LatencyMS,
+			&item.InputTokens,
+			&item.OutputTokens,
+			&item.ReasoningTokens,
+			&item.CachedTokens,
+			&item.ErrorCode,
+		); err != nil {
 			return nil, err
 		}
 		if parsed, err := time.Parse(time.RFC3339, ts); err == nil {
@@ -657,6 +752,16 @@ type RequestStats struct {
 	OutputTokens int
 }
 
+type RequestUsageStats struct {
+	Requests        int    `json:"requests"`
+	InputTokens     int    `json:"input_tokens"`
+	OutputTokens    int    `json:"output_tokens"`
+	ReasoningTokens int    `json:"reasoning_tokens"`
+	CachedTokens    int    `json:"cached_tokens"`
+	Start           string `json:"start"`
+	End             string `json:"end"`
+}
+
 func (s *Store) RequestStatsSince(ctx context.Context, since time.Time) (RequestStats, error) {
 	row := s.db.QueryRowContext(ctx, `
 		SELECT
@@ -673,6 +778,28 @@ func (s *Store) RequestStatsSince(ctx context.Context, since time.Time) (Request
 	return stats, nil
 }
 
+func (s *Store) RequestUsageBetween(ctx context.Context, start, end time.Time) (RequestUsageStats, error) {
+	row := s.db.QueryRowContext(ctx, `
+		SELECT
+			COUNT(1),
+			COALESCE(SUM(input_tokens), 0),
+			COALESCE(SUM(output_tokens), 0),
+			COALESCE(SUM(reasoning_tokens), 0),
+			COALESCE(SUM(cached_tokens), 0)
+		FROM request_logs_meta
+		WHERE datetime(ts) >= datetime(?) AND datetime(ts) < datetime(?)
+	`, start.UTC().Format(time.RFC3339), end.UTC().Format(time.RFC3339))
+
+	stats := RequestUsageStats{
+		Start: start.UTC().Format(time.RFC3339),
+		End:   end.UTC().Format(time.RFC3339),
+	}
+	if err := row.Scan(&stats.Requests, &stats.InputTokens, &stats.OutputTokens, &stats.ReasoningTokens, &stats.CachedTokens); err != nil {
+		return RequestUsageStats{}, err
+	}
+	return stats, nil
+}
+
 type DailyTokenUsage struct {
 	Day          string `json:"day"`
 	InputTokens  int    `json:"input_tokens"`
@@ -685,6 +812,24 @@ type PathModelUsage struct {
 	Requests     int    `json:"requests"`
 	InputTokens  int    `json:"input_tokens"`
 	OutputTokens int    `json:"output_tokens"`
+}
+
+type ModelTokenUsage struct {
+	ModelID         string `json:"model_id"`
+	Requests        int    `json:"requests"`
+	InputTokens     int    `json:"input_tokens"`
+	OutputTokens    int    `json:"output_tokens"`
+	ReasoningTokens int    `json:"reasoning_tokens"`
+	CachedTokens    int    `json:"cached_tokens"`
+}
+
+type TokenTrendPoint struct {
+	BucketStart     string `json:"bucket_start"`
+	Requests        int    `json:"requests"`
+	InputTokens     int    `json:"input_tokens"`
+	OutputTokens    int    `json:"output_tokens"`
+	ReasoningTokens int    `json:"reasoning_tokens"`
+	CachedTokens    int    `json:"cached_tokens"`
 }
 
 func (s *Store) TokenUsageLastNDays(ctx context.Context, startDay time.Time, days int) ([]DailyTokenUsage, error) {
@@ -765,6 +910,82 @@ func (s *Store) PathModelUsageSince(ctx context.Context, since time.Time, limit 
 		if err := rows.Scan(&item.Path, &item.ModelID, &item.Requests, &item.InputTokens, &item.OutputTokens); err != nil {
 			return nil, err
 		}
+		out = append(out, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (s *Store) ModelUsageBetween(ctx context.Context, start, end time.Time, limit int) ([]ModelTokenUsage, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT
+			COALESCE(NULLIF(model_id, ''), '-'),
+			COUNT(1),
+			COALESCE(SUM(input_tokens), 0),
+			COALESCE(SUM(output_tokens), 0),
+			COALESCE(SUM(reasoning_tokens), 0),
+			COALESCE(SUM(cached_tokens), 0)
+		FROM request_logs_meta
+		WHERE datetime(ts) >= datetime(?) AND datetime(ts) < datetime(?)
+		GROUP BY 1
+		ORDER BY (COALESCE(SUM(input_tokens), 0) + COALESCE(SUM(output_tokens), 0)) DESC, COUNT(1) DESC, 1 ASC
+		LIMIT ?
+	`, start.UTC().Format(time.RFC3339), end.UTC().Format(time.RFC3339), limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]ModelTokenUsage, 0, limit)
+	for rows.Next() {
+		var item ModelTokenUsage
+		if err := rows.Scan(&item.ModelID, &item.Requests, &item.InputTokens, &item.OutputTokens, &item.ReasoningTokens, &item.CachedTokens); err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (s *Store) TokenTrendBetween(ctx context.Context, start, end time.Time, bucketSeconds int) ([]TokenTrendPoint, error) {
+	if bucketSeconds <= 0 {
+		bucketSeconds = 300
+	}
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT
+			(CAST(strftime('%s', ts) AS INTEGER) / ?) * ? AS bucket_ts,
+			COUNT(1),
+			COALESCE(SUM(input_tokens), 0),
+			COALESCE(SUM(output_tokens), 0),
+			COALESCE(SUM(reasoning_tokens), 0),
+			COALESCE(SUM(cached_tokens), 0)
+		FROM request_logs_meta
+		WHERE datetime(ts) >= datetime(?) AND datetime(ts) < datetime(?)
+		GROUP BY 1
+		ORDER BY 1 ASC
+	`, bucketSeconds, bucketSeconds, start.UTC().Format(time.RFC3339), end.UTC().Format(time.RFC3339))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]TokenTrendPoint, 0)
+	for rows.Next() {
+		var item TokenTrendPoint
+		var bucket int64
+		if err := rows.Scan(&bucket, &item.Requests, &item.InputTokens, &item.OutputTokens, &item.ReasoningTokens, &item.CachedTokens); err != nil {
+			return nil, err
+		}
+		item.BucketStart = time.Unix(bucket, 0).UTC().Format(time.RFC3339)
 		out = append(out, item)
 	}
 	if err := rows.Err(); err != nil {
