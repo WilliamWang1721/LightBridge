@@ -9,9 +9,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg-page: #f6f6f6;
+      --bg-page: #ffffff;
       --bg-card: #ffffff;
-      --bg-surface: #f1f1f1;
+      --bg-surface: #fafafa;
       --border: #e8e8e8;
       --text-main: #0d0d0d;
       --text-secondary: #7a7a7a;
@@ -25,9 +25,12 @@
       box-sizing: border-box;
     }
 
+    html,
     body {
       margin: 0;
       min-height: 100vh;
+      height: 100%;
+      overflow: hidden;
       font-family: var(--font-body);
       color: var(--text-main);
       background: var(--bg-page);
@@ -44,7 +47,9 @@
 
     .shell {
       display: flex;
+      height: 100vh;
       min-height: 100vh;
+      overflow: hidden;
       background: var(--bg-page);
     }
 
@@ -57,6 +62,7 @@
       justify-content: space-between;
       padding: 40px 32px;
       border-right: 1px solid var(--border);
+      overflow: hidden;
       background: var(--bg-page);
     }
 
@@ -149,10 +155,13 @@
 
     .content {
       flex: 1;
+      min-height: 0;
       padding: 40px 48px;
       display: flex;
       flex-direction: column;
       gap: 24px;
+      overflow-y: auto;
+      overflow-x: hidden;
       background: var(--bg-page);
       min-width: 0;
     }

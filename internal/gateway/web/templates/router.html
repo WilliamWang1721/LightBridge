@@ -29,14 +29,14 @@
     }
 
     * { box-sizing: border-box; }
-    html, body { margin: 0; min-height: 100%; background: var(--bg-page); color: var(--text-main); font-family: var(--font-body); font-size: 16px; line-height: 1.45; }
+    html, body { margin: 0; min-height: 100%; height: 100%; overflow: hidden; background: var(--bg-page); color: var(--text-main); font-family: var(--font-body); font-size: 16px; line-height: 1.45; }
     a { color: inherit; text-decoration: none; }
     button { font-family: inherit; }
 
-    .shell { display: flex; min-height: 100vh; }
+    .shell { display: flex; height: 100vh; min-height: 100vh; overflow: hidden; }
 
     /* ── Sidebar ── */
-    .sidebar { width: 240px; min-width: 240px; display: flex; flex-direction: column; justify-content: space-between; padding: 40px 32px; border-right: 1px solid var(--border); }
+    .sidebar { width: 240px; min-width: 240px; display: flex; flex-direction: column; justify-content: space-between; padding: 40px 32px; border-right: 1px solid var(--border); overflow: hidden; }
     .brand { display: inline-flex; align-items: center; gap: 12px; font-size: 18px; font-weight: 600; margin-bottom: 48px; font-family: var(--font-display); }
     .brand-mark { width: 28px; height: 28px; background: var(--red-primary); display: inline-block; }
     .menu { display: flex; flex-direction: column; gap: 8px; }
@@ -50,7 +50,7 @@
     .sidebar-user { font-size: 13px; color: var(--text-main); font-weight: 500; font-family: var(--font-display); }
 
     /* ── Content ── */
-    .content { flex: 1; padding: 40px 48px; display: flex; flex-direction: column; gap: 32px; min-width: 0; }
+    .content { flex: 1; min-height: 0; padding: 40px 48px; display: flex; flex-direction: column; gap: 32px; overflow-y: auto; overflow-x: hidden; min-width: 0; }
 
     /* ── Top Area ── */
     .top-area { width: 100%; }

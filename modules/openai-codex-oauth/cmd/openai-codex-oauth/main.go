@@ -102,10 +102,7 @@ func (s *server) handleModels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	models := s.cfg.Models
-	if len(models) == 0 {
-		models = []string{"gpt-5-codex", "gpt-5-codex-mini", "gpt-5.1-codex", "gpt-5.1-codex-mini", "gpt-5.2-codex"}
-	}
+	models := mergeCodexModels(s.cfg.Models)
 	now := time.Now().Unix()
 	out := make([]map[string]any, 0, len(models))
 	for _, id := range models {

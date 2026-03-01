@@ -1274,26 +1274,261 @@ func (s *Server) renderCodexOAuthCallbackResult(w http.ResponseWriter, ok bool, 
 func (s *Server) renderCodexOAuthCallbackResultTo(w http.ResponseWriter, ok bool, message string, returnURL string) {
 	w.Header().Set("content-type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	title := "Codex OAuth"
-	status := "Success"
-	if !ok {
-		status = "Error"
-	}
-	esc := template.HTMLEscapeString(strings.TrimSpace(message))
+
 	returnURL = strings.TrimSpace(returnURL)
 	if returnURL == "" {
 		returnURL = "/admin/providers"
 	}
-	escReturnURL := template.HTMLEscapeString(returnURL)
-	_, _ = io.WriteString(w, "<!doctype html><html><head><meta charset=\"utf-8\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />")
-	_, _ = io.WriteString(w, "<title>"+template.HTMLEscapeString(title)+"</title>")
-	_, _ = io.WriteString(w, "<style>body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;margin:0;padding:32px;background:#fff;color:#111} .card{max-width:720px;margin:0 auto;border:1px solid #e8e8e8;border-radius:12px;padding:18px} .muted{color:#6b7280;font-size:13px} pre{white-space:pre-wrap;word-break:break-word;background:#fafafa;border:1px solid #e5e7eb;border-radius:10px;padding:12px;font-size:12px} a{color:#111;text-decoration:none;border-bottom:1px solid #ddd} .row{display:flex;gap:12px;align-items:center;justify-content:space-between}</style></head><body>")
-	_, _ = io.WriteString(w, "<div class=\"card\"><div class=\"row\"><h2 style=\"margin:0\">"+template.HTMLEscapeString(title)+"</h2><div class=\"muted\">"+template.HTMLEscapeString(status)+"</div></div>")
-	_, _ = io.WriteString(w, "<p class=\"muted\" style=\"margin:10px 0 0\">You can close this window, or <a href=\""+escReturnURL+"\">return to Providers</a>.</p>")
-	if esc != "" {
-		_, _ = io.WriteString(w, "<pre style=\"margin:12px 0 0\">"+esc+"</pre>")
+
+	data := struct {
+		Title        string
+		OK           bool
+		StatusCN     string
+		StatusEN     string
+		Headline     string
+		Subtitle     string
+		PrimaryLabel string
+		Message      string
+		ReturnURL    string
+		AutoClose    bool
+	}{
+		Title:        "Codex OAuth",
+		OK:           ok,
+		StatusCN:     "认证成功",
+		StatusEN:     "Successful",
+		Headline:     "认证已完成",
+		Subtitle:     "Token 已保存，可关闭本窗口并返回 LightBridge。",
+		PrimaryLabel: "返回 Providers",
+		Message:      strings.TrimSpace(message),
+		ReturnURL:    returnURL,
+		AutoClose:    ok,
 	}
-	_, _ = io.WriteString(w, "</div><script>(function(){try{if(window.opener){setTimeout(function(){window.close();},800);}}catch(e){}})();</script></body></html>")
+	if !ok {
+		data.StatusCN = "认证失败"
+		data.StatusEN = "Error"
+		data.Headline = "认证未完成"
+		data.Subtitle = "请返回 Providers 检查配置后重试。"
+		data.PrimaryLabel = "返回 Providers 并重试"
+	}
+
+	const page = `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{.Title}}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-surface: #fafafa;
+      --bg-card: #ffffff;
+      --border: #e8e8e8;
+      --text-main: #0d0d0d;
+      --text-secondary: #7a7a7a;
+      --text-muted: #b0b0b0;
+      --red-primary: #e42313;
+      --success: #22c55e;
+      --font-display: "Space Grotesk", "Noto Sans SC", sans-serif;
+      --font-body: "Inter", "Noto Sans SC", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      background: var(--bg-surface);
+      color: var(--text-main);
+      font-family: var(--font-body);
+    }
+    .page {
+      min-height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+    .card {
+      width: min(620px, calc(100vw - 32px));
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 600;
+    }
+    .brand-mark {
+      width: 28px;
+      height: 28px;
+      background: var(--red-primary);
+      display: inline-block;
+    }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      width: fit-content;
+      padding: 6px 12px;
+      font-family: var(--font-display);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .status-pill.ok {
+      background: rgba(34, 197, 94, 0.1);
+      color: var(--success);
+    }
+    .status-pill.error {
+      background: rgba(228, 35, 19, 0.08);
+      color: var(--red-primary);
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: currentColor;
+    }
+    .title {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: 30px;
+      font-weight: 600;
+      line-height: 1.15;
+      letter-spacing: -0.5px;
+    }
+    .subtitle {
+      margin: 8px 0 0;
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+    .message-wrap {
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      padding: 12px 14px;
+      display: grid;
+      gap: 8px;
+    }
+    .message-label {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .message-body {
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      color: var(--text-main);
+    }
+    .tips {
+      margin: 0;
+      padding-left: 18px;
+      display: grid;
+      gap: 8px;
+      color: var(--text-secondary);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+    .btn {
+      height: 40px;
+      border: 1px solid var(--border);
+      background: #ffffff;
+      color: var(--text-main);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 16px;
+      font-size: 13px;
+      font-family: var(--font-display);
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .btn.primary {
+      background: var(--text-main);
+      border-color: var(--text-main);
+      color: #ffffff;
+    }
+    @media (max-width: 560px) {
+      .card { padding: 24px 18px; gap: 18px; }
+      .title { font-size: 24px; }
+      .actions { justify-content: stretch; }
+      .btn { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="card" aria-label="Codex OAuth Result">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>{{.Title}}</span>
+      </div>
+      <div class="status-pill {{if .OK}}ok{{else}}error{{end}}">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span>{{.StatusCN}} · {{.StatusEN}}</span>
+      </div>
+      <div>
+        <h1 class="title">{{.Headline}}</h1>
+        <p class="subtitle">{{.Subtitle}}</p>
+      </div>
+      {{if .Message}}
+      <div class="message-wrap">
+        <p class="message-label">Details</p>
+        <p class="message-body">{{.Message}}</p>
+      </div>
+      {{end}}
+      <ul class="tips">
+        <li>如果窗口未自动关闭，可点击下方按钮返回 Providers。</li>
+        <li>返回后可在 Codex OAuth 弹窗中点击「刷新状态」确认认证是否生效。</li>
+      </ul>
+      <div class="actions">
+        <button class="btn" type="button" onclick="window.close()">关闭窗口</button>
+        <a class="btn primary" href="{{.ReturnURL}}">{{.PrimaryLabel}}</a>
+      </div>
+    </section>
+  </div>
+  <script>
+    (function () {
+      var shouldAutoClose = {{if .AutoClose}}true{{else}}false{{end}};
+      if (!shouldAutoClose) return;
+      try {
+        if (window.opener) {
+          setTimeout(function () { window.close(); }, 1200);
+        }
+      } catch (e) {}
+    })();
+  </script>
+</body>
+</html>`
+
+	tpl, err := template.New("codex_oauth_callback").Parse(page)
+	if err != nil {
+		_, _ = io.WriteString(w, "<!doctype html><html><body>render failed</body></html>")
+		return
+	}
+	_ = tpl.Execute(w, data)
 }
 
 func (s *Server) handleCodexOAuthStatusAPI(w http.ResponseWriter, r *http.Request) {

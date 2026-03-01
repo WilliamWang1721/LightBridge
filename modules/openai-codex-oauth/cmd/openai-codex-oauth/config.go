@@ -27,6 +27,50 @@ type configFile struct {
 	Models            []string `json:"models"`
 }
 
+var codexDefaultModels = []string{
+	"gpt-5-codex",
+	"gpt-5-codex-mini",
+	"gpt-5.1-codex",
+	"gpt-5.1-codex-mini",
+	"gpt-5.1-codex-max",
+	"gpt-5.2-codex",
+	"gpt-5.2",
+	"gpt-5.3-codex",
+}
+
+func copyDefaultModels() []string {
+	out := make([]string, len(codexDefaultModels))
+	copy(out, codexDefaultModels)
+	return out
+}
+
+func mergeCodexModels(configured []string) []string {
+	if len(configured) == 0 {
+		return copyDefaultModels()
+	}
+	out := make([]string, 0, len(codexDefaultModels)+len(configured))
+	seen := make(map[string]struct{}, len(codexDefaultModels)+len(configured))
+	appendModel := func(id string) {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			return
+		}
+		key := strings.ToLower(id)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, id)
+	}
+	for _, id := range codexDefaultModels {
+		appendModel(id)
+	}
+	for _, id := range configured {
+		appendModel(id)
+	}
+	return out
+}
+
 func defaultConfig() config {
 	return config{
 		BaseURL:           "https://chatgpt.com/backend-api/codex",
@@ -35,7 +79,7 @@ func defaultConfig() config {
 		UserAgent:         "codex_cli_rs/0.101.0 (Windows 10.0.26100; x86_64) WindowsTerminal",
 		BetaFeatures:      "powershell_utf8",
 		WebSearchEligible: true,
-		Models:            []string{"gpt-5-codex", "gpt-5-codex-mini", "gpt-5.1-codex", "gpt-5.1-codex-mini", "gpt-5.2-codex"},
+		Models:            copyDefaultModels(),
 	}
 }
 
@@ -73,7 +117,7 @@ func loadConfig(path string) (config, error) {
 		cfg.WebSearchEligible = *tmp.WebSearchEligible
 	}
 	if tmp.Models != nil {
-		cfg.Models = tmp.Models
+		cfg.Models = mergeCodexModels(tmp.Models)
 	}
 	return cfg, nil
 }
