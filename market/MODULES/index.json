@@ -1,6 +1,60 @@
 {
-  "generated_at": "2026-03-01T00:00:00Z",
+  "generated_at": "2026-03-01T08:40:08Z",
   "min_core_version": "0.1.0",
-  "modules": []
+  "modules": [
+    {
+      "id": "openai-codex-oauth",
+      "name": "Codex OAuth",
+      "version": "0.2.0",
+      "description": "Use OpenAI Codex via OAuth (ChatGPT Codex backend reverse proxy).",
+      "license": "UNLICENSED",
+      "tags": [
+        "OpenAI",
+        "OAuth",
+        "provider"
+      ],
+      "protocols": [
+        "codex"
+      ],
+      "download_url": "https://github.com/WilliamWang1721/LightBridge/releases/download/module-openai-codex-oauth-v0.2.0/openai-codex-oauth_0.2.0_universal.zip",
+      "sha256": "d473ce56ceb1ae9291eca2c6a27b7a608f1c57f2f37c86660e21b0bec68ffcc2",
+      "homepage": "https://github.com/WilliamWang1721/LightBridge/tree/main/modules/openai-codex-oauth"
+    },
+    {
+      "id": "passkey-login",
+      "name": "Passkey Login",
+      "version": "0.1.0",
+      "description": "Admin Passkey (WebAuthn) authentication for LightBridge.",
+      "license": "UNLICENSED",
+      "tags": [
+        "Auth",
+        "Passkey",
+        "WebAuthn"
+      ],
+      "protocols": [
+        "http_rpc"
+      ],
+      "download_url": "https://github.com/WilliamWang1721/LightBridge/releases/download/module-passkey-login-v0.1.0/passkey-login_0.1.0_universal.zip",
+      "sha256": "8dad5e69a03e9735c8fef4262c6c10eb12794ad8ece3017234beb40c194c6e06",
+      "homepage": "https://github.com/WilliamWang1721/LightBridge/tree/main/modules/passkey-login"
+    },
+    {
+      "id": "totp-2fa-login",
+      "name": "TOTP 2FA Login",
+      "version": "0.1.0",
+      "description": "Admin TOTP 2FA module for LightBridge.",
+      "license": "UNLICENSED",
+      "tags": [
+        "Auth",
+        "2FA",
+        "TOTP"
+      ],
+      "protocols": [
+        "http_rpc"
+      ],
+      "download_url": "https://github.com/WilliamWang1721/LightBridge/releases/download/module-totp-2fa-login-v0.1.0/totp-2fa-login_0.1.0_universal.zip",
+      "sha256": "b8207c809360c61316e883857f94aacce7933177839c53289f39272372d7ed63",
+      "homepage": "https://github.com/WilliamWang1721/LightBridge/tree/main/modules/totp-2fa-login"
+    }
+  ]
 }
-
