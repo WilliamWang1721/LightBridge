@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-01T14:21:05Z",
+  "generated_at": "2026-03-02T01:49:10Z",
   "min_core_version": "0.1.0",
   "modules": [
     {
@@ -39,6 +39,25 @@
       "download_url": "https://github.com/WilliamWang1721/LightBridge/releases/download/module-chatbox-persistent-v0.1.0/chatbox-persistent_0.1.0_universal.zip",
       "sha256": "4fafe77e7df4138cf6fa86d58623cf19fcb5e3e9750881dfe3ed4947d4af1b3c",
       "homepage": "https://github.com/WilliamWang1721/LightBridge/tree/main/modules/chatbox-persistent"
+    },
+    {
+      "id": "kiro-oauth-provider",
+      "name": "Kiro OAuth Provider",
+      "version": "0.1.0",
+      "description": "Kiro OAuth provider for LightBridge (Google PKCE, AWS Device Code, credential import, usage normalization).",
+      "license": "UNLICENSED",
+      "tags": [
+        "Kiro",
+        "OAuth",
+        "provider",
+        "AWS"
+      ],
+      "protocols": [
+        "http_openai"
+      ],
+      "download_url": "https://github.com/WilliamWang1721/LightBridge/releases/download/module-kiro-oauth-provider-v0.1.0/kiro-oauth-provider_0.1.0_universal.zip",
+      "sha256": "ac0597a847ae38a4abeb22ef4db0cbc908e6a6ec7f90ec94bf82e0a511b6e643",
+      "homepage": "https://github.com/WilliamWang1721/LightBridge/tree/main/modules/kiro-oauth-provider"
     },
     {
       "id": "openai-codex-oauth",
