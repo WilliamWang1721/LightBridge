@@ -223,6 +223,9 @@ func (m *Manager) StartInstalledModule(ctx context.Context, moduleID string) (*t
 	}
 
 	aliases := collectExposedAliases(manifest.Services)
+	if skipAutoProviderAliasRegistration(moduleID) {
+		aliases = nil
+	}
 	m.mu.Lock()
 	proc.cmd = cmd
 	proc.aliases = aliases
@@ -473,6 +476,9 @@ func grpcHealth(port int) error {
 }
 
 func (m *Manager) registerProviderAliases(ctx context.Context, services []types.ManifestService, moduleID string, httpPort, grpcPort int) error {
+	if skipAutoProviderAliasRegistration(moduleID) {
+		return nil
+	}
 	for _, svc := range services {
 		if svc.Kind != "provider" {
 			continue
@@ -528,6 +534,18 @@ func (m *Manager) registerProviderAliases(ctx context.Context, services []types.
 		}
 	}
 	return nil
+}
+
+func skipAutoProviderAliasRegistration(moduleID string) bool {
+	id := strings.ToLower(strings.TrimSpace(moduleID))
+	switch id {
+	case "kiro-oauth-provider":
+		// Kiro module is an OAuth/account helper. It should not auto-create
+		// a provider alias on module startup.
+		return true
+	default:
+		return false
+	}
 }
 
 func (m *Manager) StartEnabledModules(ctx context.Context) error {

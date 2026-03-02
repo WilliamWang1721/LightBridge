@@ -1,4 +1,4 @@
-# Kiro OAuth Provider Module (LightBridge) — v0.1.0
+# Kiro OAuth Provider Module (LightBridge) — v0.1.1
 
 `kiro-oauth-provider` 为 LightBridge 提供 `http_openai` 协议的 Kiro Provider，支持：
 
@@ -81,4 +81,3 @@ bash modules/kiro-oauth-provider/package.sh
 
 - `modules/kiro-oauth-provider/dist/*.zip`
 - `modules/kiro-oauth-provider/dist/index.json`
-

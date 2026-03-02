@@ -1850,6 +1850,20 @@
             out.push({ alias, moduleID: modID, moduleName: name, protocol });
           }
         }
+        // Kiro is an OAuth helper module. Keep it selectable in "Add Provider"
+        // flow, but do not rely on module alias auto-registration.
+        if (modID === 'kiro-oauth-provider') {
+          const already = out.some((e) => String(e?.alias || '').trim().toLowerCase() === 'kiro');
+          if (!already) {
+            const firstProviderSvc = services.find((svc) => String(svc?.Kind ?? svc?.kind ?? '').trim() === 'provider') || null;
+            const helperProtocol = String(firstProviderSvc?.Protocol ?? firstProviderSvc?.protocol ?? 'http_openai').trim() || 'http_openai';
+            out.push({ alias: 'kiro', moduleID: modID, moduleName: name, protocol: helperProtocol, helperOnly: true });
+          } else {
+            for (const row of out) {
+              if (String(row?.alias || '').trim().toLowerCase() === 'kiro') row.helperOnly = true;
+            }
+          }
+        }
         return out;
       }
 
@@ -1896,15 +1910,16 @@
           AUTO_LIST.innerHTML = '';
           if (!out.length) {
             if (AUTO_HINT) {
-              AUTO_HINT.innerHTML = `未检测到 Provider 模块。请前往 <a href="/admin/marketplace" style="color:var(--red-primary);text-decoration:underline;">Marketplace</a> 安装支持 Provider 的模块（例如 Codex）。`;
+              AUTO_HINT.innerHTML = `未检测到可添加项。请前往 <a href="/admin/marketplace" style="color:var(--red-primary);text-decoration:underline;">Marketplace</a> 安装模块（例如 Codex / Kiro OAuth）。`;
             }
             return [];
           }
 
-          if (AUTO_HINT) AUTO_HINT.textContent = '点击一个模块 Provider 以继续。';
+          if (AUTO_HINT) AUTO_HINT.textContent = '点击一个模块项以继续。';
           for (const e of out) {
             const label = autoProviderLabel(e);
-            const meta = `${e.alias} · ${e.protocol || 'unknown'} · ${e.moduleID}`.trim();
+            const role = e?.helperOnly ? 'oauth_helper' : (e.protocol || 'unknown');
+            const meta = `${e.alias} · ${role} · ${e.moduleID}`.trim();
             const btn = LB.el('button', { type: 'button', className: 'dialog-btn', style: 'width:100%;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:10px;' }, [
               LB.el('span', { style: 'display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;' }, [
                 LB.el('span', { style: 'font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;', text: label }),
@@ -2006,7 +2021,7 @@
           await openCodexDialog();
           return;
         }
-        if (alias.toLowerCase() === 'kiro' && moduleID === 'kiro-oauth-provider') {
+        if (moduleID === 'kiro-oauth-provider' || alias.toLowerCase() === 'kiro') {
           kiroPendingDisplayName = account;
           kiroPendingGroupName = group;
           try { closeDialog(); } catch (_) {}
