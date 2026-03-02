@@ -63,6 +63,7 @@ func main() {
 	mux.HandleFunc("/auth/device/start", s.handleAuthDeviceStart)
 	mux.HandleFunc("/auth/import", s.handleAuthImport)
 	mux.HandleFunc("/auth/refresh", s.handleAuthRefresh)
+	mux.HandleFunc("/auth/reset", s.handleAuthReset)
 	mux.HandleFunc("/auth/accounts/enable", s.handleAuthAccountEnable)
 	mux.HandleFunc("/auth/accounts/disable", s.handleAuthAccountDisable)
 	mux.HandleFunc("/auth/accounts/delete", s.handleAuthAccountDelete)
@@ -150,6 +151,27 @@ func (s *server) handleAuthStatus(w http.ResponseWriter, r *http.Request) {
 		"oauth":              oauthCopy,
 		"device":             deviceCopy,
 	})
+}
+
+func (s *server) handleAuthReset(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	if err := s.store.reset(); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+
+	s.oauthMu.Lock()
+	s.oauth = nil
+	s.oauthMu.Unlock()
+
+	s.deviceMu.Lock()
+	s.device = nil
+	s.deviceMu.Unlock()
+
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (s *server) handleAuthAccountEnable(w http.ResponseWriter, r *http.Request) {

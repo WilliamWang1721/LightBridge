@@ -12,6 +12,7 @@ type config struct {
 	BaseURL                string   `json:"base_url"`
 	AmazonQBaseURL         string   `json:"amazonq_base_url"`
 	AuthServiceEndpoint    string   `json:"auth_service_endpoint"`
+	AuthPortalEndpoint     string   `json:"auth_portal_endpoint"`
 	AWSOIDCEndpoint        string   `json:"aws_oidc_endpoint"`
 	SocialRefreshURL       string   `json:"social_refresh_url"`
 	IDCRefreshURL          string   `json:"idc_refresh_url"`
@@ -29,6 +30,7 @@ type configFile struct {
 	BaseURL                *string  `json:"base_url"`
 	AmazonQBaseURL         *string  `json:"amazonq_base_url"`
 	AuthServiceEndpoint    *string  `json:"auth_service_endpoint"`
+	AuthPortalEndpoint     *string  `json:"auth_portal_endpoint"`
 	AWSOIDCEndpoint        *string  `json:"aws_oidc_endpoint"`
 	SocialRefreshURL       *string  `json:"social_refresh_url"`
 	IDCRefreshURL          *string  `json:"idc_refresh_url"`
@@ -104,6 +106,7 @@ func defaultConfig() config {
 		BaseURL:                "https://q.{{region}}.amazonaws.com/generateAssistantResponse",
 		AmazonQBaseURL:         "https://q.{{region}}.amazonaws.com/generateAssistantResponse",
 		AuthServiceEndpoint:    "https://prod.us-east-1.auth.desktop.kiro.dev",
+		AuthPortalEndpoint:     "https://app.kiro.dev",
 		AWSOIDCEndpoint:        "https://oidc.{{region}}.amazonaws.com",
 		SocialRefreshURL:       "https://prod.{{region}}.auth.desktop.kiro.dev/refreshToken",
 		IDCRefreshURL:          "https://oidc.{{region}}.amazonaws.com/token",
@@ -140,6 +143,9 @@ func loadConfig(path string) (config, error) {
 	}
 	if tmp.AuthServiceEndpoint != nil && strings.TrimSpace(*tmp.AuthServiceEndpoint) != "" {
 		cfg.AuthServiceEndpoint = strings.TrimSpace(*tmp.AuthServiceEndpoint)
+	}
+	if tmp.AuthPortalEndpoint != nil && strings.TrimSpace(*tmp.AuthPortalEndpoint) != "" {
+		cfg.AuthPortalEndpoint = strings.TrimSpace(*tmp.AuthPortalEndpoint)
 	}
 	if tmp.AWSOIDCEndpoint != nil && strings.TrimSpace(*tmp.AWSOIDCEndpoint) != "" {
 		cfg.AWSOIDCEndpoint = strings.TrimSpace(*tmp.AWSOIDCEndpoint)

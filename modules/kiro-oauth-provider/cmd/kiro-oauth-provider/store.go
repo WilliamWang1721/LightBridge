@@ -168,6 +168,20 @@ func (s *accountStore) setSelectionStrategy(strategy string) error {
 	return s.saveLocked()
 }
 
+func (s *accountStore) reset() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	strategy := normalizeSelectionStrategy(s.state.SelectionStrategy)
+	s.state = accountStoreSnapshot{
+		Accounts:          []*account{},
+		ActiveAccountID:   "",
+		SelectionStrategy: strategy,
+		RoundRobinCursor:  0,
+	}
+	return s.saveLocked()
+}
+
 func (s *accountStore) addOrUpdateAccount(a *account, setActive bool) (*account, error) {
 	if a == nil {
 		return nil, errors.New("nil account")

@@ -244,17 +244,30 @@ func normalizeUsageLimits(raw map[string]any) normalizedQuota {
 		if !ok {
 			continue
 		}
-		used := pickFloatMap(m, "currentUsageWithPrecision", "currentUsage")
-		limit := pickFloatMap(m, "usageLimitWithPrecision", "usageLimit")
-		remaining := limit - used
+		used := pickFloatMap(m, "currentUsageWithPrecision", "currentUsage", "usedWithPrecision", "used", "consumed", "usedCredits", "usedCredit")
+		limit := pickFloatMap(m, "usageLimitWithPrecision", "usageLimit", "limitWithPrecision", "limit", "total", "totalCredits", "creditLimit")
+		remaining := pickFloatMap(m, "remainingWithPrecision", "remaining", "remainingCredits", "remainingCredit", "availableCredits", "availableCredit", "balance")
+		if remaining <= 0 {
+			remaining = limit - used
+		}
 		if remaining < 0 {
 			remaining = 0
 		}
+		if limit <= 0 && (used > 0 || remaining > 0) {
+			limit = used + remaining
+		}
+		if used <= 0 && limit > 0 && remaining > 0 {
+			used = limit - remaining
+			if used < 0 {
+				used = 0
+			}
+		}
 		usedPercent := 0.0
+		remainingPercent := 0.0
 		if limit > 0 {
 			usedPercent = clamp((used/limit)*100, 0, 100)
+			remainingPercent = 100 - usedPercent
 		}
-		remainingPercent := 100 - usedPercent
 		row := normalizedQuotaItem{
 			ResourceType:      strings.TrimSpace(fmt.Sprint(m["resourceType"])),
 			DisplayName:       strings.TrimSpace(fmt.Sprint(m["displayName"])),
@@ -272,6 +285,48 @@ func normalizeUsageLimits(raw map[string]any) normalizedQuota {
 			row.ResetAt = result.ResetAt
 		}
 		result.Items = append(result.Items, row)
+	}
+
+	if len(result.Items) == 0 {
+		used := pickFloatMap(raw, "currentUsageWithPrecision", "currentUsage", "usedWithPrecision", "used", "consumed", "usedCredits", "usedCredit")
+		limit := pickFloatMap(raw, "usageLimitWithPrecision", "usageLimit", "limitWithPrecision", "limit", "total", "totalCredits", "creditLimit")
+		remaining := pickFloatMap(raw, "remainingWithPrecision", "remaining", "remainingCredits", "remainingCredit", "availableCredits", "availableCredit", "balance")
+		if remaining <= 0 {
+			remaining = limit - used
+		}
+		if remaining < 0 {
+			remaining = 0
+		}
+		if limit <= 0 && (used > 0 || remaining > 0) {
+			limit = used + remaining
+		}
+		if used <= 0 && limit > 0 && remaining > 0 {
+			used = limit - remaining
+			if used < 0 {
+				used = 0
+			}
+		}
+
+		usedPercent := 0.0
+		remainingPercent := 0.0
+		if limit > 0 {
+			usedPercent = clamp((used/limit)*100, 0, 100)
+			remainingPercent = 100 - usedPercent
+		}
+		if limit > 0 || remaining > 0 || used > 0 {
+			result.Items = append(result.Items, normalizedQuotaItem{
+				ResourceType:      "CREDIT",
+				DisplayName:       "Credits",
+				DisplayNamePlural: "Credits",
+				Unit:              "count",
+				Used:              round2(used),
+				Limit:             round2(limit),
+				Remaining:         round2(remaining),
+				UsedPercent:       round2(usedPercent),
+				RemainingPercent:  round2(remainingPercent),
+				ResetAt:           result.ResetAt,
+			})
+		}
 	}
 
 	if len(result.Items) > 0 {

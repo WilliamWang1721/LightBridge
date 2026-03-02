@@ -15,18 +15,21 @@ func TestPKCEChallengeDeterministic(t *testing.T) {
 
 func TestParseCallbackURL(t *testing.T) {
 	cases := []struct {
-		in    string
-		code  string
-		state string
-		err   bool
+		in          string
+		code        string
+		state       string
+		loginOption string
+		path        string
+		err         bool
 	}{
-		{"http://127.0.0.1:19876/oauth/callback?code=abc&state=xyz", "abc", "xyz", false},
-		{"\"http://127.0.0.1:19876/oauth/callback?code=abc&amp;state=xyz\"", "abc", "xyz", false},
-		{"https%3A%2F%2F127.0.0.1%3A19876%2Foauth%2Fcallback%3Fcode%3Dc1%26state%3Ds1", "c1", "s1", false},
-		{"http://127.0.0.1:19876/oauth/callback?error=access_denied", "", "", true},
+		{"http://127.0.0.1:19876/oauth/callback?code=abc&state=xyz", "abc", "xyz", "", "/oauth/callback", false},
+		{"\"http://127.0.0.1:19876/oauth/callback?code=abc&amp;state=xyz\"", "abc", "xyz", "", "/oauth/callback", false},
+		{"https%3A%2F%2F127.0.0.1%3A19876%2Foauth%2Fcallback%3Fcode%3Dc1%26state%3Ds1", "c1", "s1", "", "/oauth/callback", false},
+		{"http://localhost:3128/signin/callback?code=abc&state=xyz&login_option=google", "abc", "xyz", "google", "/signin/callback", false},
+		{"http://127.0.0.1:19876/oauth/callback?error=access_denied", "", "", "", "", true},
 	}
 	for _, tc := range cases {
-		_, code, state, errMsg := parseCallbackURL(tc.in)
+		_, code, state, loginOption, path, errMsg := parseCallbackURL(tc.in)
 		if tc.err {
 			if errMsg == "" {
 				t.Fatalf("expected error for %q", tc.in)
@@ -38,6 +41,9 @@ func TestParseCallbackURL(t *testing.T) {
 		}
 		if code != tc.code || state != tc.state {
 			t.Fatalf("parse mismatch for %q: got code=%q state=%q", tc.in, code, state)
+		}
+		if loginOption != tc.loginOption || path != tc.path {
+			t.Fatalf("parse mismatch for %q: got login_option=%q path=%q", tc.in, loginOption, path)
 		}
 	}
 }

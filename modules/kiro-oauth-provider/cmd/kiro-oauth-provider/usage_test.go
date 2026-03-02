@@ -38,3 +38,43 @@ func TestParseUnitNumber(t *testing.T) {
 		t.Fatalf("expected 2e6, got %v", got)
 	}
 }
+
+func TestNormalizeUsageLimitsFallbackTopLevelCredits(t *testing.T) {
+	raw := map[string]any{
+		"remainingCredits": 500.0,
+		"usedCredits":      0.0,
+	}
+	q := normalizeUsageLimits(raw)
+	if len(q.Items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(q.Items))
+	}
+	it := q.Items[0]
+	if it.Limit != 500 {
+		t.Fatalf("expected limit 500, got %v", it.Limit)
+	}
+	if it.Remaining != 500 {
+		t.Fatalf("expected remaining 500, got %v", it.Remaining)
+	}
+	if it.RemainingPercent != 100 {
+		t.Fatalf("expected remaining percent 100, got %v", it.RemainingPercent)
+	}
+}
+
+func TestNormalizeUsageLimitsZeroLimitRemainingPercentIsZero(t *testing.T) {
+	raw := map[string]any{
+		"usageBreakdownList": []any{
+			map[string]any{
+				"displayName":               "Credits",
+				"currentUsageWithPrecision": 0.0,
+				"usageLimitWithPrecision":   0.0,
+			},
+		},
+	}
+	q := normalizeUsageLimits(raw)
+	if len(q.Items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(q.Items))
+	}
+	if q.Items[0].RemainingPercent != 0 {
+		t.Fatalf("expected remaining percent 0 when limit is 0, got %v", q.Items[0].RemainingPercent)
+	}
+}

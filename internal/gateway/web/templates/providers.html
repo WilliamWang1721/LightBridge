@@ -271,6 +271,26 @@
       stroke: #ffffff;
     }
 
+    .top-action-btn {
+      height: 36px;
+      padding: 0 12px;
+      border: 1px solid var(--border);
+      background: var(--bg-page);
+      color: var(--text-main);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .top-action-btn:active {
+      transform: translateY(1px);
+    }
+
     .body {
       flex: 1;
       display: flex;
@@ -809,6 +829,19 @@
       flex-wrap: wrap;
     }
 
+    .device-code-preview {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      padding: 10px 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text-main);
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
     @media (max-width: 860px) {
       .dialog-grid {
         grid-template-columns: 1fr;
@@ -1064,6 +1097,13 @@
                 <polygon points="22 3 2 3 10 12 10 19 14 21 14 12 22 3"></polygon>
               </svg>
             </button>
+            <button class="top-action-btn" type="button" id="export-providers-btn" aria-label="导出 Provider">
+              导出 JSON
+            </button>
+            <button class="top-action-btn" type="button" id="import-providers-btn" aria-label="导入 Provider">
+              导入 JSON
+            </button>
+            <input type="file" id="import-providers-file" accept=".json,application/json" style="display:none" />
             <button class="add-btn" type="button" id="add-provider-btn" aria-label="添加">
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
                 <line x1="12" x2="12" y1="5" y2="19"></line>
@@ -1451,6 +1491,30 @@
     </form>
   </dialog>
 
+  <dialog id="device-code-dialog">
+    <form method="dialog">
+      <h3 style="margin:0 0 6px;font-family:var(--font-display);">Device Code 授权</h3>
+      <p style="margin:0 0 8px;font-family:var(--font-body);font-size:12px;color:var(--text-secondary);line-height:1.55;">
+        <span id="device-code-provider-name">当前 Provider</span> 需要手动输入 Device Code，请先复制后再跳转到授权页面。
+      </p>
+      <div class="dialog-grid">
+        <div class="dialog-field dialog-field--full">
+          <span class="dialog-label">Device Code</span>
+          <div class="device-code-preview" id="device-code-value">--</div>
+        </div>
+        <div class="dialog-field dialog-field--full">
+          <span class="dialog-label">授权链接</span>
+          <div class="device-code-preview" id="device-code-url">--</div>
+        </div>
+      </div>
+      <div class="dialog-actions">
+        <button class="dialog-btn" type="button" id="device-code-copy">复制 Device Code</button>
+        <button class="dialog-btn primary" type="button" id="device-code-open">前往授权页面</button>
+        <button class="dialog-btn" type="button" id="device-code-close">关闭</button>
+      </div>
+    </form>
+  </dialog>
+
   <script src="/admin/static/admin.js"></script>
   <script>
     (() => {
@@ -1461,6 +1525,9 @@
       const ROWS = document.getElementById('provider-rows');
       const COUNT = document.getElementById('provider-count');
       const REFRESH = document.getElementById('refresh-providers');
+      const B_EXPORT_PROVIDERS = document.getElementById('export-providers-btn');
+      const B_IMPORT_PROVIDERS = document.getElementById('import-providers-btn');
+      const I_IMPORT_PROVIDERS_FILE = document.getElementById('import-providers-file');
       const ADD = document.getElementById('add-provider-btn');
 
       const BTN_VIEW = document.getElementById('provider-view-toggle');
@@ -1555,6 +1622,14 @@
       const B_KIRO_ADVANCED_TOGGLE = document.getElementById('kiro-advanced-toggle');
       const KIRO_ADVANCED_MODE = document.getElementById('kiro-advanced-mode');
 
+      const D_DEVICE_CODE = document.getElementById('device-code-dialog');
+      const DEVICE_CODE_PROVIDER_NAME = document.getElementById('device-code-provider-name');
+      const DEVICE_CODE_VALUE = document.getElementById('device-code-value');
+      const DEVICE_CODE_URL = document.getElementById('device-code-url');
+      const B_DEVICE_CODE_COPY = document.getElementById('device-code-copy');
+      const B_DEVICE_CODE_OPEN = document.getElementById('device-code-open');
+      const B_DEVICE_CODE_CLOSE = document.getElementById('device-code-close');
+
       const USAGE_BAR_WIDTH = 116;
 
       let lastProviders = [];
@@ -1568,6 +1643,9 @@
       let kiroInstalled = false;
       let kiroAuthURL = '';
       let kiroHasCredentials = false;
+      let pendingDeviceCodeValue = '';
+      let pendingDeviceCodeURL = '';
+      let pendingDeviceCodeReturnDialog = null;
 
       const KEY_VIEW_MODE = 'lightbridge_provider_view_mode';
       let viewMode = 'table';
@@ -1649,6 +1727,14 @@
 
       function providerConfigObj(p) {
         return parseJSONObj(String(p?.ConfigJSON ?? p?.configJSON ?? '{}'));
+      }
+
+      function ensureConfigModuleID(rawConfigJSON, moduleID) {
+        const mod = String(moduleID || '').trim();
+        if (!mod) return String(rawConfigJSON || '{}');
+        const cfg = parseJSONObj(rawConfigJSON);
+        cfg.module_id = mod;
+        return JSON.stringify(cfg, null, 2);
       }
 
       function isCodexModuleProvider(p) {
@@ -1928,6 +2014,80 @@
         return {};
       }
 
+      function providersExportFileName() {
+        const d = new Date();
+        const pad = (v) => String(v).padStart(2, '0');
+        return `lightbridge-providers-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}.json`;
+      }
+
+      function downloadJSONFile(fileName, payload) {
+        const name = String(fileName || '').trim() || providersExportFileName();
+        const body = JSON.stringify(payload || {}, null, 2);
+        const blob = new Blob([body], { type: 'application/json;charset=utf-8' });
+        const href = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = href;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(href);
+      }
+
+      function normalizeProvidersImportPayload(parsed) {
+        if (Array.isArray(parsed)) {
+          return { providers: parsed, replace: true };
+        }
+        if (!parsed || typeof parsed !== 'object') {
+          throw new Error('JSON 格式不正确：需要对象或数组');
+        }
+        let providers = null;
+        if (Array.isArray(parsed.providers)) providers = parsed.providers;
+        else if (Array.isArray(parsed.data)) providers = parsed.data;
+        else if (parsed.id || parsed.ID) providers = [parsed];
+        if (!providers) {
+          throw new Error('JSON 缺少 providers 数组');
+        }
+        const replace = typeof parsed.replace === 'boolean' ? parsed.replace : true;
+        return { providers, replace };
+      }
+
+      async function exportProvidersConfig() {
+        if (B_EXPORT_PROVIDERS) B_EXPORT_PROVIDERS.disabled = true;
+        try {
+          const payload = await LB.apiJSON('/admin/api/providers/export');
+          const count = Array.isArray(payload?.providers) ? payload.providers.length : 0;
+          downloadJSONFile(providersExportFileName(), payload);
+          LB.toast(`已导出 ${LB.formatCompactNumber(count)} 个 Provider`, 'ok', 3600);
+        } catch (err) {
+          LB.toast(err?.message || '导出失败', 'error', 4200);
+        } finally {
+          if (B_EXPORT_PROVIDERS) B_EXPORT_PROVIDERS.disabled = false;
+        }
+      }
+
+      async function importProvidersConfigFile(file) {
+        if (!file) return;
+        const text = await file.text();
+        let parsed = null;
+        try {
+          parsed = JSON.parse(String(text || '').trim());
+        } catch (_) {
+          throw new Error('文件不是有效的 JSON');
+        }
+        const payload = normalizeProvidersImportPayload(parsed);
+        const total = Array.isArray(payload.providers) ? payload.providers.length : 0;
+        if (total <= 0) throw new Error('导入文件中没有 Provider');
+        const replaceText = payload.replace ? '覆盖当前 Provider 列表（文件外的会删除）' : '覆盖同 ID 并追加新 Provider';
+        if (!confirm(`将导入 ${LB.formatCompactNumber(total)} 个 Provider，并${replaceText}。\n确定继续？`)) return;
+        const res = await LB.apiJSON('/admin/api/providers/import', { method: 'POST', body: payload });
+        const inserted = Number(res?.inserted || 0);
+        const updated = Number(res?.updated || 0);
+        const deleted = Number(res?.deleted || 0);
+        LB.toast(`导入完成：新增 ${LB.formatCompactNumber(inserted)}，更新 ${LB.formatCompactNumber(updated)}，删除 ${LB.formatCompactNumber(deleted)}`, 'ok', 4600);
+        await load();
+      }
+
       function installedModuleID(it) {
         return String(it?.module?.ID ?? it?.module?.id ?? it?.Module?.ID ?? it?.Module?.id ?? '').trim();
       }
@@ -2173,7 +2333,7 @@
         F_PROTOCOL.disabled = true;
 
         // Preserve previous config/enabled if already exists.
-        F_CFG.value = String(existing?.ConfigJSON ?? existing?.configJSON ?? '{}');
+        F_CFG.value = ensureConfigModuleID(String(existing?.ConfigJSON ?? existing?.configJSON ?? '{}'), moduleID);
         try {
           const cfgObj = parseJSONObj(F_CFG.value);
           if (F_APIKEY) F_APIKEY.value = String(cfgObj?.api_key ?? cfgObj?.apiKey ?? cfgObj?.token ?? '').trim();
@@ -2207,6 +2367,92 @@
 
       function closeCodexDialog() {
         try { if (D_CODEX?.open) D_CODEX.close(); } catch (_) {}
+      }
+
+      function openAuthURL(url) {
+        const target = String(url || '').trim();
+        if (!target) return false;
+        try {
+          const w = window.open(target, '_blank', 'noopener,noreferrer');
+          if (w) return true;
+        } catch (_) {}
+        try {
+          window.location.assign(target);
+          return true;
+        } catch (_) {}
+        return false;
+      }
+
+      async function copyText(text) {
+        const raw = String(text || '');
+        if (!raw) throw new Error('无可复制内容');
+        if (navigator?.clipboard?.writeText) {
+          await navigator.clipboard.writeText(raw);
+          return;
+        }
+        const ta = document.createElement('textarea');
+        ta.value = raw;
+        ta.setAttribute('readonly', 'readonly');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        ta.style.pointerEvents = 'none';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        let ok = false;
+        try {
+          ok = Boolean(document.execCommand && document.execCommand('copy'));
+        } catch (_) {
+          ok = false;
+        }
+        ta.remove();
+        if (!ok) throw new Error('浏览器不支持自动复制，请手动复制');
+      }
+
+      function closeDeviceCodeDialog({ reopenSourceDialog = true } = {}) {
+        const returnDialog = reopenSourceDialog ? pendingDeviceCodeReturnDialog : null;
+        pendingDeviceCodeValue = '';
+        pendingDeviceCodeURL = '';
+        pendingDeviceCodeReturnDialog = null;
+        try {
+          if (D_DEVICE_CODE?.open) D_DEVICE_CODE.close();
+        } catch (_) {}
+        if (returnDialog) {
+          try {
+            if (!returnDialog.open) returnDialog.showModal();
+          } catch (_) {}
+        }
+      }
+
+      function openDeviceCodeDialog({ providerName, userCode, verificationURL, returnDialog } = {}) {
+        const code = String(userCode || '').trim();
+        const targetURL = String(verificationURL || '').trim();
+        if (!targetURL) {
+          LB.toast('未获取到 Device Code 链接', 'error', 4200);
+          return;
+        }
+        pendingDeviceCodeValue = code;
+        pendingDeviceCodeURL = targetURL;
+        pendingDeviceCodeReturnDialog = returnDialog && returnDialog.open ? returnDialog : null;
+        if (pendingDeviceCodeReturnDialog) {
+          try { pendingDeviceCodeReturnDialog.close(); } catch (_) {}
+        }
+
+        if (!D_DEVICE_CODE) {
+          if (!openAuthURL(targetURL)) LB.toast('打开授权页面失败', 'error', 4200);
+          return;
+        }
+
+        if (DEVICE_CODE_PROVIDER_NAME) DEVICE_CODE_PROVIDER_NAME.textContent = String(providerName || '当前 Provider');
+        if (DEVICE_CODE_VALUE) DEVICE_CODE_VALUE.textContent = code || '--';
+        if (DEVICE_CODE_URL) DEVICE_CODE_URL.textContent = targetURL;
+        if (B_DEVICE_CODE_COPY) B_DEVICE_CODE_COPY.disabled = !code;
+        if (B_DEVICE_CODE_OPEN) B_DEVICE_CODE_OPEN.disabled = !targetURL;
+        try {
+          if (!D_DEVICE_CODE.open) D_DEVICE_CODE.showModal();
+        } catch (_) {
+          if (!openAuthURL(targetURL)) LB.toast('打开授权页面失败', 'error', 4200);
+        }
       }
 
       async function loadCodexStatus({ toastOnFail = true } = {}) {
@@ -2360,7 +2606,7 @@
           const res = await LB.apiJSON('/admin/api/codex/oauth/start', { method: 'POST', body: {} });
           const url = String(res?.oauth?.auth_url || '').trim();
           codexAuthURL = url;
-          if (url) window.open(url, '_blank', 'noopener,noreferrer');
+          if (url) openAuthURL(url);
           else LB.toast('未获取到 OAuth 链接', 'error', 4200);
           await loadCodexStatus({ toastOnFail: false });
         } catch (err) {
@@ -2473,10 +2719,25 @@
         try {
           const res = await LB.apiJSON('/admin/api/codex/device/start', { method: 'POST', body: {} });
           const flow = res?.flow;
+          const vurl = String(flow?.verification_url || flow?.verification_uri_complete || flow?.verification_uri || '').trim();
+          const ucode = String(flow?.user_code || '').trim();
           if (CODEX_DEVICE_INFO && flow) {
-            const vurl = String(flow?.verification_url || '').trim();
-            const ucode = String(flow?.user_code || '').trim();
             CODEX_DEVICE_INFO.textContent = `device_url: ${vurl}\nuser_code: ${ucode}`.trim();
+          }
+          if (vurl) {
+            const needsManualCode = Boolean(ucode && !String(flow?.verification_uri_complete || '').trim());
+            if (needsManualCode) {
+              openDeviceCodeDialog({
+                providerName: 'Codex',
+                userCode: ucode,
+                verificationURL: vurl,
+                returnDialog: D_CODEX,
+              });
+            } else if (!openAuthURL(vurl)) {
+              LB.toast('打开 Device Code 链接失败', 'error', 4200);
+            }
+          } else {
+            LB.toast('未获取到 Device Code 链接', 'error', 4200);
           }
           await loadCodexStatus({ toastOnFail: false });
         } catch (err) {
@@ -2488,6 +2749,7 @@
 
       function mergeCodexCredentialsToConfigJSON(rawConfigJSON, credentials) {
         const cfg = parseJSONObj(rawConfigJSON);
+        cfg.module_id = 'openai-codex-oauth';
         const creds = credentials && typeof credentials === 'object' ? credentials : {};
         const accessToken = String(creds?.access_token || '').trim();
         const refreshToken = String(creds?.refresh_token || '').trim();
@@ -2596,6 +2858,9 @@
             return;
           }
           const saved = await ensureCodexProviderRegistered(creds);
+          try {
+            await LB.apiJSON('/admin/api/codex/oauth/reset', { method: 'POST', body: {} });
+          } catch (_) {}
           codexPendingDisplayName = '';
           codexPendingGroupName = '';
           if (CODEX_CB_URL) CODEX_CB_URL.value = '';
@@ -2840,7 +3105,7 @@
           const res = await LB.apiJSON('/admin/api/kiro/oauth/start', { method: 'POST', body: payload });
           const url = String(res?.oauth?.auth_url || '').trim();
           kiroAuthURL = url;
-          if (url) window.open(url, '_blank', 'noopener,noreferrer');
+          if (url) openAuthURL(url);
           else LB.toast('未获取到 OAuth 链接', 'error', 4200);
           await loadKiroStatus({ toastOnFail: false });
         } catch (err) {
@@ -2960,10 +3225,25 @@
           };
           const res = await LB.apiJSON('/admin/api/kiro/device/start', { method: 'POST', body: payload });
           const flow = res?.flow;
+          const vurl = String(flow?.verification_uri_complete || flow?.verification_uri || flow?.verification_url || '').trim();
+          const ucode = String(flow?.user_code || '').trim();
           if (KIRO_DEVICE_INFO && flow) {
-            const vurl = String(flow?.verification_uri_complete || flow?.verification_uri || '').trim();
-            const ucode = String(flow?.user_code || '').trim();
             KIRO_DEVICE_INFO.textContent = `device_url: ${vurl}\nuser_code: ${ucode}`.trim();
+          }
+          if (vurl) {
+            const needsManualCode = Boolean(ucode && !String(flow?.verification_uri_complete || '').trim());
+            if (needsManualCode) {
+              openDeviceCodeDialog({
+                providerName: 'Kiro',
+                userCode: ucode,
+                verificationURL: vurl,
+                returnDialog: D_KIRO,
+              });
+            } else if (!openAuthURL(vurl)) {
+              LB.toast('打开 Device Code 链接失败', 'error', 4200);
+            }
+          } else {
+            LB.toast('未获取到 Device Code 链接', 'error', 4200);
           }
           await loadKiroStatus({ toastOnFail: false });
         } catch (err) {
@@ -2975,10 +3255,33 @@
 
       function mergeKiroStatusToConfigJSON(rawConfigJSON, status) {
         const cfg = parseJSONObj(rawConfigJSON);
+        cfg.module_id = 'kiro-oauth-provider';
         const st = status && typeof status === 'object' ? status : {};
         if (st.active_account_id) cfg.active_account_id = st.active_account_id;
         if (st.selection_strategy) cfg.selection_strategy = st.selection_strategy;
-        if (Array.isArray(st.accounts)) cfg.accounts_count = st.accounts.length;
+        if (Array.isArray(st.accounts)) {
+          const rows = st.accounts.map((a) => ({
+            account_id: String(a?.id || a?.account_id || '').trim(),
+            display_name: String(a?.display_name || '').trim(),
+            group_name: String(a?.group_name || '').trim(),
+            enabled: Boolean(a?.enabled),
+            auth_method: String(a?.auth_method || '').trim(),
+            social_provider: String(a?.social_provider || '').trim(),
+            access_token: String(a?.access_token || '').trim(),
+            refresh_token: String(a?.refresh_token || '').trim(),
+            profile_arn: String(a?.profile_arn || '').trim(),
+            client_id: String(a?.client_id || '').trim(),
+            client_secret: String(a?.client_secret || '').trim(),
+            region: String(a?.region || '').trim(),
+            idc_region: String(a?.idc_region || '').trim(),
+            expires_at: String(a?.expires_at || '').trim(),
+          })).filter((row) => row.account_id && (row.access_token || row.refresh_token));
+          cfg.accounts = rows;
+          cfg.accounts_count = rows.length;
+        } else {
+          delete cfg.accounts;
+          delete cfg.accounts_count;
+        }
         return JSON.stringify(cfg, null, 2);
       }
 
@@ -3059,6 +3362,9 @@
             return;
           }
           const saved = await ensureKiroProviderRegistered(st);
+          try {
+            await LB.apiJSON('/admin/api/kiro/oauth/reset', { method: 'POST', body: {} });
+          } catch (_) {}
           kiroPendingDisplayName = '';
           kiroPendingGroupName = '';
           closeKiroDialog();
@@ -3593,6 +3899,23 @@
       ADD.addEventListener('click', () => {
         openDialog('add', {});
       });
+      if (B_EXPORT_PROVIDERS) B_EXPORT_PROVIDERS.addEventListener('click', exportProvidersConfig);
+      if (B_IMPORT_PROVIDERS && I_IMPORT_PROVIDERS_FILE) B_IMPORT_PROVIDERS.addEventListener('click', () => {
+        I_IMPORT_PROVIDERS_FILE.value = '';
+        I_IMPORT_PROVIDERS_FILE.click();
+      });
+      if (I_IMPORT_PROVIDERS_FILE) I_IMPORT_PROVIDERS_FILE.addEventListener('change', async () => {
+        const file = I_IMPORT_PROVIDERS_FILE.files && I_IMPORT_PROVIDERS_FILE.files[0] ? I_IMPORT_PROVIDERS_FILE.files[0] : null;
+        if (!file) return;
+        if (B_IMPORT_PROVIDERS) B_IMPORT_PROVIDERS.disabled = true;
+        try {
+          await importProvidersConfigFile(file);
+        } catch (err) {
+          LB.toast(err?.message || '导入失败', 'error', 4200);
+        } finally {
+          if (B_IMPORT_PROVIDERS) B_IMPORT_PROVIDERS.disabled = false;
+        }
+      });
       REFRESH.addEventListener('click', load);
       if (PULL_MODELS) PULL_MODELS.addEventListener('click', pullModelsForCurrentProvider);
       CANCEL.addEventListener('click', closeDialog);
@@ -3678,6 +4001,33 @@
       if (B_KIRO_EXCHANGE) B_KIRO_EXCHANGE.addEventListener('click', exchangeKiroFromCallbackURL);
       if (B_KIRO_IMPORT) B_KIRO_IMPORT.addEventListener('click', importKiroTokens);
       if (B_KIRO_DEVICE_START) B_KIRO_DEVICE_START.addEventListener('click', startKiroDeviceFlow);
+      if (B_DEVICE_CODE_COPY) B_DEVICE_CODE_COPY.addEventListener('click', async () => {
+        try {
+          await copyText(pendingDeviceCodeValue);
+          LB.toast('Device Code 已复制', 'ok', 3200);
+        } catch (err) {
+          LB.toast(err?.message || '复制失败', 'error', 4200);
+        }
+      });
+      if (B_DEVICE_CODE_OPEN) B_DEVICE_CODE_OPEN.addEventListener('click', () => {
+        const url = String(pendingDeviceCodeURL || '').trim();
+        if (!url) {
+          LB.toast('未获取到 Device Code 链接', 'error', 4200);
+          return;
+        }
+        if (!openAuthURL(url)) {
+          LB.toast('打开 Device Code 链接失败', 'error', 4200);
+          return;
+        }
+        closeDeviceCodeDialog({ reopenSourceDialog: true });
+      });
+      if (B_DEVICE_CODE_CLOSE) B_DEVICE_CODE_CLOSE.addEventListener('click', () => {
+        closeDeviceCodeDialog({ reopenSourceDialog: true });
+      });
+      if (D_DEVICE_CODE) D_DEVICE_CODE.addEventListener('cancel', (e) => {
+        e.preventDefault();
+        closeDeviceCodeDialog({ reopenSourceDialog: true });
+      });
       if (B_KIRO_ADVANCED_TOGGLE) B_KIRO_ADVANCED_TOGGLE.addEventListener('click', () => {
         const hidden = KIRO_ADVANCED_MODE.style.display === 'none';
         KIRO_ADVANCED_MODE.style.display = hidden ? '' : 'none';

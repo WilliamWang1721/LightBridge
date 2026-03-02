@@ -117,6 +117,43 @@ func normalizeSocialProvider(v string) string {
 	}
 }
 
+func normalizeRedirectOrigin(raw string) string {
+	text := strings.TrimSpace(raw)
+	if text == "" {
+		return ""
+	}
+	if (strings.HasPrefix(text, "\"") && strings.HasSuffix(text, "\"")) ||
+		(strings.HasPrefix(text, "'") && strings.HasSuffix(text, "'")) ||
+		(strings.HasPrefix(text, "`") && strings.HasSuffix(text, "`")) {
+		text = strings.TrimSpace(text[1 : len(text)-1])
+	}
+	text = strings.ReplaceAll(text, "&amp;", "&")
+	for i := 0; i < 2; i++ {
+		decoded, err := url.QueryUnescape(text)
+		if err != nil || decoded == text {
+			break
+		}
+		text = strings.TrimSpace(decoded)
+	}
+
+	lower := strings.ToLower(text)
+	if !strings.HasPrefix(lower, "http://") && !strings.HasPrefix(lower, "https://") {
+		if strings.HasPrefix(lower, "localhost:") || strings.HasPrefix(lower, "127.0.0.1:") || strings.HasPrefix(lower, "[::1]:") {
+			text = "http://" + text
+		}
+	}
+
+	u, err := url.Parse(text)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return ""
+	}
+	scheme := strings.ToLower(u.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return ""
+	}
+	return (&url.URL{Scheme: scheme, Host: u.Host}).String()
+}
+
 func extractString(m map[string]any, keys ...string) string {
 	for _, k := range keys {
 		if v, ok := m[k]; ok {
@@ -146,7 +183,7 @@ func (s *server) handleAuthOAuthStart(w http.ResponseWriter, r *http.Request) {
 	var req oauthStartRequest
 	_ = decodeJSONBody(r, 1<<20, &req)
 
-	redirectURI := strings.TrimSpace(req.RedirectURI)
+	redirectURI := normalizeRedirectOrigin(req.RedirectURI)
 	if redirectURI == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "missing redirect_uri"})
 		return
@@ -157,14 +194,13 @@ func (s *server) handleAuthOAuthStart(w http.ResponseWriter, r *http.Request) {
 	challenge := sha256Base64URL(verifier)
 
 	params := url.Values{}
-	params.Set("idp", provider)
-	params.Set("redirect_uri", redirectURI)
+	params.Set("state", state)
 	params.Set("code_challenge", challenge)
 	params.Set("code_challenge_method", "S256")
-	params.Set("state", state)
-	params.Set("prompt", "select_account")
+	params.Set("redirect_uri", redirectURI)
+	params.Set("redirect_from", defaultUserAgent)
 
-	authURL := strings.TrimRight(s.cfg.AuthServiceEndpoint, "/") + "/login?" + params.Encode()
+	authURL := strings.TrimRight(s.cfg.AuthPortalEndpoint, "/") + "/signin?" + params.Encode()
 	flow := &oauthFlow{
 		Status:       "pending",
 		AuthURL:      authURL,
@@ -212,25 +248,27 @@ func normalizeCallbackInput(raw string) string {
 	return text
 }
 
-func parseCallbackURL(raw string) (normalized, code, state, errMsg string) {
+func parseCallbackURL(raw string) (normalized, code, state, loginOption, callbackPath, errMsg string) {
 	normalized = normalizeCallbackInput(raw)
 	if normalized == "" {
-		return "", "", "", ""
+		return "", "", "", "", "", ""
 	}
 	u, err := url.Parse(normalized)
 	if err != nil {
-		return normalized, "", "", "invalid callback url"
+		return normalized, "", "", "", "", "invalid callback url"
 	}
 	errCode := strings.TrimSpace(u.Query().Get("error"))
 	if errCode != "" {
 		errDesc := strings.TrimSpace(u.Query().Get("error_description"))
 		if errDesc != "" {
-			return normalized, "", "", errCode + ": " + errDesc
+			return normalized, "", "", "", "", errCode + ": " + errDesc
 		}
-		return normalized, "", "", errCode
+		return normalized, "", "", "", "", errCode
 	}
 	code = strings.TrimSpace(u.Query().Get("code"))
 	state = strings.TrimSpace(u.Query().Get("state"))
+	loginOption = strings.TrimSpace(u.Query().Get("login_option"))
+	callbackPath = strings.TrimSpace(u.Path)
 	if (code == "" || state == "") && strings.TrimSpace(u.Fragment) != "" {
 		f := strings.TrimPrefix(strings.TrimSpace(u.Fragment), "#")
 		fp, _ := url.ParseQuery(f)
@@ -240,8 +278,11 @@ func parseCallbackURL(raw string) (normalized, code, state, errMsg string) {
 		if state == "" {
 			state = strings.TrimSpace(fp.Get("state"))
 		}
+		if loginOption == "" {
+			loginOption = strings.TrimSpace(fp.Get("login_option"))
+		}
 	}
-	return normalized, code, state, ""
+	return normalized, code, state, loginOption, callbackPath, ""
 }
 
 func (s *server) handleAuthOAuthExchange(w http.ResponseWriter, r *http.Request) {
@@ -256,8 +297,10 @@ func (s *server) handleAuthOAuthExchange(w http.ResponseWriter, r *http.Request)
 	}
 	code := strings.TrimSpace(req.Code)
 	state := strings.TrimSpace(req.State)
+	loginOption := ""
+	callbackPath := ""
 	if strings.TrimSpace(req.CallbackURL) != "" {
-		normalized, parsedCode, parsedState, parseErr := parseCallbackURL(req.CallbackURL)
+		normalized, parsedCode, parsedState, parsedLoginOption, parsedPath, parseErr := parseCallbackURL(req.CallbackURL)
 		if parseErr != "" {
 			writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": parseErr, "callback_url": normalized})
 			return
@@ -268,6 +311,8 @@ func (s *server) handleAuthOAuthExchange(w http.ResponseWriter, r *http.Request)
 		if state == "" {
 			state = parsedState
 		}
+		loginOption = parsedLoginOption
+		callbackPath = parsedPath
 	}
 	if code == "" || state == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "missing code/state"})
@@ -296,10 +341,46 @@ func (s *server) handleAuthOAuthExchange(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	redirectURIForToken := strings.TrimSpace(flow.RedirectURI)
+	provider := strings.TrimSpace(flow.Provider)
+	if strings.TrimSpace(req.CallbackURL) != "" {
+		if u, err := url.Parse(normalizeCallbackInput(req.CallbackURL)); err == nil && u.Scheme != "" && u.Host != "" {
+			path := strings.TrimSpace(callbackPath)
+			if path == "" {
+				path = strings.TrimSpace(u.Path)
+			}
+			if path != "" {
+				tokenRedirect := &url.URL{Scheme: u.Scheme, Host: u.Host, Path: path}
+				q := url.Values{}
+				if v := strings.TrimSpace(loginOption); v != "" {
+					q.Set("login_option", v)
+				}
+				if len(q) > 0 {
+					tokenRedirect.RawQuery = q.Encode()
+				}
+				redirectURIForToken = tokenRedirect.String()
+			}
+		}
+		switch strings.ToLower(strings.TrimSpace(loginOption)) {
+		case "":
+		case "google":
+			provider = "Google"
+		case "github":
+			provider = "Github"
+		default:
+			writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "unsupported login_option: " + strings.TrimSpace(loginOption)})
+			return
+		}
+	}
+	if redirectURIForToken == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "missing redirect_uri for token exchange"})
+		return
+	}
+
 	payload := map[string]any{
 		"code":          code,
 		"code_verifier": flow.CodeVerifier,
-		"redirect_uri":  flow.RedirectURI,
+		"redirect_uri":  redirectURIForToken,
 	}
 	b, _ := json.Marshal(payload)
 	endpoint := strings.TrimRight(s.cfg.AuthServiceEndpoint, "/") + "/oauth/token"
@@ -333,13 +414,19 @@ func (s *server) handleAuthOAuthExchange(w http.ResponseWriter, r *http.Request)
 	if token.ExpiresIn > 0 {
 		expiresAt = time.Now().UTC().Add(time.Duration(token.ExpiresIn) * time.Second).Format(time.RFC3339)
 	}
+	s.oauthMu.Lock()
+	if s.oauth != nil {
+		s.oauth.Provider = provider
+	}
+	s.oauthMu.Unlock()
+
 	acc := &account{
 		ID:             newUUID(),
 		DisplayName:    strings.TrimSpace(req.DisplayName),
 		GroupName:      strings.TrimSpace(req.GroupName),
 		Enabled:        true,
 		AuthMethod:     authMethodSocial,
-		SocialProvider: flow.Provider,
+		SocialProvider: provider,
 		AccessToken:    strings.TrimSpace(token.AccessToken),
 		RefreshToken:   strings.TrimSpace(token.RefreshToken),
 		ProfileARN:     strings.TrimSpace(token.ProfileARN),
@@ -349,7 +436,7 @@ func (s *server) handleAuthOAuthExchange(w http.ResponseWriter, r *http.Request)
 		LastRefresh:    time.Now().UTC().Format(time.RFC3339),
 	}
 	if strings.TrimSpace(acc.DisplayName) == "" {
-		acc.DisplayName = fmt.Sprintf("%s-%s", strings.ToLower(flow.Provider), acc.ID[:8])
+		acc.DisplayName = fmt.Sprintf("%s-%s", strings.ToLower(provider), acc.ID[:8])
 	}
 	saved, saveErr := s.store.addOrUpdateAccount(acc, true)
 	if saveErr != nil {

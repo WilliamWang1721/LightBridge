@@ -12,9 +12,12 @@ import (
 )
 
 const (
-	kiroOAuthLocalPortStart = 19876
-	kiroOAuthLocalPortEnd   = 19880
+	// Kiro's auth portal only allows loopback redirects to a fixed set of ports.
+	// Keep this list aligned with Kiro.app's PortalAuthProvider.
+	kiroOAuthLocalPortStart = 3128
 )
+
+var kiroOAuthCallbackPorts = []int{3128, 4649, 6588, 8008, 9091, 49153, 50153, 51153, 52153, 53153}
 
 func (s *Server) kiroOAuthLocalRedirectURI() string {
 	s.kiroOAuthCallbackMu.Lock()
@@ -23,7 +26,7 @@ func (s *Server) kiroOAuthLocalRedirectURI() string {
 	if port <= 0 {
 		port = kiroOAuthLocalPortStart
 	}
-	return fmt.Sprintf("http://127.0.0.1:%d/oauth/callback", port)
+	return fmt.Sprintf("http://localhost:%d", port)
 }
 
 func (s *Server) ensureKiroOAuthCallbackServer() {
@@ -36,6 +39,7 @@ func (s *Server) ensureKiroOAuthCallbackServer() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/oauth/callback", s.handleKiroOAuthLocalCallback)
+	mux.HandleFunc("/signin/callback", s.handleKiroOAuthLocalCallback)
 	handler := requestIDMiddleware(loggingMiddleware(mux))
 
 	startOnPort := func(port int) (net.Listener, error) {
@@ -59,7 +63,7 @@ func (s *Server) ensureKiroOAuthCallbackServer() {
 	}
 
 	var problems []string
-	for port := kiroOAuthLocalPortStart; port <= kiroOAuthLocalPortEnd; port++ {
+	for _, port := range kiroOAuthCallbackPorts {
 		ln, err := startOnPort(port)
 		if err != nil {
 			problems = append(problems, fmt.Sprintf("%d: %v", port, err))
@@ -72,7 +76,7 @@ func (s *Server) ensureKiroOAuthCallbackServer() {
 		return
 	}
 
-	s.kiroOAuthCallbackErr = fmt.Errorf("failed to start local callback server on 127.0.0.1:%d-%d (%s)", kiroOAuthLocalPortStart, kiroOAuthLocalPortEnd, strings.Join(problems, "; "))
+	s.kiroOAuthCallbackErr = fmt.Errorf("failed to start local callback server on 127.0.0.1 ports %v (%s)", kiroOAuthCallbackPorts, strings.Join(problems, "; "))
 }
 
 func (s *Server) handleKiroOAuthLocalCallback(w http.ResponseWriter, r *http.Request) {
@@ -94,7 +98,22 @@ func (s *Server) handleKiroOAuthLocalCallback(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	payload, _ := json.Marshal(map[string]string{"code": code, "state": state})
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	host := strings.TrimSpace(r.Host)
+	if host == "" {
+		host = strings.TrimSpace(s.kiroOAuthLocalRedirectURI())
+		host = strings.TrimPrefix(host, "http://")
+		host = strings.TrimPrefix(host, "https://")
+	}
+	callbackURL := ""
+	if host != "" {
+		callbackURL = fmt.Sprintf("%s://%s%s", scheme, host, r.URL.RequestURI())
+	}
+
+	payload, _ := json.Marshal(map[string]string{"code": code, "state": state, "callback_url": callbackURL})
 	status, body, _, err := s.proxyModuleHTTP(r.Context(), kiroOAuthModuleID, http.MethodPost, "/auth/oauth/exchange", payload)
 	if err != nil {
 		s.renderKiroOAuthCallbackResultTo(w, false, err.Error(), s.localAdminProvidersURL())

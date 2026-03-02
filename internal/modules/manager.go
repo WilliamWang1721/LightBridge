@@ -431,6 +431,35 @@ func helperProviderAliases(moduleID string) []string {
 	}
 }
 
+func helperProviderIDPrefixes(moduleID string) []string {
+	id := strings.ToLower(strings.TrimSpace(moduleID))
+	switch id {
+	case "kiro-oauth-provider":
+		return []string{"kiro-"}
+	case "openai-codex-oauth":
+		return []string{"codex-"}
+	default:
+		return nil
+	}
+}
+
+func hasAnyPrefixFold(value string, prefixes []string) bool {
+	v := strings.ToLower(strings.TrimSpace(value))
+	if v == "" {
+		return false
+	}
+	for _, p := range prefixes {
+		p = strings.ToLower(strings.TrimSpace(p))
+		if p == "" {
+			continue
+		}
+		if strings.HasPrefix(v, p) {
+			return true
+		}
+	}
+	return false
+}
+
 func (m *Manager) waitHealth(ctx context.Context, services []types.ManifestService, httpPort, grpcPort int) error {
 	deadline := time.Now().Add(10 * time.Second)
 	for {
@@ -503,6 +532,7 @@ func grpcHealth(port int) error {
 
 func (m *Manager) registerProviderAliases(ctx context.Context, services []types.ManifestService, moduleID string, httpPort, grpcPort int) error {
 	skipCreate := skipAutoProviderAliasRegistration(moduleID)
+	helperPrefixes := helperProviderIDPrefixes(moduleID)
 	for _, svc := range services {
 		if svc.Kind != "provider" {
 			continue
@@ -572,6 +602,31 @@ func (m *Manager) registerProviderAliases(ctx context.Context, services []types.
 
 			if err := m.store.UpsertProvider(ctx, provider); err != nil {
 				return err
+			}
+		}
+
+		// Multi-account module providers (e.g. kiro-*, codex-*) should also have
+		// their runtime endpoint refreshed on module restarts.
+		if len(helperPrefixes) > 0 {
+			all, err := m.store.ListProviders(ctx, true)
+			if err != nil {
+				return err
+			}
+			for i := range all {
+				existing := all[i]
+				if strings.TrimSpace(existing.Type) != "" && existing.Type != types.ProviderTypeModule {
+					continue
+				}
+				if !hasAnyPrefixFold(existing.ID, helperPrefixes) {
+					continue
+				}
+				updated := existing
+				updated.Protocol = svc.Protocol
+				updated.Endpoint = endpoint
+				updated.Health = "healthy"
+				if err := m.store.UpsertProvider(ctx, updated); err != nil {
+					return err
+				}
 			}
 		}
 	}

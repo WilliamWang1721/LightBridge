@@ -670,6 +670,19 @@ func (s *Server) handleV1Proxy(w http.ResponseWriter, r *http.Request) {
 		provider = currentDecision.Provider
 		finalModelID = routeModelID(route, modelID)
 
+		moduleID, syncErr := s.syncModuleAuthFromProviderConfig(r.Context(), provider)
+		if syncErr != nil {
+			finalStatus = http.StatusBadGateway
+			finalCode = "provider_auth_sync_failed"
+			if !route.Variant && attempt < maxRetries {
+				finalErr = syncErr
+				continue
+			}
+			writeOpenAIError(w, finalStatus, syncErr.Error(), "provider_error", finalCode)
+			finalErr = nil
+			break
+		}
+
 		captureW := newUsageCaptureResponseWriter(w, 8<<20)
 		var status int
 		var code string
@@ -683,6 +696,9 @@ func (s *Server) handleV1Proxy(w http.ResponseWriter, r *http.Request) {
 			status, code, err = s.handleAzureLegacyBridge(r.Context(), captureW, r, adapter, *provider, route, bodyBytes)
 		default:
 			status, code, err = adapter.Handle(r.Context(), captureW, r, *provider, route)
+		}
+		if moduleID != "" {
+			s.resetModuleAuthCacheBestEffort(provider, moduleID)
 		}
 		finalStatus = status
 		if finalStatus == 0 {
@@ -816,6 +832,10 @@ func (s *Server) routeAdminAPI(w http.ResponseWriter, r *http.Request) {
 		s.wrapAdminAPI(s.handleTwoFADeviceDeleteAPI)(w, r)
 	case "/providers":
 		s.wrapAdminAPI(s.handleProvidersAPI)(w, r)
+	case "/providers/export":
+		s.wrapAdminAPI(s.handleProvidersExportAPI)(w, r)
+	case "/providers/import":
+		s.wrapAdminAPI(s.handleProvidersImportAPI)(w, r)
 	case "/providers/pull_models":
 		s.wrapAdminAPI(s.handleProviderPullModelsAPI)(w, r)
 	case "/providers/delete":
@@ -878,6 +898,8 @@ func (s *Server) routeAdminAPI(w http.ResponseWriter, r *http.Request) {
 		s.wrapAdminAPI(s.handleCodexOAuthExchangeAPI)(w, r)
 	case "/codex/oauth/import":
 		s.wrapAdminAPI(s.handleCodexOAuthImportAPI)(w, r)
+	case "/codex/oauth/reset":
+		s.wrapAdminAPI(s.handleCodexOAuthResetAPI)(w, r)
 	case "/codex/device/start":
 		s.wrapAdminAPI(s.handleCodexDeviceStartAPI)(w, r)
 	case "/kiro/oauth/status":
@@ -890,6 +912,8 @@ func (s *Server) routeAdminAPI(w http.ResponseWriter, r *http.Request) {
 		s.wrapAdminAPI(s.handleKiroOAuthImportAPI)(w, r)
 	case "/kiro/oauth/refresh":
 		s.wrapAdminAPI(s.handleKiroOAuthRefreshAPI)(w, r)
+	case "/kiro/oauth/reset":
+		s.wrapAdminAPI(s.handleKiroOAuthResetAPI)(w, r)
 	case "/kiro/device/start":
 		s.wrapAdminAPI(s.handleKiroDeviceStartAPI)(w, r)
 	case "/kiro/usage/limits":

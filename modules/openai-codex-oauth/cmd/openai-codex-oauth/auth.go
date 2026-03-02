@@ -1136,6 +1136,34 @@ func (s *server) handleAuthStatus(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *server) handleAuthReset(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeOpenAIError(w, http.StatusMethodNotAllowed, "method not allowed", "invalid_request_error", "method_not_allowed")
+		return
+	}
+
+	s.credsMu.Lock()
+	s.creds = nil
+	s.credsMu.Unlock()
+
+	s.flowMu.Lock()
+	s.flow = nil
+	s.flowMu.Unlock()
+
+	s.oauthMu.Lock()
+	s.oauth = nil
+	s.oauthMu.Unlock()
+
+	if strings.TrimSpace(s.credsPath) != "" {
+		if err := os.Remove(s.credsPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
 // handleAuthRefresh provides an explicit endpoint to force token refresh.
 func (s *server) handleAuthRefresh(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {

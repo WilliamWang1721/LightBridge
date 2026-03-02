@@ -53,6 +53,24 @@ type providerUpdatePayload struct {
 	LastCheckAt *time.Time `json:"lastCheckAt"`
 }
 
+type providerIOPayload struct {
+	ID          string     `json:"id"`
+	DisplayName string     `json:"displayName,omitempty"`
+	GroupName   string     `json:"groupName,omitempty"`
+	Type        string     `json:"type,omitempty"`
+	Protocol    string     `json:"protocol,omitempty"`
+	Endpoint    string     `json:"endpoint,omitempty"`
+	ConfigJSON  string     `json:"configJSON,omitempty"`
+	Enabled     bool       `json:"enabled"`
+	Health      string     `json:"health,omitempty"`
+	LastCheckAt *time.Time `json:"lastCheckAt,omitempty"`
+}
+
+type providersImportPayload struct {
+	Replace   bool                `json:"replace"`
+	Providers []providerIOPayload `json:"providers"`
+}
+
 func (s *Server) wrapAdminPage(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		hasAdmin, err := s.store.HasAdmin(r.Context())
@@ -339,6 +357,372 @@ func (s *Server) handleProvidersAPI(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 	default:
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+	}
+}
+
+func (s *Server) handleProvidersExportAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	providers, err := s.store.ListProviders(r.Context(), true)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	out := make([]providerIOPayload, 0, len(providers))
+	for _, p := range providers {
+		cfg := strings.TrimSpace(p.ConfigJSON)
+		if cfg == "" {
+			cfg = "{}"
+		}
+		out = append(out, providerIOPayload{
+			ID:          strings.TrimSpace(p.ID),
+			DisplayName: strings.TrimSpace(p.DisplayName),
+			GroupName:   strings.TrimSpace(p.GroupName),
+			Type:        strings.TrimSpace(p.Type),
+			Protocol:    strings.TrimSpace(p.Protocol),
+			Endpoint:    strings.TrimSpace(p.Endpoint),
+			ConfigJSON:  cfg,
+			Enabled:     p.Enabled,
+			Health:      strings.TrimSpace(p.Health),
+			LastCheckAt: p.LastCheckAt,
+		})
+	}
+
+	fileName := fmt.Sprintf("lightbridge-providers-%s.json", time.Now().UTC().Format("20060102-150405"))
+	w.Header().Set("content-disposition", fmt.Sprintf("attachment; filename=%q", fileName))
+	writeJSON(w, http.StatusOK, map[string]any{
+		"version":    1,
+		"exportedAt": time.Now().UTC().Format(time.RFC3339),
+		"count":      len(out),
+		"providers":  out,
+	})
+}
+
+func (s *Server) handleProvidersImportAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, 10<<20))
+	_ = r.Body.Close()
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid body"})
+		return
+	}
+
+	parsed, err := decodeProvidersImportPayload(body)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		return
+	}
+	if len(parsed.Providers) == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "providers is empty"})
+		return
+	}
+
+	seen := map[string]struct{}{}
+	for idx, item := range parsed.Providers {
+		id := strings.TrimSpace(item.ID)
+		if id == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": fmt.Sprintf("provider id is required at index %d", idx)})
+			return
+		}
+		if _, ok := seen[strings.ToLower(id)]; ok {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": fmt.Sprintf("duplicate provider id %q", id)})
+			return
+		}
+		seen[strings.ToLower(id)] = struct{}{}
+	}
+
+	deleted := 0
+	if parsed.Replace {
+		existing, listErr := s.store.ListProviders(r.Context(), true)
+		if listErr != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": listErr.Error()})
+			return
+		}
+		keep := map[string]struct{}{}
+		for _, item := range parsed.Providers {
+			keep[strings.ToLower(strings.TrimSpace(item.ID))] = struct{}{}
+		}
+		for _, p := range existing {
+			id := strings.TrimSpace(p.ID)
+			if id == "" {
+				continue
+			}
+			if _, ok := keep[strings.ToLower(id)]; ok {
+				continue
+			}
+			if p.Type == types.ProviderTypeBuiltin {
+				_ = s.store.SetSetting(r.Context(), "builtin_provider_removed:"+id, time.Now().UTC().Format(time.RFC3339))
+			}
+			if delErr := s.store.DeleteProvider(r.Context(), id); delErr != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]any{"error": delErr.Error()})
+				return
+			}
+			deleted++
+		}
+	}
+
+	inserted := 0
+	updated := 0
+	for _, item := range parsed.Providers {
+		id := strings.TrimSpace(item.ID)
+		current, getErr := s.store.GetProvider(r.Context(), id)
+		if getErr != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": getErr.Error()})
+			return
+		}
+		configJSON := strings.TrimSpace(item.ConfigJSON)
+		if configJSON == "" {
+			configJSON = "{}"
+		}
+		provider := types.Provider{
+			ID:          id,
+			DisplayName: strings.TrimSpace(item.DisplayName),
+			GroupName:   strings.TrimSpace(item.GroupName),
+			Type:        strings.TrimSpace(item.Type),
+			Protocol:    strings.TrimSpace(item.Protocol),
+			Endpoint:    strings.TrimSpace(item.Endpoint),
+			ConfigJSON:  configJSON,
+			Enabled:     item.Enabled,
+			Health:      strings.TrimSpace(item.Health),
+			LastCheckAt: item.LastCheckAt,
+		}
+		if provider.Type == "" {
+			provider.Type = types.ProviderTypeBuiltin
+		}
+		if provider.Protocol == "" {
+			provider.Protocol = types.ProtocolForward
+		}
+		if provider.DisplayName == "" {
+			if current != nil && strings.TrimSpace(current.DisplayName) != "" {
+				provider.DisplayName = current.DisplayName
+			} else {
+				provider.DisplayName = provider.ID
+			}
+		}
+		if provider.GroupName == "" && current != nil {
+			provider.GroupName = current.GroupName
+		}
+		if provider.Endpoint == "" && current != nil {
+			provider.Endpoint = current.Endpoint
+		}
+		if provider.Health == "" && current != nil {
+			provider.Health = current.Health
+		}
+		if provider.LastCheckAt == nil && current != nil {
+			provider.LastCheckAt = current.LastCheckAt
+		}
+		if err := s.store.UpsertProvider(r.Context(), provider); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+			return
+		}
+		if current == nil {
+			inserted++
+		} else {
+			updated++
+		}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":       true,
+		"replace":  parsed.Replace,
+		"total":    len(parsed.Providers),
+		"inserted": inserted,
+		"updated":  updated,
+		"deleted":  deleted,
+	})
+}
+
+func decodeProvidersImportPayload(body []byte) (providersImportPayload, error) {
+	var out providersImportPayload
+	trimmed := bytes.TrimSpace(body)
+	if len(trimmed) == 0 {
+		return out, errors.New("empty body")
+	}
+	switch trimmed[0] {
+	case '[':
+		var rows []any
+		if err := json.Unmarshal(trimmed, &rows); err != nil {
+			return out, errors.New("invalid json")
+		}
+		items, err := parseProviderIOList(rows)
+		if err != nil {
+			return out, err
+		}
+		out.Providers = items
+		return out, nil
+	case '{':
+		var root map[string]any
+		if err := json.Unmarshal(trimmed, &root); err != nil {
+			return out, errors.New("invalid json")
+		}
+		out.Replace = parseAnyBool(root["replace"], false)
+		rawProviders := root["providers"]
+		if rawProviders == nil {
+			rawProviders = root["data"]
+		}
+		if rawProviders == nil {
+			if _, hasID := root["id"]; hasID {
+				rawProviders = []any{root}
+			} else if _, hasID = root["ID"]; hasID {
+				rawProviders = []any{root}
+			}
+		}
+		if rawProviders == nil {
+			return out, errors.New("providers is required")
+		}
+		items, err := parseProviderIOList(rawProviders)
+		if err != nil {
+			return out, err
+		}
+		out.Providers = items
+		return out, nil
+	default:
+		return out, errors.New("invalid json")
+	}
+}
+
+func parseProviderIOList(raw any) ([]providerIOPayload, error) {
+	rows, ok := raw.([]any)
+	if !ok {
+		return nil, errors.New("providers must be an array")
+	}
+	out := make([]providerIOPayload, 0, len(rows))
+	for idx, row := range rows {
+		itemMap, ok := row.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("provider item at index %d must be an object", idx)
+		}
+		item, err := parseProviderIOItem(itemMap)
+		if err != nil {
+			return nil, fmt.Errorf("provider item at index %d: %w", idx, err)
+		}
+		out = append(out, item)
+	}
+	return out, nil
+}
+
+func parseProviderIOItem(raw map[string]any) (providerIOPayload, error) {
+	item := providerIOPayload{
+		ID:          parseAnyString(raw["id"], raw["ID"]),
+		DisplayName: parseAnyString(raw["displayName"], raw["display_name"], raw["DisplayName"]),
+		GroupName:   parseAnyString(raw["groupName"], raw["group_name"], raw["GroupName"]),
+		Type:        parseAnyString(raw["type"], raw["Type"]),
+		Protocol:    parseAnyString(raw["protocol"], raw["Protocol"]),
+		Endpoint:    parseAnyString(raw["endpoint"], raw["Endpoint"]),
+		Health:      parseAnyString(raw["health"], raw["Health"]),
+	}
+
+	config := parseAnyString(raw["configJSON"], raw["config_json"], raw["ConfigJSON"])
+	if config == "" {
+		if cfgObj, ok := raw["configJSON"].(map[string]any); ok {
+			b, err := json.Marshal(cfgObj)
+			if err != nil {
+				return item, errors.New("invalid configJSON object")
+			}
+			config = string(b)
+		} else if cfgObj, ok := raw["config_json"].(map[string]any); ok {
+			b, err := json.Marshal(cfgObj)
+			if err != nil {
+				return item, errors.New("invalid config_json object")
+			}
+			config = string(b)
+		} else if cfgObj, ok := raw["ConfigJSON"].(map[string]any); ok {
+			b, err := json.Marshal(cfgObj)
+			if err != nil {
+				return item, errors.New("invalid ConfigJSON object")
+			}
+			config = string(b)
+		} else if cfgObj, ok := raw["config"].(map[string]any); ok {
+			b, err := json.Marshal(cfgObj)
+			if err != nil {
+				return item, errors.New("invalid config object")
+			}
+			config = string(b)
+		}
+	}
+	item.ConfigJSON = config
+	item.Enabled = parseAnyBool(raw["enabled"], parseAnyBool(raw["Enabled"], true))
+
+	lastCheckRaw := parseAnyString(raw["lastCheckAt"], raw["last_check_at"], raw["LastCheckAt"])
+	if lastCheckRaw != "" {
+		ts, err := time.Parse(time.RFC3339, strings.TrimSpace(lastCheckRaw))
+		if err != nil {
+			return item, fmt.Errorf("invalid lastCheckAt %q", lastCheckRaw)
+		}
+		item.LastCheckAt = &ts
+	}
+
+	return item, nil
+}
+
+func parseAnyString(values ...any) string {
+	for _, v := range values {
+		switch t := v.(type) {
+		case string:
+			if s := strings.TrimSpace(t); s != "" {
+				return s
+			}
+		case json.Number:
+			if s := strings.TrimSpace(t.String()); s != "" {
+				return s
+			}
+		case float64:
+			return strings.TrimSpace(strconv.FormatFloat(t, 'f', -1, 64))
+		case float32:
+			return strings.TrimSpace(strconv.FormatFloat(float64(t), 'f', -1, 32))
+		case int:
+			return strings.TrimSpace(strconv.Itoa(t))
+		case int64:
+			return strings.TrimSpace(strconv.FormatInt(t, 10))
+		case int32:
+			return strings.TrimSpace(strconv.FormatInt(int64(t), 10))
+		case uint:
+			return strings.TrimSpace(strconv.FormatUint(uint64(t), 10))
+		case uint64:
+			return strings.TrimSpace(strconv.FormatUint(t, 10))
+		case uint32:
+			return strings.TrimSpace(strconv.FormatUint(uint64(t), 10))
+		}
+	}
+	return ""
+}
+
+func parseAnyBool(v any, def bool) bool {
+	switch t := v.(type) {
+	case bool:
+		return t
+	case string:
+		switch strings.ToLower(strings.TrimSpace(t)) {
+		case "1", "true", "yes", "y", "on":
+			return true
+		case "0", "false", "no", "n", "off":
+			return false
+		default:
+			return def
+		}
+	case float64:
+		return t != 0
+	case float32:
+		return t != 0
+	case int:
+		return t != 0
+	case int64:
+		return t != 0
+	case int32:
+		return t != 0
+	case uint:
+		return t != 0
+	case uint64:
+		return t != 0
+	case uint32:
+		return t != 0
+	default:
+		return def
 	}
 }
 
@@ -1031,8 +1415,17 @@ func (s *Server) handleChatboxMessageAPI(w http.ResponseWriter, r *http.Request,
 	upstreamReq.Header.Set("content-type", "application/json")
 	upstreamReq.Header.Set("accept", "application/json")
 
+	moduleID, syncErr := s.syncModuleAuthFromProviderConfig(r.Context(), provider)
+	if syncErr != nil {
+		writeErr(http.StatusBadGateway, map[string]any{"error": "provider auth sync failed", "details": syncErr.Error()})
+		return
+	}
+
 	buffered := newBufferedResponseWriter()
 	status, errorCode, callErr := adapter.Handle(r.Context(), buffered, upstreamReq, *provider, route)
+	if moduleID != "" {
+		s.resetModuleAuthCacheBestEffort(provider, moduleID)
+	}
 	if status == 0 {
 		status = buffered.StatusCode()
 	}
@@ -1304,8 +1697,17 @@ func (s *Server) handleExperimentChatAPI(w http.ResponseWriter, r *http.Request)
 	upstreamReq.Header.Set("content-type", "application/json")
 	upstreamReq.Header.Set("accept", "application/json")
 
+	moduleID, syncErr := s.syncModuleAuthFromProviderConfig(r.Context(), provider)
+	if syncErr != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": "provider auth sync failed", "details": syncErr.Error()})
+		return
+	}
+
 	buffered := newBufferedResponseWriter()
 	status, errorCode, callErr := adapter.Handle(r.Context(), buffered, upstreamReq, *provider, route)
+	if moduleID != "" {
+		s.resetModuleAuthCacheBestEffort(provider, moduleID)
+	}
 	if status == 0 {
 		status = buffered.StatusCode()
 	}
@@ -2866,6 +3268,19 @@ func (s *Server) handleCodexOAuthImportAPI(w http.ResponseWriter, r *http.Reques
 	writeProxyResponse(w, status, hdr, respBody)
 }
 
+func (s *Server) handleCodexOAuthResetAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	status, respBody, hdr, err := s.proxyModuleHTTP(r.Context(), codexOAuthModuleID, http.MethodPost, "/auth/reset", []byte(`{}`))
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+		return
+	}
+	writeProxyResponse(w, status, hdr, respBody)
+}
+
 func (s *Server) handleKiroOAuthStatusAPI(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
@@ -2981,6 +3396,19 @@ func (s *Server) handleKiroOAuthRefreshAPI(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	status, respBody, hdr, proxyErr := s.proxyModuleHTTP(r.Context(), kiroOAuthModuleID, http.MethodPost, "/auth/refresh", body)
+	if proxyErr != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": proxyErr.Error()})
+		return
+	}
+	writeProxyResponse(w, status, hdr, respBody)
+}
+
+func (s *Server) handleKiroOAuthResetAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	status, respBody, hdr, proxyErr := s.proxyModuleHTTP(r.Context(), kiroOAuthModuleID, http.MethodPost, "/auth/reset", []byte(`{}`))
 	if proxyErr != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]any{"error": proxyErr.Error()})
 		return
