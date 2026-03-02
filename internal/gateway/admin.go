@@ -26,6 +26,7 @@ import (
 )
 
 const codexOAuthModuleID = "openai-codex-oauth"
+const kiroOAuthModuleID = "kiro-oauth-provider"
 const passkeyLoginModuleID = "passkey-login"
 const advancedStatisticsModuleID = "advanced-statistics"
 const anthropicVersionHeaderValue = "2023-06-01"
@@ -2415,11 +2416,60 @@ func (s *Server) handleCodexOAuthCallbackPage(w http.ResponseWriter, r *http.Req
 	s.renderCodexOAuthCallbackResult(w, true, "OAuth success. You can close this page and return to LightBridge.")
 }
 
+func (s *Server) handleKiroOAuthCallbackPage(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	if errStr := strings.TrimSpace(q.Get("error")); errStr != "" {
+		desc := strings.TrimSpace(q.Get("error_description"))
+		msg := errStr
+		if desc != "" {
+			msg += ": " + desc
+		}
+		s.renderKiroOAuthCallbackResult(w, false, msg)
+		return
+	}
+
+	code := strings.TrimSpace(q.Get("code"))
+	state := strings.TrimSpace(q.Get("state"))
+	if code == "" || state == "" {
+		s.renderKiroOAuthCallbackResult(w, false, "missing code/state in callback url")
+		return
+	}
+
+	payload, _ := json.Marshal(map[string]string{"code": code, "state": state})
+	status, body, _, err := s.proxyModuleHTTP(r.Context(), kiroOAuthModuleID, http.MethodPost, "/auth/oauth/exchange", payload)
+	if err != nil {
+		s.renderKiroOAuthCallbackResult(w, false, err.Error())
+		return
+	}
+	if status < 200 || status >= 300 {
+		msg := strings.TrimSpace(string(body))
+		if msg == "" {
+			msg = fmt.Sprintf("token exchange failed (%d)", status)
+		}
+		s.renderKiroOAuthCallbackResult(w, false, msg)
+		return
+	}
+
+	s.renderKiroOAuthCallbackResult(w, true, "OAuth success. You can close this page and return to LightBridge.")
+}
+
 func (s *Server) renderCodexOAuthCallbackResult(w http.ResponseWriter, ok bool, message string) {
 	s.renderCodexOAuthCallbackResultTo(w, ok, message, "/admin/providers")
 }
 
 func (s *Server) renderCodexOAuthCallbackResultTo(w http.ResponseWriter, ok bool, message string, returnURL string) {
+	s.renderOAuthCallbackResultTo(w, ok, message, returnURL, "Codex OAuth")
+}
+
+func (s *Server) renderKiroOAuthCallbackResult(w http.ResponseWriter, ok bool, message string) {
+	s.renderKiroOAuthCallbackResultTo(w, ok, message, "/admin/providers")
+}
+
+func (s *Server) renderKiroOAuthCallbackResultTo(w http.ResponseWriter, ok bool, message string, returnURL string) {
+	s.renderOAuthCallbackResultTo(w, ok, message, returnURL, "Kiro OAuth")
+}
+
+func (s *Server) renderOAuthCallbackResultTo(w http.ResponseWriter, ok bool, message string, returnURL string, title string) {
 	w.Header().Set("content-type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 
@@ -2440,7 +2490,7 @@ func (s *Server) renderCodexOAuthCallbackResultTo(w http.ResponseWriter, ok bool
 		ReturnURL    string
 		AutoClose    bool
 	}{
-		Title:        "Codex OAuth",
+		Title:        title,
 		OK:           ok,
 		StatusCN:     "认证成功",
 		StatusEN:     "Successful",
@@ -2649,7 +2699,7 @@ func (s *Server) renderCodexOAuthCallbackResultTo(w http.ResponseWriter, ok bool
       {{end}}
       <ul class="tips">
         <li>如果窗口未自动关闭，可点击下方按钮返回 Providers。</li>
-        <li>返回后可在 Codex OAuth 弹窗中点击「刷新状态」确认认证是否生效。</li>
+        <li>返回后可在 {{.Title}} 弹窗中点击「刷新状态」确认认证是否生效。</li>
       </ul>
       <div class="actions">
         <button class="btn" type="button" onclick="window.close()">关闭窗口</button>
@@ -2784,6 +2834,180 @@ func (s *Server) handleCodexOAuthImportAPI(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	writeProxyResponse(w, status, hdr, respBody)
+}
+
+func (s *Server) handleKiroOAuthStatusAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	status, body, hdr, err := s.proxyModuleHTTP(r.Context(), kiroOAuthModuleID, http.MethodGet, "/auth/status", nil)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+		return
+	}
+	writeProxyResponse(w, status, hdr, body)
+}
+
+func (s *Server) handleKiroOAuthStartAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	s.ensureKiroOAuthCallbackServer()
+	if s.kiroOAuthCallbackErr != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": s.kiroOAuthCallbackErr.Error()})
+		return
+	}
+
+	payload := map[string]any{
+		"redirect_uri": s.kiroOAuthLocalRedirectURI(),
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, 2<<20))
+	_ = r.Body.Close()
+	if err == nil && len(strings.TrimSpace(string(body))) > 0 {
+		var incoming map[string]any
+		if json.Unmarshal(body, &incoming) == nil {
+			for k, v := range incoming {
+				payload[k] = v
+			}
+		}
+	}
+	out, _ := json.Marshal(payload)
+	status, respBody, hdr, proxyErr := s.proxyModuleHTTP(r.Context(), kiroOAuthModuleID, http.MethodPost, "/auth/oauth/start", out)
+	if proxyErr != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": proxyErr.Error()})
+		return
+	}
+	writeProxyResponse(w, status, hdr, respBody)
+}
+
+func (s *Server) handleKiroOAuthExchangeAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, 2<<20))
+	_ = r.Body.Close()
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid body"})
+		return
+	}
+	status, respBody, hdr, proxyErr := s.proxyModuleHTTP(r.Context(), kiroOAuthModuleID, http.MethodPost, "/auth/oauth/exchange", body)
+	if proxyErr != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": proxyErr.Error()})
+		return
+	}
+	writeProxyResponse(w, status, hdr, respBody)
+}
+
+func (s *Server) handleKiroDeviceStartAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, 2<<20))
+	_ = r.Body.Close()
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid body"})
+		return
+	}
+	status, respBody, hdr, proxyErr := s.proxyModuleHTTP(r.Context(), kiroOAuthModuleID, http.MethodPost, "/auth/device/start", body)
+	if proxyErr != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": proxyErr.Error()})
+		return
+	}
+	writeProxyResponse(w, status, hdr, respBody)
+}
+
+func (s *Server) handleKiroOAuthImportAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, 6<<20))
+	_ = r.Body.Close()
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid body"})
+		return
+	}
+	status, respBody, hdr, proxyErr := s.proxyModuleHTTP(r.Context(), kiroOAuthModuleID, http.MethodPost, "/auth/import", body)
+	if proxyErr != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": proxyErr.Error()})
+		return
+	}
+	writeProxyResponse(w, status, hdr, respBody)
+}
+
+func (s *Server) handleKiroOAuthRefreshAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, 2<<20))
+	_ = r.Body.Close()
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid body"})
+		return
+	}
+	status, respBody, hdr, proxyErr := s.proxyModuleHTTP(r.Context(), kiroOAuthModuleID, http.MethodPost, "/auth/refresh", body)
+	if proxyErr != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": proxyErr.Error()})
+		return
+	}
+	writeProxyResponse(w, status, hdr, respBody)
+}
+
+func (s *Server) handleKiroUsageLimitsAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	path := "/usage/limits"
+	if raw := strings.TrimSpace(r.URL.RawQuery); raw != "" {
+		path = path + "?" + raw
+	}
+	status, body, hdr, err := s.proxyModuleHTTP(r.Context(), kiroOAuthModuleID, http.MethodGet, path, nil)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+		return
+	}
+	writeProxyResponse(w, status, hdr, body)
+}
+
+func (s *Server) proxyKiroAccountAction(w http.ResponseWriter, r *http.Request, modulePath string) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, 2<<20))
+	_ = r.Body.Close()
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid body"})
+		return
+	}
+	status, respBody, hdr, proxyErr := s.proxyModuleHTTP(r.Context(), kiroOAuthModuleID, http.MethodPost, modulePath, body)
+	if proxyErr != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": proxyErr.Error()})
+		return
+	}
+	writeProxyResponse(w, status, hdr, respBody)
+}
+
+func (s *Server) handleKiroAccountEnableAPI(w http.ResponseWriter, r *http.Request) {
+	s.proxyKiroAccountAction(w, r, "/auth/accounts/enable")
+}
+
+func (s *Server) handleKiroAccountDisableAPI(w http.ResponseWriter, r *http.Request) {
+	s.proxyKiroAccountAction(w, r, "/auth/accounts/disable")
+}
+
+func (s *Server) handleKiroAccountDeleteAPI(w http.ResponseWriter, r *http.Request) {
+	s.proxyKiroAccountAction(w, r, "/auth/accounts/delete")
+}
+
+func (s *Server) handleKiroAccountActivateAPI(w http.ResponseWriter, r *http.Request) {
+	s.proxyKiroAccountAction(w, r, "/auth/accounts/activate")
 }
 
 func baseURLFromRequest(r *http.Request) string {

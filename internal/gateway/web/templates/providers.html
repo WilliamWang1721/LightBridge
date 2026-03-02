@@ -1359,6 +1359,98 @@
     </form>
   </dialog>
 
+  <dialog id="kiro-oauth-dialog">
+    <form id="kiro-oauth-form" method="dialog">
+      <h3 style="margin:0 0 6px;font-family:var(--font-display);">Kiro OAuth</h3>
+      <p style="margin:0 0 8px;font-family:var(--font-body);font-size:12px;color:var(--text-secondary);">Kiro OAuth 登录与账号池管理（模块：<span style="font-family:ui-monospace,monospace;">kiro-oauth-provider</span>）
+        · <a href="/admin/docs" style="color:var(--red-primary);text-decoration:underline;">前往文档</a></p>
+
+      <div class="dialog-grid">
+        <div class="dialog-field dialog-field--full">
+          <div class="dialog-label-row">
+            <span class="dialog-label">当前状态</span>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="dialog-btn dialog-btn--compact" type="button" id="kiro-oauth-refresh">刷新状态</button>
+              <button class="dialog-btn dialog-btn--compact" type="button" id="kiro-usage-refresh">刷新配额</button>
+            </div>
+          </div>
+          <div class="dialog-input" id="kiro-oauth-summary" style="background:var(--bg-page);white-space:pre-wrap;"></div>
+        </div>
+
+        <label class="dialog-field dialog-field--full">
+          <span class="dialog-label">账户名称（可选）</span>
+          <input class="dialog-input" id="kiro-provider-display-name" placeholder="例如：个人主账号 / 团队A" autocomplete="off" />
+        </label>
+        <div class="dialog-field dialog-field--full">
+          <span class="dialog-label">分组（可选）</span>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <input class="dialog-input" id="kiro-provider-group-name" placeholder="例如：个人 / 团队A / 测试" autocomplete="off" style="flex:1;min-width:220px;" />
+            <button class="dialog-btn" type="button" id="kiro-provider-group-clear">清空分组</button>
+          </div>
+        </div>
+
+        <div class="dialog-field dialog-field--full">
+          <div style="display:flex;gap:0;width:100%;">
+            <button class="dialog-btn primary" type="button" id="kiro-oauth-start" style="flex:1;border-right:0;">Google OAuth</button>
+            <button class="dialog-btn" type="button" id="kiro-device-start" style="flex:1;">AWS Device Code</button>
+          </div>
+          <div id="kiro-device-info" style="font-family:var(--font-body);font-size:12px;color:var(--text-secondary);white-space:pre-wrap;margin-top:8px;"></div>
+        </div>
+
+        <label class="dialog-field dialog-field--full" id="kiro-callback-zone" style="display:none;">
+          <span class="dialog-label">回调 URL</span>
+          <textarea class="dialog-input dialog-textarea" id="kiro-oauth-callback" rows="3" placeholder="粘贴浏览器回调 URL（含 code & state）"></textarea>
+          <div class="codex-callback-actions">
+            <button class="dialog-btn" type="button" id="kiro-oauth-exchange">从回调 URL 获取 Token</button>
+            <span class="dialog-field-note">如本地回调未自动处理，可手动粘贴回调链接。</span>
+          </div>
+        </label>
+
+        <div class="dialog-field dialog-field--full">
+          <button class="dialog-btn" type="button" id="kiro-advanced-toggle" style="width:100%;text-align:center;font-size:12px;color:var(--text-secondary);">▼ 展开高级选项</button>
+        </div>
+
+        <div id="kiro-advanced-mode" style="display:none;grid-column:1/-1;">
+          <div class="dialog-grid">
+            <label class="dialog-field dialog-field--full">
+              <span class="dialog-label">Refresh Token</span>
+              <textarea class="dialog-input dialog-textarea" id="kiro-refresh-token" rows="3" placeholder="可仅填 refresh_token"></textarea>
+            </label>
+            <label class="dialog-field dialog-field--full">
+              <span class="dialog-label">Access Token</span>
+              <textarea class="dialog-input dialog-textarea" id="kiro-access-token" rows="3" placeholder="可选：直接填 access_token"></textarea>
+            </label>
+            <div class="dialog-field dialog-field--full">
+              <button class="dialog-btn" type="button" id="kiro-oauth-import">导入 Token</button>
+            </div>
+            <div class="dialog-field dialog-field--full">
+              <span class="dialog-label">导入 JSON 文件（支持批量）</span>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px;">
+                <input type="file" id="kiro-auth-json" accept=".json,application/json" multiple style="display:none" />
+                <button class="dialog-btn" type="button" id="kiro-auth-json-choose">选择文件</button>
+                <span id="kiro-auth-json-filename" style="font-family:var(--font-body);font-size:12px;color:var(--text-secondary);">支持选择多个凭据文件</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dialog-field dialog-field--full">
+          <span class="dialog-label">账号池</span>
+          <div class="dialog-input" id="kiro-accounts-list" style="background:var(--bg-page);white-space:pre-wrap;max-height:200px;overflow:auto;">--</div>
+        </div>
+        <div class="dialog-field dialog-field--full">
+          <span class="dialog-label">配额标准化</span>
+          <div class="dialog-input" id="kiro-usage-summary" style="background:var(--bg-page);white-space:pre-wrap;">--</div>
+        </div>
+      </div>
+
+      <div class="dialog-actions">
+        <button class="dialog-btn primary" type="button" id="kiro-oauth-save" disabled>保存</button>
+        <button class="dialog-btn" type="button" id="kiro-oauth-close">关闭</button>
+      </div>
+    </form>
+  </dialog>
+
   <script src="/admin/static/admin.js"></script>
   <script>
     (() => {
@@ -1438,6 +1530,31 @@
       const CODEX_ADVANCED_MODE = document.getElementById('codex-advanced-mode');
       const B_CODEX_GOTO_PROVIDER = document.getElementById('codex-goto-provider');
 
+      const D_KIRO = document.getElementById('kiro-oauth-dialog');
+      const KIRO_SUMMARY = document.getElementById('kiro-oauth-summary');
+      const KIRO_CALLBACK_ZONE = document.getElementById('kiro-callback-zone');
+      const KIRO_CB_URL = document.getElementById('kiro-oauth-callback');
+      const KIRO_REFRESH_TOKEN = document.getElementById('kiro-refresh-token');
+      const KIRO_ACCESS_TOKEN = document.getElementById('kiro-access-token');
+      const KIRO_DEVICE_INFO = document.getElementById('kiro-device-info');
+      const KIRO_PROVIDER_NAME = document.getElementById('kiro-provider-display-name');
+      const KIRO_PROVIDER_GROUP = document.getElementById('kiro-provider-group-name');
+      const B_KIRO_GROUP_CLEAR = document.getElementById('kiro-provider-group-clear');
+      const KIRO_ACCOUNTS = document.getElementById('kiro-accounts-list');
+      const KIRO_USAGE = document.getElementById('kiro-usage-summary');
+
+      const B_KIRO_SAVE = document.getElementById('kiro-oauth-save');
+      const B_KIRO_CLOSE = document.getElementById('kiro-oauth-close');
+      const B_KIRO_REFRESH = document.getElementById('kiro-oauth-refresh');
+      const B_KIRO_USAGE_REFRESH = document.getElementById('kiro-usage-refresh');
+      const B_KIRO_START = document.getElementById('kiro-oauth-start');
+      const B_KIRO_EXCHANGE = document.getElementById('kiro-oauth-exchange');
+      const B_KIRO_IMPORT = document.getElementById('kiro-oauth-import');
+      const B_KIRO_DEVICE_START = document.getElementById('kiro-device-start');
+      const I_KIRO_AUTH_JSON = document.getElementById('kiro-auth-json');
+      const B_KIRO_ADVANCED_TOGGLE = document.getElementById('kiro-advanced-toggle');
+      const KIRO_ADVANCED_MODE = document.getElementById('kiro-advanced-mode');
+
       const USAGE_BAR_WIDTH = 116;
 
       let lastProviders = [];
@@ -1448,6 +1565,9 @@
       let codexInstalled = false;
       let codexAuthURL = '';
       let codexHasCredentials = false;
+      let kiroInstalled = false;
+      let kiroAuthURL = '';
+      let kiroHasCredentials = false;
 
       const KEY_VIEW_MODE = 'lightbridge_provider_view_mode';
       let viewMode = 'table';
@@ -1489,6 +1609,7 @@
         const displayName = String(p?.DisplayName ?? p?.displayName ?? '').trim();
         if (displayName && displayName !== id) return displayName;
         if (String(id || '').toLowerCase() === 'codex' && type === 'module') return 'Codex (OpenAI)';
+        if (String(id || '').toLowerCase() === 'kiro' && type === 'module') return 'Kiro OAuth';
         return id;
       }
 
@@ -1499,6 +1620,10 @@
       let codexPendingGroupName = '';
       let codexNameTouched = false;
       let codexGroupTouched = false;
+      let kiroPendingDisplayName = '';
+      let kiroPendingGroupName = '';
+      let kiroNameTouched = false;
+      let kiroGroupTouched = false;
 
       function resetCodexMetaTouched() {
         codexNameTouched = false;
@@ -1628,6 +1753,17 @@
               }
             })();
           }
+          if (providerID(provider) === 'kiro' && providerType(provider) === 'module') {
+            (async () => {
+              try {
+                const st = await LB.apiJSON('/admin/api/kiro/oauth/status');
+                const merged = mergeKiroStatusToConfigJSON(F_CFG.value, st);
+                F_CFG.value = safeJSON(merged);
+              } catch (_) {
+                // ignore
+              }
+            })();
+          }
         } else {
           TITLE.textContent = '添加 Provider';
           if (F_ACCOUNT) F_ACCOUNT.value = '';
@@ -1721,6 +1857,7 @@
         const alias = String(entry?.alias || '').trim();
         const moduleID = String(entry?.moduleID || '').trim();
         if (alias.toLowerCase() === 'codex' && moduleID === 'openai-codex-oauth') return 'Codex（OpenAI）';
+        if (alias.toLowerCase() === 'kiro' && moduleID === 'kiro-oauth-provider') return 'Kiro OAuth';
         const modName = String(entry?.moduleName || '').trim();
         return modName || alias || moduleID || '-';
       }
@@ -1867,6 +2004,13 @@
           codexPendingGroupName = group;
           try { closeDialog(); } catch (_) {}
           await openCodexDialog();
+          return;
+        }
+        if (alias.toLowerCase() === 'kiro' && moduleID === 'kiro-oauth-provider') {
+          kiroPendingDisplayName = account;
+          kiroPendingGroupName = group;
+          try { closeDialog(); } catch (_) {}
+          await openKiroDialog();
           return;
         }
 
@@ -2335,6 +2479,457 @@
           LB.toast(err?.message || '保存失败', 'error', 4200);
         } finally {
           if (D_CODEX?.open && B_CODEX_SAVE) B_CODEX_SAVE.disabled = !codexHasCredentials;
+        }
+      }
+
+      function resetKiroMetaTouched() {
+        kiroNameTouched = false;
+        kiroGroupTouched = false;
+      }
+
+      async function prefillKiroProviderMeta() {
+        if (!KIRO_PROVIDER_NAME && !KIRO_PROVIDER_GROUP) return;
+        resetKiroMetaTouched();
+        let existing = null;
+        try {
+          const prov = await LB.apiJSON('/admin/api/providers');
+          const list = Array.isArray(prov?.data) ? prov.data : [];
+          existing = list.find((p) => providerID(p) === 'kiro') || null;
+        } catch (_) {
+          existing = null;
+        }
+        const existingName = String(existing?.DisplayName ?? existing?.displayName ?? '').trim();
+        const existingGroup = String(existing?.GroupName ?? existing?.groupName ?? '').trim();
+        const pendingName = String(kiroPendingDisplayName || '').trim();
+        const pendingGroup = String(kiroPendingGroupName || '').trim();
+        if (KIRO_PROVIDER_NAME) KIRO_PROVIDER_NAME.value = pendingName || existingName || '';
+        if (KIRO_PROVIDER_GROUP) KIRO_PROVIDER_GROUP.value = pendingGroup || existingGroup || '';
+      }
+
+      async function refreshKiroAvailability() {
+        try {
+          const res = await LB.apiJSON('/admin/api/modules');
+          const list = Array.isArray(res?.data) ? res.data : [];
+          kiroInstalled = list.some((it) => String(it?.module?.ID ?? it?.module?.id ?? '').trim() === 'kiro-oauth-provider');
+          return kiroInstalled;
+        } catch (_) {
+          kiroInstalled = false;
+          return false;
+        }
+      }
+
+      function closeKiroDialog() {
+        try { if (D_KIRO?.open) D_KIRO.close(); } catch (_) {}
+      }
+
+      function escHTML(input) {
+        return String(input ?? '')
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+      }
+
+      function renderKiroAccountsList(status) {
+        if (!KIRO_ACCOUNTS) return;
+        const activeID = String(status?.active_account_id || '').trim();
+        const accounts = Array.isArray(status?.accounts) ? status.accounts : [];
+        if (!accounts.length) {
+          KIRO_ACCOUNTS.textContent = '--';
+          return;
+        }
+        KIRO_ACCOUNTS.innerHTML = accounts.map((a) => {
+          const id = String(a?.id || '').trim();
+          const name = String(a?.display_name || '').trim() || id || '-';
+          const group = String(a?.group_name || '').trim();
+          const method = String(a?.auth_method || '').trim();
+          const enabled = Boolean(a?.enabled);
+          const quota = a?.quota && typeof a.quota === 'object' ? a.quota : null;
+          const quotaText = quota ? ` · quota ${Number(quota?.remaining_percent ?? 0).toFixed(1)}%` : '';
+          const flags = `${enabled ? 'enabled' : 'disabled'}${activeID === id ? ' · active' : ''}${quotaText}`;
+          return `<div style=\"display:flex;justify-content:space-between;gap:12px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);\">
+            <div style=\"min-width:0;flex:1;\">
+              <div style=\"font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;\">${escHTML(name)}</div>
+              <div style=\"font-size:12px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;\">${escHTML(id)}${group ? ` · ${escHTML(group)}` : ''}${method ? ` · ${escHTML(method)}` : ''} · ${escHTML(flags)}</div>
+            </div>
+            <div style=\"display:flex;gap:6px;flex-wrap:wrap;\">
+              <button class=\"dialog-btn dialog-btn--compact\" type=\"button\" data-kiro-account-action=\"activate\" data-kiro-account-id=\"${escHTML(id)}\">激活</button>
+              <button class=\"dialog-btn dialog-btn--compact\" type=\"button\" data-kiro-account-action=\"${enabled ? 'disable' : 'enable'}\" data-kiro-account-id=\"${escHTML(id)}\">${enabled ? '禁用' : '启用'}</button>
+              <button class=\"dialog-btn dialog-btn--compact\" type=\"button\" data-kiro-account-action=\"delete\" data-kiro-account-id=\"${escHTML(id)}\">删除</button>
+            </div>
+          </div>`;
+        }).join('');
+      }
+
+      async function doKiroAccountAction(action, accountId) {
+        const id = String(accountId || '').trim();
+        if (!id) return;
+        const map = {
+          enable: '/admin/api/kiro/accounts/enable',
+          disable: '/admin/api/kiro/accounts/disable',
+          delete: '/admin/api/kiro/accounts/delete',
+          activate: '/admin/api/kiro/accounts/activate',
+        };
+        const endpoint = map[action];
+        if (!endpoint) return;
+        if (action === 'delete') {
+          const ok = window.confirm(`确认删除账号 ${id} 吗？`);
+          if (!ok) return;
+        }
+        await LB.apiJSON(endpoint, { method: 'POST', body: { account_id: id } });
+        await loadKiroStatus({ toastOnFail: true });
+        await loadKiroUsage({ toastOnFail: false });
+        await load();
+      }
+
+      async function loadKiroUsage({ toastOnFail = true } = {}) {
+        if (!KIRO_USAGE) return null;
+        KIRO_USAGE.textContent = '刷新中...';
+        try {
+          const res = await LB.apiJSON('/admin/api/kiro/usage/limits');
+          const quota = res?.quota;
+          if (!quota || !Array.isArray(quota?.items) || quota.items.length === 0) {
+            KIRO_USAGE.textContent = '--';
+            return res;
+          }
+          const lines = [];
+          lines.push(`remaining: ${Number(quota?.remaining_percent ?? 0).toFixed(2)}%`);
+          if (quota?.reset_at) lines.push(`reset_at: ${String(quota.reset_at)}`);
+          for (const item of quota.items.slice(0, 6)) {
+            lines.push(`- ${String(item?.display_name || item?.resource_type || 'quota')}: ${Number(item?.used_percent ?? 0).toFixed(2)}% (${item?.used ?? 0}/${item?.limit ?? 0} ${String(item?.unit || '').trim()})`);
+          }
+          KIRO_USAGE.textContent = lines.join('\n');
+          return res;
+        } catch (err) {
+          KIRO_USAGE.textContent = '--';
+          if (toastOnFail) LB.toast(err?.message || '加载 Kiro 配额失败', 'error', 4200);
+          return null;
+        }
+      }
+
+      async function loadKiroStatus({ toastOnFail = true } = {}) {
+        if (!KIRO_SUMMARY) return null;
+        KIRO_SUMMARY.textContent = '刷新中...';
+        try {
+          const res = await LB.apiJSON('/admin/api/kiro/oauth/status');
+          const accounts = Array.isArray(res?.accounts) ? res.accounts : [];
+          kiroHasCredentials = accounts.some((a) => Boolean(a?.has_access_token || a?.has_refresh_token || String(a?.access_token || '').trim() || String(a?.refresh_token || '').trim()));
+          if (B_KIRO_SAVE) B_KIRO_SAVE.disabled = !kiroHasCredentials;
+
+          const lines = [];
+          lines.push(`accounts: ${accounts.length}`);
+          if (res?.active_account_id) lines.push(`active_account_id: ${res.active_account_id}`);
+          if (res?.selection_strategy) lines.push(`selection_strategy: ${res.selection_strategy}`);
+          if (res?.oauth?.status) {
+            lines.push(`oauth: ${String(res.oauth.status)}`);
+            if (res?.oauth?.redirect_uri) lines.push(`redirect_uri: ${String(res.oauth.redirect_uri)}`);
+          }
+          if (res?.device?.status) {
+            lines.push(`device: ${String(res.device.status)}`);
+            if (res?.device?.error) lines.push(`device_error: ${String(res.device.error)}`);
+          }
+          if (accounts.length > 0) {
+            const preview = accounts.slice(0, 4).map((a) => `${String(a?.display_name || a?.id || '-')}: ${Boolean(a?.enabled) ? 'enabled' : 'disabled'}${a?.cooldown_until ? ` (cooldown ${String(a.cooldown_until)})` : ''}`);
+            lines.push(...preview);
+            if (accounts.length > preview.length) lines.push(`... +${accounts.length - preview.length}`);
+          }
+          KIRO_SUMMARY.textContent = lines.join('\n') || '--';
+          renderKiroAccountsList(res);
+
+          if (KIRO_DEVICE_INFO) {
+            const flow = res?.device;
+            if (flow?.status === 'pending') {
+              const vurl = String(flow?.verification_uri_complete || flow?.verification_uri || '').trim();
+              const ucode = String(flow?.user_code || '').trim();
+              KIRO_DEVICE_INFO.textContent = `device_url: ${vurl}\nuser_code: ${ucode}`.trim();
+            } else if (flow?.status) {
+              KIRO_DEVICE_INFO.textContent = `device: ${String(flow.status)}`.trim();
+            } else {
+              KIRO_DEVICE_INFO.textContent = '';
+            }
+          }
+          return res;
+        } catch (err) {
+          if (toastOnFail) LB.toast(err?.message || '加载 Kiro OAuth 状态失败', 'error', 4200);
+          throw err;
+        }
+      }
+
+      async function openKiroDialog() {
+        if (!D_KIRO) return;
+        const ok = await refreshKiroAvailability();
+        if (!ok) {
+          LB.toast('请先在 Marketplace 安装 kiro-oauth-provider', 'error', 4200);
+          return;
+        }
+        try { if (DIALOG?.open) DIALOG.close(); } catch (_) {}
+        try {
+          kiroAuthURL = '';
+          kiroHasCredentials = false;
+          if (B_KIRO_SAVE) B_KIRO_SAVE.disabled = true;
+          if (KIRO_CB_URL) KIRO_CB_URL.value = '';
+          if (KIRO_CALLBACK_ZONE) KIRO_CALLBACK_ZONE.style.display = 'none';
+          if (KIRO_REFRESH_TOKEN) KIRO_REFRESH_TOKEN.value = '';
+          if (KIRO_ACCESS_TOKEN) KIRO_ACCESS_TOKEN.value = '';
+          if (I_KIRO_AUTH_JSON) I_KIRO_AUTH_JSON.value = '';
+          const fnLabel = document.getElementById('kiro-auth-json-filename');
+          if (fnLabel) fnLabel.textContent = '支持选择多个凭据文件';
+          if (KIRO_DEVICE_INFO) KIRO_DEVICE_INFO.textContent = '';
+          if (KIRO_PROVIDER_NAME) KIRO_PROVIDER_NAME.value = '';
+          if (KIRO_PROVIDER_GROUP) KIRO_PROVIDER_GROUP.value = '';
+          resetKiroMetaTouched();
+          if (KIRO_ADVANCED_MODE) KIRO_ADVANCED_MODE.style.display = 'none';
+          if (B_KIRO_ADVANCED_TOGGLE) B_KIRO_ADVANCED_TOGGLE.textContent = '▼ 展开高级选项';
+          await loadKiroStatus({ toastOnFail: true });
+          await loadKiroUsage({ toastOnFail: false });
+          await prefillKiroProviderMeta();
+          if (!D_KIRO.open) D_KIRO.showModal();
+        } catch (_) {}
+      }
+
+      async function startKiroOAuth() {
+        if (!B_KIRO_START) return;
+        if (KIRO_CALLBACK_ZONE) KIRO_CALLBACK_ZONE.style.display = '';
+        B_KIRO_START.disabled = true;
+        try {
+          const payload = {
+            provider: 'google',
+            display_name: String(KIRO_PROVIDER_NAME?.value || '').trim(),
+            group_name: String(KIRO_PROVIDER_GROUP?.value || '').trim(),
+          };
+          const res = await LB.apiJSON('/admin/api/kiro/oauth/start', { method: 'POST', body: payload });
+          const url = String(res?.oauth?.auth_url || '').trim();
+          kiroAuthURL = url;
+          if (url) window.open(url, '_blank', 'noopener,noreferrer');
+          else LB.toast('未获取到 OAuth 链接', 'error', 4200);
+          await loadKiroStatus({ toastOnFail: false });
+        } catch (err) {
+          LB.toast(err?.message || '生成 OAuth 链接失败', 'error', 4200);
+        } finally {
+          B_KIRO_START.disabled = false;
+        }
+      }
+
+      async function exchangeKiroFromCallbackURL() {
+        if (!B_KIRO_EXCHANGE) return;
+        const rawCB = String(KIRO_CB_URL?.value || '').trim();
+        if (!rawCB) {
+          LB.toast('请输入回调 URL', 'error', 4200);
+          return;
+        }
+        const parsed = parseCodexCallbackInput(rawCB);
+        if (!parsed || !parsed.normalized) {
+          LB.toast('回调 URL 格式不正确', 'error', 4200);
+          return;
+        }
+        if (parsed.error) {
+          LB.toast(parsed.error, 'error', 4800);
+          return;
+        }
+        if (KIRO_CB_URL) KIRO_CB_URL.value = parsed.normalized;
+        const payload = {
+          callback_url: parsed.normalized,
+          display_name: String(KIRO_PROVIDER_NAME?.value || '').trim(),
+          group_name: String(KIRO_PROVIDER_GROUP?.value || '').trim(),
+        };
+        if (parsed.code && parsed.state) {
+          payload.code = parsed.code;
+          payload.state = parsed.state;
+        }
+
+        B_KIRO_EXCHANGE.disabled = true;
+        try {
+          await LB.apiJSON('/admin/api/kiro/oauth/exchange', { method: 'POST', body: payload });
+          LB.toast('Token 已获取', 'ok');
+          await loadKiroStatus({ toastOnFail: false });
+          await loadKiroUsage({ toastOnFail: false });
+          await load();
+        } catch (err) {
+          LB.toast(err?.message || '获取 Token 失败', 'error', 4200);
+        } finally {
+          B_KIRO_EXCHANGE.disabled = false;
+        }
+      }
+
+      async function importKiroTokens() {
+        if (!B_KIRO_IMPORT) return;
+        const refreshToken = String(KIRO_REFRESH_TOKEN?.value || '').trim();
+        const accessToken = String(KIRO_ACCESS_TOKEN?.value || '').trim();
+        if (!refreshToken && !accessToken) {
+          LB.toast('请填入 refresh_token 或 access_token', 'error', 4200);
+          return;
+        }
+        B_KIRO_IMPORT.disabled = true;
+        try {
+          await LB.apiJSON('/admin/api/kiro/oauth/import', {
+            method: 'POST',
+            body: {
+              refresh_token: refreshToken,
+              access_token: accessToken,
+              display_name: String(KIRO_PROVIDER_NAME?.value || '').trim(),
+              group_name: String(KIRO_PROVIDER_GROUP?.value || '').trim(),
+            }
+          });
+          LB.toast('已导入', 'ok');
+          if (KIRO_REFRESH_TOKEN) KIRO_REFRESH_TOKEN.value = '';
+          if (KIRO_ACCESS_TOKEN) KIRO_ACCESS_TOKEN.value = '';
+          await loadKiroStatus({ toastOnFail: false });
+          await loadKiroUsage({ toastOnFail: false });
+          await load();
+        } catch (err) {
+          LB.toast(err?.message || '导入失败', 'error', 4200);
+        } finally {
+          B_KIRO_IMPORT.disabled = false;
+        }
+      }
+
+      async function importKiroAuthJSONFiles(files) {
+        if (!files || files.length === 0) return;
+        let ok = 0, fail = 0;
+        for (const file of files) {
+          try {
+            let text = await file.text();
+            if (text && text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+            const parsed = JSON.parse(text);
+            parsed.display_name = parsed.display_name || String(KIRO_PROVIDER_NAME?.value || '').trim();
+            parsed.group_name = parsed.group_name || String(KIRO_PROVIDER_GROUP?.value || '').trim();
+            await LB.apiJSON('/admin/api/kiro/oauth/import', { method: 'POST', body: parsed });
+            ok++;
+          } catch (err) {
+            fail++;
+            LB.toast(`${file.name}: ${err?.message || '导入失败'}`, 'error', 4200);
+          }
+        }
+        if (ok > 0) LB.toast(`成功导入 ${ok} 个文件`, 'ok');
+        if (fail > 0) LB.toast(`失败 ${fail} 个文件`, 'error', 4200);
+        if (I_KIRO_AUTH_JSON) I_KIRO_AUTH_JSON.value = '';
+        const fnLabel = document.getElementById('kiro-auth-json-filename');
+        if (fnLabel) fnLabel.textContent = '支持选择多个凭据文件';
+        await loadKiroStatus({ toastOnFail: false });
+        await loadKiroUsage({ toastOnFail: false });
+        await load();
+      }
+
+      async function startKiroDeviceFlow() {
+        if (!B_KIRO_DEVICE_START) return;
+        B_KIRO_DEVICE_START.disabled = true;
+        try {
+          const payload = {
+            display_name: String(KIRO_PROVIDER_NAME?.value || '').trim(),
+            group_name: String(KIRO_PROVIDER_GROUP?.value || '').trim(),
+          };
+          const res = await LB.apiJSON('/admin/api/kiro/device/start', { method: 'POST', body: payload });
+          const flow = res?.flow;
+          if (KIRO_DEVICE_INFO && flow) {
+            const vurl = String(flow?.verification_uri_complete || flow?.verification_uri || '').trim();
+            const ucode = String(flow?.user_code || '').trim();
+            KIRO_DEVICE_INFO.textContent = `device_url: ${vurl}\nuser_code: ${ucode}`.trim();
+          }
+          await loadKiroStatus({ toastOnFail: false });
+        } catch (err) {
+          LB.toast(err?.message || '启动 Device Flow 失败', 'error', 4200);
+        } finally {
+          B_KIRO_DEVICE_START.disabled = false;
+        }
+      }
+
+      function mergeKiroStatusToConfigJSON(rawConfigJSON, status) {
+        const cfg = parseJSONObj(rawConfigJSON);
+        const st = status && typeof status === 'object' ? status : {};
+        if (st.active_account_id) cfg.active_account_id = st.active_account_id;
+        if (st.selection_strategy) cfg.selection_strategy = st.selection_strategy;
+        if (Array.isArray(st.accounts)) cfg.accounts_count = st.accounts.length;
+        return JSON.stringify(cfg, null, 2);
+      }
+
+      async function ensureKiroProviderRegistered(statusData) {
+        const providerId = 'kiro';
+        const moduleId = 'kiro-oauth-provider';
+
+        let existing = null;
+        try {
+          const prov = await LB.apiJSON('/admin/api/providers');
+          const list = Array.isArray(prov?.data) ? prov.data : [];
+          existing = list.find((p) => providerID(p) === providerId) || null;
+        } catch (_) {}
+
+        if (existing && providerType(existing) && providerType(existing) !== 'module') {
+          throw new Error(`Provider ID 冲突：${providerId} 已存在且类型为 ${providerType(existing)}`);
+        }
+
+        let endpoint = '';
+        async function loadModuleEndpointOnce() {
+          const res = await LB.apiJSON('/admin/api/modules');
+          const list = Array.isArray(res?.data) ? res.data : [];
+          const mod = list.find((it) => String(it?.module?.ID ?? it?.module?.id ?? '').trim() === moduleId) || null;
+          const rt = mod?.runtime;
+          const port = Number(rt?.HTTPPort ?? rt?.httpPort ?? rt?.http_port ?? 0);
+          if (port > 0) return `http://127.0.0.1:${port}`;
+          return '';
+        }
+        try { endpoint = await loadModuleEndpointOnce(); } catch (_) {}
+        if (!endpoint) {
+          try { await LB.apiJSON('/admin/api/kiro/oauth/status'); } catch (_) {}
+          try { endpoint = await loadModuleEndpointOnce(); } catch (_) {}
+        }
+        const prevEndpoint = String(existing?.Endpoint ?? existing?.endpoint ?? '').trim();
+        if (!endpoint && !prevEndpoint) {
+          throw new Error('未检测到 kiro-oauth-provider 运行端口，请先在 Marketplace 启动模块后再保存');
+        }
+
+        const pendingName = String(kiroPendingDisplayName || '').trim();
+        const pendingGroup = String(kiroPendingGroupName || '').trim();
+        const existingName = String(existing?.DisplayName ?? existing?.displayName ?? '').trim();
+        const existingGroup = String(existing?.GroupName ?? existing?.groupName ?? '').trim();
+        let displayName = pendingName || existingName || providerId;
+        if (kiroNameTouched) {
+          const v = String(KIRO_PROVIDER_NAME?.value || '').trim();
+          displayName = v || existingName || pendingName || providerId;
+        }
+        let groupName = pendingGroup || existingGroup;
+        if (kiroGroupTouched) {
+          groupName = String(KIRO_PROVIDER_GROUP?.value || '').trim();
+        }
+
+        const payload = {
+          id: providerId,
+          displayName,
+          groupName,
+          type: 'module',
+          protocol: 'http_openai',
+          endpoint: endpoint || prevEndpoint,
+          configJSON: mergeKiroStatusToConfigJSON(String(existing?.ConfigJSON ?? existing?.configJSON ?? '{}'), statusData),
+          enabled: existing ? Boolean(existing?.Enabled ?? existing?.enabled ?? true) : true,
+        };
+        try { payload.configJSON = safeJSON(payload.configJSON); } catch (_) {}
+        await LB.apiJSON('/admin/api/providers', { method: 'POST', body: payload });
+        return payload;
+      }
+
+      async function saveKiroAndClose() {
+        if (!B_KIRO_SAVE) return;
+        B_KIRO_SAVE.disabled = true;
+        try {
+          const st = await loadKiroStatus({ toastOnFail: true });
+          const accounts = Array.isArray(st?.accounts) ? st.accounts : [];
+          const has = accounts.some((a) => Boolean(a?.has_access_token || a?.has_refresh_token || String(a?.access_token || '').trim() || String(a?.refresh_token || '').trim()));
+          if (!has) {
+            LB.toast('尚未获取 Token，无法保存', 'error', 4200);
+            return;
+          }
+          await ensureKiroProviderRegistered(st);
+          kiroPendingDisplayName = '';
+          kiroPendingGroupName = '';
+          closeKiroDialog();
+          await load();
+          const exists = lastProviders.some((p) => providerID(p) === 'kiro');
+          if (exists) LB.toast('已保存，并已添加到 Provider 列表', 'ok');
+          else LB.toast('已保存，但 Provider 列表未刷新（可点击右下角“刷新 Refresh”）', 'error', 5200);
+        } catch (err) {
+          LB.toast(err?.message || '保存失败', 'error', 4200);
+        } finally {
+          if (D_KIRO?.open && B_KIRO_SAVE) B_KIRO_SAVE.disabled = !kiroHasCredentials;
         }
       }
 
@@ -2918,6 +3513,57 @@
           CODEX_AUTH_JSON_FILENAME.textContent = files.length === 1 ? files[0].name : `已选择 ${files.length} 个文件`;
         }
         importCodexAuthJSONFiles(files);
+      });
+
+      if (B_KIRO_SAVE) B_KIRO_SAVE.addEventListener('click', saveKiroAndClose);
+      if (KIRO_PROVIDER_NAME) KIRO_PROVIDER_NAME.addEventListener('input', () => { kiroNameTouched = true; });
+      if (KIRO_PROVIDER_GROUP) KIRO_PROVIDER_GROUP.addEventListener('input', () => { kiroGroupTouched = true; });
+      if (B_KIRO_GROUP_CLEAR) B_KIRO_GROUP_CLEAR.addEventListener('click', () => {
+        kiroGroupTouched = true;
+        if (KIRO_PROVIDER_GROUP) KIRO_PROVIDER_GROUP.value = '';
+      });
+      if (B_KIRO_CLOSE) B_KIRO_CLOSE.addEventListener('click', () => {
+        closeKiroDialog();
+        load();
+      });
+      if (B_KIRO_REFRESH) B_KIRO_REFRESH.addEventListener('click', () => loadKiroStatus({ toastOnFail: true }));
+      if (B_KIRO_USAGE_REFRESH) B_KIRO_USAGE_REFRESH.addEventListener('click', () => loadKiroUsage({ toastOnFail: true }));
+      if (B_KIRO_START) B_KIRO_START.addEventListener('click', startKiroOAuth);
+      if (B_KIRO_EXCHANGE) B_KIRO_EXCHANGE.addEventListener('click', exchangeKiroFromCallbackURL);
+      if (B_KIRO_IMPORT) B_KIRO_IMPORT.addEventListener('click', importKiroTokens);
+      if (B_KIRO_DEVICE_START) B_KIRO_DEVICE_START.addEventListener('click', startKiroDeviceFlow);
+      if (B_KIRO_ADVANCED_TOGGLE) B_KIRO_ADVANCED_TOGGLE.addEventListener('click', () => {
+        const hidden = KIRO_ADVANCED_MODE.style.display === 'none';
+        KIRO_ADVANCED_MODE.style.display = hidden ? '' : 'none';
+        B_KIRO_ADVANCED_TOGGLE.textContent = hidden ? '▲ 收起高级选项' : '▼ 展开高级选项';
+      });
+      const B_KIRO_AUTH_JSON_CHOOSE = document.getElementById('kiro-auth-json-choose');
+      const KIRO_AUTH_JSON_FILENAME = document.getElementById('kiro-auth-json-filename');
+      if (B_KIRO_AUTH_JSON_CHOOSE && I_KIRO_AUTH_JSON) {
+        B_KIRO_AUTH_JSON_CHOOSE.addEventListener('click', () => {
+          I_KIRO_AUTH_JSON.value = '';
+          I_KIRO_AUTH_JSON.click();
+        });
+      }
+      if (I_KIRO_AUTH_JSON) I_KIRO_AUTH_JSON.addEventListener('change', () => {
+        const files = I_KIRO_AUTH_JSON.files;
+        if (!files || files.length === 0) return;
+        if (KIRO_AUTH_JSON_FILENAME) {
+          KIRO_AUTH_JSON_FILENAME.textContent = files.length === 1 ? files[0].name : `已选择 ${files.length} 个文件`;
+        }
+        importKiroAuthJSONFiles(files);
+      });
+      if (KIRO_ACCOUNTS) KIRO_ACCOUNTS.addEventListener('click', async (e) => {
+        const btn = e.target?.closest?.('[data-kiro-account-action]');
+        if (!btn) return;
+        const action = String(btn.getAttribute('data-kiro-account-action') || '').trim();
+        const accountId = String(btn.getAttribute('data-kiro-account-id') || '').trim();
+        if (!action || !accountId) return;
+        try {
+          await doKiroAccountAction(action, accountId);
+        } catch (err) {
+          LB.toast(err?.message || '账号操作失败', 'error', 4200);
+        }
       });
 
       const VIEW_DD = document.getElementById('view-dropdown');

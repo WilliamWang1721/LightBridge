@@ -39,6 +39,7 @@
 - `/admin/docs`：内置简要说明页（静态）
 - `/admin/auth`：Client Keys + Base URL（部分 UI 会直接使用 router 替代）
 - `/admin/codex/oauth/callback`：Codex OAuth 回调落地页（用于浏览器回跳）
+- `/admin/kiro/oauth/callback`：Kiro OAuth 回调落地页（用于浏览器回跳）
 
 静态资源：
 
@@ -362,3 +363,50 @@
 
 启动 device flow。
 
+---
+
+## 11. Kiro OAuth（Core 代理模块接口）
+
+### `GET /admin/api/kiro/oauth/status`
+
+读取 Kiro 模块认证状态、账号池与当前 active account。
+
+### `POST /admin/api/kiro/oauth/start`
+
+启动 Google OAuth（PKCE）。Core 会先启动本地回调监听并注入 `redirect_uri`（`127.0.0.1:19876-19880/oauth/callback`）。
+
+### `POST /admin/api/kiro/oauth/exchange`
+
+将 callback 的 `code/state` 交给模块换取 token（也支持直接传 `callback_url` 由模块解析）。
+
+### `POST /admin/api/kiro/oauth/import`
+
+导入 token / 凭据 JSON（支持 access/refresh token、IDC 字段等）。
+
+### `POST /admin/api/kiro/oauth/refresh`
+
+按账号刷新 token（默认 active account）。
+
+### `POST /admin/api/kiro/device/start`
+
+启动 AWS Device Code（Builder ID / IAM Identity Center OIDC）认证。
+
+### `GET /admin/api/kiro/usage/limits`
+
+拉取并返回 Kiro 配额原始数据与标准化结构（`quota.items[]`、`used_percent`、`remaining_percent`、`reset_at`）。
+
+### `POST /admin/api/kiro/accounts/enable`
+
+启用账号（请求体示例：`{"account_id":"..."}`）。
+
+### `POST /admin/api/kiro/accounts/disable`
+
+禁用账号（请求体示例：`{"account_id":"..."}`）。
+
+### `POST /admin/api/kiro/accounts/delete`
+
+删除账号（请求体示例：`{"account_id":"..."}`）。
+
+### `POST /admin/api/kiro/accounts/activate`
+
+设为 active 账号（请求体示例：`{"account_id":"..."}`）。

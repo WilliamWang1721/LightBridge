@@ -551,6 +551,36 @@
       color: var(--red-primary);
     }
 
+    .loading-dialog {
+      width: min(340px, calc(100vw - 32px));
+      padding: 18px;
+    }
+
+    .loading-body {
+      margin-top: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--font-body);
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .loading-spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--text-main);
+      border-radius: 999px;
+      animation: market-spin .8s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes market-spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
     @media (max-width: 980px) {
       .market-split { flex-direction: column; }
       .market-left { width: 100%; max-width: 420px; }
@@ -763,6 +793,16 @@
     </form>
   </dialog>
 
+  <dialog id="loading-dialog" class="loading-dialog">
+    <form method="dialog">
+      <h3 style="margin:0;font-family:var(--font-display);">加载中</h3>
+      <div class="loading-body">
+        <span class="loading-spinner" aria-hidden="true"></span>
+        <span>正在加载 Marketplace 数据，请稍候…</span>
+      </div>
+    </form>
+  </dialog>
+
   <script src="/admin/static/admin.js"></script>
   <script>
     (() => {
@@ -811,6 +851,7 @@
       const CFG_RESTART = document.getElementById('config-restart');
       const CFG_CANCEL = document.getElementById('config-cancel');
       const CFG_SAVE = document.getElementById('config-save');
+      const D_LOADING = document.getElementById('loading-dialog');
 
       let selectedKind = 'provider';
       let indexURL = '';
@@ -819,6 +860,33 @@
       let installedByID = new Map();
       let activeEntry = null;
       let editingModuleID = null;
+      let loadingOpenTimer = 0;
+      let loadingVisibleAt = 0;
+
+      function showLoadingDialog() {
+        if (!D_LOADING) return;
+        if (loadingOpenTimer) window.clearTimeout(loadingOpenTimer);
+        loadingOpenTimer = window.setTimeout(() => {
+          loadingOpenTimer = 0;
+          if (!D_LOADING.open) {
+            D_LOADING.showModal();
+            loadingVisibleAt = Date.now();
+          }
+        }, 150);
+      }
+
+      function hideLoadingDialog() {
+        if (!D_LOADING) return;
+        if (loadingOpenTimer) {
+          window.clearTimeout(loadingOpenTimer);
+          loadingOpenTimer = 0;
+        }
+        if (!D_LOADING.open) return;
+        const wait = Math.max(0, 220 - (Date.now() - loadingVisibleAt));
+        window.setTimeout(() => {
+          try { D_LOADING.close(); } catch (_) {}
+        }, wait);
+      }
 
       function getIndexModules() {
         const mods = lastIndex?.modules ?? lastIndex?.Modules ?? [];
@@ -836,6 +904,27 @@
       function normalizeTags(tags) {
         return (Array.isArray(tags) ? tags : []).map((t) => String(t || '').toLowerCase().trim()).filter(Boolean);
       }
+
+      function normalizeKindToken(v) {
+        return String(v || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+      }
+
+      // Marketplace explicit classification policy (priority > tags fallback):
+      // - Codex OAuth => provider
+      // - Passkey Login / TOTP 2FA Login => auth
+      // - Advanced Statistic / Chatbox => tools
+      const KIND_OVERRIDE_BY_TOKEN = new Map([
+        ['openaicodexoauth', 'provider'],
+        ['codexoauth', 'provider'],
+
+        ['passkeylogin', 'auth'],
+        ['totp2falogin', 'auth'],
+
+        ['advancedstatistics', 'tools'],
+        ['advancedstatistic', 'tools'],
+        ['chatboxpersistent', 'tools'],
+        ['chatbox', 'tools'],
+      ]);
 
       function displayTags(tags) {
         const out = [];
@@ -857,6 +946,20 @@
       }
 
       function inferKind(entry) {
+        const idToken = normalizeKindToken(entry?.id ?? entry?.ID);
+        const nameToken = normalizeKindToken(entry?.name ?? entry?.Name);
+
+        // 1) Explicit mapping first to avoid misclassification caused by tag drift.
+        const forced = KIND_OVERRIDE_BY_TOKEN.get(idToken) || KIND_OVERRIDE_BY_TOKEN.get(nameToken);
+        if (forced) return forced;
+
+        // 2) Name/ID heuristics for minor spelling variants.
+        const textToken = `${idToken} ${nameToken}`;
+        if (textToken.includes('codexoauth')) return 'provider';
+        if (textToken.includes('passkeylogin') || textToken.includes('totp2falogin')) return 'auth';
+        if (textToken.includes('advancedstatistic') || textToken.includes('chatbox')) return 'tools';
+
+        // 3) Legacy tags fallback.
         const tags = normalizeTags(entry?.tags ?? entry?.Tags);
         if (tags.some((t) => t.includes('tool'))) return 'tools';
         if (tags.some((t) => t.includes('auth'))) return 'auth';
@@ -970,8 +1073,9 @@
         return String(indexURL || '').trim();
       }
 
-      async function loadAll({ toastOnFail = true } = {}) {
+      async function loadAll({ toastOnFail = true, withLoadingDialog = false } = {}) {
         BTN_REFRESH.disabled = true;
+        if (withLoadingDialog) showLoadingDialog();
         try {
           const url = currentIndexURL();
           const endpoint = url ? `/admin/api/marketplace/index?url=${encodeURIComponent(url)}` : '/admin/api/marketplace/index';
@@ -987,6 +1091,7 @@
         } catch (err) {
           if (toastOnFail) LB.toast(err?.message || '加载 Marketplace 失败', 'error', 4200);
         } finally {
+          if (withLoadingDialog) hideLoadingDialog();
           BTN_REFRESH.disabled = false;
         }
       }
@@ -1334,14 +1439,14 @@
         b.addEventListener('click', () => setActiveKind(String(b.dataset.kind || 'provider')));
       });
 
-      BTN_REFRESH.addEventListener('click', () => loadAll());
+      BTN_REFRESH.addEventListener('click', () => loadAll({ withLoadingDialog: true }));
       BTN_SOURCE.addEventListener('click', openSourceDialog);
       B_SOURCE_CANCEL.addEventListener('click', closeSourceDialog);
       B_SOURCE_RESET.addEventListener('click', () => {
         indexURL = '';
         try { localStorage.removeItem(KEY_INDEX_URL); } catch (_) {}
         closeSourceDialog();
-        loadAll();
+        loadAll({ withLoadingDialog: true });
       });
 
       F_SOURCE.addEventListener('submit', (e) => {
@@ -1352,7 +1457,7 @@
           else localStorage.removeItem(KEY_INDEX_URL);
         } catch (_) {}
         closeSourceDialog();
-        loadAll();
+        loadAll({ withLoadingDialog: true });
       });
 
       B_MODULE_CLOSE.addEventListener('click', closeModuleDialog);
@@ -1365,6 +1470,7 @@
 
       CFG_CANCEL.addEventListener('click', closeConfigDialog);
       D_CFG.addEventListener('close', () => { editingModuleID = null; });
+      if (D_LOADING) D_LOADING.addEventListener('cancel', (e) => e.preventDefault());
 
       F_CFG.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -1406,7 +1512,7 @@
       // Init.
       try { indexURL = String(localStorage.getItem(KEY_INDEX_URL) || '').trim(); } catch (_) {}
       setActiveKind('provider');
-      loadAll({ toastOnFail: false });
+      loadAll({ toastOnFail: false, withLoadingDialog: true });
     })();
   </script>
 </body>

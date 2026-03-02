@@ -1,0 +1,154 @@
+{
+  "id": "kiro-oauth-provider",
+  "name": "Kiro OAuth Provider",
+  "description": "Kiro OAuth provider for LightBridge (Google PKCE, AWS Device Code, credential import, usage normalization).",
+  "tags": [
+    "Kiro",
+    "OAuth",
+    "provider",
+    "AWS"
+  ],
+  "version": "0.1.0",
+  "license": "UNLICENSED",
+  "min_core_version": "0.1.0",
+  "entrypoints": {
+    "darwin/arm64": {
+      "command": "bin/darwin/arm64/kiro-oauth-provider",
+      "args": []
+    },
+    "darwin/amd64": {
+      "command": "bin/darwin/amd64/kiro-oauth-provider",
+      "args": []
+    },
+    "linux/arm64": {
+      "command": "bin/linux/arm64/kiro-oauth-provider",
+      "args": []
+    },
+    "linux/amd64": {
+      "command": "bin/linux/amd64/kiro-oauth-provider",
+      "args": []
+    },
+    "default": {
+      "command": "bin/darwin/arm64/kiro-oauth-provider",
+      "args": []
+    }
+  },
+  "services": [
+    {
+      "kind": "provider",
+      "protocol": "http_openai",
+      "health": {
+        "type": "http",
+        "path": "/health"
+      },
+      "expose_provider_aliases": [
+        "kiro"
+      ]
+    }
+  ],
+  "config_schema": {
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {
+      "base_url": {
+        "type": "string",
+        "title": "Kiro Runtime Base URL",
+        "description": "Kiro runtime API endpoint template. Supports {{region}} placeholder."
+      },
+      "amazonq_base_url": {
+        "type": "string",
+        "title": "AmazonQ Runtime Base URL",
+        "description": "Optional endpoint template for amazonq* models. Supports {{region}} placeholder."
+      },
+      "auth_service_endpoint": {
+        "type": "string",
+        "title": "Kiro Auth Service Endpoint",
+        "description": "Social login (Google/GitHub) auth service endpoint."
+      },
+      "aws_oidc_endpoint": {
+        "type": "string",
+        "title": "AWS OIDC Endpoint",
+        "description": "AWS IAM Identity Center OIDC endpoint template ({{region}})."
+      },
+      "social_refresh_url": {
+        "type": "string",
+        "title": "Social Refresh URL",
+        "description": "Kiro social-token refresh endpoint template."
+      },
+      "idc_refresh_url": {
+        "type": "string",
+        "title": "IDC Refresh URL",
+        "description": "AWS IDC token refresh endpoint template."
+      },
+      "builder_id_start_url": {
+        "type": "string",
+        "title": "Builder ID Start URL",
+        "description": "Default AWS Builder ID start URL for device authorization."
+      },
+      "region": {
+        "type": "string",
+        "title": "Default Region",
+        "description": "Default region for Kiro runtime/auth endpoints."
+      },
+      "near_expiry_minutes": {
+        "type": "integer",
+        "title": "Near-expiry minutes",
+        "minimum": 0
+      },
+      "selection_strategy": {
+        "type": "string",
+        "title": "Account Selection Strategy",
+        "description": "fill_first or round_robin"
+      },
+      "quota_low_percent": {
+        "type": "number",
+        "title": "Quota Low Percent",
+        "minimum": 0,
+        "maximum": 100
+      },
+      "timeout_seconds": {
+        "type": "integer",
+        "title": "Request Timeout Seconds",
+        "minimum": 1
+      },
+      "token_refresh_timeout_sec": {
+        "type": "integer",
+        "title": "Refresh Timeout Seconds",
+        "minimum": 1
+      },
+      "models": {
+        "type": "array",
+        "title": "Model list",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "config_defaults": {
+    "base_url": "https://q.{{region}}.amazonaws.com/generateAssistantResponse",
+    "amazonq_base_url": "https://q.{{region}}.amazonaws.com/generateAssistantResponse",
+    "auth_service_endpoint": "https://prod.us-east-1.auth.desktop.kiro.dev",
+    "aws_oidc_endpoint": "https://oidc.{{region}}.amazonaws.com",
+    "social_refresh_url": "https://prod.{{region}}.auth.desktop.kiro.dev/refreshToken",
+    "idc_refresh_url": "https://oidc.{{region}}.amazonaws.com/token",
+    "builder_id_start_url": "https://view.awsapps.com/start",
+    "region": "us-east-1",
+    "near_expiry_minutes": 30,
+    "selection_strategy": "fill_first",
+    "quota_low_percent": 10,
+    "timeout_seconds": 120,
+    "token_refresh_timeout_sec": 15,
+    "models": [
+      "claude-haiku-4-5",
+      "claude-opus-4-6",
+      "claude-sonnet-4-6",
+      "claude-opus-4-5",
+      "claude-opus-4-5-20251101",
+      "claude-sonnet-4-5",
+      "claude-sonnet-4-5-20250929",
+      "claude-sonnet-4-20250514",
+      "claude-3-7-sonnet-20250219"
+    ]
+  }
+}

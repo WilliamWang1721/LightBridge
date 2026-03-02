@@ -72,6 +72,11 @@ type Server struct {
 	codexOAuthCallbackMu      sync.Mutex
 	codexOAuthCallbackStarted bool
 	codexOAuthCallbackErr     error
+
+	kiroOAuthCallbackMu      sync.Mutex
+	kiroOAuthCallbackStarted bool
+	kiroOAuthCallbackErr     error
+	kiroOAuthCallbackPort    int
 }
 
 type usageCaptureResponseWriter struct {
@@ -312,6 +317,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("/admin/static/", http.StripPrefix("/admin/static/", http.FileServer(s.staticFS)))
 	mux.HandleFunc("/admin", s.wrapAdminPage(s.handleDashboardPage))
 	mux.HandleFunc("/admin/codex/oauth/callback", s.wrapAdminPage(s.handleCodexOAuthCallbackPage))
+	mux.HandleFunc("/admin/kiro/oauth/callback", s.wrapAdminPage(s.handleKiroOAuthCallbackPage))
 	mux.HandleFunc("/admin/", s.routeAdminPages)
 	mux.HandleFunc("/admin/api/", s.routeAdminAPI)
 
@@ -950,6 +956,28 @@ func (s *Server) routeAdminAPI(w http.ResponseWriter, r *http.Request) {
 		s.wrapAdminAPI(s.handleCodexOAuthImportAPI)(w, r)
 	case "/codex/device/start":
 		s.wrapAdminAPI(s.handleCodexDeviceStartAPI)(w, r)
+	case "/kiro/oauth/status":
+		s.wrapAdminAPI(s.handleKiroOAuthStatusAPI)(w, r)
+	case "/kiro/oauth/start":
+		s.wrapAdminAPI(s.handleKiroOAuthStartAPI)(w, r)
+	case "/kiro/oauth/exchange":
+		s.wrapAdminAPI(s.handleKiroOAuthExchangeAPI)(w, r)
+	case "/kiro/oauth/import":
+		s.wrapAdminAPI(s.handleKiroOAuthImportAPI)(w, r)
+	case "/kiro/oauth/refresh":
+		s.wrapAdminAPI(s.handleKiroOAuthRefreshAPI)(w, r)
+	case "/kiro/device/start":
+		s.wrapAdminAPI(s.handleKiroDeviceStartAPI)(w, r)
+	case "/kiro/usage/limits":
+		s.wrapAdminAPI(s.handleKiroUsageLimitsAPI)(w, r)
+	case "/kiro/accounts/enable":
+		s.wrapAdminAPI(s.handleKiroAccountEnableAPI)(w, r)
+	case "/kiro/accounts/disable":
+		s.wrapAdminAPI(s.handleKiroAccountDisableAPI)(w, r)
+	case "/kiro/accounts/delete":
+		s.wrapAdminAPI(s.handleKiroAccountDeleteAPI)(w, r)
+	case "/kiro/accounts/activate":
+		s.wrapAdminAPI(s.handleKiroAccountActivateAPI)(w, r)
 	default:
 		if strings.HasPrefix(p, "/chatbox/conversations/") {
 			s.wrapAdminAPI(func(w http.ResponseWriter, r *http.Request) {

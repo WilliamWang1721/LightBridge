@@ -1,0 +1,18 @@
+{
+  "generated_at": "2026-03-02T01:32:08Z",
+  "min_core_version": "0.1.0",
+  "modules": [
+    {
+      "id": "kiro-oauth-provider",
+      "name": "Kiro OAuth Provider",
+      "version": "0.1.0",
+      "description": "Kiro OAuth provider for LightBridge (Google PKCE, AWS Device Code, credential import, usage normalization).",
+      "license": "UNLICENSED",
+      "tags": ["Kiro", "OAuth", "provider", "AWS"],
+      "protocols": ["http_openai"],
+      "download_url": "http://127.0.0.1:8000/kiro-oauth-provider_0.1.0_universal.zip",
+      "sha256": "ac0597a847ae38a4abeb22ef4db0cbc908e6a6ec7f90ec94bf82e0a511b6e643",
+      "homepage": ""
+    }
+  ]
+}

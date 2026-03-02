@@ -16,6 +16,26 @@ func rpIDFromOrigin(origin string) string {
 	return strings.TrimSpace(u.Hostname())
 }
 
+// webAuthnOriginFromRequest prefers the browser-provided Origin header (when present)
+// so WebAuthn rpId/origin match the actual page origin even behind reverse proxies.
+// It falls back to baseURLFromRequest.
+func webAuthnOriginFromRequest(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	if origin != "" && origin != "null" {
+		if u, err := url.Parse(origin); err == nil && u != nil {
+			scheme := strings.ToLower(strings.TrimSpace(u.Scheme))
+			host := strings.TrimSpace(u.Host)
+			if (scheme == "http" || scheme == "https") && host != "" {
+				return scheme + "://" + host
+			}
+		}
+	}
+	return baseURLFromRequest(r)
+}
+
 func (s *Server) handlePasskeyAuthBeginAPI(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
@@ -28,7 +48,7 @@ func (s *Server) handlePasskeyAuthBeginAPI(w http.ResponseWriter, r *http.Reques
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid json"})
 		return
 	}
-	origin := baseURLFromRequest(r)
+	origin := webAuthnOriginFromRequest(r)
 	rpID := rpIDFromOrigin(origin)
 	payload, _ := json.Marshal(map[string]any{
 		"username": strings.TrimSpace(req.Username),
@@ -130,7 +150,7 @@ func (s *Server) handlePasskeyRegisterBeginAPI(w http.ResponseWriter, r *http.Re
 		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "not authenticated"})
 		return
 	}
-	origin := baseURLFromRequest(r)
+	origin := webAuthnOriginFromRequest(r)
 	rpID := rpIDFromOrigin(origin)
 	payload, _ := json.Marshal(map[string]any{
 		"username": username,

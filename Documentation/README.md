@@ -23,6 +23,7 @@
    - [日志与限流](./guide/06-logs-and-rate-limit.md)
    - [数据目录与安全注意事项](./guide/07-security.md)
    - [故障排查](./guide/08-troubleshooting.md)
+   - [Kiro OAuth Provider（kiro-oauth-provider 模块）](./guide/09-kiro-oauth.md)
 3. Reference（需要精确信息时查）：
    - [环境变量一览](./reference/01-env-vars.md)
    - [对外 OpenAI 兼容 API](./reference/02-http-api-public.md)
@@ -56,6 +57,7 @@ Documentation/
     06-logs-and-rate-limit.md
     07-security.md
     08-troubleshooting.md
+    09-kiro-oauth.md
   reference/
     01-env-vars.md
     02-http-api-public.md
@@ -82,4 +84,3 @@ Documentation/
 - 约定 HTTP 示例均使用 `curl`，并显式携带：
   - `Authorization: Bearer <CLIENT_KEY>`
   - `Content-Type: application/json`（当 body 为 JSON 时）
-

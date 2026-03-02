@@ -515,6 +515,16 @@
         };
       }
 
+      function humanizeWebAuthnError(err, fallback) {
+        const name = String(err?.name || '');
+        const msg = String(err?.message || '');
+        if (name === 'NotAllowedError') return '已取消 Passkey 操作';
+        if (name === 'SecurityError' || /invalid domain/i.test(msg)) {
+          return `当前域名不支持 Passkey（WebAuthn）。请使用 HTTPS + 可注册域名访问（避免使用 IP/localhost）。当前：${location.origin}`;
+        }
+        return msg || String(fallback || '操作失败');
+      }
+
       function openCodeDialog(mode, ticket) {
         dialogMode = mode;
         pendingTicket = String(ticket || '');
@@ -604,7 +614,7 @@
               }
               throw new Error('不支持的登录方式');
             } catch (err) {
-              showError(err?.message || '登录失败');
+              showError(humanizeWebAuthnError(err, '登录失败'));
             }
           });
           otherMenu.appendChild(item);

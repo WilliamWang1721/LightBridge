@@ -451,6 +451,16 @@
         };
       }
 
+      function humanizeWebAuthnError(err, fallback) {
+        const name = String(err?.name || '');
+        const msg = String(err?.message || '');
+        if (name === 'NotAllowedError') return '已取消 Passkey 操作';
+        if (name === 'SecurityError' || /invalid domain/i.test(msg)) {
+          return `当前域名不支持 Passkey（WebAuthn）。请使用 HTTPS + 可注册域名访问（避免使用 IP/localhost）。当前：${location.origin}`;
+        }
+        return msg || String(fallback || '操作失败');
+      }
+
       {{if .PasskeyInstalled}}
       const ui = {
         labelInput: document.getElementById('passkey-label'),
@@ -544,7 +554,7 @@
         try {
           await addPasskey();
         } catch (err) {
-          showMsg(err?.message || 'Passkey 绑定失败', true);
+          showMsg(humanizeWebAuthnError(err, 'Passkey 绑定失败'), true);
         } finally {
           ui.addBtn.disabled = false;
         }
