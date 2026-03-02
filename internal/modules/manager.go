@@ -223,8 +223,22 @@ func (m *Manager) StartInstalledModule(ctx context.Context, moduleID string) (*t
 	}
 
 	aliases := collectExposedAliases(manifest.Services)
-	if skipAutoProviderAliasRegistration(moduleID) {
-		aliases = nil
+	if helper := helperProviderAliases(moduleID); len(helper) > 0 {
+		seen := map[string]struct{}{}
+		for _, a := range aliases {
+			seen[strings.TrimSpace(a)] = struct{}{}
+		}
+		for _, a := range helper {
+			a = strings.TrimSpace(a)
+			if a == "" {
+				continue
+			}
+			if _, ok := seen[a]; ok {
+				continue
+			}
+			seen[a] = struct{}{}
+			aliases = append(aliases, a)
+		}
 	}
 	m.mu.Lock()
 	proc.cmd = cmd
@@ -405,6 +419,18 @@ func collectExposedAliases(services []types.ManifestService) []string {
 	return out
 }
 
+func helperProviderAliases(moduleID string) []string {
+	id := strings.ToLower(strings.TrimSpace(moduleID))
+	switch id {
+	case "kiro-oauth-provider":
+		// The Kiro module is treated as an OAuth helper in the UI, but it still exposes
+		// an OpenAI-compatible chat endpoint for the `kiro` provider.
+		return []string{"kiro"}
+	default:
+		return nil
+	}
+}
+
 func (m *Manager) waitHealth(ctx context.Context, services []types.ManifestService, httpPort, grpcPort int) error {
 	deadline := time.Now().Add(10 * time.Second)
 	for {
@@ -476,9 +502,7 @@ func grpcHealth(port int) error {
 }
 
 func (m *Manager) registerProviderAliases(ctx context.Context, services []types.ManifestService, moduleID string, httpPort, grpcPort int) error {
-	if skipAutoProviderAliasRegistration(moduleID) {
-		return nil
-	}
+	skipCreate := skipAutoProviderAliasRegistration(moduleID)
 	for _, svc := range services {
 		if svc.Kind != "provider" {
 			continue
@@ -490,10 +514,32 @@ func (m *Manager) registerProviderAliases(ctx context.Context, services []types.
 		case types.ProtocolGRPCChat:
 			endpoint = fmt.Sprintf("127.0.0.1:%d", grpcPort)
 		}
-		for _, alias := range svc.ExposeProviderAliases {
+		aliasList := append([]string(nil), svc.ExposeProviderAliases...)
+		if helper := helperProviderAliases(moduleID); len(helper) > 0 {
+			aliasList = append(aliasList, helper...)
+		}
+		seenAlias := map[string]struct{}{}
+		for _, alias := range aliasList {
 			if strings.TrimSpace(alias) == "" {
 				continue
 			}
+			alias = strings.TrimSpace(alias)
+			if _, ok := seenAlias[alias]; ok {
+				continue
+			}
+			seenAlias[alias] = struct{}{}
+
+			existing, err := m.store.GetProvider(ctx, alias)
+			if err != nil {
+				return err
+			}
+			if skipCreate && existing == nil {
+				// Helper modules should not auto-create provider aliases on startup, but we still
+				// refresh the endpoint/protocol for existing module providers because ports can
+				// change across restarts.
+				continue
+			}
+
 			provider := types.Provider{
 				ID:         alias,
 				Type:       types.ProviderTypeModule,
@@ -508,10 +554,6 @@ func (m *Manager) registerProviderAliases(ctx context.Context, services []types.
 			// - If the provider already exists and is not a module provider, do not clobber it.
 			// - If the provider exists as a module provider, preserve Enabled + ConfigJSON, but still
 			//   refresh Endpoint/Protocol (ports can change across restarts).
-			existing, err := m.store.GetProvider(ctx, alias)
-			if err != nil {
-				return err
-			}
 			if existing != nil {
 				if strings.TrimSpace(existing.Type) != "" && existing.Type != types.ProviderTypeModule {
 					continue

@@ -382,12 +382,42 @@ func (s *Server) handleProviderPullModelsAPI(w http.ResponseWriter, r *http.Requ
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return
 	}
+	autoModelRoutes := make(map[string][]types.ModelRoute)
+	for _, modelID := range modelIDs {
+		modelID = strings.TrimSpace(modelID)
+		if modelID == "" {
+			continue
+		}
+		routes, err := s.store.ListModelRoutes(r.Context(), modelID, true)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+			return
+		}
+		if len(routes) > 0 {
+			continue
+		}
+		autoModelRoutes[modelID] = []types.ModelRoute{{
+			ModelID:       modelID,
+			ProviderID:    providerID,
+			UpstreamModel: modelID,
+			Priority:      1,
+			Weight:        1,
+			Enabled:       true,
+		}}
+	}
+	if len(autoModelRoutes) > 0 {
+		if err := s.store.UpsertModelRoutesBulk(r.Context(), autoModelRoutes); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+			return
+		}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":          true,
 		"provider_id": providerID,
 		"source_url":  sourceURL,
 		"total":       len(modelIDs),
 		"inserted":    inserted,
+		"auto_routed": len(autoModelRoutes),
 	})
 }
 

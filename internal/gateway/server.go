@@ -49,6 +49,7 @@ type Server struct {
 	cfg         Config
 	store       *store.Store
 	resolver    *routing.Resolver
+	coreRouter  *routing.Router
 	providers   *providers.Registry
 	marketplace *modules.Marketplace
 	moduleMgr   *modules.Manager
@@ -289,6 +290,7 @@ func New(cfg Config, st *store.Store, resolver *routing.Resolver, providerRegist
 		cfg:         cfg,
 		store:       st,
 		resolver:    resolver,
+		coreRouter:  routing.NewRouter(st, resolver),
 		providers:   providerRegistry,
 		marketplace: marketplace,
 		moduleMgr:   moduleMgr,
@@ -555,111 +557,57 @@ func (s *Server) handleV1Proxy(w http.ResponseWriter, r *http.Request) {
 
 	ingressProtocol := ingressProtocolFromContext(r.Context())
 	forceByProtocol := forceProviderByProtocol(r.Context())
+	routeReq := routing.DispatchRequest{
+		ModelID:             modelID,
+		IngressProtocol:     ingressProtocol,
+		EndpointKind:        endpointKind,
+		ForceProviderByType: forceByProtocol,
+	}
 
-	var (
-		route    *types.ResolvedRoute
-		err      error
-		provider *types.Provider
-	)
-	if forceByProtocol {
-		// Native protocol ingress prefers protocol-matched providers.
-		// We still resolve by model first so protocol-incompatible routes/models can return
-		// a clear structured not_supported error instead of ambiguous upstream failures.
-		if modelID != "" {
-			route, err = s.resolver.Resolve(r.Context(), modelID)
-			if err != nil && errors.Is(err, routing.ErrNoHealthyProvider) {
-				s.startEnabledModulesBestEffort()
-				route, err = s.resolver.Resolve(r.Context(), modelID)
-			}
-			if err == nil && route != nil {
-				provider, _ = s.store.GetProvider(r.Context(), route.ProviderID)
-				if provider != nil && !supportsProtocolRoute(ingressProtocol, provider.Protocol, endpointKind) {
-					writeNotSupportedRouteError(
-						w,
-						types.NormalizeProtocol(ingressProtocol),
-						types.NormalizeProtocol(provider.Protocol),
-						endpointKind,
-					)
-					_ = s.store.InsertRequestLog(r.Context(), types.RequestLogMeta{
-						Timestamp:   time.Now().UTC(),
-						RequestID:   requestID,
-						ClientKeyID: client.ID,
-						ProviderID:  provider.ID,
-						ModelID:     routeModelID(route, modelID),
-						Path:        logPath,
-						Status:      http.StatusNotImplemented,
-						LatencyMS:   time.Since(start).Milliseconds(),
-						ErrorCode:   "not_supported",
-					})
-					return
-				}
-			}
-			if err != nil {
-				route = nil
-			}
-		}
-		if route == nil {
-			provider, err = s.findHealthyProviderByProtocol(r.Context(), ingressProtocol)
-			if err != nil || provider == nil {
-				writeOpenAIError(w, http.StatusBadGateway, "provider unavailable", "provider_error", "provider_not_found")
-				_ = s.store.InsertRequestLog(r.Context(), types.RequestLogMeta{
-					Timestamp:   time.Now().UTC(),
-					RequestID:   requestID,
-					ClientKeyID: client.ID,
-					ModelID:     strings.TrimSpace(modelID),
-					Path:        logPath,
-					Status:      http.StatusBadGateway,
-					LatencyMS:   time.Since(start).Milliseconds(),
-					ErrorCode:   "provider_not_found",
-				})
-				return
-			}
-			route = &types.ResolvedRoute{
-				RequestedModel: strings.TrimSpace(modelID),
-				ProviderID:     provider.ID,
-				UpstreamModel:  strings.TrimSpace(modelID),
-				Variant:        true,
-			}
-		}
-	} else if modelID == "" {
-		defaultProviderID := s.defaultProviderIDForIngress(r.Context(), ingressProtocol)
-		route = &types.ResolvedRoute{
-			RequestedModel: "",
-			ProviderID:     defaultProviderID,
-			UpstreamModel:  "",
-			Variant:        false,
-		}
-	} else {
-		if types.NormalizeProtocol(ingressProtocol) != types.ProtocolOpenAI {
-			if routes, e := s.store.ListModelRoutes(r.Context(), modelID, false); e == nil && len(routes) == 0 {
-				if p, _ := s.findHealthyProviderByProtocol(r.Context(), ingressProtocol); p != nil {
-					provider = p
-					route = &types.ResolvedRoute{
-						RequestedModel: strings.TrimSpace(modelID),
-						ProviderID:     p.ID,
-						UpstreamModel:  strings.TrimSpace(modelID),
-						Variant:        false,
-					}
-				}
-			}
-		}
-		if route == nil {
-			route, err = s.resolver.Resolve(r.Context(), modelID)
-			if err != nil && errors.Is(err, routing.ErrNoHealthyProvider) {
-				// Auto-heal: if no healthy provider is available, try starting enabled modules (best-effort)
-				// and resolve once more. This helps when a module-backed provider (e.g. codex) is enabled
-				// but not currently running (or was restarted/crashed).
-				s.startEnabledModulesBestEffort()
-				route, err = s.resolver.Resolve(r.Context(), modelID)
-			}
-		}
-		if err != nil {
+	decision, err := s.coreRouter.Resolve(r.Context(), routeReq)
+	if err != nil && (errors.Is(err, routing.ErrNoHealthyProvider) || errors.Is(err, routing.ErrProviderUnavailable)) {
+		// Auto-heal: if no healthy provider is available, try starting enabled modules (best-effort)
+		// and resolve once more. This helps when a module-backed provider (e.g. codex) is enabled
+		// but not currently running (or was restarted/crashed).
+		s.startEnabledModulesBestEffort()
+		decision, err = s.coreRouter.Resolve(r.Context(), routeReq)
+	}
+	if err != nil {
+		var notSupported *routing.ProtocolRouteNotSupportedError
+		switch {
+		case errors.As(err, &notSupported):
+			writeNotSupportedRouteError(w, notSupported.SourceProtocol, notSupported.TargetProtocol, notSupported.EndpointKind)
+			_ = s.store.InsertRequestLog(r.Context(), types.RequestLogMeta{
+				Timestamp:   time.Now().UTC(),
+				RequestID:   requestID,
+				ClientKeyID: client.ID,
+				ModelID:     strings.TrimSpace(modelID),
+				Path:        logPath,
+				Status:      http.StatusNotImplemented,
+				LatencyMS:   time.Since(start).Milliseconds(),
+				ErrorCode:   "not_supported",
+			})
+			return
+		case errors.Is(err, routing.ErrProviderUnavailable):
+			writeOpenAIError(w, http.StatusBadGateway, "provider unavailable", "provider_error", "provider_not_found")
+			_ = s.store.InsertRequestLog(r.Context(), types.RequestLogMeta{
+				Timestamp:   time.Now().UTC(),
+				RequestID:   requestID,
+				ClientKeyID: client.ID,
+				ModelID:     strings.TrimSpace(modelID),
+				Path:        logPath,
+				Status:      http.StatusBadGateway,
+				LatencyMS:   time.Since(start).Milliseconds(),
+				ErrorCode:   "provider_not_found",
+			})
+			return
+		default:
 			writeOpenAIError(w, http.StatusBadGateway, err.Error(), "routing_error", "routing_failed")
 			_ = s.store.InsertRequestLog(r.Context(), types.RequestLogMeta{
 				Timestamp:   time.Now().UTC(),
 				RequestID:   requestID,
 				ClientKeyID: client.ID,
-				ModelID:     modelID,
+				ModelID:     strings.TrimSpace(modelID),
 				Path:        logPath,
 				Status:      http.StatusBadGateway,
 				LatencyMS:   time.Since(start).Milliseconds(),
@@ -669,45 +617,9 @@ func (s *Server) handleV1Proxy(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if provider == nil {
-		provider, err = s.store.GetProvider(r.Context(), route.ProviderID)
-	}
-	if err != nil || provider == nil {
-		writeOpenAIError(w, http.StatusBadGateway, "provider unavailable", "provider_error", "provider_not_found")
-		_ = s.store.InsertRequestLog(r.Context(), types.RequestLogMeta{
-			Timestamp:   time.Now().UTC(),
-			RequestID:   requestID,
-			ClientKeyID: client.ID,
-			ProviderID:  route.ProviderID,
-			ModelID:     routeModelID(route, modelID),
-			Path:        logPath,
-			Status:      http.StatusBadGateway,
-			LatencyMS:   time.Since(start).Milliseconds(),
-			ErrorCode:   "provider_not_found",
-		})
-		return
-	}
-
-	if !supportsProtocolRoute(ingressProtocol, provider.Protocol, endpointKind) {
-		writeNotSupportedRouteError(
-			w,
-			types.NormalizeProtocol(ingressProtocol),
-			types.NormalizeProtocol(provider.Protocol),
-			endpointKind,
-		)
-		_ = s.store.InsertRequestLog(r.Context(), types.RequestLogMeta{
-			Timestamp:   time.Now().UTC(),
-			RequestID:   requestID,
-			ClientKeyID: client.ID,
-			ProviderID:  provider.ID,
-			ModelID:     routeModelID(route, modelID),
-			Path:        logPath,
-			Status:      http.StatusNotImplemented,
-			LatencyMS:   time.Since(start).Milliseconds(),
-			ErrorCode:   "not_supported",
-		})
-		return
-	}
+	route := decision.Route
+	provider := decision.Provider
+	bridgeMode := decision.BridgeMode
 
 	adapter, ok := s.providers.Get(provider.Protocol)
 	if !ok {
@@ -730,45 +642,46 @@ func (s *Server) handleV1Proxy(w http.ResponseWriter, r *http.Request) {
 	// try resolving to a different provider up to 2 times.
 	const maxRetries = 2
 	excludedProviders := map[string]struct{}{}
+	currentDecision := decision
 	finalStatus, finalCode := 0, ""
 	finalUsage := usageStats{}
-	finalModelID := routeModelID(route, modelID)
+	finalModelID := routeModelID(currentDecision.Route, modelID)
+	var finalErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		if attempt > 0 {
-			// Re-resolve excluding failed providers
-			excludedProviders[route.ProviderID] = struct{}{}
-			newRoute, resolveErr := s.resolver.ResolveExcluding(r.Context(), modelID, excludedProviders)
+			// Re-resolve excluding failed providers.
+			excludedProviders[currentDecision.Route.ProviderID] = struct{}{}
+			newDecision, resolveErr := s.coreRouter.ResolveExcluding(r.Context(), routeReq, excludedProviders)
 			if resolveErr != nil {
-				break // No more providers to try
+				break // No more providers to try.
 			}
-			route = newRoute
-			newProvider, provErr := s.store.GetProvider(r.Context(), route.ProviderID)
-			if provErr != nil || newProvider == nil {
-				break
-			}
-			provider = newProvider
-			newAdapter, adapterOk := s.providers.Get(provider.Protocol)
+			currentDecision = newDecision
+			newAdapter, adapterOk := s.providers.Get(currentDecision.Provider.Protocol)
 			if !adapterOk {
 				break
 			}
 			adapter = newAdapter
+			bridgeMode = currentDecision.BridgeMode
 			// Reset request body for retry
 			r.Body = ioNopCloser(bodyBytes)
 		}
+		route = currentDecision.Route
+		provider = currentDecision.Provider
 		finalModelID = routeModelID(route, modelID)
 
 		captureW := newUsageCaptureResponseWriter(w, 8<<20)
 		var status int
 		var code string
 		var err error
-		if shouldBridgeAnthropicMessages(ingressProtocol, endpointKind, provider.Protocol) {
+		switch bridgeMode {
+		case routing.BridgeModeAnthropicMessages:
 			status, code, err = s.handleAnthropicMessagesBridge(r.Context(), captureW, r, adapter, *provider, route, bodyBytes)
-		} else if shouldBridgeGeminiNative(ingressProtocol, endpointKind, provider.Protocol) {
+		case routing.BridgeModeGeminiNative:
 			status, code, err = s.handleGeminiNativeBridge(r.Context(), captureW, r, adapter, *provider, route, bodyBytes, endpointKind)
-		} else if shouldBridgeAzureLegacy(ingressProtocol, endpointKind, provider.Protocol) {
+		case routing.BridgeModeAzureLegacy:
 			status, code, err = s.handleAzureLegacyBridge(r.Context(), captureW, r, adapter, *provider, route, bodyBytes)
-		} else {
+		default:
 			status, code, err = adapter.Handle(r.Context(), captureW, r, *provider, route)
 		}
 		finalStatus = status
@@ -787,18 +700,29 @@ func (s *Server) handleV1Proxy(w http.ResponseWriter, r *http.Request) {
 			}
 			// Only retry on 5xx errors for non-variant routes
 			if finalStatus >= 500 && !route.Variant && attempt < maxRetries {
+				finalErr = err
 				continue
 			}
 			writeOpenAIError(w, finalStatus, err.Error(), "upstream_error", finalCode)
+			finalErr = nil
+		} else {
+			finalErr = nil
 		}
 		break
+	}
+	if finalErr != nil {
+		finalStatus = statusOrDefault(finalStatus, http.StatusBadGateway)
+		if strings.TrimSpace(finalCode) == "" {
+			finalCode = "upstream_error"
+		}
+		writeOpenAIError(w, finalStatus, finalErr.Error(), "upstream_error", finalCode)
 	}
 
 	_ = s.store.InsertRequestLog(r.Context(), types.RequestLogMeta{
 		Timestamp:       time.Now().UTC(),
 		RequestID:       requestID,
 		ClientKeyID:     client.ID,
-		ProviderID:      route.ProviderID,
+		ProviderID:      currentDecision.Route.ProviderID,
 		ModelID:         finalModelID,
 		Path:            logPath,
 		Status:          statusOrDefault(finalStatus, http.StatusOK),

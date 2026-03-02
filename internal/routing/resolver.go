@@ -82,18 +82,20 @@ func (r *Resolver) Resolve(ctx context.Context, model string) (*types.ResolvedRo
 		}, nil
 	}
 
-	fallback := inferFallbackProvider(model)
-	provider, err := r.store.GetProvider(ctx, fallback)
-	if err != nil {
-		return nil, err
-	}
-	if provider != nil && provider.Enabled && isHealthy(provider.Health) {
-		return &types.ResolvedRoute{
-			RequestedModel: model,
-			ProviderID:     fallback,
-			UpstreamModel:  model,
-			Variant:        false,
-		}, nil
+	fallbacks := inferFallbackProviders(model)
+	for _, fallback := range fallbacks {
+		provider, err := r.store.GetProvider(ctx, fallback)
+		if err != nil {
+			return nil, err
+		}
+		if provider != nil && provider.Enabled && isHealthy(provider.Health) {
+			return &types.ResolvedRoute{
+				RequestedModel: model,
+				ProviderID:     fallback,
+				UpstreamModel:  model,
+				Variant:        false,
+			}, nil
+		}
 	}
 
 	// Fallback provider unavailable — try any healthy enabled provider as last resort.
@@ -102,7 +104,7 @@ func (r *Resolver) Resolve(ctx context.Context, model string) (*types.ResolvedRo
 		return nil, err
 	}
 	if anyProvider == nil {
-		return nil, fmt.Errorf("fallback provider %s unavailable: %w", fallback, ErrNoHealthyProvider)
+		return nil, fmt.Errorf("fallback providers %v unavailable: %w", fallbacks, ErrNoHealthyProvider)
 	}
 	return &types.ResolvedRoute{
 		RequestedModel: model,
@@ -313,8 +315,10 @@ func (r *Resolver) ResolveExcluding(ctx context.Context, model string, excludePr
 	}
 
 	// Try fallback providers not in exclusion set
-	fallback := inferFallbackProvider(model)
-	if _, excluded := excludeProviders[fallback]; !excluded {
+	for _, fallback := range inferFallbackProviders(model) {
+		if _, excluded := excludeProviders[fallback]; excluded {
+			continue
+		}
 		provider, err := r.store.GetProvider(ctx, fallback)
 		if err != nil {
 			return nil, err
@@ -345,22 +349,23 @@ func (r *Resolver) ResolveExcluding(ctx context.Context, model string, excludePr
 	}, nil
 }
 
-// inferFallbackProvider returns the best-guess provider ID based on model name prefix.
-func inferFallbackProvider(model string) string {
+// inferFallbackProviders returns the best-guess provider IDs in descending preference order.
+func inferFallbackProviders(model string) []string {
 	lower := strings.ToLower(model)
 	switch {
 	case strings.HasPrefix(lower, "claude-"):
-		return "anthropic"
+		// If Anthropic is not configured, Kiro is a common OAuth-backed Claude provider.
+		return []string{"anthropic", "kiro"}
 	case strings.HasPrefix(lower, "gemini-"):
-		return "gemini"
+		return []string{"gemini"}
 	case strings.HasPrefix(lower, "gpt-"),
 		strings.HasPrefix(lower, "o1-"),
 		strings.HasPrefix(lower, "o3-"),
 		strings.HasPrefix(lower, "o4-"),
 		strings.HasPrefix(lower, "chatgpt-"):
-		return "codex"
+		return []string{"codex", "forward"}
 	default:
-		return "forward"
+		return []string{"forward"}
 	}
 }
 

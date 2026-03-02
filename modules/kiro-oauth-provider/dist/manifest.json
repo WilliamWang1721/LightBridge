@@ -8,7 +8,7 @@
     "provider",
     "AWS"
   ],
-  "version": "0.1.0",
+  "version": "0.1.1",
   "license": "UNLICENSED",
   "min_core_version": "0.1.0",
   "entrypoints": {
@@ -40,10 +40,7 @@
       "health": {
         "type": "http",
         "path": "/health"
-      },
-      "expose_provider_aliases": [
-        "kiro"
-      ]
+      }
     }
   ],
   "config_schema": {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/url"
-	"sort"
 	"strings"
 
 	"lightbridge/internal/types"
@@ -318,30 +317,6 @@ func forceProviderByProtocol(ctx context.Context) bool {
 	return v
 }
 
-func supportsProtocolRoute(sourceProtocol, targetProtocol, endpointKind string) bool {
-	source := types.NormalizeProtocol(sourceProtocol)
-	_ = types.NormalizeProtocol(targetProtocol)
-	kind := strings.TrimSpace(endpointKind)
-
-	if source == types.ProtocolGemini {
-		switch kind {
-		case endpointKindGenerateContent, endpointKindStreamGenerateContent, endpointKindCountTokens:
-			return true
-		}
-	}
-	if source == types.ProtocolAnthropic {
-		if kind == endpointKindMessages {
-			return true
-		}
-	}
-	if source == types.ProtocolAzureOpenAI {
-		if strings.HasPrefix(kind, "azure_legacy") {
-			return true
-		}
-	}
-	return true
-}
-
 func requestModelFromPath(path string) string {
 	path = strings.TrimSpace(path)
 	if path == "" {
@@ -388,41 +363,4 @@ func requestModelFromPath(path string) string {
 	}
 
 	return ""
-}
-
-func (s *Server) defaultProviderIDForIngress(ctx context.Context, ingressProtocol string) string {
-	switch types.NormalizeProtocol(ingressProtocol) {
-	case types.ProtocolGemini, types.ProtocolAnthropic, types.ProtocolOpenAIResponses, types.ProtocolAzureOpenAI:
-		if p, _ := s.findHealthyProviderByProtocol(ctx, ingressProtocol); p != nil {
-			return p.ID
-		}
-	}
-	return "forward"
-}
-
-func (s *Server) findHealthyProviderByProtocol(ctx context.Context, protocol string) (*types.Provider, error) {
-	protocol = types.NormalizeProtocol(protocol)
-	list, err := s.store.ListProviders(ctx, false)
-	if err != nil {
-		return nil, err
-	}
-	sort.SliceStable(list, func(i, j int) bool { return list[i].ID < list[j].ID })
-	for i := range list {
-		p := &list[i]
-		if !providerHealthy(p.Health) {
-			continue
-		}
-		if types.NormalizeProtocol(p.Protocol) == protocol {
-			return p, nil
-		}
-	}
-	return nil, nil
-}
-
-func providerHealthy(status string) bool {
-	status = strings.ToLower(strings.TrimSpace(status))
-	if status == "" {
-		return true
-	}
-	return status != "down" && status != "unhealthy" && status != "disabled"
 }

@@ -1587,6 +1587,10 @@
         return String(p?.ID ?? p?.id ?? '').trim();
       }
 
+      function providerRawDisplayName(p) {
+        return String(p?.DisplayName ?? p?.displayName ?? '').trim();
+      }
+
       function providerType(p) {
         return String(p?.Type ?? p?.type ?? '').trim();
       }
@@ -1603,13 +1607,124 @@
         return String(p?.GroupName ?? p?.groupName ?? '').trim();
       }
 
+      function normalizeProviderID(id) {
+        return String(id || '').trim().toLowerCase();
+      }
+
+      function slugifyProviderIDPart(input) {
+        const raw = String(input || '').trim().toLowerCase();
+        if (!raw) return '';
+        return raw
+          .replace(/[@._\s]+/g, '-')
+          .replace(/[^a-z0-9-]+/g, '-')
+          .replace(/-+/g, '-')
+          .replace(/^-|-$/g, '');
+      }
+
+      function providerIDsSet(list) {
+        const out = new Set();
+        for (const p of Array.isArray(list) ? list : []) {
+          const id = normalizeProviderID(providerID(p));
+          if (id) out.add(id);
+        }
+        return out;
+      }
+
+      function makeUniqueProviderID(baseID, occupied) {
+        const used = occupied instanceof Set ? occupied : new Set();
+        const base = slugifyProviderIDPart(baseID) || `provider-${Date.now().toString(36)}`;
+        if (!used.has(base)) return base;
+        for (let i = 2; i < 1000; i++) {
+          const candidate = `${base}-${i}`;
+          if (!used.has(candidate)) return candidate;
+        }
+        return `${base}-${Date.now().toString(36)}`;
+      }
+
+      function findProviderByID(list, id) {
+        const target = normalizeProviderID(id);
+        if (!target) return null;
+        return (Array.isArray(list) ? list : []).find((p) => normalizeProviderID(providerID(p)) === target) || null;
+      }
+
+      function providerConfigObj(p) {
+        return parseJSONObj(String(p?.ConfigJSON ?? p?.configJSON ?? '{}'));
+      }
+
+      function isCodexModuleProvider(p) {
+        return providerType(p) === 'module' && providerProtocol(p) === 'codex';
+      }
+
+      function isKiroModuleProvider(p) {
+        if (providerType(p) !== 'module') return false;
+        const id = normalizeProviderID(providerID(p));
+        if (id === 'kiro' || id.startsWith('kiro-')) return true;
+        if (providerProtocol(p) !== 'http_openai') return false;
+        const cfg = providerConfigObj(p);
+        return Boolean(
+          String(cfg?.active_account_id || '').trim() ||
+          String(cfg?.selection_strategy || '').trim() ||
+          Number(cfg?.accounts_count || 0) > 0
+        );
+      }
+
+      function resolveCodexProviderID(credentials, providers) {
+        const list = Array.isArray(providers) ? providers : [];
+        const codexProviders = list.filter(isCodexModuleProvider);
+        const accountID = String(credentials?.account_id || '').trim();
+        const email = String(credentials?.email || '').trim().toLowerCase();
+
+        if (accountID) {
+          for (const p of codexProviders) {
+            const cfg = providerConfigObj(p);
+            if (String(cfg?.account_id || '').trim() === accountID) return providerID(p);
+          }
+        }
+        if (email) {
+          for (const p of codexProviders) {
+            const cfg = providerConfigObj(p);
+            if (String(cfg?.email || '').trim().toLowerCase() === email) return providerID(p);
+          }
+        }
+
+        const nameHint = String(CODEX_PROVIDER_NAME?.value || codexPendingDisplayName || '').trim();
+        const slug = slugifyProviderIDPart(accountID || email || nameHint);
+        const base = slug ? `codex-${slug}` : 'codex';
+        return makeUniqueProviderID(base, providerIDsSet(list));
+      }
+
+      function resolveKiroProviderID(statusData, providers) {
+        const list = Array.isArray(providers) ? providers : [];
+        const kiroProviders = list.filter(isKiroModuleProvider);
+        const status = statusData && typeof statusData === 'object' ? statusData : {};
+        const activeID = String(status?.active_account_id || '').trim();
+
+        if (activeID) {
+          for (const p of kiroProviders) {
+            const cfg = providerConfigObj(p);
+            if (String(cfg?.active_account_id || '').trim() === activeID) return providerID(p);
+          }
+        }
+
+        const accounts = Array.isArray(status?.accounts) ? status.accounts : [];
+        let active = null;
+        if (activeID) active = accounts.find((a) => String(a?.id || '').trim() === activeID) || null;
+        if (!active) active = accounts.find((a) => Boolean(a?.enabled)) || accounts[0] || null;
+
+        const nameHint = String(KIRO_PROVIDER_NAME?.value || kiroPendingDisplayName || '').trim();
+        const slug = slugifyProviderIDPart(String(active?.id || activeID || active?.display_name || nameHint || '').trim());
+        const base = slug ? `kiro-${slug}` : 'kiro';
+        return makeUniqueProviderID(base, providerIDsSet(list));
+      }
+
       function providerDisplayName(p) {
         const id = providerID(p);
         const type = providerType(p);
-        const displayName = String(p?.DisplayName ?? p?.displayName ?? '').trim();
+        const displayName = providerRawDisplayName(p);
         if (displayName && displayName !== id) return displayName;
-        if (String(id || '').toLowerCase() === 'codex' && type === 'module') return 'Codex (OpenAI)';
-        if (String(id || '').toLowerCase() === 'kiro' && type === 'module') return 'Kiro OAuth';
+        const lowerID = normalizeProviderID(id);
+        if ((lowerID === 'codex' || lowerID.startsWith('codex-')) && type === 'module' && providerProtocol(p) === 'codex') return 'Codex (OpenAI)';
+        if ((lowerID === 'kiro' || lowerID.startsWith('kiro-')) && isKiroModuleProvider(p)) return 'Kiro OAuth';
         return id;
       }
 
@@ -1637,11 +1752,13 @@
         try {
           const prov = await LB.apiJSON('/admin/api/providers');
           const list = Array.isArray(prov?.data) ? prov.data : [];
-          existing = list.find((p) => providerID(p) === 'codex') || null;
+          const codexProviders = list.filter(isCodexModuleProvider);
+          if (codexProviders.length === 1) existing = codexProviders[0];
+          if (!existing) existing = findProviderByID(codexProviders, 'codex');
         } catch (_) {
           existing = null;
         }
-        const existingName = String(existing?.DisplayName ?? existing?.displayName ?? '').trim();
+        const existingName = providerRawDisplayName(existing);
         const existingGroup = String(existing?.GroupName ?? existing?.groupName ?? '').trim();
         const pendingName = String(codexPendingDisplayName || '').trim();
         const pendingGroup = String(codexPendingGroupName || '').trim();
@@ -1847,6 +1964,9 @@
           for (const aliasRaw of aliases) {
             const alias = String(aliasRaw || '').trim();
             if (!alias) continue;
+            // Chatbox is a tools module (conversation UI/persistence) and should not appear
+            // as an upstream "Provider" candidate in the Add Provider auto-detect list.
+            if (modID === 'chatbox-persistent' || alias.toLowerCase() === 'chatbox') continue;
             out.push({ alias, moduleID: modID, moduleName: name, protocol });
           }
         }
@@ -2383,17 +2503,18 @@
       }
 
       async function ensureCodexProviderRegistered(credentials) {
-        const providerId = 'codex';
         const moduleId = 'openai-codex-oauth';
 
+        let providerList = [];
         let existing = null;
         try {
           const prov = await LB.apiJSON('/admin/api/providers');
-          const list = Array.isArray(prov?.data) ? prov.data : [];
-          existing = list.find((p) => providerID(p) === providerId) || null;
+          providerList = Array.isArray(prov?.data) ? prov.data : [];
         } catch (_) {
           // ignore
         }
+        const providerId = resolveCodexProviderID(credentials, providerList);
+        existing = findProviderByID(providerList, providerId);
 
         if (existing && providerType(existing) && providerType(existing) !== 'module') {
           throw new Error(`Provider ID 冲突：${providerId} 已存在且类型为 ${providerType(existing)}`);
@@ -2429,7 +2550,7 @@
 
         const pendingName = String(codexPendingDisplayName || '').trim();
         const pendingGroup = String(codexPendingGroupName || '').trim();
-        const existingName = String(existing?.DisplayName ?? existing?.displayName ?? '').trim();
+        const existingName = providerRawDisplayName(existing);
         const existingGroup = String(existing?.GroupName ?? existing?.groupName ?? '').trim();
 
         let displayName = pendingName || existingName || providerId;
@@ -2474,7 +2595,7 @@
             LB.toast('尚未获取 Token，无法保存', 'error', 4200);
             return;
           }
-          await ensureCodexProviderRegistered(creds);
+          const saved = await ensureCodexProviderRegistered(creds);
           codexPendingDisplayName = '';
           codexPendingGroupName = '';
           if (CODEX_CB_URL) CODEX_CB_URL.value = '';
@@ -2487,7 +2608,8 @@
           if (CODEX_DEVICE_INFO) CODEX_DEVICE_INFO.textContent = '';
           closeCodexDialog();
           await load();
-          const exists = lastProviders.some((p) => providerID(p) === 'codex');
+          const savedID = String(saved?.id || '').trim();
+          const exists = lastProviders.some((p) => normalizeProviderID(providerID(p)) === normalizeProviderID(savedID));
           if (exists) LB.toast('已保存，并已添加到 Provider 列表', 'ok');
           else LB.toast('已保存，但 Provider 列表未刷新（可点击右下角“刷新 Refresh”）', 'error', 5200);
         } catch (err) {
@@ -2509,11 +2631,13 @@
         try {
           const prov = await LB.apiJSON('/admin/api/providers');
           const list = Array.isArray(prov?.data) ? prov.data : [];
-          existing = list.find((p) => providerID(p) === 'kiro') || null;
+          const kiroProviders = list.filter(isKiroModuleProvider);
+          if (kiroProviders.length === 1) existing = kiroProviders[0];
+          if (!existing) existing = findProviderByID(kiroProviders, 'kiro');
         } catch (_) {
           existing = null;
         }
-        const existingName = String(existing?.DisplayName ?? existing?.displayName ?? '').trim();
+        const existingName = providerRawDisplayName(existing);
         const existingGroup = String(existing?.GroupName ?? existing?.groupName ?? '').trim();
         const pendingName = String(kiroPendingDisplayName || '').trim();
         const pendingGroup = String(kiroPendingGroupName || '').trim();
@@ -2859,15 +2983,16 @@
       }
 
       async function ensureKiroProviderRegistered(statusData) {
-        const providerId = 'kiro';
         const moduleId = 'kiro-oauth-provider';
 
+        let providerList = [];
         let existing = null;
         try {
           const prov = await LB.apiJSON('/admin/api/providers');
-          const list = Array.isArray(prov?.data) ? prov.data : [];
-          existing = list.find((p) => providerID(p) === providerId) || null;
+          providerList = Array.isArray(prov?.data) ? prov.data : [];
         } catch (_) {}
+        const providerId = resolveKiroProviderID(statusData, providerList);
+        existing = findProviderByID(providerList, providerId);
 
         if (existing && providerType(existing) && providerType(existing) !== 'module') {
           throw new Error(`Provider ID 冲突：${providerId} 已存在且类型为 ${providerType(existing)}`);
@@ -2895,7 +3020,7 @@
 
         const pendingName = String(kiroPendingDisplayName || '').trim();
         const pendingGroup = String(kiroPendingGroupName || '').trim();
-        const existingName = String(existing?.DisplayName ?? existing?.displayName ?? '').trim();
+        const existingName = providerRawDisplayName(existing);
         const existingGroup = String(existing?.GroupName ?? existing?.groupName ?? '').trim();
         let displayName = pendingName || existingName || providerId;
         if (kiroNameTouched) {
@@ -2933,12 +3058,13 @@
             LB.toast('尚未获取 Token，无法保存', 'error', 4200);
             return;
           }
-          await ensureKiroProviderRegistered(st);
+          const saved = await ensureKiroProviderRegistered(st);
           kiroPendingDisplayName = '';
           kiroPendingGroupName = '';
           closeKiroDialog();
           await load();
-          const exists = lastProviders.some((p) => providerID(p) === 'kiro');
+          const savedID = String(saved?.id || '').trim();
+          const exists = lastProviders.some((p) => normalizeProviderID(providerID(p)) === normalizeProviderID(savedID));
           if (exists) LB.toast('已保存，并已添加到 Provider 列表', 'ok');
           else LB.toast('已保存，但 Provider 列表未刷新（可点击右下角“刷新 Refresh”）', 'error', 5200);
         } catch (err) {
@@ -3450,7 +3576,12 @@
           const res = await LB.apiJSON('/admin/api/providers/pull_models', { method: 'POST', body: { id } });
           const total = Number(res?.total || 0);
           const inserted = Number(res?.inserted || 0);
-          LB.toast(`已拉取 ${LB.formatCompactNumber(total)} 个模型（新增 ${LB.formatCompactNumber(inserted)}）`, 'ok', 4200);
+          const autoRouted = Number(res?.auto_routed || 0);
+          let msg = `已拉取 ${LB.formatCompactNumber(total)} 个模型（新增 ${LB.formatCompactNumber(inserted)}）`;
+          if (autoRouted > 0) {
+            msg += `，并自动补齐 ${LB.formatCompactNumber(autoRouted)} 条默认路由`;
+          }
+          LB.toast(msg, 'ok', 4200);
           await load();
         } catch (err) {
           LB.toast(err?.message || '拉取模型失败', 'error', 5200);

@@ -149,6 +149,35 @@ func TestResolvePriorityAndWeight(t *testing.T) {
 	}
 }
 
+func TestResolveFallbackUsesKiroWhenAnthropicMissing(t *testing.T) {
+	st, _ := testutil.NewStore(t)
+	ctx := context.Background()
+
+	// Remove anthropic so Claude fallback should try kiro next.
+	_ = st.DeleteProvider(ctx, "anthropic")
+
+	if err := st.UpsertProvider(ctx, types.Provider{
+		ID:         "kiro",
+		Type:       types.ProviderTypeModule,
+		Protocol:   types.ProtocolHTTPOpenAI,
+		Endpoint:   "http://127.0.0.1:9090",
+		ConfigJSON: "{}",
+		Enabled:    true,
+		Health:     "healthy",
+	}); err != nil {
+		t.Fatalf("upsert provider: %v", err)
+	}
+
+	resolver := NewResolver(st, rand.New(rand.NewSource(3)))
+	route, err := resolver.Resolve(ctx, "claude-opus-4-6")
+	if err != nil {
+		t.Fatalf("resolve fallback: %v", err)
+	}
+	if route.ProviderID != "kiro" {
+		t.Fatalf("expected kiro fallback when anthropic missing, got %s", route.ProviderID)
+	}
+}
+
 func TestBuildModelListIncludesVariants(t *testing.T) {
 	st, _ := testutil.NewStore(t)
 	ctx := context.Background()

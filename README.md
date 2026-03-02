@@ -88,6 +88,21 @@ Marketplace 默认源：
 - GitHub 目录扫描（Phase 1，开发/救援路径）：`LIGHTBRIDGE_MODULE_INDEX=github:WilliamWang1721/LightBridge/market/MODULES@main`
 - `local`（开发/离线兜底）：扫描 `./MODULES`（优先）或 `${LIGHTBRIDGE_DATA_DIR}/MODULES` 里的 `*.zip` 模块包
 
+### 3. 一键下载并安装模块服务（CLI）
+
+```bash
+# 使用默认 Marketplace 索引下载并安装最新版本
+go run ./cmd/lightbridge module install openai-codex-oauth
+
+# 指定索引源（例如 local）
+go run ./cmd/lightbridge module install openai-codex-oauth --index local
+
+# 安装指定版本
+go run ./cmd/lightbridge module install openai-codex-oauth --version 0.2.0
+```
+
+命令会自动从 Marketplace 下载模块包并安装；安装完成后，模块会写入本地数据目录（`<DATA_DIR>/modules/...`）并登记到数据库，后续启动 LightBridge 时会按启用状态自动拉起。
+
 ---
 
 ## ⚙️ 首次初始化
