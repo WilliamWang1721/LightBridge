@@ -93,14 +93,14 @@
 
             <div class="mb-3 flex flex-wrap gap-1.5">
               <span
-                v-for="mode in model.usage_modes"
+                v-for="mode in (model.usage_modes || [])"
                 :key="mode"
                 class="rounded bg-blue-50 px-2 py-0.5 text-xs text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
               >
                 {{ formatUsageMode(mode) }}
               </span>
               <span
-                v-if="model.usage_modes.length === 0"
+                v-if="!(model.usage_modes || []).length"
                 class="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-500 dark:bg-dark-700 dark:text-gray-400"
               >
                 {{ t('modelCatalog.usageUnknown') }}
@@ -184,7 +184,7 @@ const filteredModels = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
   if (!query) return props.models
   return props.models.filter((model) => {
-    const groupHit = model.groups.some((group) => group.name.toLowerCase().includes(query))
+    const groupHit = (model.groups || []).some((group) => group.name.toLowerCase().includes(query))
     const sourceHit = props.admin && model.sources?.some((source) =>
       [source.account_name, source.platform, source.source].some((value) =>
         String(value || '').toLowerCase().includes(query)
@@ -222,7 +222,7 @@ function groupMerged(models: ModelCatalogModel[]) {
 function groupByModelGroups(models: ModelCatalogModel[]) {
   const sections = new Map<string, { key: string; title: string; models: ModelCatalogModel[] }>()
   for (const model of models) {
-    for (const group of model.groups) {
+    for (const group of (model.groups || [])) {
       const key = String(group.id)
       if (!sections.has(key)) {
         sections.set(key, { key, title: group.name, models: [] })
@@ -277,8 +277,9 @@ function formatUsageMode(mode: string) {
 }
 
 function formatGroups(groups: ModelCatalogGroup[]) {
-  if (!groups.length) return t('modelCatalog.noGroups')
-  return groups.map((group) => group.name).join(', ')
+  const list = groups || []
+  if (!list.length) return t('modelCatalog.noGroups')
+  return list.map((group) => group.name).join(', ')
 }
 
 function formatSourceChannels(source: NonNullable<ModelCatalogModel['sources']>[number]) {
