@@ -12,6 +12,36 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  go-module-consistency:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          check-latest: false
+          cache: true
+          cache-dependency-path: backend/go.sum
+      - name: Generate canonical module files
+        id: tidy
+        continue-on-error: true
+        working-directory: backend
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+      - name: Upload canonical module files
+        if: steps.tidy.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-module-candidates
+          path: |
+            backend/go.mod
+            backend/go.sum
+          retention-days: 7
+      - name: Enforce module consistency
+        if: steps.tidy.outcome == 'failure'
+        run: exit 1
+
   test:
     runs-on: ubuntu-latest
     steps:
