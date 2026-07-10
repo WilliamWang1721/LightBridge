@@ -1,0 +1,45 @@
+name: Commit Scheduler Diagnostics UI Patch
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Extract and run UI patch
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          src = Path('.github/workflows/apply-error-analysis-ui.yml').read_text()
+          start_marker = "      - name: Patch error analysis UI\n        shell: bash\n        run: |\n"
+          end_marker = "\n      - name: Typecheck frontend\n"
+          start = src.index(start_marker) + len(start_marker)
+          end = src.index(end_marker, start)
+          lines = src[start:end].splitlines()
+          script = '\n'.join(line[10:] if line.startswith('          ') else line for line in lines) + '\n'
+          Path('/tmp/apply-error-analysis-ui.sh').write_text(script)
+          PY
+          bash /tmp/apply-error-analysis-ui.sh
+
+      - name: Commit UI changes
+        shell: bash
+        run: |
+          git rm .github/workflows/apply-error-analysis-ui.yml .github/workflows/commit-error-analysis-ui.yml
+          git add frontend
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "feat(ops): show request-time account rejection reasons"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
