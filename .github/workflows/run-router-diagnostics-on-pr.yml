@@ -1,0 +1,54 @@
+name: Run Router Diagnostics Patch On PR
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Extract and run patch script
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          src = Path('.github/workflows/apply-router-diagnostics-phase1.yml').read_text()
+          start_marker = "      - name: Apply phase-one patch\n        shell: bash\n        run: |\n"
+          end_marker = "\n      - name: Run backend tests\n"
+          start = src.index(start_marker) + len(start_marker)
+          end = src.index(end_marker, start)
+          lines = src[start:end].splitlines()
+          script = '\n'.join(line[10:] if line.startswith('          ') else line for line in lines) + '\n'
+          Path('/tmp/apply-router-diagnostics.sh').write_text(script)
+          PY
+          bash /tmp/apply-router-diagnostics.sh
+
+      - name: Run backend tests
+        working-directory: backend
+        run: go test ./internal/service
+
+      - name: Commit generated patch
+        shell: bash
+        run: |
+          git rm .github/workflows/apply-router-diagnostics-phase1.yml .github/workflows/run-router-diagnostics-on-pr.yml
+          git add backend frontend
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix: route legacy custom accounts and record scheduler rejections"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
