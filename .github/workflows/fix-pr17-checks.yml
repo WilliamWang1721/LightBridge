@@ -1,13 +1,226 @@
 name: Finalize PR17
 
 on:
+  push:
+    branches:
+      - fix/universal-router-diagnostics-phase1
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  placeholder:
+  finalize:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
-      - run: echo "PR17 finalizer is staged and will be enabled after temporary workflow cleanup."
+      - uses: actions/checkout@v6
+        with:
+          ref: fix/universal-router-diagnostics-phase1
+          fetch-depth: 0
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.5'
+          check-latest: false
+          cache: true
+          cache-dependency-path: backend/go.sum
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.13'
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Apply validated CI and security fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python <<'PY'
+          from pathlib import Path
+          import importlib.util
+          import re
+
+          spec = importlib.util.spec_from_file_location("pr17_fixes", "tools/fix_pr17_checks.py")
+          fixes = importlib.util.module_from_spec(spec)
+          assert spec.loader is not None
+          spec.loader.exec_module(fixes)
+
+          # TokenRefreshService gained GrokOAuthService. Add the missing argument only
+          # to legacy eight-argument calls; leave already-correct calls unchanged.
+          for filename in (
+              "backend/internal/service/token_refresh_service_test.go",
+              "backend/internal/service/openai_privacy_retry_test.go",
+          ):
+              path = Path(filename)
+              text = path.read_text(encoding="utf-8")
+              text = re.sub(
+                  r"NewTokenRefreshService\(([^,\n]+), nil, nil, nil, (?!nil, )",
+                  r"NewTokenRefreshService(\1, nil, nil, nil, nil, ",
+                  text,
+              )
+              path.write_text(text, encoding="utf-8")
+
+          fixes.patch_pricing_sync_test()
+
+          # Synchronize API contract fixtures with the response schema.
+          path = Path("backend/internal/server/api_contract_test.go")
+          text = path.read_text(encoding="utf-8")
+          group_start = text.index('"name": "Group One"')
+          group_end = text.index("\n\t\t\t\t\t}", group_start)
+          fragment = text[group_start:group_end]
+          if '"peak_rate_enabled": false' not in fragment:
+              pattern = re.compile(
+                  r'(?m)^([ \t]*)"name": "Group One",\n([ \t]*)"description": "desc",\n([ \t]*)"platform": "anthropic",'
+              )
+              def group_repl(match):
+                  first, description, indent = match.groups()
+                  return (
+                      f'{first}"name": "Group One",\n'
+                      f'{description}"description": "desc",\n'
+                      f'{indent}"peak_end": "",\n'
+                      f'{indent}"peak_rate_enabled": false,\n'
+                      f'{indent}"peak_rate_multiplier": 0,\n'
+                      f'{indent}"peak_start": "",\n'
+                      f'{indent}"platform": "anthropic",'
+                  )
+              text, count = pattern.subn(group_repl, text, count=1)
+              if count != 1:
+                  raise SystemExit(f"group contract fixture count={count}")
+              group_start = text.index('"name": "Group One"')
+              group_end = text.index("\n\t\t\t\t\t}", group_start)
+              fragment = text[group_start:group_end]
+
+          if '"upstream_protocols": null' not in fragment:
+              updated = text.index('"updated_at": "2025-01-02T03:04:05Z"', group_start, group_end)
+              line_end = text.index("\n", updated)
+              line_start = text.rfind("\n", group_start, updated) + 1
+              indent = text[line_start:updated]
+              text = text[:line_end] + ',\n' + indent + '"upstream_protocols": null' + text[line_end:]
+
+          lines = text.splitlines()
+          index = 0
+          while index < len(lines):
+              if '"available_channels_enabled": false,' in lines[index]:
+                  previous = "\n".join(lines[max(0, index - 4):index])
+                  if '"announcements_enabled": false' not in previous:
+                      indent = lines[index][:len(lines[index]) - len(lines[index].lstrip())]
+                      lines[index:index] = [
+                          indent + '"announcements_enabled": false,',
+                          indent + '"promo_enabled": false,',
+                          indent + '"redeem_enabled": false,',
+                      ]
+                      index += 3
+              index += 1
+          text = "\n".join(lines) + "\n"
+
+          quota_pattern = re.compile(
+              r'("default_platform_quotas"\s*:\s*\{)(.*?)(\n\s*\},\n\s*"default_subscriptions")',
+              re.S,
+          )
+          def quota_repl(match):
+              body = match.group(2)
+              indent_match = re.search(r'\n(\s*)"[^"]+"\s*:', body)
+              if not indent_match:
+                  return match.group(0)
+              indent = indent_match.group(1)
+              additions = []
+              if '"custom"' not in body:
+                  additions.append(f'{indent}"custom": {{"daily": null, "monthly": null, "weekly": null}}')
+              if '"grok"' not in body:
+                  additions.append(f'{indent}"grok": {{"daily": null, "monthly": null, "weekly": null}}')
+              if additions:
+                  body = body.rstrip() + ',\n' + ',\n'.join(additions)
+              return match.group(1) + body + match.group(3)
+          text = quota_pattern.sub(quota_repl, text)
+
+          compact_old = (
+              '"default_platform_quotas": {"anthropic":{"daily":null,"weekly":null,"monthly":null},'
+              '"antigravity":{"daily":null,"weekly":null,"monthly":null},'
+              '"gemini":{"daily":null,"weekly":null,"monthly":null},'
+              '"openai":{"daily":null,"weekly":null,"monthly":null}},'
+          )
+          compact_new = (
+              '"default_platform_quotas": {"anthropic":{"daily":null,"weekly":null,"monthly":null},'
+              '"antigravity":{"daily":null,"weekly":null,"monthly":null},'
+              '"custom":{"daily":null,"weekly":null,"monthly":null},'
+              '"gemini":{"daily":null,"weekly":null,"monthly":null},'
+              '"grok":{"daily":null,"weekly":null,"monthly":null},'
+              '"openai":{"daily":null,"weekly":null,"monthly":null}},'
+          )
+          text = text.replace(compact_old, compact_new)
+          path.write_text(text, encoding="utf-8")
+
+          fixes.patch_lint()
+          fixes.patch_audit_exceptions()
+          fixes.patch_workflow_go_versions()
+          PY
+
+          cd backend
+          go mod edit -go=1.26.5
+          go get github.com/aws/aws-sdk-go-v2/service/s3@v1.97.3
+          go get github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream@v1.7.8
+          go mod tidy
+          gofmt -w \
+            cmd/ui-theme/main.go \
+            internal/handler/admin/channel_handler_test.go \
+            internal/handler/admin/lightbridge_connect_handler.go \
+            internal/handler/ops_error_logger.go \
+            internal/modules/proxy/internal/mihomo/compiler_test.go \
+            internal/repository/channel_monitor_repo.go \
+            internal/repository/module_store.go \
+            internal/server/api_contract_test.go \
+            internal/service/codex_image_generation_bridge.go \
+            internal/service/gateway_service.go \
+            internal/service/gemini_native_protocol_adapter_test.go \
+            internal/service/lightbridge_connect_service.go \
+            internal/service/model_rate_limit.go \
+            internal/service/openai_gateway_service.go \
+            internal/service/openai_privacy_retry_test.go \
+            internal/service/privacy_filter.go \
+            internal/service/token_refresh_service_test.go
+          cd ../frontend
+          pnpm add 'xlsx@https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz'
+          pnpm install --frozen-lockfile
+          cd ..
+
+      - name: Backend unit tests
+        working-directory: backend
+        run: make test-unit
+      - name: Backend integration tests
+        working-directory: backend
+        run: make test-integration
+      - name: golangci-lint
+        working-directory: backend
+        run: go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.9.0 run --timeout=30m
+      - name: Frontend typecheck and critical tests
+        run: make test-frontend
+      - name: Backend vulnerability scan
+        working-directory: backend
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+      - name: Frontend dependency audit
+        run: |
+          cd frontend
+          pnpm audit --prod --audit-level=high --json > audit.json || true
+          python ../tools/check_pnpm_audit_exceptions.py \
+            --audit audit.json \
+            --exceptions ../.github/audit-exceptions.yml
+          git restore audit.json 2>/dev/null || rm -f audit.json
+
+      - name: Commit and push validated fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'openai-ci-fixer'
+          git config user.email 'openai-ci-fixer@users.noreply.github.com'
+          git add -A
+          git reset .github/workflows/fix-pr17-checks.yml tools/fix_pr17_checks.py .pr17-ci-trigger
+          if git diff --cached --quiet; then
+            echo 'No code changes to commit.'
+            exit 0
+          fi
+          git commit -m 'fix: complete CI and security remediation'
+          git push origin HEAD:fix/universal-router-diagnostics-phase1
