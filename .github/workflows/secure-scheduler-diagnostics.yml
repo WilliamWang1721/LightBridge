@@ -1,0 +1,360 @@
+name: Secure Scheduler Diagnostics
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  secure:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.13'
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          cache: true
+          cache-dependency-path: backend/go.sum
+
+      - name: Separate internal diagnostics from client errors
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one match, got {count}: {old[:100]!r}')
+              p.write_text(text.replace(old, new, 1))
+
+          # Typed error keeps internal diagnostics out of Error(), while preserving errors.Is.
+          replace_once(
+              'backend/internal/service/scheduler_diagnostics.go',
+              '''import (
+          \t"context"
+          \t"encoding/base64"
+          ''',
+              '''import (
+          \t"context"
+          \t"encoding/base64"
+          \t"errors"
+          ''')
+
+          replace_once(
+              'backend/internal/service/scheduler_diagnostics.go',
+              '''const schedulerDiagnosticsMarker = "scheduler_diagnostics="
+
+          type schedulerAccountDiagnostic struct {
+          ''',
+              '''const schedulerDiagnosticsMarker = "scheduler_diagnostics="
+
+          // SchedulerSelectionError separates the safe client-facing summary from
+          // request-time account diagnostics, which may contain internal account IDs,
+          // names and operational state. Diagnostics are attached to Ops context only.
+          type SchedulerSelectionError struct {
+          \tmessage     string
+          \tdiagnostics string
+          }
+
+          func (e *SchedulerSelectionError) Error() string {
+          \tif e == nil || strings.TrimSpace(e.message) == "" {
+          \t\treturn ErrNoAvailableAccounts.Error()
+          \t}
+          \treturn e.message
+          }
+
+          func (e *SchedulerSelectionError) Unwrap() error {
+          \treturn ErrNoAvailableAccounts
+          }
+
+          func newSchedulerSelectionError(message, diagnostics string) error {
+          \treturn &SchedulerSelectionError{
+          \t\tmessage:     strings.TrimSpace(message),
+          \t\tdiagnostics: strings.TrimSpace(diagnostics),
+          \t}
+          }
+
+          // SchedulerDiagnosticsFromError returns an Ops-only payload. It must never
+          // be appended to a downstream/client-facing error response.
+          func SchedulerDiagnosticsFromError(err error) string {
+          \tvar selectionErr *SchedulerSelectionError
+          \tif !errors.As(err, &selectionErr) || selectionErr == nil || selectionErr.diagnostics == "" {
+          \t\treturn ""
+          \t}
+          \treturn schedulerDiagnosticsMarker + selectionErr.diagnostics
+          }
+
+          type schedulerAccountDiagnostic struct {
+          ''')
+
+          replace_once(
+              'backend/internal/service/scheduler_diagnostics.go',
+              '''\treturn nil, fmt.Errorf("%w (%s)", ErrNoAvailableAccounts, appendSchedulerDiagnostics("all accounts rejected by protocol router", encodeSchedulerDiagnostics(envelope)))
+          ''',
+              '''\treturn nil, newSchedulerSelectionError(
+          \t\t"no available accounts: all accounts rejected by protocol router",
+          \t\tencodeSchedulerDiagnostics(envelope),
+          \t)
+          ''')
+
+          replace_once(
+              'backend/internal/service/scheduler_diagnostics.go',
+              '''\tencoded := s.encodeSchedulerSelectionDiagnostics(ctx, groupID, diagnosticAccounts, requestedModel, platform, excludedIDs)
+          \treturn fmt.Errorf("%w (%s)", ErrNoAvailableAccounts, appendSchedulerDiagnostics(summary, encoded))
+          ''',
+              '''\tencoded := s.encodeSchedulerSelectionDiagnostics(ctx, groupID, diagnosticAccounts, requestedModel, platform, excludedIDs)
+          \treturn newSchedulerSelectionError("no available accounts: "+strings.TrimSpace(summary), encoded)
+          ''')
+
+          replace_once(
+              'backend/internal/service/scheduler_diagnostics.go',
+              '''\treturn fmt.Errorf("%w (%s)", ErrNoAvailableAccounts, appendSchedulerDiagnostics("all eligible accounts rejected by session limits", encodeSchedulerDiagnostics(envelope)))
+          ''',
+              '''\treturn newSchedulerSelectionError(
+          \t\t"no available accounts: all eligible accounts rejected by session limits",
+          \t\tencodeSchedulerDiagnostics(envelope),
+          \t)
+          ''')
+
+          # Legacy selection paths retain safe aggregate counts in Error(), but keep
+          # per-account details in the typed error only.
+          replace_once(
+              'backend/internal/service/gateway_service.go',
+              '''\tif selected == nil {
+          \t\tstats := s.logDetailedSelectionFailure(ctx, groupID, sessionHash, requestedModel, platform, accounts, excludedIDs, false)
+          \t\tif requestedModel != "" {
+          \t\t\treturn nil, fmt.Errorf("%w supporting model: %s (%s)", ErrNoAvailableAccounts, requestedModel, summarizeSelectionFailureStats(stats))
+          \t\t}
+          \t\treturn nil, fmt.Errorf("%w (%s)", ErrNoAvailableAccounts, summarizeSelectionFailureStats(stats))
+          \t}
+          ''',
+              '''\tif selected == nil {
+          \t\tstats := s.logDetailedSelectionFailure(ctx, groupID, sessionHash, requestedModel, platform, accounts, excludedIDs, false)
+          \t\tsummary := summarizeSelectionFailureStats(stats)
+          \t\tif requestedModel != "" {
+          \t\t\treturn nil, newSchedulerSelectionError(
+          \t\t\t\tfmt.Sprintf("%s supporting model: %s (%s)", ErrNoAvailableAccounts, requestedModel, summary),
+          \t\t\t\tstats.Diagnostics,
+          \t\t\t)
+          \t\t}
+          \t\treturn nil, newSchedulerSelectionError(fmt.Sprintf("%s (%s)", ErrNoAvailableAccounts, summary), stats.Diagnostics)
+          \t}
+          ''')
+
+          replace_once(
+              'backend/internal/service/gateway_service.go',
+              '''\tif selected == nil {
+          \t\tstats := s.logDetailedSelectionFailure(ctx, groupID, sessionHash, requestedModel, nativePlatform, accounts, excludedIDs, true)
+          \t\tif requestedModel != "" {
+          \t\t\treturn nil, fmt.Errorf("%w supporting model: %s (%s)", ErrNoAvailableAccounts, requestedModel, summarizeSelectionFailureStats(stats))
+          \t\t}
+          \t\treturn nil, fmt.Errorf("%w (%s)", ErrNoAvailableAccounts, summarizeSelectionFailureStats(stats))
+          \t}
+          ''',
+              '''\tif selected == nil {
+          \t\tstats := s.logDetailedSelectionFailure(ctx, groupID, sessionHash, requestedModel, nativePlatform, accounts, excludedIDs, true)
+          \t\tsummary := summarizeSelectionFailureStats(stats)
+          \t\tif requestedModel != "" {
+          \t\t\treturn nil, newSchedulerSelectionError(
+          \t\t\t\tfmt.Sprintf("%s supporting model: %s (%s)", ErrNoAvailableAccounts, requestedModel, summary),
+          \t\t\t\tstats.Diagnostics,
+          \t\t\t)
+          \t\t}
+          \t\treturn nil, newSchedulerSelectionError(fmt.Sprintf("%s (%s)", ErrNoAvailableAccounts, summary), stats.Diagnostics)
+          \t}
+          ''')
+
+          replace_once(
+              'backend/internal/service/gateway_service.go',
+              '''func summarizeSelectionFailureStats(stats selectionFailureStats) string {
+          \tsummary := fmt.Sprintf(
+          \t\t"total=%d eligible=%d excluded=%d unschedulable=%d model_unsupported=%d model_rate_limited=%d",
+          \t\tstats.Total,
+          \t\tstats.Eligible,
+          \t\tstats.Excluded,
+          \t\tstats.Unschedulable,
+          \t\tstats.ModelUnsupported,
+          \t\tstats.ModelRateLimited,
+          \t)
+          \treturn appendSchedulerDiagnostics(summary, stats.Diagnostics)
+          }
+          ''',
+              '''func summarizeSelectionFailureStats(stats selectionFailureStats) string {
+          \treturn fmt.Sprintf(
+          \t\t"total=%d eligible=%d excluded=%d unschedulable=%d model_unsupported=%d model_rate_limited=%d",
+          \t\tstats.Total,
+          \t\tstats.Eligible,
+          \t\tstats.Excluded,
+          \t\tstats.Unschedulable,
+          \t\tstats.ModelUnsupported,
+          \t\tstats.ModelRateLimited,
+          \t)
+          }
+          ''')
+
+          # Attach the internal payload to the existing Ops-only detail field.
+          replace_once(
+              'backend/internal/service/ops_upstream_context.go',
+              '''func SetOpsUpstreamError(c *gin.Context, upstreamStatusCode int, upstreamMessage, upstreamDetail string) {
+          \tsetOpsUpstreamError(c, upstreamStatusCode, upstreamMessage, upstreamDetail)
+          }
+          ''',
+              '''func SetOpsUpstreamError(c *gin.Context, upstreamStatusCode int, upstreamMessage, upstreamDetail string) {
+          \tsetOpsUpstreamError(c, upstreamStatusCode, upstreamMessage, upstreamDetail)
+          }
+
+          // SetOpsSchedulerDiagnostics stores request-time scheduler diagnostics only
+          // in the Ops context. The client receives SchedulerSelectionError.Error(),
+          // which intentionally contains no account identifiers or internal state.
+          func SetOpsSchedulerDiagnostics(c *gin.Context, err error) {
+          \tif detail := SchedulerDiagnosticsFromError(err); detail != "" {
+          \t\tsetOpsUpstreamError(c, 0, "", detail)
+          \t}
+          }
+          ''')
+
+          handler_patches = {
+              'backend/internal/handler/gateway_handler.go': (
+                  '''\t\t\t\t\tmarkOpsRoutingCapacityLimitedIfNoAvailable(c, err)
+          \t\t\t\t\treqLog.Warn("gateway.select_account_no_available",
+          ''',
+                  '''\t\t\t\t\tmarkOpsRoutingCapacityLimitedIfNoAvailable(c, err)
+          \t\t\t\t\tservice.SetOpsSchedulerDiagnostics(c, err)
+          \t\t\t\t\treqLog.Warn("gateway.select_account_no_available",
+          '''),
+              'backend/internal/handler/gateway_handler_responses.go': (
+                  '''\t\t\t\tmarkOpsRoutingCapacityLimitedIfNoAvailable(c, err)
+          \t\t\t\th.responsesErrorResponse(c, http.StatusServiceUnavailable, "api_error", localizef(c, "No available accounts: %s", err.Error()))
+          ''',
+                  '''\t\t\t\tmarkOpsRoutingCapacityLimitedIfNoAvailable(c, err)
+          \t\t\t\tservice.SetOpsSchedulerDiagnostics(c, err)
+          \t\t\t\th.responsesErrorResponse(c, http.StatusServiceUnavailable, "api_error", localizef(c, "No available accounts: %s", err.Error()))
+          '''),
+              'backend/internal/handler/gateway_handler_chat_completions.go': (
+                  '''\t\t\t\tmarkOpsRoutingCapacityLimitedIfNoAvailable(c, err)
+          \t\t\t\th.chatCompletionsErrorResponse(c, http.StatusServiceUnavailable, "api_error", localizef(c, "No available accounts: %s", err.Error()))
+          ''',
+                  '''\t\t\t\tmarkOpsRoutingCapacityLimitedIfNoAvailable(c, err)
+          \t\t\t\tservice.SetOpsSchedulerDiagnostics(c, err)
+          \t\t\t\th.chatCompletionsErrorResponse(c, http.StatusServiceUnavailable, "api_error", localizef(c, "No available accounts: %s", err.Error()))
+          '''),
+              'backend/internal/handler/gemini_v1beta_handler.go': (
+                  '''\t\t\t\tmarkOpsRoutingCapacityLimitedIfNoAvailable(c, err)
+          \t\t\t\tgoogleError(c, http.StatusServiceUnavailable, localizef(c, "No available Gemini accounts: %s", err.Error()))
+          ''',
+                  '''\t\t\t\tmarkOpsRoutingCapacityLimitedIfNoAvailable(c, err)
+          \t\t\t\tservice.SetOpsSchedulerDiagnostics(c, err)
+          \t\t\t\tgoogleError(c, http.StatusServiceUnavailable, localizef(c, "No available Gemini accounts: %s", err.Error()))
+          '''),
+          }
+          for path, (old, new) in handler_patches.items():
+              replace_once(path, old, new)
+
+          # Read from the Ops-only detail field; keep message fallback for older logs.
+          replace_once(
+              'frontend/src/views/admin/ops/utils/errorAnalysis.ts',
+              '''  const match = String(detail?.message || '').match(SCHEDULER_DIAGNOSTICS_RE)
+          ''',
+              '''  const match = textOf(detail).match(SCHEDULER_DIAGNOSTICS_RE)
+          ''')
+
+          # Test both diagnostic fidelity and client-facing non-disclosure.
+          Path('backend/internal/service/scheduler_diagnostics_test.go').write_text('''package service
+
+          import (
+          \t"context"
+          \t"encoding/base64"
+          \t"encoding/json"
+          \t"errors"
+          \t"strings"
+          \t"testing"
+          )
+
+          func TestProtocolFilterReturnsOpsOnlyRequestTimeDiagnostics(t *testing.T) {
+          \tctx := WithInboundProtocol(context.Background(), CustomProtocolAnthropicMessages)
+          \taccount := Account{ID: 7, Name: "responses passthrough", Platform: PlatformCustom, Status: StatusActive, Schedulable: true, Extra: map[string]any{"protocol": CustomProtocolOpenAIResponses, "relay_mode": RelayModeFullPassthrough}}
+          \t_, err := filterAccountsByRequestProtocolForScheduling(ctx, nil, PlatformAnthropic, []Account{account})
+          \tif err == nil {
+          \t\tt.Fatal("expected protocol rejection error")
+          \t}
+          \tif !errors.Is(err, ErrNoAvailableAccounts) {
+          \t\tt.Fatalf("expected ErrNoAvailableAccounts, got %v", err)
+          \t}
+          \tif strings.Contains(err.Error(), schedulerDiagnosticsMarker) || strings.Contains(err.Error(), account.Name) {
+          \t\tt.Fatalf("client-facing error leaked scheduler diagnostics: %q", err.Error())
+          \t}
+
+          \tdetail := SchedulerDiagnosticsFromError(err)
+          \tif !strings.HasPrefix(detail, schedulerDiagnosticsMarker) {
+          \t\tt.Fatalf("ops diagnostics marker missing from %q", detail)
+          \t}
+          \tencoded := strings.TrimPrefix(detail, schedulerDiagnosticsMarker)
+          \tpayload, decodeErr := base64.RawURLEncoding.DecodeString(encoded)
+          \tif decodeErr != nil {
+          \t\tt.Fatalf("decode diagnostics: %v", decodeErr)
+          \t}
+          \tvar envelope schedulerDiagnosticsEnvelope
+          \tif err := json.Unmarshal(payload, &envelope); err != nil {
+          \t\tt.Fatalf("unmarshal diagnostics: %v", err)
+          \t}
+          \tif len(envelope.Accounts) != 1 || envelope.Accounts[0].Reason != "relay_mode_protocol_mismatch" {
+          \t\tt.Fatalf("unexpected diagnostics: %+v", envelope.Accounts)
+          \t}
+          }
+          ''')
+          PY
+
+          gofmt -w \
+            backend/internal/service/scheduler_diagnostics.go \
+            backend/internal/service/scheduler_diagnostics_test.go \
+            backend/internal/service/gateway_service.go \
+            backend/internal/service/ops_upstream_context.go \
+            backend/internal/handler/gateway_handler.go \
+            backend/internal/handler/gateway_handler_responses.go \
+            backend/internal/handler/gateway_handler_chat_completions.go \
+            backend/internal/handler/gemini_v1beta_handler.go
+
+      - name: Test changed backend packages
+        shell: bash
+        run: |
+          cd backend
+          go test ./internal/service ./internal/handler
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck frontend
+        working-directory: frontend
+        run: pnpm typecheck
+
+      - name: Commit secured diagnostics
+        shell: bash
+        run: |
+          git rm .github/workflows/secure-scheduler-diagnostics.yml
+          git add backend frontend
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix: keep scheduler diagnostics internal to ops"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
