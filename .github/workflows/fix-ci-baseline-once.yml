@@ -1,0 +1,137 @@
+name: Fix CI Baseline Once
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fix-ci-baseline-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  fix:
+    if: github.head_ref == 'phase2-routing-green' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: phase2-routing-green
+          fetch-depth: 0
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          check-latest: false
+          cache: true
+          cache-dependency-path: backend/go.sum
+      - name: Apply exact unit-contract and lint repairs
+        run: |
+          set -euo pipefail
+          python <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('backend/internal/service/token_refresh_service_test.go')
+          text = path.read_text()
+          text, count = re.subn(
+              r'NewTokenRefreshService\(([^,\n]+), nil, nil, nil, nil, nil, cfg,',
+              r'NewTokenRefreshService(\1, nil, nil, nil, nil, nil, nil, cfg,',
+              text,
+          )
+          if count not in (0, 3):
+              raise SystemExit(f'unexpected TokenRefresh constructor replacement count: {count}')
+          path.write_text(text)
+
+          path = Path('backend/internal/server/api_contract_test.go')
+          text = path.read_text()
+          group_start = text.index('"name": "Group One"')
+          group_end = text.index('name: "GET /api/v1/subscriptions"', group_start)
+          fragment = text[group_start:group_end]
+          if '"peak_rate_enabled": false' not in fragment:
+              anchor = '\t\t\t\t\t\t"rate_multiplier": 1.5,\n'
+              replacement = (
+                  anchor
+                  + '\t\t\t\t\t\t"peak_rate_enabled": false,\n'
+                  + '\t\t\t\t\t\t"peak_start": "",\n'
+                  + '\t\t\t\t\t\t"peak_end": "",\n'
+                  + '\t\t\t\t\t\t"peak_rate_multiplier": 0,\n'
+              )
+              if anchor not in fragment:
+                  raise SystemExit('API contract group anchor not found')
+              text = text[:group_start] + fragment.replace(anchor, replacement, 1) + text[group_end:]
+          path.write_text(text)
+
+          path = Path('backend/internal/handler/admin/lightbridge_connect_handler.go')
+          text = path.read_text()
+          old = '\tdefer rows.Close()\n'
+          new = '\tdefer func() { _ = rows.Close() }()\n'
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif new not in text:
+              raise SystemExit('rows.Close anchor not found')
+          path.write_text(text)
+
+          path = Path('backend/internal/service/gemini_native_protocol_adapter_test.go')
+          text = path.read_text()
+          old = (
+              '\tcandidates := resp["candidates"].([]any)\n'
+              '\tparts := candidates[0].(map[string]any)["content"].(map[string]any)["parts"].([]any)\n'
+              '\trequire.Equal(t, "hi", parts[0].(map[string]any)["text"])\n'
+              '\trequire.Equal(t, "lookup", parts[1].(map[string]any)["functionCall"].(map[string]any)["name"])\n'
+          )
+          new = (
+              '\tcandidates, ok := resp["candidates"].([]any)\n'
+              '\trequire.True(t, ok)\n'
+              '\trequire.NotEmpty(t, candidates)\n'
+              '\tfirstCandidate, ok := candidates[0].(map[string]any)\n'
+              '\trequire.True(t, ok)\n'
+              '\tcontent, ok := firstCandidate["content"].(map[string]any)\n'
+              '\trequire.True(t, ok)\n'
+              '\tparts, ok := content["parts"].([]any)\n'
+              '\trequire.True(t, ok)\n'
+              '\trequire.Len(t, parts, 2)\n'
+              '\ttextPart, ok := parts[0].(map[string]any)\n'
+              '\trequire.True(t, ok)\n'
+              '\trequire.Equal(t, "hi", textPart["text"])\n'
+              '\ttoolPart, ok := parts[1].(map[string]any)\n'
+              '\trequire.True(t, ok)\n'
+              '\tfunctionCall, ok := toolPart["functionCall"].(map[string]any)\n'
+              '\trequire.True(t, ok)\n'
+              '\trequire.Equal(t, "lookup", functionCall["name"])\n'
+          )
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif 'candidates, ok := resp["candidates"].([]any)' not in text:
+              raise SystemExit('Gemini assertion anchor not found')
+          path.write_text(text)
+          PY
+
+          gofmt -w \
+            backend/internal/service/token_refresh_service_test.go \
+            backend/internal/server/api_contract_test.go \
+            backend/internal/handler/admin/lightbridge_connect_handler.go \
+            backend/internal/service/gemini_native_protocol_adapter_test.go \
+            backend/cmd/ui-theme/main.go \
+            backend/internal/repository/ui_theme_repo.go \
+            backend/internal/service/aistudio_proxy_provider.go
+
+          rm .github/workflows/fix-ci-baseline-once.yml
+
+      - name: Validate compilation and lint before commit
+        run: |
+          set -euo pipefail
+          cd backend
+          go test -tags=unit -run '^$' ./...
+          go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.9.0 run --timeout=30m
+
+      - name: Commit repairs and remove this workflow
+        run: |
+          set -euo pipefail
+          git config user.name 'WilliamWang1721'
+          git config user.email '140129782+WilliamWang1721@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix(ci): repair baseline unit contracts and lint'
+          git push origin HEAD:phase2-routing-green
