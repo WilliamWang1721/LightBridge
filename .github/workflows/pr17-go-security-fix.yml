@@ -15,7 +15,10 @@ jobs:
   fix:
     if: contains(github.event.head_commit.message, '[pr17-go-security]')
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
+    env:
+      GOPROXY: https://proxy.golang.org,direct
+      GOSUMDB: sum.golang.org
     steps:
       - uses: actions/checkout@v6
         with:
@@ -28,9 +31,9 @@ jobs:
           git config user.email 'openai-ci-fixer@users.noreply.github.com'
           git fetch origin main
           git merge --no-edit origin/main
-          echo started > .pr17-go-security-state
+          date -u +%FT%TZ > .pr17-go-security-state
           git add .pr17-go-security-state
-          git commit -m 'chore(ci): mark Go security remediation start'
+          git commit -m 'chore(ci): restart Go security remediation'
           git push origin HEAD:fix/universal-router-diagnostics-phase1
       - uses: actions/setup-go@v6
         with:
@@ -56,9 +59,9 @@ jobs:
           PY
             cd backend
             go mod edit -go=1.26.5
-            go get github.com/aws/aws-sdk-go-v2/service/s3@v1.97.3
-            go get github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream@v1.7.8
-            go mod tidy
+            timeout 300s go get github.com/aws/aws-sdk-go-v2/service/s3@v1.97.3
+            timeout 300s go get github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream@v1.7.8
+            timeout 300s go mod tidy
             cd ..
           } > pr17-go-security.log 2>&1
       - name: Push result
