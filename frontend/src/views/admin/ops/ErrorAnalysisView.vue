@@ -976,7 +976,8 @@ function evidenceLabel(key: string): string {
 function accountReasonLabel(reason: ErrorAnalysisAccountReason): string {
   const translated = t(`admin.ops.errorAnalysis.schedulerAccounts.reason.${reason.key}`)
   const base = translated !== `admin.ops.errorAnalysis.schedulerAccounts.reason.${reason.key}` ? translated : reason.key
-  return reason.detail ? `${base}: ${reason.detail}` : base
+  const source = reason.source === 'request_time' ? '[request-time]' : '[current-state]'
+  return reason.detail ? `${source} ${base}: ${reason.detail}` : `${source} ${base}`
 }
 
 function formatAccountCapacity(account: Account): string {

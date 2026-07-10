@@ -62,21 +62,52 @@ export type ErrorAnalysisAccountReasonKey =
   | 'model_not_allowed'
   | 'model_rate_limited'
   | 'quota_auto_paused'
+  | 'account_nil'
+  | 'excluded'
+  | 'custom_protocol_missing'
+  | 'protocol_incompatible'
+  | 'relay_mode_protocol_mismatch'
+  | 'protocol_conversion_unavailable'
+  | 'schedulable_disabled'
+  | 'privacy_required'
+  | 'channel_restricted'
+  | 'window_cost_exceeded'
+  | 'credentials_missing'
 
 export interface ErrorAnalysisAccountReason {
   key: ErrorAnalysisAccountReasonKey
   detail?: string
+  source?: 'request_time' | 'current_state'
 }
 
 export interface ErrorAnalysisAccountDiagnostic {
   account: Account
   available: boolean
   reasons: ErrorAnalysisAccountReason[]
+  source?: 'request_time' | 'current_state'
+}
+
+interface RecordedSchedulerAccountDiagnostic {
+  account_id: number
+  available: boolean
+  reason?: ErrorAnalysisAccountReasonKey
+  detail?: string
+}
+
+interface RecordedSchedulerDiagnostics {
+  version: number
+  inbound_protocol?: string
+  requested_model?: string
+  group_id?: number
+  platform?: string
+  reason_counts?: Record<string, number>
+  accounts?: RecordedSchedulerAccountDiagnostic[]
 }
 
 const NO_AVAILABLE_ACCOUNT_RE = /no\s+available\s+accounts?|无可用账号/i
 const MODULE_PROVIDER_RE = /module provider|provider registry|provider id|adapter/i
 const NETWORK_RE = /timeout|deadline|connection refused|connection reset|dial tcp|tls|dns|network/i
+const SCHEDULER_DIAGNOSTICS_RE = /scheduler_diagnostics=([A-Za-z0-9_-]+)/
 
 function textOf(detail: OpsErrorDetail | OpsErrorLog | null | undefined): string {
   if (!detail) return ''
@@ -91,6 +122,22 @@ function textOf(detail: OpsErrorDetail | OpsErrorLog | null | undefined): string
 
 function normalize(value: unknown): string {
   return String(value ?? '').trim().toLowerCase()
+}
+
+export function parseRecordedSchedulerDiagnostics(
+  detail: OpsErrorDetail | OpsErrorLog | null | undefined
+): RecordedSchedulerDiagnostics | null {
+  const match = String(detail?.message || '').match(SCHEDULER_DIAGNOSTICS_RE)
+  if (!match?.[1]) return null
+  try {
+    const normalized = match[1].replace(/-/g, '+').replace(/_/g, '/')
+    const padded = normalized + '='.repeat((4 - normalized.length % 4) % 4)
+    const binary = atob(padded)
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
+    return JSON.parse(new TextDecoder().decode(bytes)) as RecordedSchedulerDiagnostics
+  } catch {
+    return null
+  }
 }
 
 function isFuture(value: string | number | null | undefined, now = Date.now()): boolean {
@@ -280,12 +327,23 @@ function buildStepEvidence(
       pushEvidence(evidence, 'group', detail.group_name || detail.group_id)
       pushEvidence(evidence, 'model', modelLabel(detail))
       break
-    case 'account_scheduler':
+    case 'account_scheduler': {
       pushEvidence(evidence, 'account', detail.account_name || detail.account_id || 'none', detail.account_id ? 'neutral' : 'warning')
       pushEvidence(evidence, 'status', detail.status_code, detail.status_code >= 500 ? 'danger' : 'warning')
       if (hasNoAvailableAccount(detail)) pushEvidence(evidence, 'scheduler_result', 'No available accounts', 'danger')
       if (isCustomProviderContext(detail, upstreamErrors)) pushEvidence(evidence, 'provider_kind', 'custom', 'warning')
+      const recorded = parseRecordedSchedulerDiagnostics(detail)
+      if (recorded?.inbound_protocol) pushEvidence(evidence, 'inbound_protocol', recorded.inbound_protocol)
+      if (recorded?.accounts) pushEvidence(evidence, 'evaluated_accounts', recorded.accounts.length)
+      if (recorded?.reason_counts) {
+        const summary = Object.entries(recorded.reason_counts)
+          .sort((a, b) => b[1] - a[1])
+          .map(([reason, count]) => `${reason}:${count}`)
+          .join(', ')
+        pushEvidence(evidence, 'rejection_reasons', summary, 'danger')
+      }
       break
+    }
     case 'provider_adapter':
       pushEvidence(evidence, 'provider_module', isCustomProviderContext(detail, upstreamErrors) ? 'custom provider adapter' : 'built-in provider adapter')
       pushEvidence(evidence, 'upstream_endpoint', detail.upstream_endpoint)
@@ -431,6 +489,16 @@ export function diagnoseSchedulerAccount(
   detail: OpsErrorDetail | null,
   now = Date.now()
 ): ErrorAnalysisAccountDiagnostic {
+  const recorded = parseRecordedSchedulerDiagnostics(detail)
+  const recordedAccount = recorded?.accounts?.find((item) => item.account_id === account.id)
+  if (recordedAccount) {
+    const reasons: ErrorAnalysisAccountReason[] = []
+    if (!recordedAccount.available && recordedAccount.reason) {
+      reasons.push({ key: recordedAccount.reason, detail: recordedAccount.detail, source: 'request_time' })
+    }
+    return { account, available: recordedAccount.available, reasons, source: 'request_time' }
+  }
+
   const reasons: ErrorAnalysisAccountReason[] = []
   const groupID = detail?.group_id ?? null
   const model = requestedModelLabel(detail)
@@ -515,10 +583,11 @@ export function diagnoseSchedulerAccount(
   }
 
   return {
-    account,
-    available: reasons.length === 0,
-    reasons
-  }
+  account,
+  available: reasons.length === 0,
+  reasons: reasons.map((reason) => ({ ...reason, source: 'current_state' })),
+  source: 'current_state'
+}
 }
 
 export function diagnoseSchedulerAccounts(
