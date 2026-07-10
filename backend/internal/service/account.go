@@ -367,7 +367,14 @@ func (a *Account) CustomProtocol() string {
 	if !a.IsCustom() {
 		return ""
 	}
-	return strings.TrimSpace(a.GetExtraString("protocol"))
+	if protocol := strings.TrimSpace(a.GetExtraString("protocol")); protocol != "" {
+		return protocol
+	}
+	// Compatibility for accounts created by older Custom forms that stored the
+	// protocol beside credentials. New writes and the migration keep extra.protocol
+	// as the single authoritative field; this fallback prevents an upgrade window
+	// from making an otherwise healthy upstream invisible to the router.
+	return strings.TrimSpace(a.GetCredential("protocol"))
 }
 
 // RelayMode 返回账号的中转模式。缺省为 router；旧 passthrough 布尔字段按

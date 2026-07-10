@@ -2279,9 +2279,9 @@ func (s *GatewayService) listSchedulableAccounts(ctx context.Context, groupID *i
 	if s.schedulerSnapshot != nil {
 		accounts, useMixed, err := s.schedulerSnapshot.ListSchedulableAccounts(ctx, groupID, platform, hasForcePlatform)
 		if err == nil {
-			// 请求级 Custom 协议过滤（快照按 group/platform 缓存、跨入站 endpoint 共享，
-			// 故协议过滤必须在此处按当前请求做）。
-			accounts = filterAccountsByRequestProtocol(ctx, accounts)
+			// Group snapshots contain every schedulable upstream. The protocol router,
+			// rather than group.platform, is the authority for message compatibility.
+			accounts, err = filterAccountsByRequestProtocolForScheduling(ctx, groupID, platform, accounts)
 			slog.Debug("account_scheduling_list_snapshot",
 				"group_id", derefGroupID(groupID),
 				"platform", platform,
@@ -2310,7 +2310,10 @@ func (s *GatewayService) listSchedulableAccounts(ctx context.Context, groupID *i
 			return nil, useMixed, err
 		}
 		rawCount := len(accounts)
-		accounts = filterAccountsByRequestProtocol(ctx, accounts)
+		accounts, err = filterAccountsByRequestProtocolForScheduling(ctx, groupID, platform, accounts)
+		if err != nil {
+			return nil, useMixed, err
+		}
 		slog.Debug("account_scheduling_list",
 			"group_id", derefGroupID(groupID),
 			"platform", platform,
@@ -2366,8 +2369,12 @@ func (s *GatewayService) listSchedulableAccounts(ctx context.Context, groupID *i
 			filtered = append(filtered, accounts[i])
 		}
 	}
-	// 请求级 Custom 协议过滤（按当前入站 endpoint 推导的 requiredProtocol）。
-	filtered = filterAccountsByRequestProtocol(ctx, filtered)
+	// 请求级协议过滤（按当前入站 endpoint 推导）；如果全部账号在这里
+	// 被淘汰，返回包含逐账号原因的错误，而不是无信息的空候选集。
+	filtered, err = filterAccountsByRequestProtocolForScheduling(ctx, groupID, platform, filtered)
+	if err != nil {
+		return nil, useMixed, err
+	}
 	slog.Debug("account_scheduling_list",
 		"group_id", derefGroupID(groupID),
 		"platform", platform,
@@ -3302,7 +3309,7 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 		if requestedModel != "" {
 			return nil, fmt.Errorf("%w supporting model: %s (%s)", ErrNoAvailableAccounts, requestedModel, summarizeSelectionFailureStats(stats))
 		}
-		return nil, ErrNoAvailableAccounts
+		return nil, fmt.Errorf("%w (%s)", ErrNoAvailableAccounts, summarizeSelectionFailureStats(stats))
 	}
 
 	// 4. 建立粘性绑定
@@ -3555,7 +3562,7 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 		if requestedModel != "" {
 			return nil, fmt.Errorf("%w supporting model: %s (%s)", ErrNoAvailableAccounts, requestedModel, summarizeSelectionFailureStats(stats))
 		}
-		return nil, ErrNoAvailableAccounts
+		return nil, fmt.Errorf("%w (%s)", ErrNoAvailableAccounts, summarizeSelectionFailureStats(stats))
 	}
 
 	// 4. 建立粘性绑定
@@ -3577,6 +3584,7 @@ type selectionFailureStats struct {
 	ModelRateLimited   int
 	SampleMappingIDs   []int64
 	SampleRateLimitIDs []string
+	Diagnostics        string
 }
 
 type selectionFailureDiagnosis struct {
@@ -3595,6 +3603,7 @@ func (s *GatewayService) logDetailedSelectionFailure(
 	allowMixedScheduling bool,
 ) selectionFailureStats {
 	stats := s.collectSelectionFailureStats(ctx, accounts, requestedModel, platform, excludedIDs, allowMixedScheduling)
+	stats.Diagnostics = s.encodeSchedulerSelectionDiagnostics(ctx, groupID, accounts, requestedModel, platform, excludedIDs)
 	logger.LegacyPrintf(
 		"service.gateway",
 		"[SelectAccountDetailed] group_id=%v model=%s platform=%s session=%s total=%d eligible=%d excluded=%d unschedulable=%d model_unsupported=%d model_rate_limited=%d sample_model_unsupported=%v sample_model_rate_limited=%v",
@@ -3699,7 +3708,7 @@ func appendSelectionFailureRateSample(samples []string, accountID int64, remaini
 }
 
 func summarizeSelectionFailureStats(stats selectionFailureStats) string {
-	return fmt.Sprintf(
+	summary := fmt.Sprintf(
 		"total=%d eligible=%d excluded=%d unschedulable=%d model_unsupported=%d model_rate_limited=%d",
 		stats.Total,
 		stats.Eligible,
@@ -3708,6 +3717,7 @@ func summarizeSelectionFailureStats(stats selectionFailureStats) string {
 		stats.ModelUnsupported,
 		stats.ModelRateLimited,
 	)
+	return appendSchedulerDiagnostics(summary, stats.Diagnostics)
 }
 
 // isModelSupportedByAccountWithContext 根据账户平台检查模型支持（带 context）
