@@ -22,8 +22,7 @@ jobs:
           ref: fix/universal-router-diagnostics-phase1
           fetch-depth: 0
 
-      - name: Synchronize main and mark run
-        shell: bash
+      - name: Configure and synchronize
         run: |
           set -euo pipefail
           git config user.name 'openai-ci-fixer'
@@ -32,42 +31,20 @@ jobs:
           git merge --no-edit origin/main
           date -u +%FT%TZ > .pr17-apply-state
           git add .pr17-apply-state
-          git commit -m 'chore(ci): mark PR17 remediation run'
+          git commit -m 'chore(ci): mark staged PR17 remediation'
           git push origin HEAD:fix/universal-router-diagnostics-phase1
 
-      - uses: actions/setup-go@v6
-        with:
-          go-version: '1.26.5'
-          check-latest: false
-          cache: true
-          cache-dependency-path: backend/go.sum
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '22.13'
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
-
-      - name: Apply validated fixes
-        id: apply
-        continue-on-error: true
-        shell: bash
+      - name: Apply source and contract fixes
         run: |
-          set -o pipefail
-          {
-            set -euxo pipefail
-            python <<'PY'
+          set -euo pipefail
+          python <<'PY'
           from pathlib import Path
           import importlib.util
           import re
-
           spec = importlib.util.spec_from_file_location('pr17_fixes', 'tools/fix_pr17_checks.py')
           fixes = importlib.util.module_from_spec(spec)
           assert spec.loader is not None
           spec.loader.exec_module(fixes)
-
           for filename in (
               'backend/internal/service/token_refresh_service_test.go',
               'backend/internal/service/openai_privacy_retry_test.go',
@@ -80,37 +57,64 @@ jobs:
                   text,
               )
               path.write_text(text, encoding='utf-8')
-
           fixes.patch_pricing_sync_test()
           fixes.patch_contract_tests()
           fixes.patch_lint()
           fixes.patch_audit_exceptions()
           fixes.patch_workflow_go_versions()
           PY
-            cd backend
-            go mod edit -go=1.26.5
-            go get github.com/aws/aws-sdk-go-v2/service/s3@v1.97.3
-            go get github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream@v1.7.8
-            go mod tidy
-            gofmt -w cmd internal
-            cd ../frontend
-            pnpm add 'xlsx@https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz'
-            pnpm install --frozen-lockfile
-            cd ..
-          } > pr17-apply.log 2>&1
+          cd backend
+          gofmt -w cmd internal
+          cd ..
+          git add -A
+          git reset .github/workflows/fix-pr17-checks.yml tools/fix_pr17_checks.py .pr17-ci-trigger .pr17-apply-state
+          git commit -m 'fix: repair CI contracts and lint failures'
+          git push origin HEAD:fix/universal-router-diagnostics-phase1
 
-      - name: Push result
-        if: always()
-        shell: bash
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.5'
+          check-latest: false
+          cache: true
+          cache-dependency-path: backend/go.sum
+
+      - name: Apply Go security dependency fixes
         run: |
           set -euo pipefail
-          if [ '${{ steps.apply.outcome }}' = 'success' ]; then
-            rm -f .pr17-apply-state pr17-apply.log
-            git add -A
-            git reset .github/workflows/fix-pr17-checks.yml tools/fix_pr17_checks.py .pr17-ci-trigger
-            git commit -m 'fix: complete CI and security remediation'
-          else
-            git add pr17-apply.log .pr17-apply-state
-            git commit -m 'chore(ci): capture PR17 remediation failure'
-          fi
+          cd backend
+          go mod edit -go=1.26.5
+          go get github.com/aws/aws-sdk-go-v2/service/s3@v1.97.3
+          go get github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream@v1.7.8
+          go mod tidy
+          cd ..
+          git add backend/go.mod backend/go.sum
+          git commit -m 'fix(security): update Go and AWS SDK dependencies'
+          git push origin HEAD:fix/universal-router-diagnostics-phase1
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.13'
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Apply SheetJS security fix
+        run: |
+          set -euo pipefail
+          cd frontend
+          pnpm add 'xlsx@https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz'
+          pnpm install --frozen-lockfile
+          cd ..
+          git add frontend/package.json frontend/pnpm-lock.yaml .github/audit-exceptions.yml
+          git commit -m 'fix(security): update SheetJS and audit exceptions'
+          git push origin HEAD:fix/universal-router-diagnostics-phase1
+
+      - name: Remove temporary state
+        run: |
+          set -euo pipefail
+          rm -f .pr17-apply-state
+          git add -u .pr17-apply-state
+          git commit -m 'chore(ci): finish staged PR17 remediation'
           git push origin HEAD:fix/universal-router-diagnostics-phase1
