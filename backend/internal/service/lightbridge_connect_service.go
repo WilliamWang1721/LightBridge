@@ -25,32 +25,32 @@ const (
 
 // LightBridgeConnectConfig represents the complete configuration
 type LightBridgeConnectConfig struct {
-	Type            LightBridgeConnectType `json:"type"`
-	InstanceURL     string                 `json:"instance_url"`
-	SystemToken     string                 `json:"system_token"` // Encrypted
-	UserID          int                    `json:"user_id,omitempty"`
-	Username        string                 `json:"username,omitempty"`
-	Quota           *QuotaInfo             `json:"quota,omitempty"`
-	Alert           *AlertConfig           `json:"alert,omitempty"`
-	WebhookURL      string                 `json:"webhook_url,omitempty"`
-	SyncInterval    int                    `json:"sync_interval"` // seconds
-	LastVerifiedAt  *time.Time             `json:"last_verified_at,omitempty"`
+	Type           LightBridgeConnectType `json:"type"`
+	InstanceURL    string                 `json:"instance_url"`
+	SystemToken    string                 `json:"system_token"` // Encrypted
+	UserID         int                    `json:"user_id,omitempty"`
+	Username       string                 `json:"username,omitempty"`
+	Quota          *QuotaInfo             `json:"quota,omitempty"`
+	Alert          *AlertConfig           `json:"alert,omitempty"`
+	WebhookURL     string                 `json:"webhook_url,omitempty"`
+	SyncInterval   int                    `json:"sync_interval"` // seconds
+	LastVerifiedAt *time.Time             `json:"last_verified_at,omitempty"`
 }
 
 // QuotaInfo stores quota information
 type QuotaInfo struct {
-	Balance    int64      `json:"balance"`     // in cents/fen
-	Used       int64      `json:"used"`        // in cents/fen
+	Balance    int64      `json:"balance"` // in cents/fen
+	Used       int64      `json:"used"`    // in cents/fen
 	LastSyncAt *time.Time `json:"last_sync_at,omitempty"`
 	Currency   string     `json:"currency"` // CNY, USD, etc.
 }
 
 // AlertConfig defines alert configuration
 type AlertConfig struct {
-	Enabled           bool     `json:"enabled"`
-	Threshold         int64    `json:"threshold"` // in cents/fen
-	Channels          []string `json:"channels"`  // email, webhook, dashboard
-	AutoDisableOnLow  bool     `json:"auto_disable_on_low"`
+	Enabled          bool     `json:"enabled"`
+	Threshold        int64    `json:"threshold"` // in cents/fen
+	Channels         []string `json:"channels"`  // email, webhook, dashboard
+	AutoDisableOnLow bool     `json:"auto_disable_on_low"`
 }
 
 // NewAPIUserResponse represents New API /api/user/self response
@@ -204,7 +204,7 @@ func (s *LightBridgeConnectService) VerifyNewAPIToken(ctx context.Context, insta
 	}
 
 	if !result.Success {
-		return nil, fmt.Errorf("New API returned success=false")
+		return nil, fmt.Errorf("new API returned success=false")
 	}
 
 	return &result, nil

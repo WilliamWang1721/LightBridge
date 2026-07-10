@@ -18,7 +18,7 @@ func (s *ModuleStore) ListInstalled(ctx context.Context) ([]modules.InstalledMod
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []modules.InstalledModule
 	for rows.Next() {
 		m, err := scanModule(rows)
@@ -64,7 +64,7 @@ func (s *ModuleStore) ListPermissions(ctx context.Context, moduleID string) ([]m
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []modules.PermissionRecord
 	for rows.Next() {
 		var p modules.PermissionRecord

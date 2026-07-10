@@ -137,18 +137,6 @@ func isAntigravityGeminiModel(model string) bool {
 	return strings.HasPrefix(normalizeAntigravityModelName(model), "gemini-")
 }
 
-func antigravityModelRateLimitKeys(model string) []string {
-	model = strings.TrimSpace(model)
-	if model == "" {
-		return nil
-	}
-	keys := []string{model}
-	if isAntigravityGeminiModel(model) && model != antigravityGeminiModelRateLimitKey {
-		keys = append(keys, antigravityGeminiModelRateLimitKey)
-	}
-	return keys
-}
-
 func (a *Account) modelRateLimitResetAt(scope string) *time.Time {
 	if a == nil || a.Extra == nil || scope == "" {
 		return nil

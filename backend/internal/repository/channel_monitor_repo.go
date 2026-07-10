@@ -624,7 +624,7 @@ func (r *channelMonitorRepository) AggregateDailyAvailability(ctx context.Contex
 	if err != nil {
 		return nil, fmt.Errorf("aggregate daily availability: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	out := make([]*service.DailyAvailabilityPoint, 0, days)
 	for rows.Next() {

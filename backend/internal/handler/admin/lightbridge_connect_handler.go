@@ -335,7 +335,7 @@ func (h *LightBridgeConnectHandler) SyncQuota(c *gin.Context) {
 
 		// Auto-disable if exhausted and configured
 		if alert.Type == "quota_exhausted" && config.Alert != nil && config.Alert.AutoDisableOnLow {
-			h.db.Exec(`
+			_, _ = h.db.Exec(`
 				UPDATE accounts
 				SET status = 'paused', updated_at = NOW()
 				WHERE id = $1

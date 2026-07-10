@@ -47,8 +47,11 @@ func TestCompileGeneratesPinnedLocalRuntimeConfig(t *testing.T) {
 	require.Equal(t, "lb-node-34", firstProxy["name"])
 	require.Equal(t, "proxy.example.com", firstProxy["server"])
 
-	groups := doc["proxy-groups"].([]any)
-	group := groups[0].(map[string]any)
+	groups, ok := doc["proxy-groups"].([]any)
+	require.True(t, ok)
+	require.NotEmpty(t, groups)
+	group, ok := groups[0].(map[string]any)
+	require.True(t, ok)
 	require.Equal(t, "LB-PROFILE-12", group["name"])
 	require.Equal(t, "url-test", group["type"])
 }

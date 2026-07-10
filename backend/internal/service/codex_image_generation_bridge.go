@@ -15,43 +15,6 @@ const (
 	CodexImageGenerationBridgeBlock  CodexImageGenerationBridgeMode = "block" // block and strip existing image generation tools
 )
 
-func boolOverridePtr(v bool) *bool {
-	return &v
-}
-
-func boolOverrideFromMap(values map[string]any, keys ...string) *bool {
-	if values == nil {
-		return nil
-	}
-	for _, key := range keys {
-		if v, ok := values[key].(bool); ok {
-			return boolOverridePtr(v)
-		}
-	}
-	return nil
-}
-
-func platformBoolOverride(values map[string]any, key string, platform string) *bool {
-	if values == nil {
-		return nil
-	}
-	if v, ok := values[key].(bool); ok {
-		return boolOverridePtr(v)
-	}
-	raw, ok := values[key].(map[string]any)
-	if !ok {
-		return nil
-	}
-	platform = strings.TrimSpace(platform)
-	if platform == "" {
-		return nil
-	}
-	if v, ok := raw[platform].(bool); ok {
-		return boolOverridePtr(v)
-	}
-	return nil
-}
-
 // parseBridgeModeFromValue converts a raw config value to a bridge mode.
 // Legacy booleans are mapped: true→force, false→off, nil→follow.
 // String values "force"/"off"/"block"/"follow" are accepted directly.

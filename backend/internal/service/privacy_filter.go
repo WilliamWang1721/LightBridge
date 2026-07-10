@@ -21,9 +21,9 @@ type PrivacyFilterModelFilter struct {
 
 // 隐私过滤应用对象（针对谁过滤）。
 const (
-	PrivacyFilterTargetAllUsers  = "all_users"   // 全部用户
-	PrivacyFilterTargetPartial    = "partial_users" // 部分用户
-	PrivacyFilterTargetAdminOnly = "admin_only"  // 仅管理员
+	PrivacyFilterTargetAllUsers  = "all_users"     // 全部用户
+	PrivacyFilterTargetPartial   = "partial_users" // 部分用户
+	PrivacyFilterTargetAdminOnly = "admin_only"    // 仅管理员
 )
 
 // 隐私过滤渠道维度（在哪些渠道生效）。
@@ -53,12 +53,12 @@ type PrivacyFilterConfig struct {
 	GroupIDs       []int64                  `json:"group_ids"`
 	ModelFilter    PrivacyFilterModelFilter `json:"model_filter"`
 	// 应用对象（针对谁过滤）
-	TargetScope  string  `json:"target_scope"`
+	TargetScope   string  `json:"target_scope"`
 	TargetUserIDs []int64 `json:"target_user_ids"`
 	// 渠道维度
-	ChannelScope    string  `json:"channel_scope"`
-	ChannelIDs      []int64 `json:"channel_ids"`
-	AccountIDs      []int64 `json:"account_ids"`
+	ChannelScope string  `json:"channel_scope"`
+	ChannelIDs   []int64 `json:"channel_ids"`
+	AccountIDs   []int64 `json:"account_ids"`
 }
 
 // PrivacyFilterConfigView 返回给前端的配置视图（含内置规则 ID 列表，便于渲染）。
@@ -500,8 +500,8 @@ func privacyRulesSignature(cfg *PrivacyFilterConfig) string {
 		}
 		_, _ = b.WriteString(r.Pattern)
 		_ = b.WriteByte('\x00')
-		b.WriteString(r.Replacement)
-		b.WriteByte('\n')
+		_, _ = b.WriteString(r.Replacement)
+		_ = b.WriteByte('\n')
 	}
 	return b.String()
 }

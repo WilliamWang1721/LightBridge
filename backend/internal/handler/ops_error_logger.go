@@ -736,7 +736,7 @@ func OpsErrorLoggerMiddleware(ops *service.OpsService) gin.HandlerFunc {
 				IsCountTokens:     isCountTokensRequest(c),
 
 				ErrorMessage: recoveredMsg,
-				ErrorBody:    string(w.buf.Bytes()),
+				ErrorBody:    w.buf.String(),
 
 				ErrorSource: "gateway",
 				ErrorOwner:  "platform",

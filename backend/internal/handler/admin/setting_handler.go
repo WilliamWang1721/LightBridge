@@ -1504,7 +1504,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.PasswordResetEnabled
 		}(),
-		FrontendURL:                      req.FrontendURL,
+		FrontendURL: req.FrontendURL,
 		InvitationCodeEnabled: func() bool {
 			if req.InvitationCodeEnabled != nil {
 				return *req.InvitationCodeEnabled
@@ -1523,19 +1523,19 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.LoginAgreementEnabled
 		}(),
-		LoginAgreementMode:               loginAgreementMode,
-		LoginAgreementUpdatedAt:          loginAgreementUpdatedAt,
-		LoginAgreementDocuments:          loginAgreementDocuments,
-		SMTPHost:                         req.SMTPHost,
-		SMTPPort:                         req.SMTPPort,
-		SMTPUsername:                     req.SMTPUsername,
-		SMTPPassword:                     req.SMTPPassword,
-		SMTPFrom:                         req.SMTPFrom,
-		SMTPFromName:                     req.SMTPFromName,
-		SMTPUseTLS:                       req.SMTPUseTLS,
-		TurnstileEnabled:                 req.TurnstileEnabled,
-		TurnstileSiteKey:                 req.TurnstileSiteKey,
-		TurnstileSecretKey:               req.TurnstileSecretKey,
+		LoginAgreementMode:      loginAgreementMode,
+		LoginAgreementUpdatedAt: loginAgreementUpdatedAt,
+		LoginAgreementDocuments: loginAgreementDocuments,
+		SMTPHost:                req.SMTPHost,
+		SMTPPort:                req.SMTPPort,
+		SMTPUsername:            req.SMTPUsername,
+		SMTPPassword:            req.SMTPPassword,
+		SMTPFrom:                req.SMTPFrom,
+		SMTPFromName:            req.SMTPFromName,
+		SMTPUseTLS:              req.SMTPUseTLS,
+		TurnstileEnabled:        req.TurnstileEnabled,
+		TurnstileSiteKey:        req.TurnstileSiteKey,
+		TurnstileSecretKey:      req.TurnstileSecretKey,
 		APIKeyACLTrustForwardedIP: func() bool {
 			if req.APIKeyACLTrustForwardedIP != nil {
 				return *req.APIKeyACLTrustForwardedIP
@@ -2162,9 +2162,9 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 
 		AffiliateEnabled: updatedSettings.AffiliateEnabled,
 
-		RiskControlEnabled: updatedSettings.RiskControlEnabled,
+		RiskControlEnabled:   updatedSettings.RiskControlEnabled,
 		PrivacyFilterEnabled: updatedSettings.PrivacyFilterEnabled,
-		DeploymentMode: updatedSettings.DeploymentMode,
+		DeploymentMode:       updatedSettings.DeploymentMode,
 	}
 	if fastPolicy, err := h.settingService.GetOpenAIFastPolicySettings(c.Request.Context()); err != nil {
 		slog.Error("openai_fast_policy_settings_get_failed", "error", err)

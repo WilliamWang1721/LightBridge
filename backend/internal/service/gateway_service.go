@@ -9141,18 +9141,6 @@ func (s *GatewayService) checkChannelPricingRestriction(ctx context.Context, gro
 
 // billingModelForRestriction 根据计费基准确定限制检查使用的模型。
 // upstream 返回空（需逐账号检查）。
-func billingModelForRestriction(source, requestedModel, channelMappedModel string) string {
-	switch source {
-	case BillingModelSourceRequested:
-		return requestedModel
-	case BillingModelSourceUpstream:
-		return ""
-	case BillingModelSourceChannelMapped:
-		return channelMappedModel
-	default:
-		return channelMappedModel
-	}
-}
 
 // isUpstreamModelRestrictedByChannel 检查账号映射后的上游模型是否受渠道定价限制。
 // 仅在 BillingModelSource="upstream" 且 RestrictModels=true 时由调度循环调用。
@@ -9161,12 +9149,6 @@ func (s *GatewayService) isUpstreamModelRestrictedByChannel(ctx context.Context,
 }
 
 // resolveAccountUpstreamModel 确定账号将请求模型映射为什么上游模型。
-func resolveAccountUpstreamModel(account *Account, requestedModel string) string {
-	if account.IsAntigravity() {
-		return mapAntigravityModel(account, requestedModel)
-	}
-	return account.GetMappedModel(requestedModel)
-}
 
 // needsUpstreamChannelRestrictionCheck 判断是否需要在调度循环中逐账号检查上游模型的渠道限制。
 func (s *GatewayService) needsUpstreamChannelRestrictionCheck(ctx context.Context, groupID *int64) bool {
