@@ -1,0 +1,98 @@
+name: Apply Secure Scheduler Diagnostics Final
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.13'
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          cache: true
+          cache-dependency-path: backend/go.sum
+
+      - name: Apply corrected security patch
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          src = Path('.github/workflows/run-secure-scheduler-diagnostics-v2.yml').read_text()
+          start_marker = "      - name: Run corrected security patch\n        shell: bash\n        run: |\n"
+          end_marker = "\n      - name: Test changed backend packages\n"
+          start = src.index(start_marker) + len(start_marker)
+          end = src.index(end_marker, start)
+          lines = src[start:end].splitlines()
+          script = '\n'.join(line[10:] if line.startswith('          ') else line for line in lines) + '\n'
+          Path('/tmp/secure-scheduler-final.sh').write_text(script)
+          PY
+          bash /tmp/secure-scheduler-final.sh
+          python3 <<'PY'
+          from pathlib import Path
+          path = Path('backend/internal/service/scheduler_diagnostics.go')
+          text = path.read_text()
+          if '\t"fmt"\n' not in text:
+              raise SystemExit('expected unused fmt import after security patch')
+          path.write_text(text.replace('\t"fmt"\n', '', 1))
+          PY
+          gofmt -w \
+            backend/internal/service/scheduler_diagnostics.go \
+            backend/internal/service/scheduler_diagnostics_test.go \
+            backend/internal/service/gateway_service.go \
+            backend/internal/service/ops_upstream_context.go \
+            backend/internal/handler/gateway_handler.go \
+            backend/internal/handler/gateway_handler_responses.go \
+            backend/internal/handler/gateway_handler_chat_completions.go \
+            backend/internal/handler/gemini_v1beta_handler.go
+
+      - name: Test changed backend packages
+        shell: bash
+        run: |
+          cd backend
+          go test ./internal/service ./internal/handler
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck frontend
+        working-directory: frontend
+        run: pnpm typecheck
+
+      - name: Commit final secured diagnostics
+        shell: bash
+        run: |
+          git rm \
+            .github/workflows/secure-scheduler-diagnostics.yml \
+            .github/workflows/capture-secure-scheduler-patch.yml \
+            .github/workflows/run-secure-scheduler-diagnostics-v2.yml \
+            .github/workflows/capture-secure-backend-test.yml \
+            .github/workflows/apply-secure-scheduler-final.yml
+          git add backend frontend
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix: keep scheduler diagnostics internal to ops"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
