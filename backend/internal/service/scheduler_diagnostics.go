@@ -69,14 +69,6 @@ type schedulerDiagnosticsEnvelope struct {
 	Accounts        []schedulerAccountDiagnostic `json:"accounts"`
 }
 
-func appendSchedulerDiagnostics(summary, encoded string) string {
-	encoded = strings.TrimSpace(encoded)
-	if encoded == "" {
-		return summary
-	}
-	return strings.TrimSpace(summary) + " " + schedulerDiagnosticsMarker + encoded
-}
-
 func encodeSchedulerDiagnostics(envelope schedulerDiagnosticsEnvelope) string {
 	if len(envelope.Accounts) == 0 {
 		return ""
