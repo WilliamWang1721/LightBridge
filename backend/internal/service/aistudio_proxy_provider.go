@@ -30,10 +30,10 @@ func ProvideAistudioProxyManager(cfg *config.Config, accountService *AccountServ
 	}
 	return aistudio_proxy.NewManager(
 		aistudio_proxy.Config{
-			DataDir:        dataDir,
-			RuntimeDir:     runtimeDir,
-			PythonBin:      pythonBin,
-			HealthTimeout:  0, // use manager default
+			DataDir:       dataDir,
+			RuntimeDir:    runtimeDir,
+			PythonBin:     pythonBin,
+			HealthTimeout: 0, // use manager default
 		},
 		&aistudioProxyCredUpdater{svc: accountService},
 		&aistudioProxyCredReader{svc: accountService},

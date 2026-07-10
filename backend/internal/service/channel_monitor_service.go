@@ -324,7 +324,8 @@ func (s *ChannelMonitorService) GetRecentAvailability(ctx context.Context, days 
 
 // ListHistory 列出某个监控最近的检测历史。
 // model 为空表示返回所有模型；limit <= 0 时使用默认值，超过上限会被截断。
-func (s *ChannelMonitorService) ListHistory(ctx context.Context, id int64, model string, limit int) ([]*ChannelMonitorHistoryEntry, error) {	if _, err := s.repo.GetByID(ctx, id); err != nil {
+func (s *ChannelMonitorService) ListHistory(ctx context.Context, id int64, model string, limit int) ([]*ChannelMonitorHistoryEntry, error) {
+	if _, err := s.repo.GetByID(ctx, id); err != nil {
 		return nil, err
 	}
 	if limit <= 0 {

@@ -37,7 +37,7 @@ func (s *adminServiceImpl) SetProviderRegistry(registry *modules.ProviderRegistr
 	s.providerRegistry = registry
 }
 
-func (s *GatewayService) forwardModuleProvider(ctx context.Context, c *gin.Context, account *Account, parsed *ParsedRequest, startTime interface{}) (*ForwardResult, bool, error) {
+func (s *GatewayService) forwardModuleProvider(ctx context.Context, c *gin.Context, account *Account, parsed *ParsedRequest, startTime any) (*ForwardResult, bool, error) {
 	adapter, providerID, ok, err := s.resolveModuleProviderAdapter(account)
 	if !ok || err != nil {
 		return nil, ok, err

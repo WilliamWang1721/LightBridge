@@ -7,21 +7,21 @@ import (
 
 // 隐私过滤内置规则 ID。前端用这些 ID 做 i18n 文案映射。
 const (
-	PrivacyFilterBuiltinEmail    = "email"
-	PrivacyFilterBuiltinCNPhone  = "cn_phone"
-	PrivacyFilterBuiltinIDCard   = "id_card"
-	PrivacyFilterBuiltinBankCard = "bank_card"
-	PrivacyFilterBuiltinIPv4     = "ipv4"
-	PrivacyFilterBuiltinIPv6     = "ipv6"
-	PrivacyFilterBuiltinSecret   = "secret"
-	PrivacyFilterBuiltinJWT      = "jwt"
+	PrivacyFilterBuiltinEmail      = "email"
+	PrivacyFilterBuiltinCNPhone    = "cn_phone"
+	PrivacyFilterBuiltinIDCard     = "id_card"
+	PrivacyFilterBuiltinBankCard   = "bank_card"
+	PrivacyFilterBuiltinIPv4       = "ipv4"
+	PrivacyFilterBuiltinIPv6       = "ipv6"
+	PrivacyFilterBuiltinSecret     = "secret"
+	PrivacyFilterBuiltinJWT        = "jwt"
 	PrivacyFilterBuiltinPrivateKey = "private_key"
-	PrivacyFilterBuiltinAWSKey   = "aws_key"
-	PrivacyFilterBuiltinGitHubPAT = "github_pat"
+	PrivacyFilterBuiltinAWSKey     = "aws_key"
+	PrivacyFilterBuiltinGitHubPAT  = "github_pat"
 	PrivacyFilterBuiltinSlackToken = "slack_token"
 	PrivacyFilterBuiltinCreditCard = "credit_card"
-	PrivacyFilterBuiltinCNLicense = "cn_license"
-	PrivacyFilterBuiltinURLQuery = "url_query"
+	PrivacyFilterBuiltinCNLicense  = "cn_license"
+	PrivacyFilterBuiltinURLQuery   = "url_query"
 )
 
 const (

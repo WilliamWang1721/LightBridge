@@ -57,12 +57,12 @@ type ModelCatalogRepository interface {
 }
 
 type ModelCatalogService struct {
-	repo            ModelCatalogRepository
-	accountRepo     AccountRepository
-	groupRepo       GroupRepository
-	channelService  *ChannelService
-	monitorService  *ChannelMonitorService
-	settingService  *SettingService
+	repo           ModelCatalogRepository
+	accountRepo    AccountRepository
+	groupRepo      GroupRepository
+	channelService *ChannelService
+	monitorService *ChannelMonitorService
+	settingService *SettingService
 }
 
 func NewModelCatalogService(
@@ -617,10 +617,10 @@ func (s *ModelCatalogService) enrichMonitorStatus(ctx context.Context, models []
 
 	// 5. 按 model name 构建最新状态索引：modelID -> latest status
 	type modelStatus struct {
-		monitorID   int64
-		status      string
-		latencyMs   *int
-		avail7d     *float64
+		monitorID int64
+		status    string
+		latencyMs *int
+		avail7d   *float64
 	}
 	statusByModel := make(map[string]modelStatus, len(matches))
 

@@ -102,7 +102,7 @@ func runApply(args []string) {
 	var err error
 	switch {
 	case strings.TrimSpace(*githubURL) != "":
-		body, _ := json.Marshal(map[string]interface{}{"url": *githubURL, "replace": *replace})
+		body, _ := json.Marshal(map[string]any{"url": *githubURL, "replace": *replace})
 		data, err = c.do(http.MethodPost, "/api/v1/admin/ui-themes/import-github", bytes.NewReader(body), "application/json")
 	case strings.TrimSpace(*zipPath) != "":
 		data, err = c.uploadZip(*zipPath, *replace)

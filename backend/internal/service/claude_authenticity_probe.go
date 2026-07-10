@@ -23,11 +23,11 @@ import (
 //
 // 伪造签名通常在计费前被拒，且 max_tokens=1 兜底，单次探针成本趋近于零。
 type ClaudeAuthenticityResult struct {
-	Verdict   string    `json:"verdict"`              // genuine / counterfeit / unknown
-	Method    string    `json:"method"`               // probe
-	CheckedAt time.Time `json:"checked_at"`           // 检测时间
-	Detail    string    `json:"detail,omitempty"`     // 人类可读说明（错误原因/状态码等）
-	HTTPStatus int      `json:"http_status,omitempty"` // 上游返回的状态码（便于排障）
+	Verdict    string    `json:"verdict"`               // genuine / counterfeit / unknown
+	Method     string    `json:"method"`                // probe
+	CheckedAt  time.Time `json:"checked_at"`            // 检测时间
+	Detail     string    `json:"detail,omitempty"`      // 人类可读说明（错误原因/状态码等）
+	HTTPStatus int       `json:"http_status,omitempty"` // 上游返回的状态码（便于排障）
 }
 
 // ExtraMap 返回需要增量合并进 Account.Extra 的键值（key 级覆盖，不影响其它运行态键）。
@@ -152,7 +152,7 @@ func (s *AccountTestService) probeClaudeAuthenticity(ctx context.Context, c *gin
 	payload := map[string]any{
 		"model": testModelID,
 		"messages": []map[string]any{
-			{ "role": "user", "content": "hi" },
+			{"role": "user", "content": "hi"},
 			{
 				"role": "assistant",
 				"content": []map[string]any{
@@ -163,7 +163,7 @@ func (s *AccountTestService) probeClaudeAuthenticity(ctx context.Context, c *gin
 					},
 				},
 			},
-			{ "role": "user", "content": "go on" },
+			{"role": "user", "content": "go on"},
 		},
 		"thinking": map[string]any{
 			"type":          "enabled",

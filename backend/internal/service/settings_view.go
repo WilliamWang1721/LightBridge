@@ -153,11 +153,11 @@ type SystemSettings struct {
 	AffiliateRebatePerInviteeCap float64
 	DefaultUserRPMLimit          int
 	DefaultSubscriptions         []DefaultSubscriptionSetting
-	AnnouncementsEnabled        bool
-	RedeemEnabled               bool
-	PromoEnabled                bool
-	ProxiesEnabled              bool
-	ChannelPricingEnabled       bool
+	AnnouncementsEnabled         bool
+	RedeemEnabled                bool
+	PromoEnabled                 bool
+	ProxiesEnabled               bool
+	ChannelPricingEnabled        bool
 
 	// Model fallback configuration
 	EnableModelFallback      bool   `json:"enable_model_fallback"`
@@ -444,8 +444,8 @@ func DefaultRectifierSettings() *RectifierSettings {
 // AuthenticitySettings Claude 模型真伪检测配置。
 // 控制被动 SSE 旁路检测是否启用，以及连续可疑多少次才标记假冒（避免临时降级误伤）。
 type AuthenticitySettings struct {
-	Enabled           bool `json:"enabled"`             // 总开关（被动检测）
-	PassiveThreshold  int  `json:"passive_threshold"`   // 连续可疑次数阈值（默认 3）
+	Enabled          bool `json:"enabled"`           // 总开关（被动检测）
+	PassiveThreshold int  `json:"passive_threshold"` // 连续可疑次数阈值（默认 3）
 }
 
 // DefaultAuthenticitySettings 返回默认的真伪检测配置（启用被动检测，阈值 3）。

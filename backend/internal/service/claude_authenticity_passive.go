@@ -17,9 +17,9 @@ const defaultAuthenticityPassiveThreshold = 3
 // thinkingSignatureState 跟踪一次流式响应中 thinking block 与其 signature 的出现情况。
 // 真 Anthropic 在开启 thinking 时，每个 thinking content block 都会带 signature_delta。
 type thinkingSignatureState struct {
-	enabled         bool // 本次请求是否明确开启了 thinking
+	enabled          bool // 本次请求是否明确开启了 thinking
 	sawThinkingBlock bool // 是否出现 content_block_start.type == thinking
-	sawSignature    bool // 是否出现 signature_delta 且 signature 非空
+	sawSignature     bool // 是否出现 signature_delta 且 signature 非空
 }
 
 // isThinkingEnabledPayload 判断请求体是否明确开启了 thinking。
@@ -79,11 +79,11 @@ func (s *GatewayService) evaluateAuthenticityPassive(ctx context.Context, accoun
 	if st.sawSignature {
 		// 检测到合法 signature → 确认真，清零可疑计数。
 		updates := map[string]any{
-			AccountExtraKeyAuthenticityVerdict:     AuthenticityVerdictGenuine,
-			AccountExtraKeyAuthenticityCheckedAt:   now.Format(time.RFC3339),
-			AccountExtraKeyAuthenticityMethod:      AuthenticityMethodPassive,
-			AccountExtraKeyAuthenticityDetail:      "valid thinking signature observed in stream",
-			AccountExtraKeyAuthenticitySuspicious:  0,
+			AccountExtraKeyAuthenticityVerdict:    AuthenticityVerdictGenuine,
+			AccountExtraKeyAuthenticityCheckedAt:  now.Format(time.RFC3339),
+			AccountExtraKeyAuthenticityMethod:     AuthenticityMethodPassive,
+			AccountExtraKeyAuthenticityDetail:     "valid thinking signature observed in stream",
+			AccountExtraKeyAuthenticitySuspicious: 0,
 		}
 		if err := s.accountRepo.UpdateExtra(ctx, account.ID, updates); err != nil {
 			slog.Warn("authenticity_passive_persist_failed", "account_id", account.ID, "verdict", AuthenticityVerdictGenuine, "error", err)
