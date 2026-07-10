@@ -1,0 +1,40 @@
+name: Capture Scheduler Diagnostics Security Patch
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - name: Extract and run patch
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          src = Path('.github/workflows/secure-scheduler-diagnostics.yml').read_text()
+          start_marker = "      - name: Separate internal diagnostics from client errors\n        shell: bash\n        run: |\n"
+          end_marker = "\n      - name: Test changed backend packages\n"
+          start = src.index(start_marker) + len(start_marker)
+          end = src.index(end_marker, start)
+          lines = src[start:end].splitlines()
+          script = '\n'.join(line[10:] if line.startswith('          ') else line for line in lines) + '\n'
+          Path('/tmp/secure-patch.sh').write_text(script)
+          PY
+          set +e
+          bash /tmp/secure-patch.sh > SECURE_PATCH_OUTPUT.txt 2>&1
+          status=$?
+          echo "exit_status=$status" >> SECURE_PATCH_OUTPUT.txt
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: secure-patch-output
+          path: SECURE_PATCH_OUTPUT.txt
