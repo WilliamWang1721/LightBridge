@@ -1,0 +1,26 @@
+! Corepack is about to download https://registry.npmjs.org/pnpm/-/pnpm-11.11.0.tgz
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides". See https://pnpm.io/settings for the new home of each setting.
+? Verifying lockfile against supply-chain policies (1010 entries)...
+✓ Lockfile passes supply-chain policies (1010 entries in 4.2s)
+[ERR_PNPM_LOCKFILE_CONFIG_MISMATCH] Cannot proceed with the frozen installation. The current "overrides" configuration doesn't match the value found in the lockfile
+
+Update your lockfile using "pnpm install --no-frozen-lockfile"
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides". See https://pnpm.io/settings for the new home of each setting.
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides". See https://pnpm.io/settings for the new home of each setting.
+✓ Lockfile passes supply-chain policies (verified 1s ago)
+[ERR_PNPM_LOCKFILE_CONFIG_MISMATCH] Cannot proceed with the frozen installation. The current "overrides" configuration doesn't match the value found in the lockfile
+
+Update your lockfile using "pnpm install --no-frozen-lockfile"
+[ERROR] Command failed with exit code 1: /usr/local/bin/node /home/runner/.cache/node/corepack/v1/pnpm/11.11.0/bin/pnpm.mjs install
+
+pnpm: Command failed with exit code 1: /usr/local/bin/node /home/runner/.cache/node/corepack/v1/pnpm/11.11.0/bin/pnpm.mjs install
+    at getFinalError (file:///home/runner/.cache/node/corepack/v1/pnpm/11.11.0/dist/pnpm.mjs:36343:14)
+    at makeError (file:///home/runner/.cache/node/corepack/v1/pnpm/11.11.0/dist/pnpm.mjs:38650:21)
+    at getSyncResult (file:///home/runner/.cache/node/corepack/v1/pnpm/11.11.0/dist/pnpm.mjs:40494:10)
+    at spawnSubprocessSync (file:///home/runner/.cache/node/corepack/v1/pnpm/11.11.0/dist/pnpm.mjs:40454:14)
+    at execaCoreSync (file:///home/runner/.cache/node/corepack/v1/pnpm/11.11.0/dist/pnpm.mjs:40384:23)
+    at callBoundExeca (file:///home/runner/.cache/node/corepack/v1/pnpm/11.11.0/dist/pnpm.mjs:42912:23)
+    at boundExeca (file:///home/runner/.cache/node/corepack/v1/pnpm/11.11.0/dist/pnpm.mjs:42889:49)
+    at sync (file:///home/runner/.cache/node/corepack/v1/pnpm/11.11.0/dist/pnpm.mjs:43048:10)
+    at runPnpmCli (file:///home/runner/.cache/node/corepack/v1/pnpm/11.11.0/dist/pnpm.mjs:247810:5)
+    at runDepsStatusCheck (file:///home/runner/.cache/node/corepack/v1/pnpm/11.11.0/dist/pnpm.mjs:249560:7)
