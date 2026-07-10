@@ -120,12 +120,35 @@ jobs:
 
           rm .github/workflows/fix-ci-baseline-once.yml
 
-      - name: Validate compilation and lint before commit
+      - name: Validate unit compilation
+        id: compile
+        continue-on-error: true
+        working-directory: backend
         run: |
-          set -euo pipefail
-          cd backend
-          go test -tags=unit -run '^$' ./...
-          go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.9.0 run --timeout=30m
+          set -o pipefail
+          go test -tags=unit -run '^$' ./... 2>&1 | tee ../baseline-compile.log
+
+      - name: Validate golangci-lint
+        id: lint
+        continue-on-error: true
+        working-directory: backend
+        run: |
+          set -o pipefail
+          go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.9.0 run --timeout=30m 2>&1 | tee ../baseline-lint.log
+
+      - name: Upload validation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: baseline-fix-diagnostics
+          path: baseline-*.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Enforce validation result
+        run: |
+          test '${{ steps.compile.outcome }}' = success
+          test '${{ steps.lint.outcome }}' = success
 
       - name: Commit repairs and remove this workflow
         run: |
