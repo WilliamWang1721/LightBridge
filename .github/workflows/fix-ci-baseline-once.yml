@@ -109,15 +109,24 @@ jobs:
           path.write_text(text)
           PY
 
-          gofmt -s -w \
+          gofmt -w \
             backend/internal/service/token_refresh_service_test.go \
             backend/internal/server/api_contract_test.go \
             backend/internal/handler/admin/lightbridge_connect_handler.go \
             backend/internal/service/gemini_native_protocol_adapter_test.go \
-            backend/cmd/ui-theme/main.go \
-            backend/internal/repository/ui_theme_repo.go \
             backend/internal/service/aistudio_proxy_provider.go \
-            backend/internal/service/channel_monitor_service.go
+            backend/internal/service/channel_monitor_service.go \
+            backend/internal/service/claude_authenticity_passive.go
+
+          gofmt -r 'interface{} -> any' -w \
+            backend/cmd/ui-theme/main.go \
+            backend/internal/repository/ui_theme_repo.go
+          gofmt -r 'a[b:len(a)] -> a[b:]' -w \
+            backend/cmd/ui-theme/main.go \
+            backend/internal/repository/ui_theme_repo.go
+          gofmt -w \
+            backend/cmd/ui-theme/main.go \
+            backend/internal/repository/ui_theme_repo.go
 
           rm .github/workflows/fix-ci-baseline-once.yml
 
