@@ -127,32 +127,24 @@ def patch_contract_tests() -> None:
             '\t\t\t\t"available_channels_enabled": false,',
         )
 
-    quota_pattern = re.compile(
-        r'("default_platform_quotas"\s*:\s*\{)(.*?)(\n\s*\},\n\s*"default_subscriptions")',
-        re.S,
+    quota_old = (
+        '"default_platform_quotas": {"anthropic":{"daily":null,"weekly":null,"monthly":null},'
+        '"antigravity":{"daily":null,"weekly":null,"monthly":null},'
+        '"gemini":{"daily":null,"weekly":null,"monthly":null},'
+        '"openai":{"daily":null,"weekly":null,"monthly":null}},'
     )
-
-    def add_quota_platforms(match: re.Match[str]) -> str:
-        body = match.group(2)
-        if '"custom"' in body and '"grok"' in body:
-            return match.group(0)
-        indent_match = re.search(r"\n(\s*)\"[^\"]+\"\s*:", body)
-        if not indent_match:
-            raise RuntimeError("default platform quota indentation not found")
-        indent = indent_match.group(1)
-        body = body.rstrip()
-        additions: list[str] = []
-        if '"custom"' not in body:
-            additions.append(f'{indent}"custom": {{"daily": null, "monthly": null, "weekly": null}}')
-        if '"grok"' not in body:
-            additions.append(f'{indent}"grok": {{"daily": null, "monthly": null, "weekly": null}}')
-        if additions:
-            body += ",\n" + ",\n".join(additions)
-        return match.group(1) + body + match.group(3)
-
-    text, quota_count = quota_pattern.subn(add_quota_platforms, text)
-    if quota_count < 2:
-        raise RuntimeError(f"expected at least two quota fixtures, found {quota_count}")
+    quota_new = (
+        '"default_platform_quotas": {"anthropic":{"daily":null,"weekly":null,"monthly":null},'
+        '"antigravity":{"daily":null,"weekly":null,"monthly":null},'
+        '"custom":{"daily":null,"weekly":null,"monthly":null},'
+        '"gemini":{"daily":null,"weekly":null,"monthly":null},'
+        '"grok":{"daily":null,"weekly":null,"monthly":null},'
+        '"openai":{"daily":null,"weekly":null,"monthly":null}},'
+    )
+    if quota_old in text:
+        text = text.replace(quota_old, quota_new)
+    elif '"custom":{"daily":null,"weekly":null,"monthly":null}' not in text or '"grok":{"daily":null,"weekly":null,"monthly":null}' not in text:
+        raise RuntimeError('compact default_platform_quotas fixtures not found')
 
     write(path, text)
 
