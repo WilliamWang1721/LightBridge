@@ -16,6 +16,8 @@ jobs:
     if: github.head_ref == 'phase2-routing-green' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v6
         with:
@@ -27,7 +29,7 @@ jobs:
           check-latest: false
           cache: true
           cache-dependency-path: backend/go.sum
-      - name: Apply exact unit-contract and lint repairs
+      - name: Apply exact unit-contract repairs
         run: |
           set -euo pipefail
           python <<'PY'
@@ -109,26 +111,14 @@ jobs:
           path.write_text(text)
           PY
 
-          gofmt -w \
-            backend/internal/service/token_refresh_service_test.go \
-            backend/internal/server/api_contract_test.go \
-            backend/internal/handler/admin/lightbridge_connect_handler.go \
-            backend/internal/service/gemini_native_protocol_adapter_test.go \
-            backend/internal/service/aistudio_proxy_provider.go \
-            backend/internal/service/channel_monitor_service.go \
-            backend/internal/service/claude_authenticity_passive.go
+      - name: Apply repository formatter
+        working-directory: backend
+        run: |
+          set -euo pipefail
+          go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.9.0 fmt
 
-          gofmt -r 'interface{} -> any' -w \
-            backend/cmd/ui-theme/main.go \
-            backend/internal/repository/ui_theme_repo.go
-          gofmt -r 'a[b:len(a)] -> a[b:]' -w \
-            backend/cmd/ui-theme/main.go \
-            backend/internal/repository/ui_theme_repo.go
-          gofmt -w \
-            backend/cmd/ui-theme/main.go \
-            backend/internal/repository/ui_theme_repo.go
-
-          rm .github/workflows/fix-ci-baseline-once.yml
+      - name: Remove one-time workflow
+        run: rm .github/workflows/fix-ci-baseline-once.yml
 
       - name: Validate unit compilation
         id: compile
@@ -166,5 +156,5 @@ jobs:
           git config user.name 'WilliamWang1721'
           git config user.email '140129782+WilliamWang1721@users.noreply.github.com'
           git add -A
-          git commit -m 'fix(ci): repair baseline unit contracts and lint'
+          git commit -m 'fix(ci): repair baseline unit contracts and formatting'
           git push origin HEAD:phase2-routing-green
