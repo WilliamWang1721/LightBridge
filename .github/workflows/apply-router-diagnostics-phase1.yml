@@ -38,14 +38,6 @@ jobs:
                   raise SystemExit(f"{path}: expected one exact match, got {count}")
               p.write_text(text.replace(old, new, 1))
 
-          def regex_once(path: str, pattern: str, replacement: str, flags=0) -> None:
-              p = Path(path)
-              text = p.read_text()
-              updated, count = re.subn(pattern, replacement, text, count=1, flags=flags)
-              if count != 1:
-                  raise SystemExit(f"{path}: expected one regex match, got {count}: {pattern[:80]}")
-              p.write_text(updated)
-
           replace_once(
               'backend/internal/service/account.go',
               '''func (a *Account) CustomProtocol() string {
@@ -134,7 +126,6 @@ jobs:
               raise SystemExit(f'gateway summary expected one match, got {text.count(old_summary)}')
           text = text.replace(old_summary, new_summary, 1)
 
-          # Preserve diagnostics even when the request omitted a model.
           old_failure = '''\tif selected == nil {
           \t\tstats := s.logDetailedSelectionFailure(ctx, groupID, sessionHash, requestedModel, platform, accounts, excludedIDs, false)
           \t\tif requestedModel != "" {
@@ -175,7 +166,6 @@ jobs:
               raise SystemExit(f'gateway mixed failure block expected one match, got {text.count(old_mixed_failure)}')
           text = text.replace(old_mixed_failure, new_mixed_failure, 1)
 
-          # Capture protocol-gate failures before accounts disappear from later selection stages.
           old_snapshot = '''\t\tif err == nil {
           \t\t\t// 请求级 Custom 协议过滤（快照按 group/platform 缓存、跨入站 endpoint 共享，
           \t\t\t// 故协议过滤必须在此处按当前请求做）。
@@ -192,14 +182,14 @@ jobs:
 
           old_group = '''\t\trawCount := len(accounts)
           \t\taccounts = filterAccountsByRequestProtocol(ctx, accounts)
-          \tslog.Debug("account_scheduling_list",
+          \t\tslog.Debug("account_scheduling_list",
           '''
           new_group = '''\t\trawCount := len(accounts)
           \t\taccounts, err = filterAccountsByRequestProtocolForScheduling(ctx, groupID, platform, accounts)
           \t\tif err != nil {
           \t\t\treturn nil, useMixed, err
           \t\t}
-          \tslog.Debug("account_scheduling_list",
+          \t\tslog.Debug("account_scheduling_list",
           '''
           if text.count(old_group) != 1:
               raise SystemExit(f'gateway grouped protocol block expected one match, got {text.count(old_group)}')
@@ -222,7 +212,6 @@ jobs:
           text = text.replace(old_final, new_final, 1)
           gateway.write_text(text)
 
-          # Extend frontend diagnostics with request-time server records.
           p = Path('frontend/src/views/admin/ops/utils/errorAnalysis.ts')
           text = p.read_text()
           text = text.replace(
@@ -274,7 +263,6 @@ jobs:
           text = text.replace(
               "const NETWORK_RE = /timeout|deadline|connection refused|connection reset|dial tcp|tls|dns|network/i\n",
               "const NETWORK_RE = /timeout|deadline|connection refused|connection reset|dial tcp|tls|dns|network/i\nconst SCHEDULER_DIAGNOSTICS_RE = /scheduler_diagnostics=([A-Za-z0-9_-]+)/\n", 1)
-
           insert_after = '''function normalize(value: unknown): string {
           \treturn String(value ?? '').trim().toLowerCase()
           }
@@ -300,34 +288,32 @@ jobs:
           if text.count(insert_after) != 1:
               raise SystemExit('frontend normalize block mismatch')
           text = text.replace(insert_after, parser, 1)
-
           text = text.replace(
-              '''\tcase 'account_scheduler':
-          \t\tpushEvidence(evidence, 'account', detail.account_name || detail.account_id || 'none', detail.account_id ? 'neutral' : 'warning')
-          \t\tpushEvidence(evidence, 'status', detail.status_code, detail.status_code >= 500 ? 'danger' : 'warning')
-          \t\tif (hasNoAvailableAccount(detail)) pushEvidence(evidence, 'scheduler_result', 'No available accounts', 'danger')
-          \t\tif (isCustomProviderContext(detail, upstreamErrors)) pushEvidence(evidence, 'provider_kind', 'custom', 'warning')
-          \t\tbreak
+              '''\t\tcase 'account_scheduler':
+          \t\t\tpushEvidence(evidence, 'account', detail.account_name || detail.account_id || 'none', detail.account_id ? 'neutral' : 'warning')
+          \t\t\tpushEvidence(evidence, 'status', detail.status_code, detail.status_code >= 500 ? 'danger' : 'warning')
+          \t\t\tif (hasNoAvailableAccount(detail)) pushEvidence(evidence, 'scheduler_result', 'No available accounts', 'danger')
+          \t\t\tif (isCustomProviderContext(detail, upstreamErrors)) pushEvidence(evidence, 'provider_kind', 'custom', 'warning')
+          \t\t\tbreak
           ''',
-              '''\tcase 'account_scheduler': {
-          \t\tpushEvidence(evidence, 'account', detail.account_name || detail.account_id || 'none', detail.account_id ? 'neutral' : 'warning')
-          \t\tpushEvidence(evidence, 'status', detail.status_code, detail.status_code >= 500 ? 'danger' : 'warning')
-          \t\tif (hasNoAvailableAccount(detail)) pushEvidence(evidence, 'scheduler_result', 'No available accounts', 'danger')
-          \t\tif (isCustomProviderContext(detail, upstreamErrors)) pushEvidence(evidence, 'provider_kind', 'custom', 'warning')
-          \t\tconst recorded = parseRecordedSchedulerDiagnostics(detail)
-          \t\tif (recorded?.inbound_protocol) pushEvidence(evidence, 'inbound_protocol', recorded.inbound_protocol)
-          \t\tif (recorded?.accounts) pushEvidence(evidence, 'evaluated_accounts', recorded.accounts.length)
-          \t\tif (recorded?.reason_counts) {
-          \t\t\tconst summary = Object.entries(recorded.reason_counts)
-          \t\t\t\t.sort((a, b) => b[1] - a[1])
-          \t\t\t\t.map(([reason, count]) => `${reason}:${count}`)
-          \t\t\t\t.join(', ')
-          \t\t\tpushEvidence(evidence, 'rejection_reasons', summary, 'danger')
+              '''\t\tcase 'account_scheduler': {
+          \t\t\tpushEvidence(evidence, 'account', detail.account_name || detail.account_id || 'none', detail.account_id ? 'neutral' : 'warning')
+          \t\t\tpushEvidence(evidence, 'status', detail.status_code, detail.status_code >= 500 ? 'danger' : 'warning')
+          \t\t\tif (hasNoAvailableAccount(detail)) pushEvidence(evidence, 'scheduler_result', 'No available accounts', 'danger')
+          \t\t\tif (isCustomProviderContext(detail, upstreamErrors)) pushEvidence(evidence, 'provider_kind', 'custom', 'warning')
+          \t\t\tconst recorded = parseRecordedSchedulerDiagnostics(detail)
+          \t\t\tif (recorded?.inbound_protocol) pushEvidence(evidence, 'inbound_protocol', recorded.inbound_protocol)
+          \t\t\tif (recorded?.accounts) pushEvidence(evidence, 'evaluated_accounts', recorded.accounts.length)
+          \t\t\tif (recorded?.reason_counts) {
+          \t\t\t\tconst summary = Object.entries(recorded.reason_counts)
+          \t\t\t\t\t.sort((a, b) => b[1] - a[1])
+          \t\t\t\t\t.map(([reason, count]) => `${reason}:${count}`)
+          \t\t\t\t\t.join(', ')
+          \t\t\t\tpushEvidence(evidence, 'rejection_reasons', summary, 'danger')
+          \t\t\t}
+          \t\t\tbreak
           \t\t}
-          \t\tbreak
-          \t}
           ''', 1)
-
           marker = '''  const reasons: ErrorAnalysisAccountReason[] = []
           \tconst groupID = detail?.group_id ?? null
           '''
@@ -502,14 +488,7 @@ jobs:
           	return diagnostic
           }
 
-          func (s *GatewayService) encodeSchedulerSelectionDiagnostics(
-          	ctx context.Context,
-          	groupID *int64,
-          	accounts []Account,
-          	requestedModel string,
-          	platform string,
-          	excludedIDs map[int64]struct{},
-          ) string {
+          func (s *GatewayService) encodeSchedulerSelectionDiagnostics(ctx context.Context, groupID *int64, accounts []Account, requestedModel string, platform string, excludedIDs map[int64]struct{}) string {
           	if len(accounts) == 0 {
           		return ""
           	}
@@ -527,28 +506,14 @@ jobs:
           			reasonCounts[diagnostic.Reason]++
           		}
           	}
-          	return encodeSchedulerDiagnostics(schedulerDiagnosticsEnvelope{
-          		Version:         1,
-          		InboundProtocol: InboundProtocolFromContext(ctx),
-          		RequestedModel:  requestedModel,
-          		GroupID:         derefGroupID(groupID),
-          		Platform:        platform,
-          		ReasonCounts:    reasonCounts,
-          		Accounts:        diagnostics,
-          	})
+          	return encodeSchedulerDiagnostics(schedulerDiagnosticsEnvelope{Version: 1, InboundProtocol: InboundProtocolFromContext(ctx), RequestedModel: requestedModel, GroupID: derefGroupID(groupID), Platform: platform, ReasonCounts: reasonCounts, Accounts: diagnostics})
           }
 
           func (s *GatewayService) schedulerSelectionDiagnostic(ctx context.Context, groupID *int64, account *Account, requestedModel string, excludedIDs map[int64]struct{}) schedulerAccountDiagnostic {
           	if account == nil {
           		return schedulerAccountDiagnostic{Available: false, Stage: "account_state", Reason: "account_nil"}
           	}
-          	diagnostic := schedulerAccountDiagnostic{
-          		AccountID:      account.ID,
-          		AccountName:    account.Name,
-          		Platform:       account.EffectivePlatform(),
-          		RelayMode:      account.RelayMode(),
-          		TargetProtocol: account.TargetProtocol(),
-          	}
+          	diagnostic := schedulerAccountDiagnostic{AccountID: account.ID, AccountName: account.Name, Platform: account.EffectivePlatform(), RelayMode: account.RelayMode(), TargetProtocol: account.TargetProtocol()}
           	reject := func(stage, reason, detail string) schedulerAccountDiagnostic {
           		diagnostic.Available = false
           		diagnostic.Stage = stage
@@ -556,13 +521,11 @@ jobs:
           		diagnostic.Detail = detail
           		return diagnostic
           	}
-
           	if _, excluded := excludedIDs[account.ID]; excluded {
           		return reject("request_exclusion", "excluded", "account was excluded by a previous attempt")
           	}
           	if route, ok := ProtocolRouteDecisionForAccount(ctx, account); !ok {
-          		protocol := protocolDiagnosticForAccount(ctx, account)
-          		return protocol
+          		return protocolDiagnosticForAccount(ctx, account)
           	} else {
           		diagnostic.TargetProtocol = route.TargetProtocol
           	}
@@ -616,10 +579,8 @@ jobs:
           	if !s.isAccountSchedulableForRPM(ctx, account, false) {
           		return reject("rpm", "rpm_limit", "account RPM limit reached")
           	}
-          	if account.IsCustom() {
-          		if strings.TrimSpace(account.GetCredential("base_url")) == "" || strings.TrimSpace(account.GetCredential("api_key")) == "" {
-          			return reject("credentials", "credentials_missing", "custom account requires base_url and api_key")
-          		}
+          	if account.IsCustom() && (strings.TrimSpace(account.GetCredential("base_url")) == "" || strings.TrimSpace(account.GetCredential("api_key")) == "") {
+          		return reject("credentials", "credentials_missing", "custom account requires base_url and api_key")
           	}
           	diagnostic.Available = true
           	diagnostic.Stage = "eligible"
@@ -633,12 +594,7 @@ jobs:
           import "testing"
 
           func TestCustomProtocolFallsBackToLegacyCredentials(t *testing.T) {
-          	account := &Account{
-          		Platform: PlatformCustom,
-          		Credentials: map[string]any{
-          			"protocol": CustomProtocolOpenAIResponses,
-          		},
-          	}
+          	account := &Account{Platform: PlatformCustom, Credentials: map[string]any{"protocol": CustomProtocolOpenAIResponses}}
           	if got := account.CustomProtocol(); got != CustomProtocolOpenAIResponses {
           		t.Fatalf("CustomProtocol() = %q, want %q", got, CustomProtocolOpenAIResponses)
           	}
@@ -648,15 +604,7 @@ jobs:
           }
 
           func TestCustomProtocolPrefersAuthoritativeExtraField(t *testing.T) {
-          	account := &Account{
-          		Platform: PlatformCustom,
-          		Extra: map[string]any{
-          			"protocol": CustomProtocolAnthropicMessages,
-          		},
-          		Credentials: map[string]any{
-          			"protocol": CustomProtocolOpenAIResponses,
-          		},
-          	}
+          	account := &Account{Platform: PlatformCustom, Extra: map[string]any{"protocol": CustomProtocolAnthropicMessages}, Credentials: map[string]any{"protocol": CustomProtocolOpenAIResponses}}
           	if got := account.CustomProtocol(); got != CustomProtocolAnthropicMessages {
           		t.Fatalf("CustomProtocol() = %q, want authoritative extra value %q", got, CustomProtocolAnthropicMessages)
           	}
@@ -676,17 +624,7 @@ jobs:
 
           func TestProtocolFilterReturnsRequestTimeDiagnostics(t *testing.T) {
           	ctx := WithInboundProtocol(context.Background(), CustomProtocolAnthropicMessages)
-          	account := Account{
-          		ID:          7,
-          		Name:        "responses passthrough",
-          		Platform:    PlatformCustom,
-          		Status:      StatusActive,
-          		Schedulable: true,
-          		Extra: map[string]any{
-          			"protocol":   CustomProtocolOpenAIResponses,
-          			"relay_mode": RelayModeFullPassthrough,
-          		},
-          	}
+          	account := Account{ID: 7, Name: "responses passthrough", Platform: PlatformCustom, Status: StatusActive, Schedulable: true, Extra: map[string]any{"protocol": CustomProtocolOpenAIResponses, "relay_mode": RelayModeFullPassthrough}}
           	_, err := filterAccountsByRequestProtocolForScheduling(ctx, nil, PlatformAnthropic, []Account{account})
           	if err == nil {
           		t.Fatal("expected protocol rejection error")
@@ -696,7 +634,7 @@ jobs:
           	if idx < 0 {
           		t.Fatalf("diagnostics marker missing from %q", message)
           	}
-          	encoded := strings.Fields(message[idx+len(schedulerDiagnosticsMarker):])[0]
+          	encoded := strings.TrimRight(strings.Fields(message[idx+len(schedulerDiagnosticsMarker):])[0], ")")
           	payload, decodeErr := base64.RawURLEncoding.DecodeString(encoded)
           	if decodeErr != nil {
           		t.Fatalf("decode diagnostics: %v", decodeErr)
@@ -713,34 +651,17 @@ jobs:
 
           cat > backend/migrations/159_normalize_custom_protocol_location.sql <<'EOF'
           -- Normalize historical Custom account protocol storage.
-          -- Older forms wrote protocol into credentials; the router reads extra.protocol.
           UPDATE accounts
           SET
-              extra = jsonb_set(
-                  COALESCE(extra, '{}'::jsonb),
-                  '{protocol}',
-                  to_jsonb(credentials->>'protocol'),
-                  true
-              ),
+              extra = jsonb_set(COALESCE(extra, '{}'::jsonb), '{protocol}', to_jsonb(credentials->>'protocol'), true),
               credentials = COALESCE(credentials, '{}'::jsonb) - 'protocol',
               updated_at = NOW()
           WHERE platform = 'custom'
             AND COALESCE(extra->>'protocol', '') = ''
-            AND credentials->>'protocol' IN (
-                'openai_responses',
-                'openai_chat_completions',
-                'openai_embeddings',
-                'anthropic_messages',
-                'gemini'
-            );
+            AND credentials->>'protocol' IN ('openai_responses', 'openai_chat_completions', 'openai_embeddings', 'anthropic_messages', 'gemini');
           EOF
 
-          gofmt -w \
-            backend/internal/service/account.go \
-            backend/internal/service/gateway_service.go \
-            backend/internal/service/scheduler_diagnostics.go \
-            backend/internal/service/account_custom_protocol_compat_test.go \
-            backend/internal/service/scheduler_diagnostics_test.go
+          gofmt -w backend/internal/service/account.go backend/internal/service/gateway_service.go backend/internal/service/scheduler_diagnostics.go backend/internal/service/account_custom_protocol_compat_test.go backend/internal/service/scheduler_diagnostics_test.go
 
       - name: Run backend tests
         working-directory: backend
@@ -755,3 +676,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "fix: route legacy custom accounts and record scheduler rejections"
           git push origin HEAD:fix/universal-router-diagnostics-phase1
+
+# trigger: 2
