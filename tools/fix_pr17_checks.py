@@ -87,13 +87,14 @@ def patch_contract_tests() -> None:
     text = read(path)
 
     group_pattern = re.compile(
-        r'(?m)^([ \t]*)"name": "Group One",\n([ \t]*)"platform": "anthropic",'
+        r'(?m)^([ \t]*)"name": "Group One",\n([ \t]*)"description": "desc",\n([ \t]*)"platform": "anthropic",'
     )
 
     def expand_group(match: re.Match[str]) -> str:
-        first_indent, indent = match.group(1), match.group(2)
+        first_indent, description_indent, indent = match.groups()
         return (
             f'{first_indent}"name": "Group One",\n'
+            f'{description_indent}"description": "desc",\n'
             f'{indent}"peak_end": "",\n'
             f'{indent}"peak_rate_enabled": false,\n'
             f'{indent}"peak_rate_multiplier": 0,\n'
@@ -107,13 +108,14 @@ def patch_contract_tests() -> None:
             raise RuntimeError(f"Group One fixture anchor count={count}")
 
     group_start = text.index('"name": "Group One"')
-    group_end = text.index("}`", group_start) if "}`" in text[group_start:] else len(text)
+    group_end = text.index("\n\t\t\t\t\t}", group_start)
     group_fragment = text[group_start:group_end]
     if '"upstream_protocols": null' not in group_fragment:
-        weekly_pos = text.index('"weekly_limit_usd": null', group_start)
-        line_start = text.rfind("\n", group_start, weekly_pos) + 1
-        indent = text[line_start:weekly_pos]
-        text = text[:line_start] + indent + '"upstream_protocols": null,\n' + text[line_start:]
+        updated_pos = text.index('"updated_at": "2025-01-02T03:04:05Z"', group_start, group_end)
+        line_end = text.index("\n", updated_pos)
+        line_start = text.rfind("\n", group_start, updated_pos) + 1
+        indent = text[line_start:updated_pos]
+        text = text[:line_end] + ',\n' + indent + '"upstream_protocols": null' + text[line_end:]
 
     settings_anchor = '"available_channels_enabled": false,'
     if '"announcements_enabled": false,' not in text:
