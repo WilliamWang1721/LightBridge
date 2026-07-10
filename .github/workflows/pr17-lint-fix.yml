@@ -1,0 +1,115 @@
+name: PR17 Lint Fix
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: contains(github.event.head_commit.message, '[pr17-lint]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: fix/universal-router-diagnostics-phase1
+          fetch-depth: 0
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.5'
+      - name: Patch lint failures
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'openai-ci-fixer'
+          git config user.email 'openai-ci-fixer@users.noreply.github.com'
+          git fetch origin main
+          git merge --no-edit origin/main
+          python <<'PY'
+          from pathlib import Path
+          import re
+
+          def read(path): return Path(path).read_text()
+          def write(path, text): Path(path).write_text(text)
+          def remove_func(text, name):
+              match = re.search(rf'(?m)^func\s+(?:\([^\n]*\)\s+)?{re.escape(name)}\s*\(', text)
+              if not match: return text
+              start = match.start(); brace = text.find('{', match.end())
+              depth = 0; i = brace; delim = None; escaped = False; line = False; block = False
+              while i < len(text):
+                  ch = text[i]; nxt = text[i+1] if i+1 < len(text) else ''
+                  if line:
+                      if ch == '\n': line = False
+                  elif block:
+                      if ch == '*' and nxt == '/': block = False; i += 1
+                  elif delim:
+                      if delim != '`' and escaped: escaped = False
+                      elif delim != '`' and ch == '\\': escaped = True
+                      elif ch == delim: delim = None
+                  else:
+                      if ch == '/' and nxt == '/': line = True; i += 1
+                      elif ch == '/' and nxt == '*': block = True; i += 1
+                      elif ch in ('"', "'", '`'): delim = ch
+                      elif ch == '{': depth += 1
+                      elif ch == '}':
+                          depth -= 1
+                          if depth == 0:
+                              end = i + 1
+                              while end < len(text) and text[end] in ' \t': end += 1
+                              if end < len(text) and text[end] == '\n': end += 1
+                              return text[:start] + text[end:]
+                  i += 1
+              raise RuntimeError(name)
+
+          path='backend/internal/handler/admin/lightbridge_connect_handler.go'
+          write(path, read(path).replace('\t\t\th.db.Exec(`\n\t\t\t\tUPDATE accounts','\t\t\t_, _ = h.db.Exec(`\n\t\t\t\tUPDATE accounts'))
+          path='backend/internal/modules/proxy/internal/mihomo/compiler_test.go'
+          write(path, read(path).replace(
+              '\tgroups := doc["proxy-groups"].([]any)\n\tgroup := groups[0].(map[string]any)',
+              '\tgroups, ok := doc["proxy-groups"].([]any)\n\trequire.True(t, ok)\n\trequire.NotEmpty(t, groups)\n\tgroup, ok := groups[0].(map[string]any)\n\trequire.True(t, ok)'))
+          for path in ('backend/internal/repository/channel_monitor_repo.go','backend/internal/repository/module_store.go'):
+              write(path, read(path).replace('defer rows.Close()','defer func() { _ = rows.Close() }()'))
+          path='backend/internal/service/gemini_native_protocol_adapter_test.go'
+          write(path, read(path).replace(
+              '\trequire.Equal(t, float64(8), resp["usageMetadata"].(map[string]any)["totalTokenCount"])',
+              '\tusageMetadata, ok := resp["usageMetadata"].(map[string]any)\n\trequire.True(t, ok)\n\trequire.Equal(t, float64(8), usageMetadata["totalTokenCount"])'))
+          path='backend/internal/service/privacy_filter.go'
+          write(path, read(path).replace("\t\tb.WriteString(r.Replacement)\n\t\tb.WriteByte('\\n')","\t\t_, _ = b.WriteString(r.Replacement)\n\t\t_ = b.WriteByte('\\n')"))
+          path='backend/internal/handler/ops_error_logger.go'
+          write(path, read(path).replace('ErrorBody:    string(w.buf.Bytes()),','ErrorBody:    w.buf.String(),'))
+          path='backend/internal/service/lightbridge_connect_service.go'
+          write(path, read(path).replace('fmt.Errorf("New API returned success=false")','fmt.Errorf("new API returned success=false")'))
+          dead={
+            'backend/internal/service/codex_image_generation_bridge.go':('boolOverridePtr','boolOverrideFromMap','platformBoolOverride'),
+            'backend/internal/service/gateway_service.go':('billingModelForRestriction','resolveAccountUpstreamModel'),
+            'backend/internal/service/model_rate_limit.go':('antigravityModelRateLimitKeys',),
+            'backend/internal/service/openai_gateway_service.go':('resolveOpenAIAccountUpstreamModelForRequest',),
+          }
+          for path,names in dead.items():
+              text=read(path)
+              for name in names: text=remove_func(text,name)
+              write(path,text)
+          PY
+          cd backend
+          gofmt -w \
+            cmd/ui-theme/main.go \
+            internal/handler/admin/lightbridge_connect_handler.go \
+            internal/handler/admin/setting_handler.go \
+            internal/handler/ops_error_logger.go \
+            internal/modules/proxy/internal/mihomo/compiler_test.go \
+            internal/repository/channel_monitor_repo.go \
+            internal/repository/module_store.go \
+            internal/repository/ui_theme_repo.go \
+            internal/service/codex_image_generation_bridge.go \
+            internal/service/gateway_service.go \
+            internal/service/gemini_native_protocol_adapter_test.go \
+            internal/service/lightbridge_connect_service.go \
+            internal/service/model_rate_limit.go \
+            internal/service/openai_gateway_service.go \
+            internal/service/privacy_filter.go
+          cd ..
+          git add backend
+          git commit -m 'fix: resolve golangci-lint findings'
+          git push origin HEAD:fix/universal-router-diagnostics-phase1
