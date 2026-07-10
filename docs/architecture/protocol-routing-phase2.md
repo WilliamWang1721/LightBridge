@@ -10,6 +10,10 @@ This phase is intentionally incremental. No routing behavior is changed until th
 4. Every routing change must include focused regression tests and must keep the full CI and Security Scan green.
 5. No temporary workflow may write back to the branch or default branch.
 
+## Baseline gate
+
+Phase-two routing changes may resume only after unit tests, integration tests, frontend checks, golangci-lint, module consistency, and both Security Scan jobs pass on the same commit.
+
 ## Rollout order
 
 1. Establish a green baseline and synchronize dependency lockfiles.
