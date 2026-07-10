@@ -973,11 +973,25 @@ function evidenceLabel(key: string): string {
   return key
 }
 
+const schedulerReasonFallback: Partial<Record<ErrorAnalysisAccountReason['key'], string>> = {
+  account_nil: '账号数据为空',
+  excluded: '已被本次请求的前序尝试排除',
+  custom_protocol_missing: 'Custom 账号未配置上游协议',
+  protocol_incompatible: '入站协议与账号上游协议不兼容',
+  relay_mode_protocol_mismatch: '透传模式要求上下游协议一致',
+  protocol_conversion_unavailable: '对应的协议转换链尚未实现',
+  schedulable_disabled: '账号已关闭调度开关',
+  privacy_required: '分组要求隐私设置，但账号尚未完成',
+  channel_restricted: '渠道或价格策略禁止该上游模型',
+  window_cost_exceeded: '滚动窗口费用已达到限制'
+}
+
 function accountReasonLabel(reason: ErrorAnalysisAccountReason): string {
-  const translated = t(`admin.ops.errorAnalysis.schedulerAccounts.reason.${reason.key}`)
-  const base = translated !== `admin.ops.errorAnalysis.schedulerAccounts.reason.${reason.key}` ? translated : reason.key
-  const source = reason.source === 'request_time' ? '[request-time]' : '[current-state]'
-  return reason.detail ? `${source} ${base}: ${reason.detail}` : `${source} ${base}`
+  const key = `admin.ops.errorAnalysis.schedulerAccounts.reason.${reason.key}`
+  const translated = t(key)
+  const base = translated !== key ? translated : schedulerReasonFallback[reason.key] || reason.key
+  const source = reason.source === 'request_time' ? '请求时记录' : '当前状态推断'
+  return reason.detail ? `[${source}] ${base}: ${reason.detail}` : `[${source}] ${base}`
 }
 
 function formatAccountCapacity(account: Account): string {

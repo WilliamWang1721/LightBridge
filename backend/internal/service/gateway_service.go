@@ -1588,7 +1588,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 		return nil, err
 	}
 	if len(accounts) == 0 {
-		return nil, ErrNoAvailableAccounts
+		return nil, s.schedulerNoAvailableError(ctx, groupID, accounts, requestedModel, platform, excludedIDs, "no schedulable accounts returned for group and request")
 	}
 	ctx = s.withWindowCostPrefetch(ctx, accounts)
 	ctx = s.withRPMPrefetch(ctx, accounts)
@@ -2028,7 +2028,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 	}
 
 	if len(candidates) == 0 {
-		return nil, ErrNoAvailableAccounts
+		return nil, s.schedulerNoAvailableError(ctx, groupID, accounts, requestedModel, platform, excludedIDs, "all accounts rejected before load-aware selection")
 	}
 
 	accountLoads := make([]AccountWithConcurrency, 0, len(candidates))
@@ -2112,7 +2112,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 			MaxWaiting:     cfg.FallbackMaxWaiting,
 		})
 	}
-	return nil, ErrNoAvailableAccounts
+	return nil, schedulerSessionLimitError(ctx, groupID, candidates, requestedModel, platform)
 }
 
 func (s *GatewayService) tryAcquireByLegacyOrder(ctx context.Context, candidates []*Account, groupID *int64, sessionHash string, preferOAuth bool) (*AccountSelectionResult, bool, error) {

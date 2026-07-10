@@ -135,6 +135,61 @@ func (s *GatewayService) encodeSchedulerSelectionDiagnostics(ctx context.Context
 	return encodeSchedulerDiagnostics(schedulerDiagnosticsEnvelope{Version: 1, InboundProtocol: InboundProtocolFromContext(ctx), RequestedModel: requestedModel, GroupID: derefGroupID(groupID), Platform: platform, ReasonCounts: reasonCounts, Accounts: diagnostics})
 }
 
+func (s *GatewayService) schedulerNoAvailableError(
+	ctx context.Context,
+	groupID *int64,
+	accounts []Account,
+	requestedModel string,
+	platform string,
+	excludedIDs map[int64]struct{},
+	summary string,
+) error {
+	diagnosticAccounts := accounts
+	if len(diagnosticAccounts) == 0 && groupID != nil && s.accountRepo != nil {
+		if allAccounts, err := s.accountRepo.ListByGroup(ctx, *groupID); err == nil {
+			diagnosticAccounts = allAccounts
+		}
+	}
+	encoded := s.encodeSchedulerSelectionDiagnostics(ctx, groupID, diagnosticAccounts, requestedModel, platform, excludedIDs)
+	return fmt.Errorf("%w (%s)", ErrNoAvailableAccounts, appendSchedulerDiagnostics(summary, encoded))
+}
+
+func schedulerSessionLimitError(
+	ctx context.Context,
+	groupID *int64,
+	accounts []*Account,
+	requestedModel string,
+	platform string,
+) error {
+	diagnostics := make([]schedulerAccountDiagnostic, 0, len(accounts))
+	for _, account := range accounts {
+		if account == nil {
+			continue
+		}
+		diagnostics = append(diagnostics, schedulerAccountDiagnostic{
+			AccountID:      account.ID,
+			AccountName:    account.Name,
+			Platform:       account.EffectivePlatform(),
+			RelayMode:      account.RelayMode(),
+			TargetProtocol: account.TargetProtocol(),
+			Available:      false,
+			Stage:          "session_limit",
+			Reason:         "session_window_rejected",
+			Detail:         "request-time session limit rejected this account",
+		})
+	}
+	envelope := schedulerDiagnosticsEnvelope{
+		Version:         1,
+		InboundProtocol: InboundProtocolFromContext(ctx),
+		RequestedModel:  requestedModel,
+		GroupID:         derefGroupID(groupID),
+		Platform:        platform,
+		ReasonCounts:    map[string]int{"session_window_rejected": len(diagnostics)},
+		Accounts:        diagnostics,
+	}
+	return fmt.Errorf("%w (%s)", ErrNoAvailableAccounts, appendSchedulerDiagnostics("all eligible accounts rejected by session limits", encodeSchedulerDiagnostics(envelope)))
+}
+
 func (s *GatewayService) schedulerSelectionDiagnostic(ctx context.Context, groupID *int64, account *Account, requestedModel string, excludedIDs map[int64]struct{}) schedulerAccountDiagnostic {
 	if account == nil {
 		return schedulerAccountDiagnostic{Available: false, Stage: "account_state", Reason: "account_nil"}
@@ -204,9 +259,6 @@ func (s *GatewayService) schedulerSelectionDiagnostic(ctx context.Context, group
 	}
 	if !s.isAccountSchedulableForRPM(ctx, account, false) {
 		return reject("rpm", "rpm_limit", "account RPM limit reached")
-	}
-	if account.IsCustom() && (strings.TrimSpace(account.GetCredential("base_url")) == "" || strings.TrimSpace(account.GetCredential("api_key")) == "") {
-		return reject("credentials", "credentials_missing", "custom account requires base_url and api_key")
 	}
 	diagnostic.Available = true
 	diagnostic.Stage = "eligible"
