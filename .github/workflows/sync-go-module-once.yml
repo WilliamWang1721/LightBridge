@@ -1,0 +1,45 @@
+name: Sync Go Module Once
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-go-module-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    if: github.head_ref == 'phase2-routing-green' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: phase2-routing-green
+          fetch-depth: 0
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          check-latest: false
+          cache: true
+          cache-dependency-path: backend/go.sum
+      - name: Generate and validate canonical module files
+        run: |
+          set -euo pipefail
+          cd backend
+          go mod tidy
+          go test ./internal/repository
+          cd ..
+          rm .github/workflows/sync-go-module-once.yml
+      - name: Commit canonical module files and remove this workflow
+        run: |
+          set -euo pipefail
+          git config user.name 'WilliamWang1721'
+          git config user.email '140129782+WilliamWang1721@users.noreply.github.com'
+          git add backend/go.mod backend/go.sum .github/workflows/sync-go-module-once.yml
+          git commit -m 'fix(security): synchronize canonical Go module files'
+          git push origin HEAD:phase2-routing-green
