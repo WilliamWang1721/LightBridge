@@ -4,12 +4,48 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"strings"
 	"time"
 )
 
 const schedulerDiagnosticsMarker = "scheduler_diagnostics="
+
+// SchedulerSelectionError separates the safe client-facing summary from
+// request-time account diagnostics, which may contain internal account IDs,
+// names and operational state. Diagnostics are attached to Ops context only.
+type SchedulerSelectionError struct {
+	message     string
+	diagnostics string
+}
+
+func (e *SchedulerSelectionError) Error() string {
+	if e == nil || strings.TrimSpace(e.message) == "" {
+		return ErrNoAvailableAccounts.Error()
+	}
+	return e.message
+}
+
+func (e *SchedulerSelectionError) Unwrap() error {
+	return ErrNoAvailableAccounts
+}
+
+func newSchedulerSelectionError(message, diagnostics string) error {
+	return &SchedulerSelectionError{
+		message:     strings.TrimSpace(message),
+		diagnostics: strings.TrimSpace(diagnostics),
+	}
+}
+
+// SchedulerDiagnosticsFromError returns an Ops-only payload. It must never
+// be appended to a downstream/client-facing error response.
+func SchedulerDiagnosticsFromError(err error) string {
+	var selectionErr *SchedulerSelectionError
+	if !errors.As(err, &selectionErr) || selectionErr == nil || selectionErr.diagnostics == "" {
+		return ""
+	}
+	return schedulerDiagnosticsMarker + selectionErr.diagnostics
+}
 
 type schedulerAccountDiagnostic struct {
 	AccountID      int64  `json:"account_id"`
@@ -80,7 +116,10 @@ func filterAccountsByRequestProtocolForScheduling(ctx context.Context, groupID *
 		ReasonCounts:    reasonCounts,
 		Accounts:        rejections,
 	}
-	return nil, fmt.Errorf("%w (%s)", ErrNoAvailableAccounts, appendSchedulerDiagnostics("all accounts rejected by protocol router", encodeSchedulerDiagnostics(envelope)))
+	return nil, newSchedulerSelectionError(
+		"no available accounts: all accounts rejected by protocol router",
+		encodeSchedulerDiagnostics(envelope),
+	)
 }
 
 func protocolDiagnosticForAccount(ctx context.Context, account *Account) schedulerAccountDiagnostic {
@@ -151,7 +190,7 @@ func (s *GatewayService) schedulerNoAvailableError(
 		}
 	}
 	encoded := s.encodeSchedulerSelectionDiagnostics(ctx, groupID, diagnosticAccounts, requestedModel, platform, excludedIDs)
-	return fmt.Errorf("%w (%s)", ErrNoAvailableAccounts, appendSchedulerDiagnostics(summary, encoded))
+	return newSchedulerSelectionError("no available accounts: "+strings.TrimSpace(summary), encoded)
 }
 
 func schedulerSessionLimitError(
@@ -187,7 +226,10 @@ func schedulerSessionLimitError(
 		ReasonCounts:    map[string]int{"session_window_rejected": len(diagnostics)},
 		Accounts:        diagnostics,
 	}
-	return fmt.Errorf("%w (%s)", ErrNoAvailableAccounts, appendSchedulerDiagnostics("all eligible accounts rejected by session limits", encodeSchedulerDiagnostics(envelope)))
+	return newSchedulerSelectionError(
+		"no available accounts: all eligible accounts rejected by session limits",
+		encodeSchedulerDiagnostics(envelope),
+	)
 }
 
 func (s *GatewayService) schedulerSelectionDiagnostic(ctx context.Context, groupID *int64, account *Account, requestedModel string, excludedIDs map[int64]struct{}) schedulerAccountDiagnostic {

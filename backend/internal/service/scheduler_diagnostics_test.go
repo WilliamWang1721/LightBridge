@@ -4,23 +4,30 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 )
 
-func TestProtocolFilterReturnsRequestTimeDiagnostics(t *testing.T) {
+func TestProtocolFilterReturnsOpsOnlyRequestTimeDiagnostics(t *testing.T) {
 	ctx := WithInboundProtocol(context.Background(), CustomProtocolAnthropicMessages)
 	account := Account{ID: 7, Name: "responses passthrough", Platform: PlatformCustom, Status: StatusActive, Schedulable: true, Extra: map[string]any{"protocol": CustomProtocolOpenAIResponses, "relay_mode": RelayModeFullPassthrough}}
 	_, err := filterAccountsByRequestProtocolForScheduling(ctx, nil, PlatformAnthropic, []Account{account})
 	if err == nil {
 		t.Fatal("expected protocol rejection error")
 	}
-	message := err.Error()
-	idx := strings.Index(message, schedulerDiagnosticsMarker)
-	if idx < 0 {
-		t.Fatalf("diagnostics marker missing from %q", message)
+	if !errors.Is(err, ErrNoAvailableAccounts) {
+		t.Fatalf("expected ErrNoAvailableAccounts, got %v", err)
 	}
-	encoded := strings.TrimRight(strings.Fields(message[idx+len(schedulerDiagnosticsMarker):])[0], ")")
+	if strings.Contains(err.Error(), schedulerDiagnosticsMarker) || strings.Contains(err.Error(), account.Name) {
+		t.Fatalf("client-facing error leaked scheduler diagnostics: %q", err.Error())
+	}
+
+	detail := SchedulerDiagnosticsFromError(err)
+	if !strings.HasPrefix(detail, schedulerDiagnosticsMarker) {
+		t.Fatalf("ops diagnostics marker missing from %q", detail)
+	}
+	encoded := strings.TrimPrefix(detail, schedulerDiagnosticsMarker)
 	payload, decodeErr := base64.RawURLEncoding.DecodeString(encoded)
 	if decodeErr != nil {
 		t.Fatalf("decode diagnostics: %v", decodeErr)

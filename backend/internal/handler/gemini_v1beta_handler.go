@@ -371,6 +371,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		if err != nil {
 			if len(fs.FailedAccountIDs) == 0 {
 				markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
+				service.SetOpsSchedulerDiagnostics(c, err)
 				googleError(c, http.StatusServiceUnavailable, localizef(c, "No available Gemini accounts: %s", err.Error()))
 				return
 			}

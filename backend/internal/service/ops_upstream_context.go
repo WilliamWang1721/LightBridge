@@ -79,6 +79,15 @@ func SetOpsUpstreamError(c *gin.Context, upstreamStatusCode int, upstreamMessage
 	setOpsUpstreamError(c, upstreamStatusCode, upstreamMessage, upstreamDetail)
 }
 
+// SetOpsSchedulerDiagnostics stores request-time scheduler diagnostics only
+// in the Ops context. The client receives SchedulerSelectionError.Error(),
+// which intentionally contains no account identifiers or internal state.
+func SetOpsSchedulerDiagnostics(c *gin.Context, err error) {
+	if detail := SchedulerDiagnosticsFromError(err); detail != "" {
+		setOpsUpstreamError(c, 0, "", detail)
+	}
+}
+
 func setOpsUpstreamError(c *gin.Context, upstreamStatusCode int, upstreamMessage, upstreamDetail string) {
 	if c == nil {
 		return

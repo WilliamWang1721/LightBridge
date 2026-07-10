@@ -179,6 +179,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		if err != nil {
 			if len(fs.FailedAccountIDs) == 0 {
 				markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
+				service.SetOpsSchedulerDiagnostics(c, err)
 				h.responsesErrorResponse(c, http.StatusServiceUnavailable, "api_error", localizef(c, "No available accounts: %s", err.Error()))
 				return
 			}

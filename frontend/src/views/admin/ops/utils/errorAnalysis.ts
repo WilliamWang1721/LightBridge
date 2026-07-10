@@ -127,7 +127,7 @@ function normalize(value: unknown): string {
 export function parseRecordedSchedulerDiagnostics(
   detail: OpsErrorDetail | OpsErrorLog | null | undefined
 ): RecordedSchedulerDiagnostics | null {
-  const match = String(detail?.message || '').match(SCHEDULER_DIAGNOSTICS_RE)
+  const match = textOf(detail).match(SCHEDULER_DIAGNOSTICS_RE)
   if (!match?.[1]) return null
   try {
     const normalized = match[1].replace(/-/g, '+').replace(/_/g, '/')

@@ -3306,10 +3306,14 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 
 	if selected == nil {
 		stats := s.logDetailedSelectionFailure(ctx, groupID, sessionHash, requestedModel, platform, accounts, excludedIDs, false)
+		summary := summarizeSelectionFailureStats(stats)
 		if requestedModel != "" {
-			return nil, fmt.Errorf("%w supporting model: %s (%s)", ErrNoAvailableAccounts, requestedModel, summarizeSelectionFailureStats(stats))
+			return nil, newSchedulerSelectionError(
+				fmt.Sprintf("%s supporting model: %s (%s)", ErrNoAvailableAccounts, requestedModel, summary),
+				stats.Diagnostics,
+			)
 		}
-		return nil, fmt.Errorf("%w (%s)", ErrNoAvailableAccounts, summarizeSelectionFailureStats(stats))
+		return nil, newSchedulerSelectionError(fmt.Sprintf("%s (%s)", ErrNoAvailableAccounts, summary), stats.Diagnostics)
 	}
 
 	// 4. 建立粘性绑定
@@ -3559,10 +3563,14 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 
 	if selected == nil {
 		stats := s.logDetailedSelectionFailure(ctx, groupID, sessionHash, requestedModel, nativePlatform, accounts, excludedIDs, true)
+		summary := summarizeSelectionFailureStats(stats)
 		if requestedModel != "" {
-			return nil, fmt.Errorf("%w supporting model: %s (%s)", ErrNoAvailableAccounts, requestedModel, summarizeSelectionFailureStats(stats))
+			return nil, newSchedulerSelectionError(
+				fmt.Sprintf("%s supporting model: %s (%s)", ErrNoAvailableAccounts, requestedModel, summary),
+				stats.Diagnostics,
+			)
 		}
-		return nil, fmt.Errorf("%w (%s)", ErrNoAvailableAccounts, summarizeSelectionFailureStats(stats))
+		return nil, newSchedulerSelectionError(fmt.Sprintf("%s (%s)", ErrNoAvailableAccounts, summary), stats.Diagnostics)
 	}
 
 	// 4. 建立粘性绑定
@@ -3708,7 +3716,7 @@ func appendSelectionFailureRateSample(samples []string, accountID int64, remaini
 }
 
 func summarizeSelectionFailureStats(stats selectionFailureStats) string {
-	summary := fmt.Sprintf(
+	return fmt.Sprintf(
 		"total=%d eligible=%d excluded=%d unschedulable=%d model_unsupported=%d model_rate_limited=%d",
 		stats.Total,
 		stats.Eligible,
@@ -3717,7 +3725,6 @@ func summarizeSelectionFailureStats(stats selectionFailureStats) string {
 		stats.ModelUnsupported,
 		stats.ModelRateLimited,
 	)
-	return appendSchedulerDiagnostics(summary, stats.Diagnostics)
 }
 
 // isModelSupportedByAccountWithContext 根据账户平台检查模型支持（带 context）
