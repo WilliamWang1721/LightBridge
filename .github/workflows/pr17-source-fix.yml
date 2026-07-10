@@ -1,0 +1,110 @@
+name: PR17 Source Fix
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: contains(github.event.head_commit.message, '[pr17-source]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: fix/universal-router-diagnostics-phase1
+          fetch-depth: 0
+      - name: Patch source contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'openai-ci-fixer'
+          git config user.email 'openai-ci-fixer@users.noreply.github.com'
+          git fetch origin main
+          git merge --no-edit origin/main
+          python <<'PY'
+          from pathlib import Path
+          import re
+
+          for filename in (
+              'backend/internal/service/token_refresh_service_test.go',
+              'backend/internal/service/openai_privacy_retry_test.go',
+          ):
+              path = Path(filename)
+              text = path.read_text()
+              text = re.sub(
+                  r'NewTokenRefreshService\(([^,\n]+), nil, nil, nil, (?!nil, )',
+                  r'NewTokenRefreshService(\1, nil, nil, nil, nil, ',
+                  text,
+              )
+              path.write_text(text)
+
+          path = Path('backend/internal/handler/admin/channel_handler_test.go')
+          text = path.read_text().replace(
+              '[]string{"anthropic", "openai", "gemini", "grok", "antigravity"}',
+              '[]string{"anthropic", "openai", "gemini", "antigravity"}',
+          )
+          path.write_text(text)
+
+          path = Path('backend/internal/server/api_contract_test.go')
+          text = path.read_text()
+          old = (
+              '\t\t\t\t\t"name": "Group One",\n'
+              '\t\t\t\t\t"description": "desc",\n'
+              '\t\t\t\t\t"platform": "anthropic",'
+          )
+          new = (
+              '\t\t\t\t\t"name": "Group One",\n'
+              '\t\t\t\t\t"description": "desc",\n'
+              '\t\t\t\t\t"peak_end": "",\n'
+              '\t\t\t\t\t"peak_rate_enabled": false,\n'
+              '\t\t\t\t\t"peak_rate_multiplier": 0,\n'
+              '\t\t\t\t\t"peak_start": "",\n'
+              '\t\t\t\t\t"platform": "anthropic",'
+          )
+          if old in text:
+              text = text.replace(old, new, 1)
+          group_start = text.index('"name": "Group One"')
+          group_end = text.index('\n\t\t\t\t\t}', group_start)
+          fragment = text[group_start:group_end]
+          if '"upstream_protocols": null' not in fragment:
+              updated = text.index('"updated_at": "2025-01-02T03:04:05Z"', group_start, group_end)
+              line_end = text.index('\n', updated)
+              line_start = text.rfind('\n', group_start, updated) + 1
+              indent = text[line_start:updated]
+              text = text[:line_end] + ',\n' + indent + '"upstream_protocols": null' + text[line_end:]
+
+          anchor = '\t\t\t\t\t"available_channels_enabled": false,'
+          replacement = (
+              '\t\t\t\t\t"announcements_enabled": false,\n'
+              '\t\t\t\t\t"promo_enabled": false,\n'
+              '\t\t\t\t\t"redeem_enabled": false,\n'
+              + anchor
+          )
+          text = text.replace(anchor, replacement)
+
+          old_quota = (
+              '"default_platform_quotas": {"anthropic":{"daily":null,"weekly":null,"monthly":null},'
+              '"antigravity":{"daily":null,"weekly":null,"monthly":null},'
+              '"gemini":{"daily":null,"weekly":null,"monthly":null},'
+              '"openai":{"daily":null,"weekly":null,"monthly":null}},'
+          )
+          new_quota = (
+              '"default_platform_quotas": {"anthropic":{"daily":null,"weekly":null,"monthly":null},'
+              '"antigravity":{"daily":null,"weekly":null,"monthly":null},'
+              '"custom":{"daily":null,"weekly":null,"monthly":null},'
+              '"gemini":{"daily":null,"weekly":null,"monthly":null},'
+              '"grok":{"daily":null,"weekly":null,"monthly":null},'
+              '"openai":{"daily":null,"weekly":null,"monthly":null}},'
+          )
+          text = text.replace(old_quota, new_quota)
+          path.write_text(text)
+          PY
+          git add backend/internal/service/token_refresh_service_test.go \
+                  backend/internal/service/openai_privacy_retry_test.go \
+                  backend/internal/handler/admin/channel_handler_test.go \
+                  backend/internal/server/api_contract_test.go
+          git commit -m 'fix: repair CI contract fixtures'
+          git push origin HEAD:fix/universal-router-diagnostics-phase1
