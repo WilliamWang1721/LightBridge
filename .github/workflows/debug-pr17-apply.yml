@@ -1,0 +1,50 @@
+name: Debug PR17 Apply
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  debug-apply:
+    if: github.head_ref == 'fix/universal-router-diagnostics-phase1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.5'
+          check-latest: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.13'
+      - name: Extract repair script
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import re, textwrap
+          text = Path('.github/workflows/fix-pr17-checks.yml').read_text()
+          match = re.search(r'      - name: Apply CI and security fixes\n        shell: bash\n        run: \|\n(.*?)(?=\n      - name: Validate backend unit tests)', text, re.S)
+          if not match:
+              raise SystemExit('repair script block not found')
+          Path('/tmp/pr17-apply.sh').write_text(textwrap.dedent(match.group(1)))
+          PY
+      - name: Execute repair script with trace
+        id: apply
+        continue-on-error: true
+        run: |
+          bash -x /tmp/pr17-apply.sh > pr17-apply.log 2>&1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pr17-apply-log
+          path: pr17-apply.log
