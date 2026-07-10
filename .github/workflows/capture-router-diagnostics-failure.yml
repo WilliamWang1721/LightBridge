@@ -1,0 +1,55 @@
+name: Capture Router Diagnostics Test Failure
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Apply pending final patch
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          src = Path('.github/workflows/finalize-router-diagnostics.yml').read_text()
+          start_marker = "      - name: Complete load-aware diagnostics and polish UI\n        shell: bash\n        run: |\n"
+          end_marker = "\n      - name: Test backend service\n"
+          start = src.index(start_marker) + len(start_marker)
+          end = src.index(end_marker, start)
+          lines = src[start:end].splitlines()
+          script = '\n'.join(line[10:] if line.startswith('          ') else line for line in lines) + '\n'
+          Path('/tmp/apply-final-patch.sh').write_text(script)
+          PY
+          bash /tmp/apply-final-patch.sh
+
+      - name: Capture backend test output
+        shell: bash
+        run: |
+          cd backend
+          set +e
+          go test ./internal/service > ../PHASE1_TEST_FAILURE.txt 2>&1
+          status=$?
+          echo "exit_status=$status" >> ../PHASE1_TEST_FAILURE.txt
+          exit 0
+
+      - name: Commit captured output
+        shell: bash
+        run: |
+          git rm .github/workflows/finalize-router-diagnostics.yml .github/workflows/capture-router-diagnostics-failure.yml
+          git add PHASE1_TEST_FAILURE.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "test: capture final router diagnostics failure"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
