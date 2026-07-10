@@ -1,0 +1,59 @@
+name: Patch PR17 Fix Workflow
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.head_ref == 'fix/universal-router-diagnostics-phase1'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+      - name: Patch repair workflow
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          path = Path('.github/workflows/fix-pr17-checks.yml')
+          text = path.read_text()
+          start = text.index("          group_old = '''")
+          end_marker = "          text = text.replace(update_anchor, update_replacement, 1)\n"
+          end = text.index(end_marker, start) + len(end_marker)
+          replacement = r'''          group_pattern = re.compile(
+              r'(?m)^([ \t]*)"name": "Group One",\n([ \t]*)"platform": "anthropic",'
+          )
+          def expand_group_contract(match):
+              first_indent, second_indent = match.group(1), match.group(2)
+              return (
+                  f'{first_indent}"name": "Group One",\n'
+                  f'{second_indent}"peak_end": "",\n'
+                  f'{second_indent}"peak_rate_enabled": false,\n'
+                  f'{second_indent}"peak_rate_multiplier": 0,\n'
+                  f'{second_indent}"peak_start": "",\n'
+                  f'{second_indent}"platform": "anthropic",'
+              )
+          text, group_count = group_pattern.subn(expand_group_contract, text, count=1)
+          if group_count != 1:
+              raise SystemExit(f'group contract fixture anchor count={group_count}')
+          group_start = text.index('"name": "Group One"')
+          weekly_pos = text.index('"weekly_limit_usd": null', group_start)
+          weekly_line_start = text.rfind('\n', group_start, weekly_pos) + 1
+          weekly_indent = text[weekly_line_start:weekly_pos]
+          text = text[:weekly_line_start] + weekly_indent + '"upstream_protocols": null,\n' + text[weekly_line_start:]
+'''
+          path.write_text(text[:start] + replacement + text[end:])
+          PY
+          git config user.name 'openai-ci-fixer'
+          git config user.email 'openai-ci-fixer@users.noreply.github.com'
+          git add .github/workflows/fix-pr17-checks.yml
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore(ci): fix PR repair workflow anchors'
+            git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          fi
