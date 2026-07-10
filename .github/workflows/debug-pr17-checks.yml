@@ -1,9 +1,9 @@
 name: Debug PR17 Checks
 
 on:
-  push:
+  pull_request:
     branches:
-      - fix/universal-router-diagnostics-phase1
+      - main
 
 permissions:
   contents: read
