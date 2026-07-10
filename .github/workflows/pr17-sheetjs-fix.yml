@@ -1,0 +1,57 @@
+name: PR17 SheetJS Security Fix
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: contains(github.event.head_commit.message, '[pr17-sheetjs]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: fix/universal-router-diagnostics-phase1
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.13'
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Update SheetJS and audit exceptions
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'openai-ci-fixer'
+          git config user.email 'openai-ci-fixer@users.noreply.github.com'
+          git fetch origin main
+          git merge --no-edit origin/main
+          python <<'PY'
+          from pathlib import Path
+          path = Path('.github/audit-exceptions.yml')
+          lines = path.read_text().splitlines(True)
+          output = []
+          i = 0
+          while i < len(lines):
+              if lines[i].startswith('  - package: xlsx'):
+                  i += 1
+                  while i < len(lines) and not lines[i].startswith('  - package:'):
+                      i += 1
+                  continue
+              output.append(lines[i])
+              i += 1
+          path.write_text(''.join(output))
+          PY
+          cd frontend
+          pnpm add 'xlsx@https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz'
+          pnpm install --frozen-lockfile
+          cd ..
+          git add frontend/package.json frontend/pnpm-lock.yaml .github/audit-exceptions.yml
+          git commit -m 'fix(security): update SheetJS and audit exceptions'
+          git push origin HEAD:fix/universal-router-diagnostics-phase1
