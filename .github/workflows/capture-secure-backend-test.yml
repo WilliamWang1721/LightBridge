@@ -1,0 +1,49 @@
+name: Capture Secured Scheduler Backend Test
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          cache: true
+          cache-dependency-path: backend/go.sum
+      - name: Apply corrected patch
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          src = Path('.github/workflows/run-secure-scheduler-diagnostics-v2.yml').read_text()
+          start_marker = "      - name: Run corrected security patch\n        shell: bash\n        run: |\n"
+          end_marker = "\n      - name: Test changed backend packages\n"
+          start = src.index(start_marker) + len(start_marker)
+          end = src.index(end_marker, start)
+          lines = src[start:end].splitlines()
+          Path('/tmp/run-secure-v2.sh').write_text('\n'.join(line[10:] if line.startswith('          ') else line for line in lines) + '\n')
+          PY
+          bash /tmp/run-secure-v2.sh
+      - name: Capture backend test
+        shell: bash
+        run: |
+          set +e
+          cd backend
+          go test ./internal/service ./internal/handler > ../SECURE_BACKEND_TEST_OUTPUT.txt 2>&1
+          status=$?
+          echo "exit_status=$status" >> ../SECURE_BACKEND_TEST_OUTPUT.txt
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: secure-backend-test-output
+          path: SECURE_BACKEND_TEST_OUTPUT.txt
