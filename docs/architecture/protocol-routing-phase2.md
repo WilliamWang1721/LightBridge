@@ -12,7 +12,7 @@ This phase is intentionally incremental. No routing behavior is changed until th
 
 ## Rollout order
 
-1. Establish a green baseline.
+1. Establish a green baseline and synchronize dependency lockfiles.
 2. Introduce read-only protocol capability helpers and tests.
 3. Migrate one endpoint family at a time.
 4. Observe scheduler diagnostics and compatibility telemetry.
