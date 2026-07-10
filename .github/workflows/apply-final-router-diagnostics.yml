@@ -1,0 +1,233 @@
+name: Apply Final Router Diagnostics
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.13'
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Apply final diagnostics patch
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          diagnostics = Path('backend/internal/service/scheduler_diagnostics.go')
+          text = diagnostics.read_text()
+          marker = '''func (s *GatewayService) schedulerSelectionDiagnostic(ctx context.Context, groupID *int64, account *Account, requestedModel string, excludedIDs map[int64]struct{}) schedulerAccountDiagnostic {
+          '''
+          helpers = '''func (s *GatewayService) schedulerNoAvailableError(
+          \tctx context.Context,
+          \tgroupID *int64,
+          \taccounts []Account,
+          \trequestedModel string,
+          \tplatform string,
+          \texcludedIDs map[int64]struct{},
+          \tsummary string,
+          ) error {
+          \tdiagnosticAccounts := accounts
+          \tif len(diagnosticAccounts) == 0 && groupID != nil && s.accountRepo != nil {
+          \t\tif allAccounts, err := s.accountRepo.ListByGroup(ctx, *groupID); err == nil {
+          \t\t\tdiagnosticAccounts = allAccounts
+          \t\t}
+          \t}
+          \tencoded := s.encodeSchedulerSelectionDiagnostics(ctx, groupID, diagnosticAccounts, requestedModel, platform, excludedIDs)
+          \treturn fmt.Errorf("%w (%s)", ErrNoAvailableAccounts, appendSchedulerDiagnostics(summary, encoded))
+          }
+
+          func schedulerSessionLimitError(
+          \tctx context.Context,
+          \tgroupID *int64,
+          \taccounts []*Account,
+          \trequestedModel string,
+          \tplatform string,
+          ) error {
+          \tdiagnostics := make([]schedulerAccountDiagnostic, 0, len(accounts))
+          \tfor _, account := range accounts {
+          \t\tif account == nil {
+          \t\t\tcontinue
+          \t\t}
+          \t\tdiagnostics = append(diagnostics, schedulerAccountDiagnostic{
+          \t\t\tAccountID:      account.ID,
+          \t\t\tAccountName:    account.Name,
+          \t\t\tPlatform:       account.EffectivePlatform(),
+          \t\t\tRelayMode:      account.RelayMode(),
+          \t\t\tTargetProtocol: account.TargetProtocol(),
+          \t\t\tAvailable:      false,
+          \t\t\tStage:          "session_limit",
+          \t\t\tReason:         "session_window_rejected",
+          \t\t\tDetail:         "request-time session limit rejected this account",
+          \t\t})
+          \t}
+          \tenvelope := schedulerDiagnosticsEnvelope{
+          \t\tVersion:         1,
+          \t\tInboundProtocol: InboundProtocolFromContext(ctx),
+          \t\tRequestedModel:  requestedModel,
+          \t\tGroupID:         derefGroupID(groupID),
+          \t\tPlatform:        platform,
+          \t\tReasonCounts:    map[string]int{"session_window_rejected": len(diagnostics)},
+          \t\tAccounts:        diagnostics,
+          \t}
+          \treturn fmt.Errorf("%w (%s)", ErrNoAvailableAccounts, appendSchedulerDiagnostics("all eligible accounts rejected by session limits", encodeSchedulerDiagnostics(envelope)))
+          }
+
+          ''' + marker
+          if text.count(marker) != 1:
+              raise SystemExit(f'scheduler diagnostic insertion marker count={text.count(marker)}')
+          text = text.replace(marker, helpers, 1)
+          credentials_block = '''\tif account.IsCustom() && (strings.TrimSpace(account.GetCredential("base_url")) == "" || strings.TrimSpace(account.GetCredential("api_key")) == "") {
+          \t\treturn reject("credentials", "credentials_missing", "custom account requires base_url and api_key")
+          \t}
+          '''
+          if text.count(credentials_block) != 1:
+              raise SystemExit(f'credentials block count={text.count(credentials_block)}')
+          diagnostics.write_text(text.replace(credentials_block, '', 1))
+
+          gateway = Path('backend/internal/service/gateway_service.go')
+          text = gateway.read_text()
+          replacements = [
+              (
+                  '''\tif len(accounts) == 0 {
+          \t\treturn nil, ErrNoAvailableAccounts
+          \t}
+          \tctx = s.withWindowCostPrefetch(ctx, accounts)
+          ''',
+                  '''\tif len(accounts) == 0 {
+          \t\treturn nil, s.schedulerNoAvailableError(ctx, groupID, accounts, requestedModel, platform, excludedIDs, "no schedulable accounts returned for group and request")
+          \t}
+          \tctx = s.withWindowCostPrefetch(ctx, accounts)
+          '''
+              ),
+              (
+                  '''\tif len(candidates) == 0 {
+          \t\treturn nil, ErrNoAvailableAccounts
+          \t}
+
+          \taccountLoads := make([]AccountWithConcurrency, 0, len(candidates))
+          ''',
+                  '''\tif len(candidates) == 0 {
+          \t\treturn nil, s.schedulerNoAvailableError(ctx, groupID, accounts, requestedModel, platform, excludedIDs, "all accounts rejected before load-aware selection")
+          \t}
+
+          \taccountLoads := make([]AccountWithConcurrency, 0, len(candidates))
+          '''
+              ),
+              (
+                  '''\treturn nil, ErrNoAvailableAccounts
+          }
+
+          func (s *GatewayService) tryAcquireByLegacyOrder''',
+                  '''\treturn nil, schedulerSessionLimitError(ctx, groupID, candidates, requestedModel, platform)
+          }
+
+          func (s *GatewayService) tryAcquireByLegacyOrder'''
+              ),
+          ]
+          for old, new in replacements:
+              if text.count(old) != 1:
+                  raise SystemExit(f'gateway replacement count={text.count(old)} for {old[:80]!r}')
+              text = text.replace(old, new, 1)
+          gateway.write_text(text)
+
+          util = Path('frontend/src/views/admin/ops/utils/errorAnalysis.ts')
+          text = util.read_text()
+          normalized = '''  return {
+            account,
+            available: reasons.length === 0,
+            reasons: reasons.map((reason) => ({ ...reason, source: 'current_state' })),
+            source: 'current_state'
+          }
+          }
+          '''
+          text, count = re.subn(
+              r"  return \{\n\s*account,\n\s*available: reasons\.length === 0,\n\s*reasons: reasons\.map\(\(reason\) => \(\{ \.\.\.reason, source: 'current_state' \}\)\),\n\s*source: 'current_state'\n\s*\}\n\}",
+              normalized.rstrip(),
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit(f'unable to normalize scheduler diagnostic return block: {count}')
+          util.write_text(text)
+
+          view = Path('frontend/src/views/admin/ops/ErrorAnalysisView.vue')
+          text = view.read_text()
+          old = '''function accountReasonLabel(reason: ErrorAnalysisAccountReason): string {
+            const translated = t(`admin.ops.errorAnalysis.schedulerAccounts.reason.${reason.key}`)
+            const base = translated !== `admin.ops.errorAnalysis.schedulerAccounts.reason.${reason.key}` ? translated : reason.key
+            const source = reason.source === 'request_time' ? '[request-time]' : '[current-state]'
+            return reason.detail ? `${source} ${base}: ${reason.detail}` : `${source} ${base}`
+          }
+          '''
+          new = '''const schedulerReasonFallback: Partial<Record<ErrorAnalysisAccountReason['key'], string>> = {
+            account_nil: '账号数据为空',
+            excluded: '已被本次请求的前序尝试排除',
+            custom_protocol_missing: 'Custom 账号未配置上游协议',
+            protocol_incompatible: '入站协议与账号上游协议不兼容',
+            relay_mode_protocol_mismatch: '透传模式要求上下游协议一致',
+            protocol_conversion_unavailable: '对应的协议转换链尚未实现',
+            schedulable_disabled: '账号已关闭调度开关',
+            privacy_required: '分组要求隐私设置，但账号尚未完成',
+            channel_restricted: '渠道或价格策略禁止该上游模型',
+            window_cost_exceeded: '滚动窗口费用已达到限制'
+          }
+
+          function accountReasonLabel(reason: ErrorAnalysisAccountReason): string {
+            const key = `admin.ops.errorAnalysis.schedulerAccounts.reason.${reason.key}`
+            const translated = t(key)
+            const base = translated !== key ? translated : schedulerReasonFallback[reason.key] || reason.key
+            const source = reason.source === 'request_time' ? '请求时记录' : '当前状态推断'
+            return reason.detail ? `[${source}] ${base}: ${reason.detail}` : `[${source}] ${base}`
+          }
+          '''
+          if text.count(old) != 1:
+              raise SystemExit(f'accountReasonLabel count={text.count(old)}')
+          view.write_text(text.replace(old, new, 1))
+          PY
+
+          gofmt -w backend/internal/service/gateway_service.go backend/internal/service/scheduler_diagnostics.go
+
+      - name: Test backend service
+        working-directory: backend
+        run: go test ./internal/service
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck frontend
+        working-directory: frontend
+        run: pnpm typecheck
+
+      - name: Commit final patch
+        shell: bash
+        run: |
+          git rm .github/workflows/apply-final-router-diagnostics.yml
+          rm -f FRONTEND_TYPECHECK_FAILURE.txt PHASE1_TEST_FAILURE.txt
+          git add -A
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix: cover load-aware scheduler rejection paths"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
