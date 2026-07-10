@@ -1,0 +1,119 @@
+name: Fix PR17 V2
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.head_ref == 'fix/universal-router-diagnostics-phase1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.5'
+          check-latest: false
+          cache: true
+          cache-dependency-path: backend/go.sum
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.13'
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Apply repairs
+        run: |
+          set -euo pipefail
+          python tools/fix_pr17_checks.py
+          cd backend
+          go mod edit -go=1.26.5
+          go get github.com/aws/aws-sdk-go-v2/service/s3@v1.97.3
+          go get github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream@v1.7.8
+          go mod tidy
+          gofmt -w cmd internal
+          cd ../frontend
+          pnpm add 'xlsx@https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz'
+          cd ..
+      - name: Unit tests
+        id: unit
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          cd backend && make test-unit 2>&1 | tee ../v2-unit.log
+      - name: Integration tests
+        id: integration
+        if: steps.unit.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          cd backend && make test-integration 2>&1 | tee ../v2-integration.log
+      - name: Lint
+        id: lint
+        if: steps.unit.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          cd backend && go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.9.0 run --timeout=30m 2>&1 | tee ../v2-lint.log
+      - name: Govulncheck
+        id: govuln
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          cd backend
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./... 2>&1 | tee ../v2-govuln.log
+      - name: Frontend tests
+        id: frontend
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          make test-frontend 2>&1 | tee v2-frontend.log
+      - name: Frontend audit
+        id: audit
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          cd frontend
+          pnpm audit --prod --audit-level=high --json > audit.json || true
+          python ../tools/check_pnpm_audit_exceptions.py --audit audit.json --exceptions ../.github/audit-exceptions.yml 2>&1 | tee ../v2-audit.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pr17-v2-validation
+          path: |
+            v2-*.log
+            frontend/audit.json
+      - name: Require validations
+        run: |
+          test '${{ steps.unit.outcome }}' = success
+          test '${{ steps.integration.outcome }}' = success
+          test '${{ steps.lint.outcome }}' = success
+          test '${{ steps.govuln.outcome }}' = success
+          test '${{ steps.frontend.outcome }}' = success
+          test '${{ steps.audit.outcome }}' = success
+      - name: Commit validated repairs
+        run: |
+          git config user.name 'openai-ci-fixer'
+          git config user.email 'openai-ci-fixer@users.noreply.github.com'
+          git add -A
+          git reset \
+            .github/workflows/debug-pr17-checks.yml \
+            .github/workflows/debug-pr17-apply.yml \
+            .github/workflows/fix-pr17-checks.yml \
+            .github/workflows/fix-pr17-v2.yml \
+            .github/workflows/patch-pr17-fix-workflow.yml \
+            tools/fix_pr17_checks.py \
+            .pr17-ci-trigger
+          git commit -m 'fix: make CI and security scans pass'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
