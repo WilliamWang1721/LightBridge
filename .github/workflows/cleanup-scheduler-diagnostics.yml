@@ -1,0 +1,63 @@
+name: Cleanup Scheduler Diagnostics Helper
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          cache: true
+          cache-dependency-path: backend/go.sum
+
+      - name: Remove obsolete helper
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          path = Path('backend/internal/service/scheduler_diagnostics.go')
+          text = path.read_text()
+          block = '''func appendSchedulerDiagnostics(summary, encoded string) string {
+          \tencoded = strings.TrimSpace(encoded)
+          \tif encoded == "" {
+          \t\treturn summary
+          \t}
+          \treturn strings.TrimSpace(summary) + " " + schedulerDiagnosticsMarker + encoded
+          }
+
+          '''
+          if text.count(block) != 1:
+              raise SystemExit(f'expected one obsolete helper, got {text.count(block)}')
+          path.write_text(text.replace(block, '', 1))
+          PY
+          gofmt -w backend/internal/service/scheduler_diagnostics.go
+
+      - name: Test changed backend packages
+        shell: bash
+        run: |
+          cd backend
+          go test ./internal/service ./internal/handler
+
+      - name: Commit cleanup
+        shell: bash
+        run: |
+          git rm .github/workflows/cleanup-scheduler-diagnostics.yml
+          git add backend/internal/service/scheduler_diagnostics.go
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "refactor: remove obsolete scheduler diagnostics helper"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
