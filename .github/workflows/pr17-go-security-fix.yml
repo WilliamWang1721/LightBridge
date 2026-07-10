@@ -15,7 +15,7 @@ jobs:
   fix:
     if: contains(github.event.head_commit.message, '[pr17-go-security]')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     env:
       GOPROXY: https://proxy.golang.org,direct
       GOSUMDB: sum.golang.org
@@ -33,7 +33,7 @@ jobs:
           git merge --no-edit origin/main
           date -u +%FT%TZ > .pr17-go-security-state
           git add .pr17-go-security-state
-          git commit -m 'chore(ci): restart Go security remediation without setup download'
+          git commit -m 'chore(ci): restart consolidated Go security remediation'
           git push origin HEAD:fix/universal-router-diagnostics-phase1
       - name: Update dependencies
         id: update
@@ -55,15 +55,14 @@ jobs:
               path.write_text(path.read_text().replace('go1.26.4', 'go1.26.5'))
           PY
             cd backend
-            timeout 300s go get github.com/aws/aws-sdk-go-v2/service/s3@v1.97.3
-            timeout 300s go get github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream@v1.7.8
-            timeout 300s go mod tidy
+            timeout 300s go get \
+              github.com/aws/aws-sdk-go-v2/service/s3@v1.97.3 \
+              github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream@v1.7.8
             python - <<'PY'
           from pathlib import Path
-          path = Path('go.mod')
-          text = path.read_text()
           import re
-          text = re.sub(r'(?m)^go\s+\S+$', 'go 1.26.5', text, count=1)
+          path = Path('go.mod')
+          text = re.sub(r'(?m)^go\s+\S+$', 'go 1.26.5', path.read_text(), count=1)
           path.write_text(text)
           PY
             cd ..
