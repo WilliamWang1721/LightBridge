@@ -267,7 +267,7 @@ type AlertInfo struct {
 	Type     string
 	Severity string
 	Message  string
-	Metadata map[string]interface{}
+	Metadata map[string]any
 }
 
 // SendAlert sends alert through configured channels
@@ -297,7 +297,7 @@ func (s *LightBridgeConnectService) SendAlert(ctx context.Context, accountID int
 
 // sendWebhook sends webhook notification
 func (s *LightBridgeConnectService) sendWebhook(ctx context.Context, webhookURL string, accountID int64, alert *AlertInfo) error {
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"account_id": accountID,
 		"type":       alert.Type,
 		"severity":   alert.Severity,

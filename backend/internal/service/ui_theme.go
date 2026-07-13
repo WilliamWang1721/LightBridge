@@ -64,14 +64,14 @@ type UITheme struct {
 }
 
 type UIThemeManifest struct {
-	ID        string                 `json:"id"`
-	Name      string                 `json:"name"`
-	Version   string                 `json:"version"`
-	EntryCSS  string                 `json:"entry_css"`
-	Preview   string                 `json:"preview,omitempty"`
-	Config    []UIThemeConfigField   `json:"config,omitempty"`
-	MenuItems []UIThemeMenuItem      `json:"menu_items,omitempty"`
-	Meta      map[string]interface{} `json:"meta,omitempty"`
+	ID        string               `json:"id"`
+	Name      string               `json:"name"`
+	Version   string               `json:"version"`
+	EntryCSS  string               `json:"entry_css"`
+	Preview   string               `json:"preview,omitempty"`
+	Config    []UIThemeConfigField `json:"config,omitempty"`
+	MenuItems []UIThemeMenuItem    `json:"menu_items,omitempty"`
+	Meta      map[string]any       `json:"meta,omitempty"`
 }
 
 type UIThemeConfigField struct {
@@ -273,7 +273,7 @@ func (s *UIThemeService) UpdateConfig(ctx context.Context, id string, config jso
 	if len(config) == 0 {
 		config = json.RawMessage(`{}`)
 	}
-	var obj map[string]interface{}
+	var obj map[string]any
 	if err := json.Unmarshal(config, &obj); err != nil {
 		return nil, infraerrors.BadRequest("UI_THEME_INVALID_CONFIG", "config must be a JSON object")
 	}
@@ -311,7 +311,7 @@ func (s *UIThemeService) ActiveInjection(ctx context.Context) (*UIThemeInjection
 	if theme == nil {
 		return nil, nil
 	}
-	var config map[string]interface{}
+	var config map[string]any
 	if len(theme.Config) > 0 {
 		_ = json.Unmarshal(theme.Config, &config)
 	}
@@ -363,7 +363,7 @@ func (s *UIThemeService) applyThemeMenuItems(ctx context.Context, theme *UITheme
 		return err
 	}
 	existing := parseMenuItemsForTheme(raw)
-	filtered := make([]map[string]interface{}, 0, len(existing)+len(manifest.MenuItems))
+	filtered := make([]map[string]any, 0, len(existing)+len(manifest.MenuItems))
 	prefix := "theme-" + theme.ID + "-"
 	for _, item := range existing {
 		id, _ := item["id"].(string)
@@ -403,7 +403,7 @@ func (s *UIThemeService) removeThemeMenuItems(ctx context.Context, themeID strin
 	}
 	existing := parseMenuItemsForTheme(raw)
 	prefix := "theme-" + themeID + "-"
-	filtered := make([]map[string]interface{}, 0, len(existing))
+	filtered := make([]map[string]any, 0, len(existing))
 	for _, item := range existing {
 		id, _ := item["id"].(string)
 		if !strings.HasPrefix(id, prefix) {
@@ -606,13 +606,13 @@ func sanitizeThemeCSS(content []byte) ([]byte, error) {
 	return content, nil
 }
 
-func defaultUIThemeConfig(m *UIThemeManifest) map[string]interface{} {
-	result := make(map[string]interface{}, len(m.Config))
+func defaultUIThemeConfig(m *UIThemeManifest) map[string]any {
+	result := make(map[string]any, len(m.Config))
 	for _, field := range m.Config {
 		if len(field.Default) == 0 {
 			continue
 		}
-		var v interface{}
+		var v any
 		if err := json.Unmarshal(field.Default, &v); err == nil {
 			result[field.Key] = v
 		}
@@ -620,7 +620,7 @@ func defaultUIThemeConfig(m *UIThemeManifest) map[string]interface{} {
 	return result
 }
 
-func uiThemeCSSVars(config map[string]interface{}) map[string]string {
+func uiThemeCSSVars(config map[string]any) map[string]string {
 	result := map[string]string{}
 	for key, value := range config {
 		if !uiThemeConfigKeyRegexp.MatchString(key) {
@@ -716,15 +716,15 @@ func allowedThemeExt(ext string) bool {
 	}
 }
 
-func parseMenuItemsForTheme(raw string) []map[string]interface{} {
-	var items []map[string]interface{}
+func parseMenuItemsForTheme(raw string) []map[string]any {
+	var items []map[string]any
 	if err := json.Unmarshal([]byte(strings.TrimSpace(raw)), &items); err != nil {
-		return []map[string]interface{}{}
+		return []map[string]any{}
 	}
 	return items
 }
 
-func buildThemeMenuItem(themeID string, item UIThemeMenuItem) (map[string]interface{}, error) {
+func buildThemeMenuItem(themeID string, item UIThemeMenuItem) (map[string]any, error) {
 	id := strings.TrimSpace(item.ID)
 	if id == "" || !uiThemeIDPattern.MatchString(strings.ToLower(id)) {
 		return nil, infraerrors.BadRequest("UI_THEME_INVALID_MENU_ITEM", "theme menu item id is invalid")
@@ -759,7 +759,7 @@ func buildThemeMenuItem(themeID string, item UIThemeMenuItem) (map[string]interf
 	default:
 		return nil, infraerrors.BadRequest("UI_THEME_INVALID_MENU_ITEM", "theme menu item type must be markdown or iframe")
 	}
-	return map[string]interface{}{
+	return map[string]any{
 		"id":         "theme-" + themeID + "-" + id,
 		"label":      label,
 		"icon_svg":   item.IconSVG,

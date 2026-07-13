@@ -81,7 +81,7 @@ func (h *LightBridgeConnectHandler) BatchBalances(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "database error"})
 		return
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
 		var accountID int64

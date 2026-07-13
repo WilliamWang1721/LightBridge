@@ -169,7 +169,7 @@ func (r *UIThemeRepository) Delete(ctx context.Context, id string) error {
 }
 
 type uiThemeScanner interface {
-	Scan(dest ...interface{}) error
+	Scan(dest ...any) error
 }
 
 func scanUITheme(scanner uiThemeScanner) (*service.UITheme, error) {
