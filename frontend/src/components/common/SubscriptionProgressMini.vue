@@ -5,6 +5,7 @@
       @click="toggleTooltip"
       class="flex cursor-pointer items-center gap-2 rounded-xl bg-purple-50 px-3 py-1.5 transition-colors hover:bg-purple-100 dark:bg-purple-900/20 dark:hover:bg-purple-900/30"
       :title="t('subscriptionProgress.viewDetails')"
+      :aria-expanded="tooltipOpen"
     >
       <Icon name="creditCard" size="sm" class="text-purple-600 dark:text-purple-400" />
       <div class="flex items-center gap-1.5">
@@ -24,11 +25,14 @@
     </button>
 
     <!-- Hover/Click Tooltip -->
-    <transition name="dropdown">
-      <div
-        v-if="tooltipOpen"
-        class="absolute right-0 z-50 mt-2 w-[340px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-dark-700 dark:bg-dark-800"
-      >
+    <Teleport to="body">
+      <transition name="dropdown">
+        <div
+          v-if="tooltipOpen"
+          ref="tooltipRef"
+          class="z-50 w-[calc(100vw-1rem)] max-w-[340px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-dark-700 dark:bg-dark-800"
+          :style="tooltipStyle"
+        >
         <div class="border-b border-gray-100 p-3 dark:border-dark-700">
           <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
             {{ t('subscriptionProgress.title') }}
@@ -172,13 +176,14 @@
             {{ t('subscriptionProgress.viewAll') }}
           </router-link>
         </div>
-      </div>
-    </transition>
+        </div>
+      </transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import { useSubscriptionStore } from '@/stores'
@@ -189,7 +194,9 @@ const { t } = useI18n()
 const subscriptionStore = useSubscriptionStore()
 
 const containerRef = ref<HTMLElement | null>(null)
+const tooltipRef = ref<HTMLElement | null>(null)
 const tooltipOpen = ref(false)
+const tooltipStyle = ref<Record<string, string>>({})
 
 // Use store data instead of local state
 const activeSubscriptions = computed(() => subscriptionStore.activeSubscriptions)
@@ -257,13 +264,23 @@ function formatUsage(used: number | undefined, limit: number | null | undefined)
   return `$${usedValue}/$${limitValue}`
 }
 
+function getCalendarDaysUntil(expiresAt: string, now: Date): number | null {
+  const expires = new Date(expiresAt)
+  if (Number.isNaN(expires.getTime())) return null
+
+  const currentDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const expiryDate = new Date(expires.getFullYear(), expires.getMonth(), expires.getDate())
+  return Math.round((expiryDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24))
+}
+
 function formatDaysRemaining(expiresAt: string): string {
   const now = new Date()
   const expires = new Date(expiresAt)
   const diff = expires.getTime() - now.getTime()
-  if (diff < 0) return t('subscriptionProgress.expired')
-  const days = Math.ceil(diff / (1000 * 60 * 60 * 24))
-  if (days === 0) return t('subscriptionProgress.expiresToday')
+  if (Number.isNaN(expires.getTime()) || diff <= 0) return t('subscriptionProgress.expired')
+  const days = getCalendarDaysUntil(expiresAt, now)
+  if (days === null) return t('subscriptionProgress.expired')
+  if (days <= 0) return t('subscriptionProgress.expiresToday')
   if (days === 1) return t('subscriptionProgress.expiresTomorrow')
   return t('subscriptionProgress.daysRemaining', { days })
 }
@@ -272,10 +289,38 @@ function getDaysRemainingClass(expiresAt: string): string {
   const now = new Date()
   const expires = new Date(expiresAt)
   const diff = expires.getTime() - now.getTime()
-  const days = Math.ceil(diff / (1000 * 60 * 60 * 24))
+  const days = getCalendarDaysUntil(expiresAt, now)
+  if (Number.isNaN(expires.getTime()) || diff <= 0 || days === null) return 'text-red-600 dark:text-red-400'
   if (days <= 3) return 'text-red-600 dark:text-red-400'
   if (days <= 7) return 'text-orange-600 dark:text-orange-400'
   return 'text-gray-500 dark:text-dark-400'
+}
+
+function updateTooltipPosition() {
+  if (!containerRef.value || !tooltipRef.value || typeof window === 'undefined') return
+
+  const triggerRect = containerRef.value.getBoundingClientRect()
+  const viewportPadding = 8
+  const width = Math.min(340, Math.max(0, window.innerWidth - viewportPadding * 2))
+  const left = Math.min(
+    Math.max(triggerRect.right - width, viewportPadding),
+    Math.max(viewportPadding, window.innerWidth - viewportPadding - width)
+  )
+  const popupHeight = tooltipRef.value.offsetHeight
+  const spaceBelow = window.innerHeight - triggerRect.bottom
+  const spaceAbove = triggerRect.top
+  const openAbove = spaceBelow < popupHeight + viewportPadding && spaceAbove > spaceBelow
+
+  tooltipStyle.value = {
+    position: 'fixed',
+    left: `${left}px`,
+    width: `${width}px`,
+    maxWidth: `calc(100vw - ${viewportPadding * 2}px)`,
+    zIndex: '100',
+    ...(openAbove
+      ? { bottom: `${window.innerHeight - triggerRect.top + viewportPadding}px` }
+      : { top: `${triggerRect.bottom + viewportPadding}px` })
+  }
 }
 
 function toggleTooltip() {
@@ -287,10 +332,24 @@ function closeTooltip() {
 }
 
 function handleClickOutside(event: MouseEvent) {
-  if (containerRef.value && !containerRef.value.contains(event.target as Node)) {
+  const target = event.target as Node
+  if (!containerRef.value?.contains(target) && !tooltipRef.value?.contains(target)) {
     closeTooltip()
   }
 }
+
+watch(tooltipOpen, async (isOpen) => {
+  if (!isOpen) {
+    window.removeEventListener('resize', updateTooltipPosition)
+    window.removeEventListener('scroll', updateTooltipPosition, true)
+    return
+  }
+
+  await nextTick()
+  updateTooltipPosition()
+  window.addEventListener('resize', updateTooltipPosition)
+  window.addEventListener('scroll', updateTooltipPosition, true)
+})
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
@@ -303,6 +362,8 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside)
+  window.removeEventListener('resize', updateTooltipPosition)
+  window.removeEventListener('scroll', updateTooltipPosition, true)
 })
 </script>
 

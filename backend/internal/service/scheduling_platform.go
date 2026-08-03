@@ -80,7 +80,7 @@ func schedulingQueryPlatformsForRequest(ctx context.Context, platform string, us
 	if platform == PlatformGrok {
 		return []string{PlatformGrok}
 	}
-	return []string{PlatformAnthropic, PlatformOpenAI, PlatformGemini, PlatformCustom}
+	return []string{PlatformAnthropic, PlatformOpenAI, PlatformGemini, PlatformGrok, PlatformCustom}
 }
 
 func PlatformForInboundProtocol(protocol string) string {

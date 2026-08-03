@@ -20,17 +20,35 @@ const i18n = createI18n({
         },
         subscribeNow: "Subscribe now",
       },
+      admin: {
+        groups: {
+          upstreamPlatforms: {
+            custom: "Custom",
+          },
+          upstreamProtocols: {
+            openai_responses: "Responses",
+            openai_chat_completions: "Chat Completions",
+            anthropic_messages: "Messages",
+            gemini: "Gemini",
+          },
+        },
+      },
     },
   },
 });
 
-const mountPlanCard = (groupPlatform: string) =>
+const mountPlanCard = () =>
   mount(SubscriptionPlanCard, {
     props: {
       plan: {
         id: 1,
         group_id: 10,
-        group_platform: groupPlatform,
+        group_name: "Custom Group",
+        group_icon: "server",
+        group_color: "#0F766E",
+        upstream_platforms: ["custom"],
+        upstream_protocols: ["openai_chat_completions"],
+        available_ingress_protocols: ["openai_chat_completions"],
         name: "Pro",
         price: 10,
         amount: 1000,
@@ -38,7 +56,6 @@ const mountPlanCard = (groupPlatform: string) =>
         rate_multiplier: 1,
         validity_days: 30,
         validity_unit: "day",
-        supported_model_scopes: ["claude", "gemini_text", "gemini_image"],
         is_active: true,
       },
     },
@@ -46,19 +63,20 @@ const mountPlanCard = (groupPlatform: string) =>
   });
 
 describe("SubscriptionPlanCard", () => {
-  it("does not show Antigravity model scopes for OpenAI plans", () => {
-    const text = mountPlanCard("openai").text();
+  it("shows the bound group identity and only its actual upstream protocol", () => {
+    const text = mountPlanCard().text();
 
-    expect(text).not.toContain("Claude");
+    expect(text).toContain("Custom Group");
+    expect(text).toContain("Chat Completions");
+    expect(text).not.toContain("Responses");
+    expect(text).not.toContain("Messages");
     expect(text).not.toContain("Gemini");
-    expect(text).not.toContain("Imagen");
   });
 
-  it("shows model scopes for Antigravity plans", () => {
-    const text = mountPlanCard("antigravity").text();
+  it("uses the group's configured color without requiring a platform", () => {
+    const wrapper = mountPlanCard();
 
-    expect(text).toContain("Claude");
-    expect(text).toContain("Gemini");
-    expect(text).toContain("Imagen");
+    expect(wrapper.attributes("style")).toContain("border-color");
+    expect(wrapper.html()).toContain("rgb(15, 118, 110)");
   });
 });

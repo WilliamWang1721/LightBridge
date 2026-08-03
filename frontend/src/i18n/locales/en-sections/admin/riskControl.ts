@@ -141,7 +141,7 @@ export default {
       groupScope: 'Audit Groups',
       groupScopeHint: 'Switch on for all groups, or turn off to choose specific groups.',
       selectedGroups: 'Selected Groups',
-      searchGroups: 'Search group name or platform',
+      searchGroups: 'Search group name or actual upstream',
       noGroups: 'No groups available',
       modelFilter: 'Model scope',
       modelFilterHint: 'Moderate by the client-requested model name; channel model mappings do not change this match.',

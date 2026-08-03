@@ -15,9 +15,7 @@ import (
 // 用户侧接口委托 ChannelService.ListAvailable，并在返回前做三层过滤：
 //  1. 行过滤：只保留状态为 Active 且与当前用户可访问分组有交集的渠道；
 //  2. 分组过滤：渠道的 Groups 只保留用户可访问的那些；
-//  3. 平台过滤：渠道的 SupportedModels 只保留平台在用户可见 Groups 中出现过的模型，
-//     防止"渠道同时挂在 antigravity / anthropic 两个平台的分组上，用户只访问
-//     antigravity，却看到 anthropic 模型"这类跨平台信息泄漏；
+//  3. 平台分段：平台属于渠道模型定价命名空间；分组本身不再携带平台类型；
 //  4. 字段白名单：仅返回用户需要的字段（省略 BillingModelSource / RestrictModels
 //     / 内部 ID / Status 等管理字段）。
 type AvailableChannelHandler struct {
@@ -53,12 +51,16 @@ func (h *AvailableChannelHandler) featureEnabled(c *gin.Context) bool {
 // 订阅视觉加深），并用 RateMultiplier 作为默认倍率；用户专属倍率前端走
 // /groups/rates，和 API 密钥页面保持一致。
 type userAvailableGroup struct {
-	ID               int64   `json:"id"`
-	Name             string  `json:"name"`
-	Platform         string  `json:"platform"`
-	SubscriptionType string  `json:"subscription_type"`
-	RateMultiplier   float64 `json:"rate_multiplier"`
-	IsExclusive      bool    `json:"is_exclusive"`
+	ID                        int64    `json:"id"`
+	Name                      string   `json:"name"`
+	Icon                      string   `json:"icon"`
+	Color                     string   `json:"color"`
+	UpstreamPlatforms         []string `json:"upstream_platforms"`
+	UpstreamProtocols         []string `json:"upstream_protocols"`
+	AvailableIngressProtocols []string `json:"available_ingress_protocols"`
+	SubscriptionType          string   `json:"subscription_type"`
+	RateMultiplier            float64  `json:"rate_multiplier"`
+	IsExclusive               bool     `json:"is_exclusive"`
 }
 
 // userSupportedModelPricing 用户可见的定价字段白名单。
@@ -166,37 +168,32 @@ func (h *AvailableChannelHandler) List(c *gin.Context) {
 	response.Success(c, out)
 }
 
-// buildPlatformSections 把一个渠道按 visibleGroups 的平台集合拆成有序的 section 列表：
-// 每个 section 对应一个平台，只包含该平台的 groups 和 supported_models。
+// buildPlatformSections 按渠道模型自身的平台拆成有序 section。
+// 分组是渠道级访问边界，因此每个 section 共享同一组 visibleGroups。
 // 输出按 platform 字母序稳定排序，便于前端等效比较与回归测试。
 func buildPlatformSections(
 	ch service.AvailableChannel,
 	visibleGroups []userAvailableGroup,
 ) []userChannelPlatformSection {
-	groupsByPlatform := make(map[string][]userAvailableGroup, 4)
-	for _, g := range visibleGroups {
-		if g.Platform == "" {
-			continue
+	platformSet := make(map[string]struct{}, 4)
+	for _, model := range ch.SupportedModels {
+		if model.Platform != "" {
+			platformSet[model.Platform] = struct{}{}
 		}
-		groupsByPlatform[g.Platform] = append(groupsByPlatform[g.Platform], g)
 	}
-	if len(groupsByPlatform) == 0 {
-		return nil
-	}
-
-	platforms := make([]string, 0, len(groupsByPlatform))
-	for p := range groupsByPlatform {
-		platforms = append(platforms, p)
+	platforms := make([]string, 0, len(platformSet))
+	for platform := range platformSet {
+		platforms = append(platforms, platform)
 	}
 	sort.Strings(platforms)
 
 	sections := make([]userChannelPlatformSection, 0, len(platforms))
 	for _, platform := range platforms {
-		platformSet := map[string]struct{}{platform: {}}
+		allowedPlatforms := map[string]struct{}{platform: {}}
 		sections = append(sections, userChannelPlatformSection{
 			Platform:        platform,
-			Groups:          groupsByPlatform[platform],
-			SupportedModels: toUserSupportedModels(ch.SupportedModels, platformSet),
+			Groups:          append([]userAvailableGroup(nil), visibleGroups...),
+			SupportedModels: toUserSupportedModels(ch.SupportedModels, allowedPlatforms),
 		})
 	}
 	return sections
@@ -213,12 +210,16 @@ func filterUserVisibleGroups(
 			continue
 		}
 		visible = append(visible, userAvailableGroup{
-			ID:               g.ID,
-			Name:             g.Name,
-			Platform:         g.Platform,
-			SubscriptionType: g.SubscriptionType,
-			RateMultiplier:   g.RateMultiplier,
-			IsExclusive:      g.IsExclusive,
+			ID:                        g.ID,
+			Name:                      g.Name,
+			Icon:                      g.Icon,
+			Color:                     g.Color,
+			UpstreamPlatforms:         append([]string(nil), g.UpstreamPlatforms...),
+			UpstreamProtocols:         append([]string(nil), g.UpstreamProtocols...),
+			AvailableIngressProtocols: append([]string(nil), g.AvailableIngressProtocols...),
+			SubscriptionType:          g.SubscriptionType,
+			RateMultiplier:            g.RateMultiplier,
+			IsExclusive:               g.IsExclusive,
 		})
 	}
 	return visible

@@ -249,8 +249,11 @@ apiClient.interceptors.response.use(
             localStorage.removeItem('token_expires_at')
             sessionStorage.setItem('auth_expired', '1')
 
-            if (!window.location.pathname.includes('/login')) {
-              window.location.href = '/login'
+            const publicPaths = ['/login', '/register', '/email-verify', '/forgot-password', '/key-usage', '/setup', '/payment/result', '/legal']
+            const isPublicPage = publicPaths.some((path) => window.location.pathname === path || window.location.pathname.startsWith(`${path}/`))
+            if (!isPublicPage) {
+              const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`
+              window.location.href = `/login?redirect=${encodeURIComponent(returnTo)}`
             }
 
             return Promise.reject(new ApiError({
@@ -275,16 +278,19 @@ apiClient.interceptors.response.use(
               ? authHeader.length > 0
               : !!authHeader
 
-        localStorage.removeItem('auth_token')
-        localStorage.removeItem('refresh_token')
-        localStorage.removeItem('auth_user')
-        localStorage.removeItem('token_expires_at')
-        if ((hasToken || sentAuth) && !isAuthEndpoint) {
+        const shouldEndSession = (hasToken || sentAuth) && !isAuthEndpoint
+        if (shouldEndSession) {
+          localStorage.removeItem('auth_token')
+          localStorage.removeItem('refresh_token')
+          localStorage.removeItem('auth_user')
+          localStorage.removeItem('token_expires_at')
           sessionStorage.setItem('auth_expired', '1')
-        }
-        // Only redirect if not already on login page
-        if (!window.location.pathname.includes('/login')) {
-          window.location.href = '/login'
+          const publicPaths = ['/login', '/register', '/email-verify', '/forgot-password', '/key-usage', '/setup', '/payment/result', '/legal']
+          const isPublicPage = publicPaths.some((path) => window.location.pathname === path || window.location.pathname.startsWith(`${path}/`))
+          if (!isPublicPage) {
+            const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`
+            window.location.href = `/login?redirect=${encodeURIComponent(returnTo)}`
+          }
         }
       }
 

@@ -79,13 +79,30 @@ func (s *GatewayService) GetAvailableModels(ctx context.Context, groupID *int64,
 		}
 	}
 
-	// If no account has model_mapping, return nil (use default)
+	// If no account exposes an explicit catalog, derive defaults from the
+	// actual bound upstreams. This keeps /v1/models provider-neutral without
+	// falling back to the removed Anthropic group type.
 	if !hasAnyMapping {
-		if s.modelsListCache != nil {
-			s.modelsListCache.Set(cacheKey, []string(nil), s.modelsListCacheTTL)
-			modelsListCacheStoreTotal.Add(1)
+		for i := range accounts {
+			acc := &accounts[i]
+			if acc.IsAntigravity() {
+				for _, model := range defaultModelsListCandidateIDs(PlatformAntigravity) {
+					modelSet[model] = struct{}{}
+				}
+				continue
+			}
+			if acc.IsGrok() {
+				for _, model := range defaultModelsListCandidateIDs(PlatformGrok) {
+					modelSet[model] = struct{}{}
+				}
+				continue
+			}
+			for _, protocol := range AccountUpstreamProtocols(acc) {
+				for _, model := range defaultModelsListCandidateIDs(protocol) {
+					modelSet[model] = struct{}{}
+				}
+			}
 		}
-		return nil
 	}
 
 	// Convert to slice

@@ -94,11 +94,22 @@
             <!-- Subscription confirm (inline, replaces plan list) -->
             <template v-if="selectedPlan">
               <div class="card p-5">
-                <!-- Header: platform badge + plan name -->
+                <!-- Header: group identity + plan name -->
                 <div class="mb-3 flex flex-wrap items-center gap-2">
-                  <span :class="['rounded-md border px-2 py-0.5 text-xs font-medium', planBadgeClass]">
-                    {{ platformLabel(selectedPlan.group_platform || '') }}
-                  </span>
+                  <GroupBadge
+                    v-if="selectedPlan.group_name"
+                    :name="selectedPlan.group_name"
+                    :icon="selectedPlan.group_icon"
+                    :color="selectedPlan.group_color"
+                    :upstream-platforms="selectedPlan.upstream_platforms"
+                    :upstream-protocols="selectedPlan.upstream_protocols"
+                    :show-rate="false"
+                    :title="selectedPlan.available_ingress_protocols?.join(', ') || ''"
+                  />
+                  <GroupUpstreamBadges
+                    :upstream-platforms="selectedPlan.upstream_platforms"
+                    :upstream-protocols="selectedPlan.upstream_protocols"
+                  />
                   <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ selectedPlan.name }}</h3>
                 </div>
                 <!-- Price -->
@@ -106,7 +117,7 @@
                   <span v-if="selectedPlan.original_price" class="text-sm text-gray-400 line-through dark:text-gray-500">
                     {{ formatSelectedPaymentAmount(selectedPlan.original_price) }}
                   </span>
-                  <span :class="['text-3xl font-bold', planTextClass]">{{ formatSelectedPaymentAmount(selectedPlan.price) }}</span>
+                  <span class="text-3xl font-bold text-primary-600 dark:text-primary-400" :style="selectedPlanAccentStyle">{{ formatSelectedPaymentAmount(selectedPlan.price) }}</span>
                   <span class="text-sm text-gray-500 dark:text-gray-400">/ {{ planValiditySuffix }}</span>
                 </div>
                 <!-- Description -->
@@ -118,7 +129,7 @@
                   <div>
                     <span class="text-xs text-gray-400 dark:text-gray-500">{{ t('payment.planCard.rate') }}</span>
                     <div class="flex items-baseline">
-                      <span :class="['text-lg font-bold', planTextClass]">×{{ selectedPlan.rate_multiplier ?? 1 }}</span>
+                      <span class="text-lg font-bold text-primary-600 dark:text-primary-400" :style="selectedPlanAccentStyle">×{{ selectedPlan.rate_multiplier ?? 1 }}</span>
                     </div>
                   </div>
                   <div v-if="selectedPlan.daily_limit_usd != null">
@@ -186,11 +197,20 @@
                 <div class="space-y-2">
                   <div v-for="sub in activeSubscriptions" :key="sub.id"
                     class="flex items-center gap-3 rounded-xl border border-gray-100 bg-white px-3 py-2 dark:border-dark-700 dark:bg-dark-800">
-                    <div :class="['h-6 w-1 shrink-0 rounded-full', platformAccentBarClass(sub.group?.platform || '')]" />
+                    <div class="h-6 w-1 shrink-0 rounded-full bg-primary-500" :style="groupAccentStyle(sub.group?.color)" />
                     <div class="min-w-0 flex-1">
                       <div class="flex items-center gap-1.5">
-                        <span class="truncate text-xs font-semibold text-gray-900 dark:text-white">{{ sub.group?.name || t('payment.groupFallback', { id: sub.group_id }) }}</span>
-                        <span :class="['shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium', platformBadgeLightClass(sub.group?.platform || '')]">{{ platformLabel(sub.group?.platform || '') }}</span>
+                        <GroupBadge
+                          v-if="sub.group"
+                          :name="sub.group.name"
+                          :icon="sub.group.icon"
+                          :color="sub.group.color"
+                          :upstream-platforms="sub.group.upstream_platforms"
+                          :upstream-protocols="sub.group.upstream_protocols"
+                          :show-rate="false"
+                          :title="sub.group.available_ingress_protocols?.join(', ') || ''"
+                        />
+                        <span v-else class="truncate text-xs font-semibold text-gray-900 dark:text-white">{{ t('payment.groupFallback', { id: sub.group_id }) }}</span>
                       </div>
                       <div class="flex flex-wrap gap-x-3 text-[11px] text-gray-400 dark:text-gray-500">
                         <span>{{ t('payment.planCard.rate') }}: ×{{ sub.group?.rate_multiplier ?? 1 }}</span>
@@ -271,14 +291,16 @@ import {
   type PaymentRecoverySnapshot,
   writePaymentRecoverySnapshot,
 } from '@/components/payment/paymentFlow'
-import { platformAccentBarClass, platformBadgeLightClass, platformBadgeClass, platformTextClass, platformLabel } from '@/utils/platformColors'
 import SubscriptionPlanCard from '@/components/payment/SubscriptionPlanCard.vue'
+import GroupBadge from '@/components/common/GroupBadge.vue'
+import GroupUpstreamBadges from '@/components/common/GroupUpstreamBadges.vue'
 import PaymentStatusPanel from '@/components/payment/PaymentStatusPanel.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { formatPaymentAmount, normalizePaymentCurrency } from '@/components/payment/currency'
 import type { PaymentMethodOption } from '@/components/payment/PaymentMethodSelector.vue'
 import { buildPaymentErrorToastMessage, describePaymentScenarioError } from './paymentUx'
 import { hasWechatResumeQuery, parseWechatResumeRoute, stripWechatResumeQuery } from './paymentWechatResume'
+import { normalizeGroupColor } from '@/utils/groupUpstreams'
 
 const i18n = useI18n()
 const { t } = i18n
@@ -637,9 +659,15 @@ const paymentButtonClass = computed(() => {
   return 'btn-primary'
 })
 
-// Subscription confirm: platform accent colors (clean card, no gradient)
-const planBadgeClass = computed(() => platformBadgeClass(selectedPlan.value?.group_platform || ''))
-const planTextClass = computed(() => platformTextClass(selectedPlan.value?.group_platform || ''))
+function groupAccentStyle(color: string | null | undefined): Record<string, string> | undefined {
+  const normalized = normalizeGroupColor(color)
+  return normalized ? { backgroundColor: normalized } : undefined
+}
+
+const selectedPlanAccentStyle = computed(() => {
+  const normalized = normalizeGroupColor(selectedPlan.value?.group_color)
+  return normalized ? { color: normalized } : undefined
+})
 
 // Renewal modal state
 const showRenewalModal = ref(false)

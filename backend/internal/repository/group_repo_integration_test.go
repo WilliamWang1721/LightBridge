@@ -526,7 +526,7 @@ func (s *GroupRepoSuite) TestListWithFilters_AccountCount() {
 	s.Require().Equal(int64(1), groups[0].AccountCount, "AccountCount mismatch")
 }
 
-// --- ListActive / ListActiveByPlatform ---
+// --- ListActive / ListActiveByUpstreamProtocol ---
 
 func (s *GroupRepoSuite) TestListActive() {
 	baseGroups, err := s.repo.ListActive(s.ctx)
@@ -563,9 +563,9 @@ func (s *GroupRepoSuite) TestListActive() {
 	s.Require().True(found, "active1 group should be in results")
 }
 
-func (s *GroupRepoSuite) TestListActiveByPlatform() {
-	baseGroups, err := s.repo.ListActiveByPlatform(s.ctx, service.PlatformAnthropic)
-	s.Require().NoError(err, "ListActiveByPlatform base")
+func (s *GroupRepoSuite) TestListActiveByUpstreamProtocol() {
+	baseGroups, err := s.repo.ListActiveByUpstreamProtocol(s.ctx, service.CustomProtocolAnthropicMessages)
+	s.Require().NoError(err, "ListActiveByUpstreamProtocol base")
 
 	openAIGroup := &service.Group{
 		Name:             "g1",
@@ -600,8 +600,8 @@ func (s *GroupRepoSuite) TestListActiveByPlatform() {
 	s.bindCustomAccountToGroup(anthropicGroup.ID, "g2-anthropic", service.CustomProtocolAnthropicMessages)
 	s.bindCustomAccountToGroup(disabledAnthropicGroup.ID, "g3-anthropic", service.CustomProtocolAnthropicMessages)
 
-	groups, err := s.repo.ListActiveByPlatform(s.ctx, service.PlatformAnthropic)
-	s.Require().NoError(err, "ListActiveByPlatform")
+	groups, err := s.repo.ListActiveByUpstreamProtocol(s.ctx, service.CustomProtocolAnthropicMessages)
+	s.Require().NoError(err, "ListActiveByUpstreamProtocol")
 	s.Require().Len(groups, len(baseGroups)+1)
 
 	var foundAnthropicGroup bool

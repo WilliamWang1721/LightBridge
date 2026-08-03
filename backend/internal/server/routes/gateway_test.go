@@ -15,10 +15,6 @@ import (
 )
 
 func newGatewayRoutesTestRouter() *gin.Engine {
-	return newGatewayRoutesTestRouterForPlatform(service.PlatformOpenAI)
-}
-
-func newGatewayRoutesTestRouterForPlatform(platform string) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 
@@ -32,7 +28,7 @@ func newGatewayRoutesTestRouterForPlatform(platform string) *gin.Engine {
 			groupID := int64(1)
 			c.Set(string(servermiddleware.ContextKeyAPIKey), &service.APIKey{
 				GroupID: &groupID,
-				Group:   &service.Group{Platform: platform},
+				Group:   &service.Group{ID: groupID, Status: service.StatusActive, Hydrated: true},
 			})
 			c.Next()
 		}),
@@ -72,7 +68,7 @@ func TestShouldUseOpenAIHandler_CustomGroupOpenAIEndpoints(t *testing.T) {
 			groupID := int64(1)
 			c.Set(string(servermiddleware.ContextKeyAPIKey), &service.APIKey{
 				GroupID: &groupID,
-				Group:   &service.Group{Platform: service.PlatformCustom},
+				Group:   &service.Group{ID: groupID, Status: service.StatusActive, Hydrated: true},
 			})
 			req := httptest.NewRequest(http.MethodPost, tt.path, nil)
 			c.Request = req
@@ -94,7 +90,7 @@ func TestShouldUseGeminiHandler_IgnoresGroupPlatform(t *testing.T) {
 	groupID := int64(1)
 	c.Set(string(servermiddleware.ContextKeyAPIKey), &service.APIKey{
 		GroupID: &groupID,
-		Group:   &service.Group{Platform: service.PlatformOpenAI},
+		Group:   &service.Group{ID: groupID, Status: service.StatusActive, Hydrated: true},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/v1beta/models/gemini:generateContent", nil)
 	c.Request = req
@@ -140,8 +136,8 @@ func TestGatewayRoutesOpenAIImagesPathsAreRegistered(t *testing.T) {
 	}
 }
 
-func TestGatewayRoutesGrokAllowsRouterProtocols(t *testing.T) {
-	router := newGatewayRoutesTestRouterForPlatform(service.PlatformGrok)
+func TestGatewayRoutesExposeAllRouterProtocolsWithoutGroupType(t *testing.T) {
+	router := newGatewayRoutesTestRouter()
 
 	accepted := []string{
 		"/v1/messages",

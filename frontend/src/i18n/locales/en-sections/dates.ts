@@ -7,6 +7,7 @@ export default {
     thisMonth: 'This Month',
     lastMonth: 'Last Month',
     last24Hours: 'Last 24 Hours',
+    yesterdayToToday: 'Yesterday to Today',
     last7Days: 'Last 7 Days',
     last14Days: 'Last 14 Days',
     last30Days: 'Last 30 Days',

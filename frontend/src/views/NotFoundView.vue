@@ -16,7 +16,7 @@
       <!-- 404 Display -->
       <div class="mb-8">
         <div class="relative inline-block">
-          <span class="text-[12rem] font-bold leading-none text-gray-100 dark:text-dark-800"
+          <span class="text-[7rem] font-bold leading-none text-gray-100 dark:text-dark-800 sm:text-[12rem]"
             >404</span
           >
           <div class="absolute inset-0 flex items-center justify-center">
@@ -47,7 +47,7 @@
           {{ t('errors.pageNotFound') }}
         </h1>
         <p class="text-gray-500 dark:text-dark-400">
-          The page you are looking for doesn't exist or has been moved.
+          {{ t('errors.pageNotFoundDescription') }}
         </p>
       </div>
 
@@ -55,22 +55,24 @@
       <div class="flex flex-col justify-center gap-3 sm:flex-row">
         <button @click="goBack" class="btn btn-secondary">
           <Icon name="arrowLeft" size="md" class="mr-2" />
-          Go Back
+          {{ t('errors.goBack') }}
         </button>
-        <router-link to="/dashboard" class="btn btn-primary">
+        <router-link :to="roleHome" class="btn btn-primary">
           <Icon name="home" size="md" class="mr-2" />
-          Go to Dashboard
+          {{ t('errors.goToHome') }}
         </router-link>
       </div>
 
       <!-- Help Link -->
-      <p class="mt-8 text-sm text-gray-400 dark:text-dark-500">
-        Need help?
+      <p v-if="appStore.docUrl" class="mt-8 text-sm text-gray-400 dark:text-dark-500">
+        {{ t('errors.needHelp') }}
         <a
-          href="#"
+          :href="appStore.docUrl"
+          target="_blank"
+          rel="noopener noreferrer"
           class="text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
         >
-          Contact support
+          {{ t('errors.openDocumentation') }}
         </a>
       </p>
     </div>
@@ -79,13 +81,25 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import Icon from '@/components/icons/Icon.vue'
+import { useAppStore, useAuthStore } from '@/stores'
 
 const { t } = useI18n()
 const router = useRouter()
+const appStore = useAppStore()
+const authStore = useAuthStore()
+const roleHome = computed(() => {
+  if (!authStore.isAuthenticated) return '/login'
+  return authStore.isAdmin ? '/admin/dashboard' : '/dashboard'
+})
 
 function goBack(): void {
-  router.back()
+  if (window.history.length > 1) {
+    router.back()
+  } else {
+    router.push(roleHome.value)
+  }
 }
 </script>

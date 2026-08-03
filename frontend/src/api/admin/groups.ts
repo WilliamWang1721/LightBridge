@@ -6,7 +6,6 @@
 import { apiClient } from '../client'
 import type {
   AdminGroup,
-  GroupPlatform,
   GroupUpstreamProtocol,
   CreateGroupRequest,
   UpdateGroupRequest,
@@ -17,14 +16,13 @@ import type {
  * List all groups with pagination
  * @param page - Page number (default: 1)
  * @param pageSize - Items per page (default: 20)
- * @param filters - Optional filters (platform, status, is_exclusive, search)
+ * @param filters - Optional filters (upstream protocol, status, is_exclusive, search)
  * @returns Paginated list of groups
  */
 export async function list(
   page: number = 1,
   pageSize: number = 20,
   filters?: {
-    platform?: GroupPlatform
     upstream_protocol?: GroupUpstreamProtocol
     status?: 'active' | 'inactive'
     is_exclusive?: boolean
@@ -52,19 +50,11 @@ export async function list(
  * @param upstreamProtocol - Optional upstream protocol filter
  * @returns List of all active groups
  */
-export async function getAll(upstreamProtocol?: GroupPlatform | GroupUpstreamProtocol): Promise<AdminGroup[]> {
+export async function getAll(upstreamProtocol?: GroupUpstreamProtocol): Promise<AdminGroup[]> {
   const { data } = await apiClient.get<AdminGroup[]>('/admin/groups/all', {
     params: upstreamProtocol ? { upstream_protocol: upstreamProtocol } : undefined
   })
   return data
-}
-
-/**
- * Backward-compatible alias for old platform filters.
- * The backend maps platform aliases to upstream protocols.
- */
-export async function getByPlatform(platform: GroupPlatform): Promise<AdminGroup[]> {
-  return getAll(platform)
 }
 
 /**
@@ -83,7 +73,7 @@ export async function getById(id: number): Promise<AdminGroup> {
  */
 export async function getModelsListCandidates(
   id: number,
-  upstreamProtocol?: GroupPlatform | GroupUpstreamProtocol
+  upstreamProtocol?: GroupUpstreamProtocol
 ): Promise<string[]> {
   const { data } = await apiClient.get<{ models: string[] }>(
     `/admin/groups/${id}/models-list-candidates`,
@@ -322,7 +312,6 @@ export async function getCapacitySummary(): Promise<
 export const groupsAPI = {
   list,
   getAll,
-  getByPlatform,
   getById,
   getModelsListCandidates,
   create,

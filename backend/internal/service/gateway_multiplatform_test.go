@@ -344,7 +344,7 @@ func (m *mockGroupRepoForGateway) ListWithFilters(ctx context.Context, params pa
 func (m *mockGroupRepoForGateway) ListActive(ctx context.Context) ([]Group, error) {
 	return nil, nil
 }
-func (m *mockGroupRepoForGateway) ListActiveByPlatform(ctx context.Context, platform string) ([]Group, error) {
+func (m *mockGroupRepoForGateway) ListActiveByUpstreamProtocol(ctx context.Context, platform string) ([]Group, error) {
 	return nil, nil
 }
 func (m *mockGroupRepoForGateway) ExistsByName(ctx context.Context, name string) (bool, error) {
@@ -521,7 +521,7 @@ func TestGatewayService_SelectAccountForModelWithPlatform_OpenAIGroupSelectsCust
 	svc := &GatewayService{
 		accountRepo: repo,
 		groupRepo: &mockGroupRepoForGateway{groups: map[int64]*Group{
-			groupID: {ID: groupID, Platform: PlatformOpenAI, Status: StatusActive},
+			groupID: {ID: groupID, Status: StatusActive, Hydrated: true},
 		}},
 		cache: &mockGatewayCacheForPlatform{},
 		cfg:   testConfig(),
@@ -534,7 +534,7 @@ func TestGatewayService_SelectAccountForModelWithPlatform_OpenAIGroupSelectsCust
 	require.Equal(t, PlatformCustom, acc.Platform)
 }
 
-func TestGatewayService_SelectAccountForModelWithExclusions_InboundProtocolOverridesGroupPlatform(t *testing.T) {
+func TestGatewayService_SelectAccountForModelWithExclusions_UsesInboundProtocolAndBoundAccounts(t *testing.T) {
 	groupID := int64(13)
 	ctx := WithInboundProtocol(context.Background(), CustomProtocolOpenAIResponses)
 
@@ -563,7 +563,7 @@ func TestGatewayService_SelectAccountForModelWithExclusions_InboundProtocolOverr
 	svc := &GatewayService{
 		accountRepo: repo,
 		groupRepo: &mockGroupRepoForGateway{groups: map[int64]*Group{
-			groupID: {ID: groupID, Name: "mimo", Platform: PlatformAnthropic, Status: StatusActive, Hydrated: true},
+			groupID: {ID: groupID, Name: "mimo", Status: StatusActive, Hydrated: true},
 		}},
 		cache: &mockGatewayCacheForPlatform{},
 		cfg:   testConfig(),
@@ -576,7 +576,7 @@ func TestGatewayService_SelectAccountForModelWithExclusions_InboundProtocolOverr
 	require.Equal(t, PlatformCustom, acc.Platform)
 }
 
-func TestGatewayService_SelectAccountForModelWithExclusions_InboundProtocolOverridesGroupPlatformForSnapshot(t *testing.T) {
+func TestGatewayService_SelectAccountForModelWithExclusions_UsesProviderNeutralSnapshot(t *testing.T) {
 	groupID := int64(13)
 	ctx := WithInboundProtocol(context.Background(), CustomProtocolOpenAIResponses)
 	account := &Account{
@@ -605,7 +605,7 @@ func TestGatewayService_SelectAccountForModelWithExclusions_InboundProtocolOverr
 	svc := &GatewayService{
 		schedulerSnapshot: snapshot,
 		groupRepo: &mockGroupRepoForGateway{groups: map[int64]*Group{
-			groupID: {ID: groupID, Name: "mimo", Platform: PlatformAnthropic, Status: StatusActive, Hydrated: true},
+			groupID: {ID: groupID, Name: "mimo", Status: StatusActive, Hydrated: true},
 		}},
 		cache: &mockGatewayCacheForPlatform{},
 		cfg:   testConfig(),
@@ -619,10 +619,9 @@ func TestGatewayService_SelectAccountForModelWithExclusions_InboundProtocolOverr
 	require.Equal(t, SchedulerBucket{GroupID: groupID, Platform: SchedulerPlatformGroupAny, Mode: SchedulerModeSingle}, cache.seenBuckets[0])
 }
 
-func TestGatewayService_SelectAccountForModelWithPlatform_CustomAccountsAcrossGroupPlatforms(t *testing.T) {
+func TestGatewayService_SelectAccountForModelWithPlatform_CustomAccountsAcrossNeutralGroups(t *testing.T) {
 	tests := []struct {
 		name             string
-		groupPlatform    string
 		targetPlatform   string
 		requiredProtocol string
 		accountProtocol  string
@@ -630,8 +629,7 @@ func TestGatewayService_SelectAccountForModelWithPlatform_CustomAccountsAcrossGr
 		accountID        int64
 	}{
 		{
-			name:             "anthropic group selects custom anthropic account",
-			groupPlatform:    PlatformAnthropic,
+			name:             "anthropic ingress selects custom anthropic account",
 			targetPlatform:   PlatformAnthropic,
 			requiredProtocol: CustomProtocolAnthropicMessages,
 			accountProtocol:  CustomProtocolAnthropicMessages,
@@ -639,8 +637,7 @@ func TestGatewayService_SelectAccountForModelWithPlatform_CustomAccountsAcrossGr
 			accountID:        21,
 		},
 		{
-			name:             "gemini group selects custom gemini account",
-			groupPlatform:    PlatformGemini,
+			name:             "gemini ingress selects custom gemini account",
 			targetPlatform:   PlatformGemini,
 			requiredProtocol: CustomProtocolGemini,
 			accountProtocol:  CustomProtocolGemini,
@@ -648,8 +645,7 @@ func TestGatewayService_SelectAccountForModelWithPlatform_CustomAccountsAcrossGr
 			accountID:        22,
 		},
 		{
-			name:             "custom group selects custom openai account",
-			groupPlatform:    PlatformCustom,
+			name:             "openai ingress selects custom openai account",
 			targetPlatform:   PlatformCustom,
 			requiredProtocol: CustomProtocolOpenAIResponses,
 			accountProtocol:  CustomProtocolOpenAIResponses,
@@ -687,7 +683,7 @@ func TestGatewayService_SelectAccountForModelWithPlatform_CustomAccountsAcrossGr
 			svc := &GatewayService{
 				accountRepo: repo,
 				groupRepo: &mockGroupRepoForGateway{groups: map[int64]*Group{
-					groupID: {ID: groupID, Platform: tt.groupPlatform, Status: StatusActive},
+					groupID: {ID: groupID, Status: StatusActive, Hydrated: true},
 				}},
 				cache: &mockGatewayCacheForPlatform{},
 				cfg:   testConfig(),
@@ -731,7 +727,7 @@ func TestGatewayService_SelectAccountForModelWithPlatform_OpenAICompatibilityOve
 	svc := &GatewayService{
 		accountRepo: repo,
 		groupRepo: &mockGroupRepoForGateway{groups: map[int64]*Group{
-			groupID: {ID: groupID, Platform: PlatformOpenAI, Status: StatusActive},
+			groupID: {ID: groupID, Status: StatusActive, Hydrated: true},
 		}},
 		cache: &mockGatewayCacheForPlatform{},
 		cfg:   testConfig(),
@@ -772,7 +768,7 @@ func TestGatewayService_SelectAccountForModelWithPlatform_OpenAIChatCustomAccoun
 	svc := &GatewayService{
 		accountRepo: repo,
 		groupRepo: &mockGroupRepoForGateway{groups: map[int64]*Group{
-			groupID: {ID: groupID, Platform: PlatformOpenAI, Status: StatusActive},
+			groupID: {ID: groupID, Status: StatusActive, Hydrated: true},
 		}},
 		cache: &mockGatewayCacheForPlatform{},
 		cfg:   testConfig(),

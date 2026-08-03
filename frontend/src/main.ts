@@ -48,4 +48,20 @@ async function bootstrap() {
   app.mount('#app')
 }
 
-bootstrap()
+bootstrap().catch((error: unknown) => {
+  console.error('Application bootstrap failed:', error)
+  const root = document.getElementById('app')
+  if (!root) return
+
+  root.innerHTML = `
+    <main style="min-height:100vh;display:grid;place-items:center;padding:24px;font-family:system-ui,sans-serif">
+      <section role="alert" style="max-width:560px;text-align:center">
+        <h1 style="font-size:1.5rem;margin:0 0 12px">LightBridge could not start</h1>
+        <p style="color:#6b7280;margin:0 0 20px">Please check your connection and try again.</p>
+        <button id="startup-retry" type="button" style="cursor:pointer;padding:10px 16px;border:0;border-radius:8px;background:#2563eb;color:white">Retry</button>
+      </section>
+    </main>`
+  root.querySelector<HTMLButtonElement>('#startup-retry')?.addEventListener('click', () => {
+    window.location.reload()
+  })
+})

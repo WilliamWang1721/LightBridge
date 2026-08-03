@@ -85,7 +85,8 @@ type Group struct {
 	ID                 int64   `json:"id"`
 	Name               string  `json:"name"`
 	Description        string  `json:"description"`
-	Platform           string  `json:"platform"`
+	Icon               string  `json:"icon"`
+	Color              string  `json:"color"`
 	RateMultiplier     float64 `json:"rate_multiplier"`
 	PeakRateEnabled    bool    `json:"peak_rate_enabled"`
 	PeakStart          string  `json:"peak_start"`
@@ -99,7 +100,7 @@ type Group struct {
 	WeeklyLimitUSD   *float64 `json:"weekly_limit_usd"`
 	MonthlyLimitUSD  *float64 `json:"monthly_limit_usd"`
 
-	// 图片生成计费配置（仅 antigravity 平台使用）
+	// 图片生成计费配置
 	AllowImageGeneration bool     `json:"allow_image_generation"`
 	ImageRateIndependent bool     `json:"image_rate_independent"`
 	ImageRateMultiplier  float64  `json:"image_rate_multiplier"`
@@ -123,7 +124,9 @@ type Group struct {
 	// RPMLimit 分组级每分钟请求数上限（0 = 不限制），设置后覆盖用户级 rpm_limit。
 	RPMLimit int `json:"rpm_limit"`
 
-	UpstreamProtocols []string `json:"upstream_protocols"`
+	UpstreamProtocols         []string `json:"upstream_protocols"`
+	UpstreamPlatforms         []string `json:"upstream_platforms"`
+	AvailableIngressProtocols []string `json:"available_ingress_protocols"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -134,20 +137,18 @@ type Group struct {
 type AdminGroup struct {
 	Group
 
-	// 模型路由配置（仅 anthropic 平台使用）
+	// 模型路由配置
 	ModelRouting        map[string][]int64 `json:"model_routing"`
 	ModelRoutingEnabled bool               `json:"model_routing_enabled"`
 
-	// MCP XML 协议注入（仅 antigravity 平台使用）
+	// MCP XML 协议注入
 	MCPXMLInject bool `json:"mcp_xml_inject"`
 
-	// OpenAI Messages 调度配置（仅 openai 平台使用）
+	// Messages 调度配置
 	DefaultMappedModel          string                                   `json:"default_mapped_model"`
 	MessagesDispatchModelConfig domain.OpenAIMessagesDispatchModelConfig `json:"messages_dispatch_model_config"`
 	ModelsListConfig            domain.GroupModelsListConfig             `json:"models_list_config"`
 
-	// 支持的模型系列（仅 antigravity 平台使用）
-	SupportedModelScopes    []string       `json:"supported_model_scopes"`
 	AccountGroups           []AccountGroup `json:"account_groups,omitempty"`
 	AccountCount            int64          `json:"account_count,omitempty"`
 	ActiveAccountCount      int64          `json:"active_account_count,omitempty"`

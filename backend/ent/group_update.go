@@ -10,7 +10,6 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
-	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 	"github.com/WilliamWang1721/LightBridge/ent/account"
 	"github.com/WilliamWang1721/LightBridge/ent/apikey"
@@ -93,6 +92,34 @@ func (_u *GroupUpdate) SetNillableDescription(v *string) *GroupUpdate {
 // ClearDescription clears the value of the "description" field.
 func (_u *GroupUpdate) ClearDescription() *GroupUpdate {
 	_u.mutation.ClearDescription()
+	return _u
+}
+
+// SetIcon sets the "icon" field.
+func (_u *GroupUpdate) SetIcon(v string) *GroupUpdate {
+	_u.mutation.SetIcon(v)
+	return _u
+}
+
+// SetNillableIcon sets the "icon" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableIcon(v *string) *GroupUpdate {
+	if v != nil {
+		_u.SetIcon(*v)
+	}
+	return _u
+}
+
+// SetColor sets the "color" field.
+func (_u *GroupUpdate) SetColor(v string) *GroupUpdate {
+	_u.mutation.SetColor(v)
+	return _u
+}
+
+// SetNillableColor sets the "color" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableColor(v *string) *GroupUpdate {
+	if v != nil {
+		_u.SetColor(*v)
+	}
 	return _u
 }
 
@@ -204,20 +231,6 @@ func (_u *GroupUpdate) SetStatus(v string) *GroupUpdate {
 func (_u *GroupUpdate) SetNillableStatus(v *string) *GroupUpdate {
 	if v != nil {
 		_u.SetStatus(*v)
-	}
-	return _u
-}
-
-// SetPlatform sets the "platform" field.
-func (_u *GroupUpdate) SetPlatform(v string) *GroupUpdate {
-	_u.mutation.SetPlatform(v)
-	return _u
-}
-
-// SetNillablePlatform sets the "platform" field if the given value is not nil.
-func (_u *GroupUpdate) SetNillablePlatform(v *string) *GroupUpdate {
-	if v != nil {
-		_u.SetPlatform(*v)
 	}
 	return _u
 }
@@ -573,18 +586,6 @@ func (_u *GroupUpdate) SetNillableMcpXMLInject(v *bool) *GroupUpdate {
 	if v != nil {
 		_u.SetMcpXMLInject(*v)
 	}
-	return _u
-}
-
-// SetSupportedModelScopes sets the "supported_model_scopes" field.
-func (_u *GroupUpdate) SetSupportedModelScopes(v []string) *GroupUpdate {
-	_u.mutation.SetSupportedModelScopes(v)
-	return _u
-}
-
-// AppendSupportedModelScopes appends value to the "supported_model_scopes" field.
-func (_u *GroupUpdate) AppendSupportedModelScopes(v []string) *GroupUpdate {
-	_u.mutation.AppendSupportedModelScopes(v)
 	return _u
 }
 
@@ -984,6 +985,16 @@ func (_u *GroupUpdate) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Group.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Icon(); ok {
+		if err := group.IconValidator(v); err != nil {
+			return &ValidationError{Name: "icon", err: fmt.Errorf(`ent: validator failed for field "Group.icon": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.Color(); ok {
+		if err := group.ColorValidator(v); err != nil {
+			return &ValidationError{Name: "color", err: fmt.Errorf(`ent: validator failed for field "Group.color": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.PeakStart(); ok {
 		if err := group.PeakStartValidator(v); err != nil {
 			return &ValidationError{Name: "peak_start", err: fmt.Errorf(`ent: validator failed for field "Group.peak_start": %w`, err)}
@@ -997,11 +1008,6 @@ func (_u *GroupUpdate) check() error {
 	if v, ok := _u.mutation.Status(); ok {
 		if err := group.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Group.status": %w`, err)}
-		}
-	}
-	if v, ok := _u.mutation.Platform(); ok {
-		if err := group.PlatformValidator(v); err != nil {
-			return &ValidationError{Name: "platform", err: fmt.Errorf(`ent: validator failed for field "Group.platform": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.SubscriptionType(); ok {
@@ -1047,6 +1053,12 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if _u.mutation.DescriptionCleared() {
 		_spec.ClearField(group.FieldDescription, field.TypeString)
 	}
+	if value, ok := _u.mutation.Icon(); ok {
+		_spec.SetField(group.FieldIcon, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Color(); ok {
+		_spec.SetField(group.FieldColor, field.TypeString, value)
+	}
 	if value, ok := _u.mutation.RateMultiplier(); ok {
 		_spec.SetField(group.FieldRateMultiplier, field.TypeFloat64, value)
 	}
@@ -1073,9 +1085,6 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(group.FieldStatus, field.TypeString, value)
-	}
-	if value, ok := _u.mutation.Platform(); ok {
-		_spec.SetField(group.FieldPlatform, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.SubscriptionType(); ok {
 		_spec.SetField(group.FieldSubscriptionType, field.TypeString, value)
@@ -1184,14 +1193,6 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.McpXMLInject(); ok {
 		_spec.SetField(group.FieldMcpXMLInject, field.TypeBool, value)
-	}
-	if value, ok := _u.mutation.SupportedModelScopes(); ok {
-		_spec.SetField(group.FieldSupportedModelScopes, field.TypeJSON, value)
-	}
-	if value, ok := _u.mutation.AppendedSupportedModelScopes(); ok {
-		_spec.AddModifier(func(u *sql.UpdateBuilder) {
-			sqljson.Append(u, group.FieldSupportedModelScopes, value)
-		})
 	}
 	if value, ok := _u.mutation.SortOrder(); ok {
 		_spec.SetField(group.FieldSortOrder, field.TypeInt, value)
@@ -1597,6 +1598,34 @@ func (_u *GroupUpdateOne) ClearDescription() *GroupUpdateOne {
 	return _u
 }
 
+// SetIcon sets the "icon" field.
+func (_u *GroupUpdateOne) SetIcon(v string) *GroupUpdateOne {
+	_u.mutation.SetIcon(v)
+	return _u
+}
+
+// SetNillableIcon sets the "icon" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableIcon(v *string) *GroupUpdateOne {
+	if v != nil {
+		_u.SetIcon(*v)
+	}
+	return _u
+}
+
+// SetColor sets the "color" field.
+func (_u *GroupUpdateOne) SetColor(v string) *GroupUpdateOne {
+	_u.mutation.SetColor(v)
+	return _u
+}
+
+// SetNillableColor sets the "color" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableColor(v *string) *GroupUpdateOne {
+	if v != nil {
+		_u.SetColor(*v)
+	}
+	return _u
+}
+
 // SetRateMultiplier sets the "rate_multiplier" field.
 func (_u *GroupUpdateOne) SetRateMultiplier(v float64) *GroupUpdateOne {
 	_u.mutation.ResetRateMultiplier()
@@ -1705,20 +1734,6 @@ func (_u *GroupUpdateOne) SetStatus(v string) *GroupUpdateOne {
 func (_u *GroupUpdateOne) SetNillableStatus(v *string) *GroupUpdateOne {
 	if v != nil {
 		_u.SetStatus(*v)
-	}
-	return _u
-}
-
-// SetPlatform sets the "platform" field.
-func (_u *GroupUpdateOne) SetPlatform(v string) *GroupUpdateOne {
-	_u.mutation.SetPlatform(v)
-	return _u
-}
-
-// SetNillablePlatform sets the "platform" field if the given value is not nil.
-func (_u *GroupUpdateOne) SetNillablePlatform(v *string) *GroupUpdateOne {
-	if v != nil {
-		_u.SetPlatform(*v)
 	}
 	return _u
 }
@@ -2074,18 +2089,6 @@ func (_u *GroupUpdateOne) SetNillableMcpXMLInject(v *bool) *GroupUpdateOne {
 	if v != nil {
 		_u.SetMcpXMLInject(*v)
 	}
-	return _u
-}
-
-// SetSupportedModelScopes sets the "supported_model_scopes" field.
-func (_u *GroupUpdateOne) SetSupportedModelScopes(v []string) *GroupUpdateOne {
-	_u.mutation.SetSupportedModelScopes(v)
-	return _u
-}
-
-// AppendSupportedModelScopes appends value to the "supported_model_scopes" field.
-func (_u *GroupUpdateOne) AppendSupportedModelScopes(v []string) *GroupUpdateOne {
-	_u.mutation.AppendSupportedModelScopes(v)
 	return _u
 }
 
@@ -2498,6 +2501,16 @@ func (_u *GroupUpdateOne) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Group.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Icon(); ok {
+		if err := group.IconValidator(v); err != nil {
+			return &ValidationError{Name: "icon", err: fmt.Errorf(`ent: validator failed for field "Group.icon": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.Color(); ok {
+		if err := group.ColorValidator(v); err != nil {
+			return &ValidationError{Name: "color", err: fmt.Errorf(`ent: validator failed for field "Group.color": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.PeakStart(); ok {
 		if err := group.PeakStartValidator(v); err != nil {
 			return &ValidationError{Name: "peak_start", err: fmt.Errorf(`ent: validator failed for field "Group.peak_start": %w`, err)}
@@ -2511,11 +2524,6 @@ func (_u *GroupUpdateOne) check() error {
 	if v, ok := _u.mutation.Status(); ok {
 		if err := group.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Group.status": %w`, err)}
-		}
-	}
-	if v, ok := _u.mutation.Platform(); ok {
-		if err := group.PlatformValidator(v); err != nil {
-			return &ValidationError{Name: "platform", err: fmt.Errorf(`ent: validator failed for field "Group.platform": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.SubscriptionType(); ok {
@@ -2578,6 +2586,12 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 	if _u.mutation.DescriptionCleared() {
 		_spec.ClearField(group.FieldDescription, field.TypeString)
 	}
+	if value, ok := _u.mutation.Icon(); ok {
+		_spec.SetField(group.FieldIcon, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Color(); ok {
+		_spec.SetField(group.FieldColor, field.TypeString, value)
+	}
 	if value, ok := _u.mutation.RateMultiplier(); ok {
 		_spec.SetField(group.FieldRateMultiplier, field.TypeFloat64, value)
 	}
@@ -2604,9 +2618,6 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(group.FieldStatus, field.TypeString, value)
-	}
-	if value, ok := _u.mutation.Platform(); ok {
-		_spec.SetField(group.FieldPlatform, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.SubscriptionType(); ok {
 		_spec.SetField(group.FieldSubscriptionType, field.TypeString, value)
@@ -2715,14 +2726,6 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 	}
 	if value, ok := _u.mutation.McpXMLInject(); ok {
 		_spec.SetField(group.FieldMcpXMLInject, field.TypeBool, value)
-	}
-	if value, ok := _u.mutation.SupportedModelScopes(); ok {
-		_spec.SetField(group.FieldSupportedModelScopes, field.TypeJSON, value)
-	}
-	if value, ok := _u.mutation.AppendedSupportedModelScopes(); ok {
-		_spec.AddModifier(func(u *sql.UpdateBuilder) {
-			sqljson.Append(u, group.FieldSupportedModelScopes, value)
-		})
 	}
 	if value, ok := _u.mutation.SortOrder(); ok {
 		_spec.SetField(group.FieldSortOrder, field.TypeInt, value)

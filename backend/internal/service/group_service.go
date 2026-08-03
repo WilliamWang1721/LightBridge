@@ -22,9 +22,9 @@ type GroupRepository interface {
 	DeleteCascade(ctx context.Context, id int64) ([]int64, error)
 
 	List(ctx context.Context, params pagination.PaginationParams) ([]Group, *pagination.PaginationResult, error)
-	ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, status, search string, isExclusive *bool) ([]Group, *pagination.PaginationResult, error)
+	ListWithFilters(ctx context.Context, params pagination.PaginationParams, upstreamProtocol, status, search string, isExclusive *bool) ([]Group, *pagination.PaginationResult, error)
 	ListActive(ctx context.Context) ([]Group, error)
-	ListActiveByPlatform(ctx context.Context, platform string) ([]Group, error)
+	ListActiveByUpstreamProtocol(ctx context.Context, upstreamProtocol string) ([]Group, error)
 
 	ExistsByName(ctx context.Context, name string) (bool, error)
 	GetAccountCount(ctx context.Context, groupID int64) (total int64, active int64, err error)
@@ -47,6 +47,8 @@ type GroupSortOrderUpdate struct {
 type CreateGroupRequest struct {
 	Name                 string   `json:"name"`
 	Description          string   `json:"description"`
+	Icon                 string   `json:"icon"`
+	Color                string   `json:"color"`
 	RateMultiplier       float64  `json:"rate_multiplier"`
 	IsExclusive          bool     `json:"is_exclusive"`
 	AllowImageGeneration bool     `json:"allow_image_generation"`
@@ -58,6 +60,8 @@ type CreateGroupRequest struct {
 type UpdateGroupRequest struct {
 	Name                 *string  `json:"name"`
 	Description          *string  `json:"description"`
+	Icon                 *string  `json:"icon"`
+	Color                *string  `json:"color"`
 	RateMultiplier       *float64 `json:"rate_multiplier"`
 	IsExclusive          *bool    `json:"is_exclusive"`
 	Status               *string  `json:"status"`
@@ -82,6 +86,10 @@ func NewGroupService(groupRepo GroupRepository, authCacheInvalidator APIKeyAuthC
 
 // Create 创建分组
 func (s *GroupService) Create(ctx context.Context, req CreateGroupRequest) (*Group, error) {
+	icon, color, err := NormalizeGroupAppearance(req.Icon, req.Color)
+	if err != nil {
+		return nil, err
+	}
 	imageRateMultiplier := 1.0
 	if req.ImageRateMultiplier != nil {
 		if *req.ImageRateMultiplier < 0 {
@@ -102,7 +110,8 @@ func (s *GroupService) Create(ctx context.Context, req CreateGroupRequest) (*Gro
 	group := &Group{
 		Name:                 req.Name,
 		Description:          req.Description,
-		Platform:             PlatformAnthropic,
+		Icon:                 icon,
+		Color:                color,
 		RateMultiplier:       req.RateMultiplier,
 		IsExclusive:          req.IsExclusive,
 		Status:               StatusActive,
@@ -168,6 +177,22 @@ func (s *GroupService) Update(ctx context.Context, id int64, req UpdateGroupRequ
 
 	if req.Description != nil {
 		group.Description = *req.Description
+	}
+	if req.Icon != nil || req.Color != nil {
+		icon := group.Icon
+		color := group.Color
+		if req.Icon != nil {
+			icon = *req.Icon
+		}
+		if req.Color != nil {
+			color = *req.Color
+		}
+		icon, color, err = NormalizeGroupAppearance(icon, color)
+		if err != nil {
+			return nil, err
+		}
+		group.Icon = icon
+		group.Color = color
 	}
 
 	if req.RateMultiplier != nil {

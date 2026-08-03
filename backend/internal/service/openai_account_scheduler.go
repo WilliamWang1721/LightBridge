@@ -1555,6 +1555,12 @@ func (s *OpenAIGatewayService) isOpenAIAccountTransportCompatible(account *Accou
 		return false
 	}
 	if requiredTransport == OpenAIUpstreamTransportResponsesWebsocketV2Ingress {
+		// Grok exposes Responses over HTTP/SSE, and the WS ingress proxy bridges
+		// it after account selection. Compatibility is an account capability, not
+		// something inferred from the API key group's legacy platform.
+		if account.IsGrok() {
+			return true
+		}
 		if s.cfg == nil || !s.cfg.Gateway.OpenAIWS.ModeRouterV2Enabled {
 			return s.getOpenAIWSProtocolResolver().Resolve(account).Transport == OpenAIUpstreamTransportResponsesWebsocketV2
 		}

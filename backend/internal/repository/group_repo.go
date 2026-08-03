@@ -41,7 +41,8 @@ func (r *groupRepository) Create(ctx context.Context, groupIn *service.Group) er
 	builder := r.client.Group.Create().
 		SetName(groupIn.Name).
 		SetDescription(groupIn.Description).
-		SetPlatform(groupIn.Platform).
+		SetIcon(groupIn.Icon).
+		SetColor(groupIn.Color).
 		SetRateMultiplier(groupIn.RateMultiplier).
 		SetSortOrder(groupIn.SortOrder).
 		SetIsExclusive(groupIn.IsExclusive).
@@ -79,9 +80,6 @@ func (r *groupRepository) Create(ctx context.Context, groupIn *service.Group) er
 		builder = builder.SetModelRouting(groupIn.ModelRouting)
 	}
 
-	// 设置支持的模型系列（始终设置，空数组表示不限制）
-	builder = builder.SetSupportedModelScopes(groupIn.SupportedModelScopes)
-
 	created, err := builder.Save(ctx)
 	if err == nil {
 		groupIn.ID = created.ID
@@ -106,8 +104,10 @@ func (r *groupRepository) GetByID(ctx context.Context, id int64) (*service.Group
 		out.ActiveAccountCount = c.Active
 		out.RateLimitedAccountCount = c.RateLimited
 	}
-	if upstreams, upstreamErr := r.loadUpstreamProtocols(ctx, []int64{out.ID}); upstreamErr == nil {
-		out.UpstreamProtocols = upstreams[out.ID]
+	if upstreams, upstreamErr := r.loadGroupUpstreams(ctx, []int64{out.ID}); upstreamErr == nil {
+		out.UpstreamProtocols = upstreams[out.ID].Protocols
+		out.UpstreamPlatforms = upstreams[out.ID].Platforms
+		out.AvailableIngressProtocols = upstreams[out.ID].IngressProtocols
 	}
 	return out, nil
 }
@@ -127,7 +127,8 @@ func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) er
 	builder := r.client.Group.UpdateOneID(groupIn.ID).
 		SetName(groupIn.Name).
 		SetDescription(groupIn.Description).
-		SetPlatform(groupIn.Platform).
+		SetIcon(groupIn.Icon).
+		SetColor(groupIn.Color).
 		SetRateMultiplier(groupIn.RateMultiplier).
 		SetIsExclusive(groupIn.IsExclusive).
 		SetStatus(groupIn.Status).
@@ -209,9 +210,6 @@ func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) er
 		builder = builder.ClearModelRouting()
 	}
 
-	// 处理 SupportedModelScopes（始终设置，空数组表示不限制）
-	builder = builder.SetSupportedModelScopes(groupIn.SupportedModelScopes)
-
 	updated, err := builder.Save(ctx)
 	if err != nil {
 		return translatePersistenceError(err, service.ErrGroupNotFound, service.ErrGroupExists)
@@ -238,11 +236,11 @@ func (r *groupRepository) List(ctx context.Context, params pagination.Pagination
 	return r.ListWithFilters(ctx, params, "", "", "", nil)
 }
 
-func (r *groupRepository) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, status, search string, isExclusive *bool) ([]service.Group, *pagination.PaginationResult, error) {
+func (r *groupRepository) ListWithFilters(ctx context.Context, params pagination.PaginationParams, upstreamProtocol, status, search string, isExclusive *bool) ([]service.Group, *pagination.PaginationResult, error) {
 	q := r.client.Group.Query()
 
-	if platform != "" {
-		groupIDs, err := r.groupIDsForUpstreamProtocol(ctx, platform)
+	if upstreamProtocol != "" {
+		groupIDs, err := r.groupIDsForUpstreamProtocol(ctx, upstreamProtocol)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -302,7 +300,7 @@ func (r *groupRepository) ListWithFilters(ctx context.Context, params pagination
 			outGroups[i].RateLimitedAccountCount = c.RateLimited
 		}
 	}
-	r.applyUpstreamProtocols(ctx, outGroups, loadedGroupIDs)
+	r.applyGroupUpstreams(ctx, outGroups, loadedGroupIDs)
 
 	return outGroups, paginationResultFromTotal(int64(total), params), nil
 }
@@ -390,7 +388,7 @@ func (r *groupRepository) listWithAccountCountSort(ctx context.Context, q *dbent
 			outGroups[idx] = *g
 		}
 	}
-	r.applyUpstreamProtocols(ctx, outGroups, pageIDs)
+	r.applyGroupUpstreams(ctx, outGroups, pageIDs)
 
 	return outGroups, paginationResultFromTotal(int64(total), params), nil
 }
@@ -407,9 +405,6 @@ func groupListOrder(params pagination.PaginationParams) []func(*entsql.Selector)
 		field = group.FieldSortOrder
 	case "name":
 		field = group.FieldName
-		defaultOrder = false
-	case "platform":
-		field = group.FieldPlatform
 		defaultOrder = false
 	case "billing_type", "subscription_type":
 		field = group.FieldSubscriptionType
@@ -475,13 +470,13 @@ func (r *groupRepository) ListActive(ctx context.Context) ([]service.Group, erro
 			outGroups[i].RateLimitedAccountCount = c.RateLimited
 		}
 	}
-	r.applyUpstreamProtocols(ctx, outGroups, loadedGroupIDs)
+	r.applyGroupUpstreams(ctx, outGroups, loadedGroupIDs)
 
 	return outGroups, nil
 }
 
-func (r *groupRepository) ListActiveByPlatform(ctx context.Context, platform string) ([]service.Group, error) {
-	groupIDs, err := r.groupIDsForUpstreamProtocol(ctx, platform)
+func (r *groupRepository) ListActiveByUpstreamProtocol(ctx context.Context, upstreamProtocol string) ([]service.Group, error) {
+	groupIDs, err := r.groupIDsForUpstreamProtocol(ctx, upstreamProtocol)
 	if err != nil {
 		return nil, err
 	}
@@ -513,7 +508,7 @@ func (r *groupRepository) ListActiveByPlatform(ctx context.Context, platform str
 			outGroups[i].RateLimitedAccountCount = c.RateLimited
 		}
 	}
-	r.applyUpstreamProtocols(ctx, outGroups, activeGroupIDs)
+	r.applyGroupUpstreams(ctx, outGroups, activeGroupIDs)
 
 	return outGroups, nil
 }
@@ -767,14 +762,22 @@ func (r *groupRepository) loadAccountCounts(ctx context.Context, groupIDs []int6
 	return counts, nil
 }
 
-func (r *groupRepository) applyUpstreamProtocols(ctx context.Context, groups []service.Group, groupIDs []int64) {
-	upstreams, err := r.loadUpstreamProtocols(ctx, groupIDs)
+type groupUpstreams struct {
+	Protocols        []string
+	Platforms        []string
+	IngressProtocols []string
+}
+
+func (r *groupRepository) applyGroupUpstreams(ctx context.Context, groups []service.Group, groupIDs []int64) {
+	upstreams, err := r.loadGroupUpstreams(ctx, groupIDs)
 	if err != nil {
-		logger.LegacyPrintf("repository.group", "load upstream protocols failed: err=%v", err)
+		logger.LegacyPrintf("repository.group", "load group upstreams failed: err=%v", err)
 		return
 	}
 	for i := range groups {
-		groups[i].UpstreamProtocols = upstreams[groups[i].ID]
+		groups[i].UpstreamProtocols = upstreams[groups[i].ID].Protocols
+		groups[i].UpstreamPlatforms = upstreams[groups[i].ID].Platforms
+		groups[i].AvailableIngressProtocols = upstreams[groups[i].ID].IngressProtocols
 	}
 }
 
@@ -784,7 +787,11 @@ func (r *groupRepository) groupIDsForUpstreamProtocol(ctx context.Context, rawPr
 		return nil, nil
 	}
 	rows, err := r.sql.QueryContext(ctx, `
-		SELECT ag.group_id, a.platform, COALESCE(a.sub_platform, ''), COALESCE(a.extra, '{}'::jsonb)::text
+		SELECT ag.group_id,
+		       a.platform,
+		       COALESCE(a.sub_platform, ''),
+		       COALESCE(a.extra, '{}'::jsonb)::text,
+		       COALESCE(a.credentials, '{}'::jsonb)::text
 		FROM account_groups ag
 		JOIN accounts a ON a.id = ag.account_id
 		JOIN groups g ON g.id = ag.group_id
@@ -798,11 +805,11 @@ func (r *groupRepository) groupIDsForUpstreamProtocol(ctx context.Context, rawPr
 
 	seen := make(map[int64]struct{})
 	for rows.Next() {
-		groupID, protocols, err := scanGroupAccountUpstreamProtocols(rows)
+		groupID, account, err := scanGroupAccountUpstream(rows)
 		if err != nil {
 			return nil, err
 		}
-		for _, proto := range protocols {
+		for _, proto := range service.AccountUpstreamProtocols(account) {
 			if proto == target {
 				seen[groupID] = struct{}{}
 				break
@@ -824,36 +831,46 @@ type groupAccountUpstreamScanner interface {
 	Scan(dest ...any) error
 }
 
-func scanGroupAccountUpstreamProtocols(scanner groupAccountUpstreamScanner) (int64, []string, error) {
+func scanGroupAccountUpstream(scanner groupAccountUpstreamScanner) (int64, *service.Account, error) {
 	var groupID int64
 	var platform string
 	var subPlatform string
 	var rawExtra string
-	if err := scanner.Scan(&groupID, &platform, &subPlatform, &rawExtra); err != nil {
+	var rawCredentials string
+	if err := scanner.Scan(&groupID, &platform, &subPlatform, &rawExtra, &rawCredentials); err != nil {
 		return 0, nil, err
 	}
 	var extra map[string]any
 	if strings.TrimSpace(rawExtra) != "" {
 		_ = json.Unmarshal([]byte(rawExtra), &extra)
 	}
+	var credentials map[string]any
+	if strings.TrimSpace(rawCredentials) != "" {
+		_ = json.Unmarshal([]byte(rawCredentials), &credentials)
+	}
 	account := &service.Account{
 		Platform:    strings.TrimSpace(platform),
 		SubPlatform: strings.TrimSpace(subPlatform),
 		Extra:       extra,
+		Credentials: credentials,
 	}
-	return groupID, service.AccountUpstreamProtocols(account), nil
+	return groupID, account, nil
 }
 
-func (r *groupRepository) loadUpstreamProtocols(ctx context.Context, groupIDs []int64) (map[int64][]string, error) {
-	result := make(map[int64][]string, len(groupIDs))
+func (r *groupRepository) loadGroupUpstreams(ctx context.Context, groupIDs []int64) (map[int64]groupUpstreams, error) {
+	result := make(map[int64]groupUpstreams, len(groupIDs))
 	if len(groupIDs) == 0 {
 		return result, nil
 	}
 	for _, id := range groupIDs {
-		result[id] = nil
+		result[id] = groupUpstreams{}
 	}
 	rows, err := r.sql.QueryContext(ctx, `
-		SELECT ag.group_id, a.platform, COALESCE(a.sub_platform, ''), COALESCE(a.extra, '{}'::jsonb)::text
+		SELECT ag.group_id,
+		       a.platform,
+		       COALESCE(a.sub_platform, ''),
+		       COALESCE(a.extra, '{}'::jsonb)::text,
+		       COALESCE(a.credentials, '{}'::jsonb)::text
 		FROM account_groups ag
 		JOIN accounts a ON a.id = ag.account_id
 		WHERE ag.group_id = ANY($1)
@@ -865,32 +882,64 @@ func (r *groupRepository) loadUpstreamProtocols(ctx context.Context, groupIDs []
 	}
 	defer func() { _ = rows.Close() }()
 
-	seen := make(map[int64]map[string]struct{}, len(groupIDs))
+	seenProtocols := make(map[int64]map[string]struct{}, len(groupIDs))
+	seenPlatforms := make(map[int64]map[string]struct{}, len(groupIDs))
+	seenIngressProtocols := make(map[int64]map[string]struct{}, len(groupIDs))
 	for rows.Next() {
-		groupID, protocols, err := scanGroupAccountUpstreamProtocols(rows)
+		groupID, account, err := scanGroupAccountUpstream(rows)
 		if err != nil {
 			return nil, err
 		}
-		if seen[groupID] == nil {
-			seen[groupID] = make(map[string]struct{})
+		if seenProtocols[groupID] == nil {
+			seenProtocols[groupID] = make(map[string]struct{})
 		}
-		for _, proto := range protocols {
+		if seenPlatforms[groupID] == nil {
+			seenPlatforms[groupID] = make(map[string]struct{})
+		}
+		if seenIngressProtocols[groupID] == nil {
+			seenIngressProtocols[groupID] = make(map[string]struct{})
+		}
+		upstream := result[groupID]
+		for _, proto := range service.AccountUpstreamProtocols(account) {
 			proto = strings.TrimSpace(proto)
 			if proto == "" {
 				continue
 			}
-			if _, ok := seen[groupID][proto]; ok {
+			if _, ok := seenProtocols[groupID][proto]; ok {
 				continue
 			}
-			seen[groupID][proto] = struct{}{}
-			result[groupID] = append(result[groupID], proto)
+			seenProtocols[groupID][proto] = struct{}{}
+			upstream.Protocols = append(upstream.Protocols, proto)
 		}
+		platform := strings.TrimSpace(account.EffectivePlatform())
+		if platform != "" {
+			if _, ok := seenPlatforms[groupID][platform]; !ok {
+				seenPlatforms[groupID][platform] = struct{}{}
+				upstream.Platforms = append(upstream.Platforms, platform)
+			}
+		}
+		for _, protocol := range service.AccountAvailableIngressProtocols(account) {
+			protocol = strings.TrimSpace(protocol)
+			if protocol == "" {
+				continue
+			}
+			if _, ok := seenIngressProtocols[groupID][protocol]; ok {
+				continue
+			}
+			seenIngressProtocols[groupID][protocol] = struct{}{}
+			upstream.IngressProtocols = append(upstream.IngressProtocols, protocol)
+		}
+		result[groupID] = upstream
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 	for id := range result {
-		sort.Strings(result[id])
+		upstream := result[id]
+		sort.Strings(upstream.Protocols)
+		sort.Strings(upstream.Platforms)
+		sort.Strings(upstream.IngressProtocols)
+		result[id] = upstream
 	}
 	return result, nil
 }

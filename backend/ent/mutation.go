@@ -14914,6 +14914,8 @@ type GroupMutation struct {
 	deleted_at                              *time.Time
 	name                                    *string
 	description                             *string
+	icon                                    *string
+	color                                   *string
 	rate_multiplier                         *float64
 	addrate_multiplier                      *float64
 	peak_rate_enabled                       *bool
@@ -14923,7 +14925,6 @@ type GroupMutation struct {
 	addpeak_rate_multiplier                 *float64
 	is_exclusive                            *bool
 	status                                  *string
-	platform                                *string
 	subscription_type                       *string
 	daily_limit_usd                         *float64
 	adddaily_limit_usd                      *float64
@@ -14951,8 +14952,6 @@ type GroupMutation struct {
 	model_routing                           *map[string][]int64
 	model_routing_enabled                   *bool
 	mcp_xml_inject                          *bool
-	supported_model_scopes                  *[]string
-	appendsupported_model_scopes            []string
 	sort_order                              *int
 	addsort_order                           *int
 	allow_messages_dispatch                 *bool
@@ -15291,6 +15290,78 @@ func (m *GroupMutation) ResetDescription() {
 	delete(m.clearedFields, group.FieldDescription)
 }
 
+// SetIcon sets the "icon" field.
+func (m *GroupMutation) SetIcon(s string) {
+	m.icon = &s
+}
+
+// Icon returns the value of the "icon" field in the mutation.
+func (m *GroupMutation) Icon() (r string, exists bool) {
+	v := m.icon
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIcon returns the old "icon" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldIcon(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIcon is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIcon requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIcon: %w", err)
+	}
+	return oldValue.Icon, nil
+}
+
+// ResetIcon resets all changes to the "icon" field.
+func (m *GroupMutation) ResetIcon() {
+	m.icon = nil
+}
+
+// SetColor sets the "color" field.
+func (m *GroupMutation) SetColor(s string) {
+	m.color = &s
+}
+
+// Color returns the value of the "color" field in the mutation.
+func (m *GroupMutation) Color() (r string, exists bool) {
+	v := m.color
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldColor returns the old "color" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldColor(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldColor is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldColor requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldColor: %w", err)
+	}
+	return oldValue.Color, nil
+}
+
+// ResetColor resets all changes to the "color" field.
+func (m *GroupMutation) ResetColor() {
+	m.color = nil
+}
+
 // SetRateMultiplier sets the "rate_multiplier" field.
 func (m *GroupMutation) SetRateMultiplier(f float64) {
 	m.rate_multiplier = &f
@@ -15581,42 +15652,6 @@ func (m *GroupMutation) OldStatus(ctx context.Context) (v string, err error) {
 // ResetStatus resets all changes to the "status" field.
 func (m *GroupMutation) ResetStatus() {
 	m.status = nil
-}
-
-// SetPlatform sets the "platform" field.
-func (m *GroupMutation) SetPlatform(s string) {
-	m.platform = &s
-}
-
-// Platform returns the value of the "platform" field in the mutation.
-func (m *GroupMutation) Platform() (r string, exists bool) {
-	v := m.platform
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldPlatform returns the old "platform" field's value of the Group entity.
-// If the Group object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *GroupMutation) OldPlatform(ctx context.Context) (v string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldPlatform is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldPlatform requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldPlatform: %w", err)
-	}
-	return oldValue.Platform, nil
-}
-
-// ResetPlatform resets all changes to the "platform" field.
-func (m *GroupMutation) ResetPlatform() {
-	m.platform = nil
 }
 
 // SetSubscriptionType sets the "subscription_type" field.
@@ -16556,57 +16591,6 @@ func (m *GroupMutation) ResetMcpXMLInject() {
 	m.mcp_xml_inject = nil
 }
 
-// SetSupportedModelScopes sets the "supported_model_scopes" field.
-func (m *GroupMutation) SetSupportedModelScopes(s []string) {
-	m.supported_model_scopes = &s
-	m.appendsupported_model_scopes = nil
-}
-
-// SupportedModelScopes returns the value of the "supported_model_scopes" field in the mutation.
-func (m *GroupMutation) SupportedModelScopes() (r []string, exists bool) {
-	v := m.supported_model_scopes
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldSupportedModelScopes returns the old "supported_model_scopes" field's value of the Group entity.
-// If the Group object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *GroupMutation) OldSupportedModelScopes(ctx context.Context) (v []string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldSupportedModelScopes is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldSupportedModelScopes requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldSupportedModelScopes: %w", err)
-	}
-	return oldValue.SupportedModelScopes, nil
-}
-
-// AppendSupportedModelScopes adds s to the "supported_model_scopes" field.
-func (m *GroupMutation) AppendSupportedModelScopes(s []string) {
-	m.appendsupported_model_scopes = append(m.appendsupported_model_scopes, s...)
-}
-
-// AppendedSupportedModelScopes returns the list of values that were appended to the "supported_model_scopes" field in this mutation.
-func (m *GroupMutation) AppendedSupportedModelScopes() ([]string, bool) {
-	if len(m.appendsupported_model_scopes) == 0 {
-		return nil, false
-	}
-	return m.appendsupported_model_scopes, true
-}
-
-// ResetSupportedModelScopes resets all changes to the "supported_model_scopes" field.
-func (m *GroupMutation) ResetSupportedModelScopes() {
-	m.supported_model_scopes = nil
-	m.appendsupported_model_scopes = nil
-}
-
 // SetSortOrder sets the "sort_order" field.
 func (m *GroupMutation) SetSortOrder(i int) {
 	m.sort_order = &i
@@ -17309,6 +17293,12 @@ func (m *GroupMutation) Fields() []string {
 	if m.description != nil {
 		fields = append(fields, group.FieldDescription)
 	}
+	if m.icon != nil {
+		fields = append(fields, group.FieldIcon)
+	}
+	if m.color != nil {
+		fields = append(fields, group.FieldColor)
+	}
 	if m.rate_multiplier != nil {
 		fields = append(fields, group.FieldRateMultiplier)
 	}
@@ -17329,9 +17319,6 @@ func (m *GroupMutation) Fields() []string {
 	}
 	if m.status != nil {
 		fields = append(fields, group.FieldStatus)
-	}
-	if m.platform != nil {
-		fields = append(fields, group.FieldPlatform)
 	}
 	if m.subscription_type != nil {
 		fields = append(fields, group.FieldSubscriptionType)
@@ -17384,9 +17371,6 @@ func (m *GroupMutation) Fields() []string {
 	if m.mcp_xml_inject != nil {
 		fields = append(fields, group.FieldMcpXMLInject)
 	}
-	if m.supported_model_scopes != nil {
-		fields = append(fields, group.FieldSupportedModelScopes)
-	}
 	if m.sort_order != nil {
 		fields = append(fields, group.FieldSortOrder)
 	}
@@ -17429,6 +17413,10 @@ func (m *GroupMutation) Field(name string) (ent.Value, bool) {
 		return m.Name()
 	case group.FieldDescription:
 		return m.Description()
+	case group.FieldIcon:
+		return m.Icon()
+	case group.FieldColor:
+		return m.Color()
 	case group.FieldRateMultiplier:
 		return m.RateMultiplier()
 	case group.FieldPeakRateEnabled:
@@ -17443,8 +17431,6 @@ func (m *GroupMutation) Field(name string) (ent.Value, bool) {
 		return m.IsExclusive()
 	case group.FieldStatus:
 		return m.Status()
-	case group.FieldPlatform:
-		return m.Platform()
 	case group.FieldSubscriptionType:
 		return m.SubscriptionType()
 	case group.FieldDailyLimitUsd:
@@ -17479,8 +17465,6 @@ func (m *GroupMutation) Field(name string) (ent.Value, bool) {
 		return m.ModelRoutingEnabled()
 	case group.FieldMcpXMLInject:
 		return m.McpXMLInject()
-	case group.FieldSupportedModelScopes:
-		return m.SupportedModelScopes()
 	case group.FieldSortOrder:
 		return m.SortOrder()
 	case group.FieldAllowMessagesDispatch:
@@ -17516,6 +17500,10 @@ func (m *GroupMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldName(ctx)
 	case group.FieldDescription:
 		return m.OldDescription(ctx)
+	case group.FieldIcon:
+		return m.OldIcon(ctx)
+	case group.FieldColor:
+		return m.OldColor(ctx)
 	case group.FieldRateMultiplier:
 		return m.OldRateMultiplier(ctx)
 	case group.FieldPeakRateEnabled:
@@ -17530,8 +17518,6 @@ func (m *GroupMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldIsExclusive(ctx)
 	case group.FieldStatus:
 		return m.OldStatus(ctx)
-	case group.FieldPlatform:
-		return m.OldPlatform(ctx)
 	case group.FieldSubscriptionType:
 		return m.OldSubscriptionType(ctx)
 	case group.FieldDailyLimitUsd:
@@ -17566,8 +17552,6 @@ func (m *GroupMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldModelRoutingEnabled(ctx)
 	case group.FieldMcpXMLInject:
 		return m.OldMcpXMLInject(ctx)
-	case group.FieldSupportedModelScopes:
-		return m.OldSupportedModelScopes(ctx)
 	case group.FieldSortOrder:
 		return m.OldSortOrder(ctx)
 	case group.FieldAllowMessagesDispatch:
@@ -17628,6 +17612,20 @@ func (m *GroupMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetDescription(v)
 		return nil
+	case group.FieldIcon:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIcon(v)
+		return nil
+	case group.FieldColor:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetColor(v)
+		return nil
 	case group.FieldRateMultiplier:
 		v, ok := value.(float64)
 		if !ok {
@@ -17676,13 +17674,6 @@ func (m *GroupMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetStatus(v)
-		return nil
-	case group.FieldPlatform:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetPlatform(v)
 		return nil
 	case group.FieldSubscriptionType:
 		v, ok := value.(string)
@@ -17802,13 +17793,6 @@ func (m *GroupMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetMcpXMLInject(v)
-		return nil
-	case group.FieldSupportedModelScopes:
-		v, ok := value.([]string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetSupportedModelScopes(v)
 		return nil
 	case group.FieldSortOrder:
 		v, ok := value.(int)
@@ -18170,6 +18154,12 @@ func (m *GroupMutation) ResetField(name string) error {
 	case group.FieldDescription:
 		m.ResetDescription()
 		return nil
+	case group.FieldIcon:
+		m.ResetIcon()
+		return nil
+	case group.FieldColor:
+		m.ResetColor()
+		return nil
 	case group.FieldRateMultiplier:
 		m.ResetRateMultiplier()
 		return nil
@@ -18190,9 +18180,6 @@ func (m *GroupMutation) ResetField(name string) error {
 		return nil
 	case group.FieldStatus:
 		m.ResetStatus()
-		return nil
-	case group.FieldPlatform:
-		m.ResetPlatform()
 		return nil
 	case group.FieldSubscriptionType:
 		m.ResetSubscriptionType()
@@ -18244,9 +18231,6 @@ func (m *GroupMutation) ResetField(name string) error {
 		return nil
 	case group.FieldMcpXMLInject:
 		m.ResetMcpXMLInject()
-		return nil
-	case group.FieldSupportedModelScopes:
-		m.ResetSupportedModelScopes()
 		return nil
 	case group.FieldSortOrder:
 		m.ResetSortOrder()

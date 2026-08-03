@@ -142,6 +142,7 @@
 
                 <!-- Retry button -->
                 <button
+                  v-if="canInPlaceUpdate"
                   @click="handleUpdate"
                   :disabled="updating"
                   class="flex w-full items-center justify-center gap-2 rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
@@ -180,6 +181,7 @@
 
                 <!-- Restart button with countdown -->
                 <button
+                  v-if="canRestart"
                   @click="handleRestart"
                   :disabled="restarting"
                   class="flex w-full items-center justify-center gap-2 rounded-lg bg-green-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-50"
@@ -228,7 +230,25 @@
                 </button>
               </div>
 
-              <!-- Priority 3: Update available for source build - show git pull hint -->
+              <!-- Priority 3: Container deployments use image replacement, never in-place updates. -->
+              <div v-else-if="isContainerDeployment" class="space-y-2">
+                <div
+                  class="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800/50 dark:bg-blue-900/20"
+                >
+                  <p class="text-sm font-medium text-blue-700 dark:text-blue-300">
+                    {{ t('version.containerUpgradeTitle') }}
+                  </p>
+                  <p class="mt-1 text-xs text-blue-600/80 dark:text-blue-400/80">
+                    {{ t('version.containerUpgradeHint') }}
+                  </p>
+                  <div class="mt-2 space-y-1 font-mono text-[11px] text-blue-700 dark:text-blue-200">
+                    <code class="block rounded bg-blue-100 px-2 py-1 dark:bg-blue-900/50">{{ t('version.containerUpgradePull') }}</code>
+                    <code class="block rounded bg-blue-100 px-2 py-1 dark:bg-blue-900/50">{{ t('version.containerUpgradeUp') }}</code>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Priority 4: Update available for source build - show git pull hint -->
               <div v-else-if="hasUpdate && !isReleaseBuild" class="space-y-2">
                 <a
                   v-if="releaseInfo?.html_url && releaseInfo.html_url !== '#'"
@@ -288,8 +308,8 @@
                 </div>
               </div>
 
-              <!-- Priority 4: Update available for release build - show update button -->
-              <div v-else-if="hasUpdate && isReleaseBuild" class="space-y-2">
+              <!-- Priority 5: Update available for host-managed release build - show update button -->
+              <div v-else-if="hasUpdate && canInPlaceUpdate" class="space-y-2">
                 <!-- Update info card -->
                 <div
                   class="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800/50 dark:bg-amber-900/20"
@@ -388,11 +408,12 @@
       </transition>
 
       <UpgradeChangesDialog
+        v-if="canRestart"
         :show="upgradeChangesOpen"
         :version="latestVersion"
         :body="releaseInfo?.body"
         :html-url="releaseInfo?.html_url"
-        :can-upgrade="hasUpdate"
+        :can-upgrade="canInPlaceUpdate"
         :upgrading="updating"
         :restarting="restarting"
         @close="upgradeChangesOpen = false"
@@ -439,6 +460,7 @@ const latestVersion = computed(() => appStore.latestVersion)
 const hasUpdate = computed(() => appStore.hasUpdate)
 const releaseInfo = computed(() => appStore.releaseInfo)
 const buildType = computed(() => appStore.buildType)
+const updateCapabilities = computed(() => appStore.updateCapabilities)
 
 // Preview 版本：去掉 "-preview" 后缀用于显示，用颜色区分
 const isPreview = computed(() => currentVersion.value.includes('-preview'))
@@ -453,8 +475,12 @@ const updateSuccess = ref(false)
 const restartCountdown = ref(0)
 const upgradeChangesOpen = ref(false)
 
-// Only show update check for release builds (binary/docker deployment)
 const isReleaseBuild = computed(() => buildType.value === 'release')
+const isContainerDeployment = computed(() => updateCapabilities.value?.deployment_type === 'container')
+const canInPlaceUpdate = computed(
+  () => isReleaseBuild.value && !!updateCapabilities.value?.can_in_place_update
+)
+const canRestart = computed(() => !!updateCapabilities.value?.can_restart)
 
 function toggleDropdown() {
   dropdownOpen.value = !dropdownOpen.value
@@ -481,7 +507,7 @@ async function refreshVersion(force = true) {
 }
 
 async function handleUpdate() {
-  if (updating.value) return
+  if (!canInPlaceUpdate.value || updating.value) return
 
   updating.value = true
   updateError.value = ''
@@ -503,12 +529,13 @@ async function handleUpdate() {
 }
 
 function handleUpgradeFromDialog() {
+  if (!canInPlaceUpdate.value) return
   upgradeChangesOpen.value = false
   handleUpdate()
 }
 
 async function handleRestart() {
-  if (restarting.value) return
+  if (!canRestart.value || restarting.value) return
 
   restarting.value = true
   restartCountdown.value = 8

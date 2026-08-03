@@ -32,11 +32,11 @@ type AdminService interface {
 	BindUserAuthIdentity(ctx context.Context, userID int64, input AdminBindAuthIdentityInput) (*AdminBoundAuthIdentity, error)
 
 	// Group management
-	ListGroups(ctx context.Context, page, pageSize int, platform, status, search string, isExclusive *bool, sortBy, sortOrder string) ([]Group, int64, error)
+	ListGroups(ctx context.Context, page, pageSize int, upstreamProtocol, status, search string, isExclusive *bool, sortBy, sortOrder string) ([]Group, int64, error)
 	GetAllGroups(ctx context.Context) ([]Group, error)
-	GetAllGroupsByPlatform(ctx context.Context, platform string) ([]Group, error)
+	GetAllGroupsByUpstreamProtocol(ctx context.Context, upstreamProtocol string) ([]Group, error)
 	GetGroup(ctx context.Context, id int64) (*Group, error)
-	GetGroupModelsListCandidates(ctx context.Context, id int64, platform string) ([]string, error)
+	GetGroupModelsListCandidates(ctx context.Context, id int64, upstreamProtocol string) ([]string, error)
 	CreateGroup(ctx context.Context, input *CreateGroupInput) (*Group, error)
 	UpdateGroup(ctx context.Context, id int64, input *UpdateGroupInput) (*Group, error)
 	DeleteGroup(ctx context.Context, id int64) error
@@ -177,7 +177,8 @@ type AdminBoundAuthIdentityChannel struct {
 type CreateGroupInput struct {
 	Name               string
 	Description        string
-	Platform           string
+	Icon               string
+	Color              string
 	RateMultiplier     float64
 	PeakRateEnabled    bool
 	PeakStart          string
@@ -188,7 +189,7 @@ type CreateGroupInput struct {
 	DailyLimitUSD      *float64 // 日限额 (USD)
 	WeeklyLimitUSD     *float64 // 周限额 (USD)
 	MonthlyLimitUSD    *float64 // 月限额 (USD)
-	// 图片生成计费配置（仅 antigravity 平台使用）
+	// 图片生成计费配置
 	AllowImageGeneration bool
 	ImageRateIndependent bool
 	ImageRateMultiplier  *float64
@@ -203,8 +204,6 @@ type CreateGroupInput struct {
 	ModelRouting        map[string][]int64
 	ModelRoutingEnabled bool // 是否启用模型路由
 	MCPXMLInject        *bool
-	// 支持的模型系列（仅 antigravity 平台使用）
-	SupportedModelScopes []string
 	// OpenAI Messages 调度配置
 	AllowMessagesDispatch       bool
 	DefaultMappedModel          string
@@ -221,7 +220,8 @@ type CreateGroupInput struct {
 type UpdateGroupInput struct {
 	Name               string
 	Description        string
-	Platform           string
+	Icon               *string
+	Color              *string
 	RateMultiplier     *float64 // 使用指针以支持设置为0
 	PeakRateEnabled    *bool
 	PeakStart          *string
@@ -233,7 +233,7 @@ type UpdateGroupInput struct {
 	DailyLimitUSD      *float64 // 日限额 (USD)
 	WeeklyLimitUSD     *float64 // 周限额 (USD)
 	MonthlyLimitUSD    *float64 // 月限额 (USD)
-	// 图片生成计费配置（仅 antigravity 平台使用）
+	// 图片生成计费配置
 	AllowImageGeneration *bool
 	ImageRateIndependent *bool
 	ImageRateMultiplier  *float64
@@ -248,8 +248,6 @@ type UpdateGroupInput struct {
 	ModelRouting        map[string][]int64
 	ModelRoutingEnabled *bool // 是否启用模型路由
 	MCPXMLInject        *bool
-	// 支持的模型系列（仅 antigravity 平台使用）
-	SupportedModelScopes *[]string
 	// OpenAI Messages 调度配置
 	AllowMessagesDispatch       *bool
 	DefaultMappedModel          *string

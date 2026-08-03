@@ -18,10 +18,6 @@ import (
 	"go.uber.org/zap"
 )
 
-func allowOpenAIResponsesHTTPContinuation(platform string) bool {
-	return strings.EqualFold(strings.TrimSpace(platform), service.PlatformGrok)
-}
-
 // Responses handles OpenAI Responses API endpoint
 // POST /openai/v1/responses
 func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
@@ -41,8 +37,6 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		h.errorResponse(c, http.StatusUnauthorized, "authentication_error", "Invalid API key")
 		return
 	}
-	requestPlatform := bindOpenAICompatibleRequestPlatform(c, apiKey)
-
 	subject, ok := middleware2.GetAuthSubjectFromContext(c)
 	if !ok {
 		h.errorResponse(c, http.StatusInternalServerError, "api_error", "User context not found")
@@ -113,6 +107,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	reqStream := streamResult.Bool()
 	reqLog = reqLog.With(zap.String("model", reqModel), zap.Bool("stream", reqStream))
 	previousResponseID := strings.TrimSpace(gjson.GetBytes(body, "previous_response_id").String())
+	requestPlatform := service.PlatformOpenAI
 	if previousResponseID != "" {
 		previousResponseIDKind := service.ClassifyOpenAIPreviousResponseIDKind(previousResponseID)
 		reqLog = reqLog.With(
@@ -127,18 +122,9 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 			h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "previous_response_id must be a response.id (resp_*), not a message id")
 			return
 		}
-		// OpenAI/Codex HTTP continuation remains intentionally disabled because
-		// its upstream state is connection-bound. Grok Build is handled
-		// differently: LightBridge replays the encrypted reasoning + tool-call
-		// chain itself, so downstream Grok CLI clients may safely submit
-		// previous_response_id over the ordinary Responses HTTP endpoint.
-		if !allowOpenAIResponsesHTTPContinuation(requestPlatform) {
-			reqLog.Warn("openai.request_validation_failed",
-				zap.String("reason", "previous_response_id_requires_wsv2"),
-			)
-			h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "previous_response_id is only supported on Responses WebSocket v2")
-			return
-		}
+		// HTTP continuation requires the Grok replay bridge. This constrains the
+		// selected upstream account without consulting the group's legacy platform.
+		requestPlatform = service.PlatformGrok
 	}
 
 	setOpsRequestContext(c, reqModel, reqStream)

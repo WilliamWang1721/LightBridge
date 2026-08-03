@@ -15,7 +15,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <div v-else-if="isPending"
+          <div v-else-if="isPending || isUnverifiable"
             class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-900/30">
             <div class="h-10 w-10 animate-spin rounded-full border-4 border-yellow-500 border-t-transparent"></div>
           </div>
@@ -30,6 +30,9 @@
           </h2>
           <p v-if="isPending" class="mt-2 text-sm text-gray-500 dark:text-gray-400">
             {{ t('payment.result.processingHint') }}
+          </p>
+          <p v-else-if="isUnverifiable" class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            {{ t('payment.result.unverifiableHint') }}
           </p>
         </div>
         <!-- Order Info -->
@@ -132,6 +135,9 @@ const returnInfo = ref<ReturnInfo | null>(null)
 
 const SUCCESS_STATUSES = new Set(['COMPLETED', 'PAID', 'RECHARGING'])
 const PENDING_STATUSES = new Set(['PENDING', 'CREATED', 'WAITING', 'PROCESSING'])
+const LEGACY_SUCCESS_STATUSES = new Set(['SUCCESS', 'TRADE_SUCCESS', 'TRADE_FINISHED'])
+const LEGACY_PENDING_STATUSES = new Set(['PENDING', 'WAIT_BUYER_PAY', 'PROCESSING'])
+const LEGACY_FAILED_STATUSES = new Set(['FAILED', 'TRADE_CLOSED', 'CANCELLED', 'EXPIRED'])
 const STATUS_REFRESH_INTERVAL_MS = 2000
 const STATUS_REFRESH_MAX_ATTEMPTS = 15
 
@@ -164,11 +170,20 @@ const localeCode = computed(() => {
 })
 
 const isSuccess = computed(() => {
-  return isSuccessStatus(order.value?.status)
+  return isSuccessStatus(order.value?.status) || LEGACY_SUCCESS_STATUSES.has(normalizeOrderStatus(returnInfo.value?.tradeStatus))
 })
 
 const isPending = computed(() => {
-  return isPendingStatus(order.value?.status)
+  return isPendingStatus(order.value?.status) || LEGACY_PENDING_STATUSES.has(normalizeOrderStatus(returnInfo.value?.tradeStatus))
+})
+
+const isExplicitFailure = computed(() => {
+  if (order.value) return !isSuccess.value && !isPending.value
+  return LEGACY_FAILED_STATUSES.has(normalizeOrderStatus(returnInfo.value?.tradeStatus))
+})
+
+const isUnverifiable = computed(() => {
+  return !loading.value && !isSuccess.value && !isPending.value && !isExplicitFailure.value
 })
 
 const statusTitle = computed(() => {
@@ -177,6 +192,9 @@ const statusTitle = computed(() => {
   }
   if (isPending.value) {
     return t('payment.result.processing')
+  }
+  if (isUnverifiable.value) {
+    return t('payment.result.unverifiable')
   }
   return t('payment.result.failed')
 })

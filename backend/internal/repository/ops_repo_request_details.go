@@ -90,7 +90,7 @@ WITH combined AS (
     'success'::TEXT AS kind,
     ul.created_at AS created_at,
     ul.request_id AS request_id,
-    COALESCE(NULLIF(g.platform, ''), NULLIF(a.platform, ''), '') AS platform,
+    COALESCE(` + usageLogEffectivePlatformExpr + `, '') AS platform,
     ul.model AS model,
     ul.duration_ms AS duration_ms,
     NULL::INT AS status_code,
@@ -104,7 +104,6 @@ WITH combined AS (
     ul.group_id AS group_id,
     ul.stream AS stream
   FROM usage_logs ul
-  LEFT JOIN groups g ON g.id = ul.group_id
   LEFT JOIN accounts a ON a.id = ul.account_id
   WHERE ul.created_at >= $1 AND ul.created_at < $2
 
@@ -114,7 +113,11 @@ WITH combined AS (
     'error'::TEXT AS kind,
     o.created_at AS created_at,
     COALESCE(NULLIF(o.request_id,''), NULLIF(o.client_request_id,''), '') AS request_id,
-    COALESCE(NULLIF(o.platform, ''), NULLIF(g.platform, ''), NULLIF(a.platform, ''), '') AS platform,
+    COALESCE(
+      ` + usageLogEffectivePlatformExpr + `,
+      NULLIF(LOWER(COALESCE(o.platform, '')), ''),
+      ''
+    ) AS platform,
     o.model AS model,
     o.duration_ms AS duration_ms,
     o.status_code AS status_code,
@@ -128,7 +131,6 @@ WITH combined AS (
     o.group_id AS group_id,
     o.stream AS stream
   FROM ops_error_logs o
-  LEFT JOIN groups g ON g.id = o.group_id
   LEFT JOIN accounts a ON a.id = o.account_id
   WHERE o.created_at >= $1 AND o.created_at < $2
     AND COALESCE(o.status_code, 0) >= 400

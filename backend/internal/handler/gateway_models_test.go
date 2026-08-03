@@ -71,7 +71,7 @@ func TestGatewayModels_GeminiGroupFallsBackToGeminiModels(t *testing.T) {
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
-		Group: &service.Group{ID: groupID, Platform: service.PlatformGemini},
+		Group: &service.Group{ID: groupID},
 	})
 
 	h.Models(c)
@@ -120,7 +120,7 @@ func TestGatewayModels_GroupModelsIncludeAllMappedAccountProtocols(t *testing.T)
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
-		Group: &service.Group{ID: groupID, Platform: service.PlatformGemini},
+		Group: &service.Group{ID: groupID},
 	})
 
 	h.Models(c)

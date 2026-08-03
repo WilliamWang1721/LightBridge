@@ -10,7 +10,6 @@ export default {
       sortOrderHint: 'Drag groups to adjust display order, groups at the top will be displayed first',
       sortOrderUpdated: 'Sort order updated',
       failedToUpdateSortOrder: 'Failed to update sort order',
-      allPlatforms: 'All Platforms',
       allUpstreams: 'All Upstreams',
       allStatus: 'All Status',
       allGroups: 'All Groups',
@@ -19,7 +18,6 @@ export default {
       public: 'Public',
       columns: {
         name: 'Name',
-        platform: 'Platform',
         upstreams: 'Upstreams',
         rateMultiplier: 'Rate Multiplier',
         rpmOverride: 'RPM Override',
@@ -49,7 +47,6 @@ export default {
       form: {
         name: 'Name',
         description: 'Description',
-        platform: 'Platform',
         rateMultiplier: 'Rate Multiplier',
         status: 'Status',
         exclusive: 'Exclusive Group',
@@ -59,8 +56,6 @@ export default {
       },
       enterGroupName: 'Enter group name',
       optionalDescription: 'Optional description',
-      platformHint: 'Select the platform this group is associated with',
-      platformNotEditable: 'Platform cannot be changed after creation',
       rateMultiplierHint: 'Cost multiplier for this group (e.g., 1.5 = 150% of base cost)',
       exclusiveHint: 'Exclusive group, manually assign to specific users',
       exclusiveTooltip: {
@@ -121,9 +116,52 @@ export default {
       upstreamProtocols: {
         openai_responses: 'OpenAI Responses',
         openai_chat_completions: 'OpenAI Chat',
-        anthropic_messages: 'Claude Messages',
+        openai_embeddings: 'OpenAI Embeddings',
+        anthropic_messages: 'Anthropic Messages',
         gemini: 'Gemini',
         none: 'No upstreams'
+      },
+      upstreamPlatforms: {
+        anthropic: 'Anthropic',
+        openai: 'OpenAI',
+        gemini: 'Gemini',
+        grok: 'Grok',
+        antigravity: 'Antigravity',
+        custom: 'Custom'
+      },
+      upstreamSummary: {
+        title: 'Actual Upstreams',
+        createHint: 'Derived from the accounts that will be copied into this group, then kept current as account bindings change.',
+        editHint: 'Derived from current and copied accounts. A group may contain different upstream providers and protocols.',
+        providers: 'Upstream Providers',
+        protocols: 'Upstream Protocols',
+        protocolsHint: 'Only protocols actually configured on bound accounts are shown. Router capability does not add synthetic upstream protocols.'
+      },
+      availableIngress: {
+        title: 'Available Inbound Protocols',
+        hint: 'Calculated from each bound account\'s actual upstream protocol and relay mode. Router accounts may accept compatible message protocols; passthrough modes require the same protocol.',
+        none: 'No inbound protocol is available until a compatible account is bound.'
+      },
+      appearance: {
+        title: 'Group Appearance',
+        hint: 'The icon and color identify the group only. They never affect upstream selection or request routing.',
+        icon: 'Icon',
+        color: 'Accent Color',
+        customColor: 'Custom color',
+        clearColor: 'Use neutral color',
+        preview: 'Preview',
+        previewName: 'New Group',
+        icons: {
+          folder: 'Folder',
+          server: 'Server',
+          cloud: 'Cloud',
+          bolt: 'Bolt',
+          shield: 'Shield',
+          cube: 'Cube',
+          terminal: 'Terminal',
+          sparkles: 'Sparkles',
+          users: 'Users'
+        }
       },
       deleteConfirm:
         "Are you sure you want to delete '{name}'? All associated API keys will no longer belong to any group.",
@@ -158,7 +196,18 @@ export default {
         title: 'Custom /v1/models Model List',
         hint: 'Only changes the /v1/models response. Whitelist model calls and account routing are unchanged.',
         loading: 'Loading model list...',
-        empty: 'No displayable models'
+        empty: 'No displayable models',
+        selectedCount: '{selected} of {total} selected',
+        selectAll: 'Select All',
+        invertSelection: 'Invert'
+      },
+      accountFilters: {
+        title: 'Account Filters',
+        oauthOnly: 'Allow OAuth accounts only',
+        oauthEnabled: 'Enabled - API key accounts are excluded',
+        privacyOnly: 'Allow accounts with privacy protection only',
+        privacyEnabled: 'Enabled - accounts without Privacy are excluded',
+        disabled: 'Disabled'
       },
       claudeCode: {
         title: 'Claude Code Client Restriction',
@@ -244,13 +293,5 @@ export default {
         peakEnd: 'Peak end',
         peakMultiplier: 'Peak multiplier',
         multiplierHint: 'Additional multiplier applied during the peak window. Token billing is affected; per-image billing is not.'
-      },
-      supportedScopes: {
-        title: 'Supported Model Families',
-        tooltip: 'Select the model families this group supports. Unchecked families will not be routed to this group.',
-        claude: 'Claude',
-        geminiText: 'Gemini Text',
-        geminiImage: 'Gemini Image',
-        hint: 'Select at least one model family'
       }
     }

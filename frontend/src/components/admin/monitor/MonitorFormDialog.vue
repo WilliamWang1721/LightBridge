@@ -170,6 +170,7 @@
     :loading="myKeysLoading"
     :keys="myActiveKeys"
     :provider="form.provider"
+    :api-mode="form.api_mode"
     :user-group-rates="userGroupRates"
     @close="showKeyPicker = false"
     @pick="pickMyKey"

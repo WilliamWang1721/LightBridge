@@ -89,28 +89,24 @@
           default-sort-order="asc"
           @sort="handleSort"
         >
-          <template #cell-name="{ value }">
-            <span class="font-medium text-gray-900 dark:text-white">{{
-              value
-            }}</span>
+          <template #cell-name="{ row }">
+            <GroupBadge
+              :name="row.name"
+              :icon="row.icon"
+              :color="row.color"
+              :upstream-platforms="row.upstream_platforms"
+              :upstream-protocols="row.upstream_protocols"
+              :subscription-type="row.subscription_type"
+              :show-rate="false"
+            />
           </template>
 
           <template #cell-upstream_protocols="{ row }">
-            <div
-              v-if="row.upstream_protocols?.length"
-              class="flex flex-wrap gap-1.5"
-            >
-              <span
-                v-for="protocol in row.upstream_protocols"
-                :key="protocol"
-                :class="protocolBadgeClass(protocol)"
-              >
-                {{ protocolLabel(protocol) }}
-              </span>
-            </div>
-            <span v-else class="text-xs text-gray-400 dark:text-gray-500">
-              {{ t("admin.groups.upstreamProtocols.none") }}
-            </span>
+            <GroupUpstreamBadges
+              :upstream-platforms="row.upstream_platforms"
+              :upstream-protocols="row.upstream_protocols"
+              show-empty
+            />
           </template>
 
           <template #cell-billing_type="{ row }">
@@ -387,6 +383,103 @@
             :placeholder="t('admin.groups.optionalDescription')"
           ></textarea>
         </div>
+        <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+          <div class="mb-3">
+            <label class="input-label">{{
+              t("admin.groups.appearance.title")
+            }}</label>
+            <p class="input-hint">
+              {{ t("admin.groups.appearance.hint") }}
+            </p>
+          </div>
+          <div>
+            <label class="input-label">{{
+              t("admin.groups.appearance.icon")
+            }}</label>
+            <div class="flex flex-wrap gap-2">
+              <button
+                v-for="option in groupIconOptions"
+                :key="option.value"
+                type="button"
+                :title="option.label"
+                :aria-label="option.label"
+                :aria-pressed="createForm.icon === option.value"
+                :class="[
+                  'flex h-9 w-9 items-center justify-center rounded-md border transition-colors',
+                  createForm.icon === option.value
+                    ? 'border-primary-500 bg-primary-50 text-primary-600 dark:bg-primary-900/20 dark:text-primary-400'
+                    : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50 dark:border-dark-600 dark:text-gray-400 dark:hover:bg-dark-700',
+                ]"
+                @click="createForm.icon = option.value"
+              >
+                <Icon :name="option.value" size="sm" />
+              </button>
+            </div>
+          </div>
+          <div class="mt-4">
+            <label class="input-label">{{
+              t("admin.groups.appearance.color")
+            }}</label>
+            <div class="flex flex-wrap items-center gap-2">
+              <button
+                v-for="preset in groupColorPresets"
+                :key="preset || 'none'"
+                type="button"
+                :title="
+                  preset
+                    ? preset
+                    : t('admin.groups.appearance.clearColor')
+                "
+                :aria-label="
+                  preset
+                    ? preset
+                    : t('admin.groups.appearance.clearColor')
+                "
+                :aria-pressed="createForm.color === preset"
+                :class="[
+                  'flex h-8 w-8 items-center justify-center rounded-full border-2 transition-transform hover:scale-105',
+                  createForm.color === preset
+                    ? 'border-primary-500 ring-2 ring-primary-500/20'
+                    : 'border-gray-200 dark:border-dark-500',
+                ]"
+                :style="preset ? { backgroundColor: preset } : undefined"
+                @click="createForm.color = preset"
+              >
+                <Icon
+                  v-if="!preset"
+                  name="x"
+                  size="xs"
+                  class="text-gray-400"
+                />
+              </button>
+              <label
+                class="flex h-8 w-8 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-gray-200 p-0.5 dark:border-dark-500"
+                :title="t('admin.groups.appearance.customColor')"
+              >
+                <input
+                  type="color"
+                  :value="createForm.color || '#475569'"
+                  :aria-label="t('admin.groups.appearance.customColor')"
+                  class="h-8 w-8 cursor-pointer border-0 bg-transparent p-0"
+                  @input="onCreateGroupColorInput"
+                />
+              </label>
+            </div>
+          </div>
+          <div class="mt-4 flex items-center gap-3">
+            <span class="text-xs text-gray-500 dark:text-gray-400">
+              {{ t("admin.groups.appearance.preview") }}
+            </span>
+            <GroupBadge
+              :name="
+                createForm.name || t('admin.groups.appearance.previewName')
+              "
+              :icon="createForm.icon"
+              :color="createForm.color"
+              :show-rate="false"
+            />
+          </div>
+        </div>
         <!-- 从分组复制账号 -->
         <div v-if="copyAccountsGroupOptions.length > 0">
           <div class="mb-1.5 flex items-center gap-1">
@@ -475,6 +568,18 @@
             </option>
           </select>
           <p class="input-hint">{{ t("admin.groups.copyAccounts.hint") }}</p>
+        </div>
+        <div class="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-dark-600 dark:bg-dark-800">
+          <label class="input-label">{{ t("admin.groups.upstreamSummary.title") }}</label>
+          <GroupUpstreamBadges
+            class="mt-1.5"
+            :upstream-platforms="createUpstreamPlatforms"
+            :upstream-protocols="createUpstreamProtocols"
+            show-empty
+          />
+          <p class="input-hint mt-2">
+            {{ t("admin.groups.upstreamSummary.createHint") }}
+          </p>
         </div>
         <div>
           <label class="input-label">{{
@@ -744,7 +849,7 @@
         </div>
 
         <!-- 图片生成计费配置 -->
-        <div class="border-t pt-4">
+        <div v-if="createHasImageUpstream" class="border-t pt-4">
           <label
             class="block mb-2 font-medium text-gray-700 dark:text-gray-300"
           >
@@ -879,82 +984,8 @@
           </div>
         </div>
 
-        <!-- 支持的模型系列 -->
-        <div class="border-t pt-4">
-          <div class="mb-1.5 flex items-center gap-1">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {{ t("admin.groups.supportedScopes.title") }}
-            </label>
-            <!-- Help Tooltip -->
-            <div class="group relative inline-flex">
-              <Icon
-                name="questionCircle"
-                size="sm"
-                :stroke-width="2"
-                class="cursor-help text-gray-400 transition-colors hover:text-primary-500 dark:text-gray-500 dark:hover:text-primary-400"
-              />
-              <div
-                class="pointer-events-none absolute bottom-full left-0 z-50 mb-2 w-72 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:opacity-100"
-              >
-                <div
-                  class="rounded-lg bg-gray-900 p-3 text-white shadow-lg dark:bg-gray-800"
-                >
-                  <p class="text-xs leading-relaxed text-gray-300">
-                    {{ t("admin.groups.supportedScopes.tooltip") }}
-                  </p>
-                  <div
-                    class="absolute -bottom-1.5 left-3 h-3 w-3 rotate-45 bg-gray-900 dark:bg-gray-800"
-                  ></div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="space-y-2">
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                :checked="createForm.supported_model_scopes.includes('claude')"
-                @change="toggleCreateScope('claude')"
-                class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700"
-              />
-              <span class="text-sm text-gray-700 dark:text-gray-300">{{
-                t("admin.groups.supportedScopes.claude")
-              }}</span>
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                :checked="
-                  createForm.supported_model_scopes.includes('gemini_text')
-                "
-                @change="toggleCreateScope('gemini_text')"
-                class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700"
-              />
-              <span class="text-sm text-gray-700 dark:text-gray-300">{{
-                t("admin.groups.supportedScopes.geminiText")
-              }}</span>
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                :checked="
-                  createForm.supported_model_scopes.includes('gemini_image')
-                "
-                @change="toggleCreateScope('gemini_image')"
-                class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700"
-              />
-              <span class="text-sm text-gray-700 dark:text-gray-300">{{
-                t("admin.groups.supportedScopes.geminiImage")
-              }}</span>
-            </label>
-          </div>
-          <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-            {{ t("admin.groups.supportedScopes.hint") }}
-          </p>
-        </div>
-
         <!-- MCP XML 协议注入 -->
-        <div class="border-t pt-4">
+        <div v-if="createHasAntigravityUpstream" class="border-t pt-4">
           <div class="mb-1.5 flex items-center gap-1">
             <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
               {{ t("admin.groups.mcpXml.title") }}
@@ -1087,7 +1118,10 @@
         </div>
 
         <!-- OpenAI Messages 调度配置 -->
-        <div class="border-t border-gray-200 dark:border-dark-400 pt-4 mt-4">
+        <div
+          v-if="createHasOpenAICompatibleUpstream"
+          class="border-t border-gray-200 dark:border-dark-400 pt-4 mt-4"
+        >
           <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
             {{ t("admin.groups.openaiMessages.title") }}
           </h4>
@@ -1681,6 +1715,115 @@
             class="input"
           ></textarea>
         </div>
+        <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+          <div class="mb-3">
+            <label class="input-label">{{
+              t("admin.groups.appearance.title")
+            }}</label>
+            <p class="input-hint">
+              {{ t("admin.groups.appearance.hint") }}
+            </p>
+          </div>
+          <div>
+            <label class="input-label">{{
+              t("admin.groups.appearance.icon")
+            }}</label>
+            <div class="flex flex-wrap gap-2">
+              <button
+                v-for="option in groupIconOptions"
+                :key="option.value"
+                type="button"
+                :title="option.label"
+                :aria-label="option.label"
+                :aria-pressed="editForm.icon === option.value"
+                :class="[
+                  'flex h-9 w-9 items-center justify-center rounded-md border transition-colors',
+                  editForm.icon === option.value
+                    ? 'border-primary-500 bg-primary-50 text-primary-600 dark:bg-primary-900/20 dark:text-primary-400'
+                    : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50 dark:border-dark-600 dark:text-gray-400 dark:hover:bg-dark-700',
+                ]"
+                @click="editForm.icon = option.value"
+              >
+                <Icon :name="option.value" size="sm" />
+              </button>
+            </div>
+          </div>
+          <div class="mt-4">
+            <label class="input-label">{{
+              t("admin.groups.appearance.color")
+            }}</label>
+            <div class="flex flex-wrap items-center gap-2">
+              <button
+                v-for="preset in groupColorPresets"
+                :key="preset || 'none'"
+                type="button"
+                :title="
+                  preset
+                    ? preset
+                    : t('admin.groups.appearance.clearColor')
+                "
+                :aria-label="
+                  preset
+                    ? preset
+                    : t('admin.groups.appearance.clearColor')
+                "
+                :aria-pressed="editForm.color === preset"
+                :class="[
+                  'flex h-8 w-8 items-center justify-center rounded-full border-2 transition-transform hover:scale-105',
+                  editForm.color === preset
+                    ? 'border-primary-500 ring-2 ring-primary-500/20'
+                    : 'border-gray-200 dark:border-dark-500',
+                ]"
+                :style="preset ? { backgroundColor: preset } : undefined"
+                @click="editForm.color = preset"
+              >
+                <Icon
+                  v-if="!preset"
+                  name="x"
+                  size="xs"
+                  class="text-gray-400"
+                />
+              </button>
+              <label
+                class="flex h-8 w-8 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-gray-200 p-0.5 dark:border-dark-500"
+                :title="t('admin.groups.appearance.customColor')"
+              >
+                <input
+                  type="color"
+                  :value="editForm.color || '#475569'"
+                  :aria-label="t('admin.groups.appearance.customColor')"
+                  class="h-8 w-8 cursor-pointer border-0 bg-transparent p-0"
+                  @input="onEditGroupColorInput"
+                />
+              </label>
+            </div>
+          </div>
+          <div class="mt-4 flex items-center gap-3">
+            <span class="text-xs text-gray-500 dark:text-gray-400">
+              {{ t("admin.groups.appearance.preview") }}
+            </span>
+            <GroupBadge
+              :name="
+                editForm.name || t('admin.groups.appearance.previewName')
+              "
+              :icon="editForm.icon"
+              :color="editForm.color"
+              :show-rate="false"
+            />
+          </div>
+        </div>
+        <div class="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-dark-600 dark:bg-dark-800">
+          <label class="input-label">{{ t("admin.groups.upstreamSummary.title") }}</label>
+          <GroupUpstreamBadges
+            class="mt-1.5"
+            :upstream-platforms="editUpstreamPlatforms"
+            :upstream-protocols="editUpstreamProtocols"
+            show-empty
+          />
+          <p class="input-hint mt-2">
+            {{ t("admin.groups.upstreamSummary.editHint") }}
+          </p>
+        </div>
         <!-- 从分组复制账号（编辑时） -->
         <div v-if="copyAccountsGroupOptionsForEdit.length > 0">
           <div class="mb-1.5 flex items-center gap-1">
@@ -2041,7 +2184,7 @@
         </div>
 
         <!-- 图片生成计费配置 -->
-        <div class="border-t pt-4">
+        <div v-if="editHasImageUpstream" class="border-t pt-4">
           <label
             class="block mb-2 font-medium text-gray-700 dark:text-gray-300"
           >
@@ -2176,82 +2319,8 @@
           </div>
         </div>
 
-        <!-- 支持的模型系列 -->
-        <div class="border-t pt-4">
-          <div class="mb-1.5 flex items-center gap-1">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {{ t("admin.groups.supportedScopes.title") }}
-            </label>
-            <!-- Help Tooltip -->
-            <div class="group relative inline-flex">
-              <Icon
-                name="questionCircle"
-                size="sm"
-                :stroke-width="2"
-                class="cursor-help text-gray-400 transition-colors hover:text-primary-500 dark:text-gray-500 dark:hover:text-primary-400"
-              />
-              <div
-                class="pointer-events-none absolute bottom-full left-0 z-50 mb-2 w-72 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:opacity-100"
-              >
-                <div
-                  class="rounded-lg bg-gray-900 p-3 text-white shadow-lg dark:bg-gray-800"
-                >
-                  <p class="text-xs leading-relaxed text-gray-300">
-                    {{ t("admin.groups.supportedScopes.tooltip") }}
-                  </p>
-                  <div
-                    class="absolute -bottom-1.5 left-3 h-3 w-3 rotate-45 bg-gray-900 dark:bg-gray-800"
-                  ></div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="space-y-2">
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                :checked="editForm.supported_model_scopes.includes('claude')"
-                @change="toggleEditScope('claude')"
-                class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700"
-              />
-              <span class="text-sm text-gray-700 dark:text-gray-300">{{
-                t("admin.groups.supportedScopes.claude")
-              }}</span>
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                :checked="
-                  editForm.supported_model_scopes.includes('gemini_text')
-                "
-                @change="toggleEditScope('gemini_text')"
-                class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700"
-              />
-              <span class="text-sm text-gray-700 dark:text-gray-300">{{
-                t("admin.groups.supportedScopes.geminiText")
-              }}</span>
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                :checked="
-                  editForm.supported_model_scopes.includes('gemini_image')
-                "
-                @change="toggleEditScope('gemini_image')"
-                class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700"
-              />
-              <span class="text-sm text-gray-700 dark:text-gray-300">{{
-                t("admin.groups.supportedScopes.geminiImage")
-              }}</span>
-            </label>
-          </div>
-          <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-            {{ t("admin.groups.supportedScopes.hint") }}
-          </p>
-        </div>
-
         <!-- MCP XML 协议注入 -->
-        <div class="border-t pt-4">
+        <div v-if="editHasAntigravityUpstream" class="border-t pt-4">
           <div class="mb-1.5 flex items-center gap-1">
             <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
               {{ t("admin.groups.mcpXml.title") }}
@@ -2380,7 +2449,10 @@
         </div>
 
         <!-- OpenAI Messages 调度配置 -->
-        <div class="border-t border-gray-200 dark:border-dark-400 pt-4 mt-4">
+        <div
+          v-if="editHasOpenAICompatibleUpstream"
+          class="border-t border-gray-200 dark:border-dark-400 pt-4 mt-4"
+        >
           <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
             {{ t("admin.groups.openaiMessages.title") }}
           </h4>

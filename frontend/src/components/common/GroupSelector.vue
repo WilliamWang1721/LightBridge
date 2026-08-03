@@ -39,17 +39,14 @@
         />
         <GroupBadge
           :name="group.name"
+          :icon="group.icon"
+          :color="group.color"
+          :upstream-platforms="group.upstream_platforms"
+          :upstream-protocols="group.upstream_protocols"
           :subscription-type="group.subscription_type"
           :rate-multiplier="group.rate_multiplier"
           class="min-w-0 flex-1"
         />
-        <span
-          v-for="protocol in group.upstream_protocols"
-          :key="protocol"
-          :class="protocolBadgeClass(protocol)"
-        >
-          {{ protocolLabel(protocol) }}
-        </span>
         <span class="shrink-0 text-xs text-gray-400">{{ group.account_count || 0 }}</span>
       </label>
       <div
@@ -67,15 +64,13 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import GroupBadge from './GroupBadge.vue'
 import Icon from '@/components/icons/Icon.vue'
-import type { AdminGroup, GroupPlatform, GroupUpstreamProtocol } from '@/types'
+import type { AdminGroup } from '@/types'
 
 const { t } = useI18n()
 
 interface Props {
   modelValue: number[]
   groups: AdminGroup[]
-  platform?: GroupPlatform // Deprecated: groups are filtered by upstream protocols on the list API, not here.
-  mixedScheduling?: boolean // For antigravity accounts: allow anthropic/gemini groups
   searchable?: boolean | 'auto'
 }
 
@@ -103,22 +98,6 @@ const filteredGroups = computed(() => {
   }
   return result
 })
-
-const protocolLabel = (protocol: GroupUpstreamProtocol | string) =>
-  t(`admin.groups.upstreamProtocols.${protocol}`)
-
-const protocolBadgeClass = (protocol: GroupUpstreamProtocol | string) => [
-  'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium',
-  protocol === 'openai_responses'
-    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-    : protocol === 'openai_chat_completions'
-      ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400'
-      : protocol === 'anthropic_messages'
-        ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
-        : protocol === 'gemini'
-          ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-          : 'bg-gray-100 text-gray-600 dark:bg-dark-600 dark:text-gray-300'
-]
 
 const handleChange = (groupId: number, checked: boolean) => {
   const newValue = checked

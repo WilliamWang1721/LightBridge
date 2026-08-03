@@ -20,26 +20,31 @@ export const usePaymentStore = defineStore('payment', () => {
 
   const configLoading = ref(false)
   const configLoaded = ref(false)
+  let configPromise: Promise<PaymentConfig | null> | null = null
 
   // ==================== Actions ====================
 
   /** Fetch payment configuration */
   async function fetchConfig(force = false): Promise<PaymentConfig | null> {
     if (configLoaded.value && !force) return config.value
-    if (configLoading.value) return config.value
+    if (configPromise) return configPromise
 
     configLoading.value = true
-    try {
-      const response = await paymentAPI.getConfig()
-      config.value = response.data
-      configLoaded.value = true
-      return config.value
-    } catch (error: unknown) {
-      console.error('[payment] Failed to fetch config:', error)
-      return null
-    } finally {
-      configLoading.value = false
-    }
+    configPromise = paymentAPI.getConfig()
+      .then((response) => {
+        config.value = response.data
+        configLoaded.value = true
+        return config.value
+      })
+      .catch((error: unknown) => {
+        console.error('[payment] Failed to fetch config:', error)
+        return null
+      })
+      .finally(() => {
+        configLoading.value = false
+        configPromise = null
+      })
+    return configPromise
   }
 
   /** Fetch available subscription plans */

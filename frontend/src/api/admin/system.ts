@@ -24,10 +24,31 @@ export interface VersionRelease {
   latest?: boolean
 }
 
+/**
+ * Safe local lifecycle actions for the current deployment.
+ * Container deployments are upgraded by replacing the image, not by changing
+ * the running binary in place.
+ */
+export interface UpdateCapabilities {
+  deployment_type: 'binary' | 'container' | string
+  can_in_place_update: boolean
+  can_rollback: boolean
+  can_restart: boolean
+}
+
+/** Fail closed until the backend has described the current deployment. */
+export const unavailableUpdateCapabilities: UpdateCapabilities = {
+  deployment_type: 'unknown',
+  can_in_place_update: false,
+  can_rollback: false,
+  can_restart: false
+}
+
 export interface VersionReleasesResult {
   current_version: string
   latest_version: string
   build_type: string
+  capabilities: UpdateCapabilities
   releases: VersionRelease[]
 }
 
@@ -39,6 +60,7 @@ export interface VersionInfo {
   cached: boolean
   warning?: string
   build_type: string // "source" for manual builds, "release" for CI builds
+  capabilities: UpdateCapabilities
 }
 
 /**

@@ -91,6 +91,34 @@ func (_c *GroupCreate) SetNillableDescription(v *string) *GroupCreate {
 	return _c
 }
 
+// SetIcon sets the "icon" field.
+func (_c *GroupCreate) SetIcon(v string) *GroupCreate {
+	_c.mutation.SetIcon(v)
+	return _c
+}
+
+// SetNillableIcon sets the "icon" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableIcon(v *string) *GroupCreate {
+	if v != nil {
+		_c.SetIcon(*v)
+	}
+	return _c
+}
+
+// SetColor sets the "color" field.
+func (_c *GroupCreate) SetColor(v string) *GroupCreate {
+	_c.mutation.SetColor(v)
+	return _c
+}
+
+// SetNillableColor sets the "color" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableColor(v *string) *GroupCreate {
+	if v != nil {
+		_c.SetColor(*v)
+	}
+	return _c
+}
+
 // SetRateMultiplier sets the "rate_multiplier" field.
 func (_c *GroupCreate) SetRateMultiplier(v float64) *GroupCreate {
 	_c.mutation.SetRateMultiplier(v)
@@ -185,20 +213,6 @@ func (_c *GroupCreate) SetStatus(v string) *GroupCreate {
 func (_c *GroupCreate) SetNillableStatus(v *string) *GroupCreate {
 	if v != nil {
 		_c.SetStatus(*v)
-	}
-	return _c
-}
-
-// SetPlatform sets the "platform" field.
-func (_c *GroupCreate) SetPlatform(v string) *GroupCreate {
-	_c.mutation.SetPlatform(v)
-	return _c
-}
-
-// SetNillablePlatform sets the "platform" field if the given value is not nil.
-func (_c *GroupCreate) SetNillablePlatform(v *string) *GroupCreate {
-	if v != nil {
-		_c.SetPlatform(*v)
 	}
 	return _c
 }
@@ -430,12 +444,6 @@ func (_c *GroupCreate) SetNillableMcpXMLInject(v *bool) *GroupCreate {
 	if v != nil {
 		_c.SetMcpXMLInject(*v)
 	}
-	return _c
-}
-
-// SetSupportedModelScopes sets the "supported_model_scopes" field.
-func (_c *GroupCreate) SetSupportedModelScopes(v []string) *GroupCreate {
-	_c.mutation.SetSupportedModelScopes(v)
 	return _c
 }
 
@@ -692,6 +700,14 @@ func (_c *GroupCreate) defaults() error {
 		v := group.DefaultUpdatedAt()
 		_c.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := _c.mutation.Icon(); !ok {
+		v := group.DefaultIcon
+		_c.mutation.SetIcon(v)
+	}
+	if _, ok := _c.mutation.Color(); !ok {
+		v := group.DefaultColor
+		_c.mutation.SetColor(v)
+	}
 	if _, ok := _c.mutation.RateMultiplier(); !ok {
 		v := group.DefaultRateMultiplier
 		_c.mutation.SetRateMultiplier(v)
@@ -719,10 +735,6 @@ func (_c *GroupCreate) defaults() error {
 	if _, ok := _c.mutation.Status(); !ok {
 		v := group.DefaultStatus
 		_c.mutation.SetStatus(v)
-	}
-	if _, ok := _c.mutation.Platform(); !ok {
-		v := group.DefaultPlatform
-		_c.mutation.SetPlatform(v)
 	}
 	if _, ok := _c.mutation.SubscriptionType(); !ok {
 		v := group.DefaultSubscriptionType
@@ -755,10 +767,6 @@ func (_c *GroupCreate) defaults() error {
 	if _, ok := _c.mutation.McpXMLInject(); !ok {
 		v := group.DefaultMcpXMLInject
 		_c.mutation.SetMcpXMLInject(v)
-	}
-	if _, ok := _c.mutation.SupportedModelScopes(); !ok {
-		v := group.DefaultSupportedModelScopes
-		_c.mutation.SetSupportedModelScopes(v)
 	}
 	if _, ok := _c.mutation.SortOrder(); !ok {
 		v := group.DefaultSortOrder
@@ -811,6 +819,22 @@ func (_c *GroupCreate) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Group.name": %w`, err)}
 		}
 	}
+	if _, ok := _c.mutation.Icon(); !ok {
+		return &ValidationError{Name: "icon", err: errors.New(`ent: missing required field "Group.icon"`)}
+	}
+	if v, ok := _c.mutation.Icon(); ok {
+		if err := group.IconValidator(v); err != nil {
+			return &ValidationError{Name: "icon", err: fmt.Errorf(`ent: validator failed for field "Group.icon": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.Color(); !ok {
+		return &ValidationError{Name: "color", err: errors.New(`ent: missing required field "Group.color"`)}
+	}
+	if v, ok := _c.mutation.Color(); ok {
+		if err := group.ColorValidator(v); err != nil {
+			return &ValidationError{Name: "color", err: fmt.Errorf(`ent: validator failed for field "Group.color": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.RateMultiplier(); !ok {
 		return &ValidationError{Name: "rate_multiplier", err: errors.New(`ent: missing required field "Group.rate_multiplier"`)}
 	}
@@ -847,14 +871,6 @@ func (_c *GroupCreate) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Group.status": %w`, err)}
 		}
 	}
-	if _, ok := _c.mutation.Platform(); !ok {
-		return &ValidationError{Name: "platform", err: errors.New(`ent: missing required field "Group.platform"`)}
-	}
-	if v, ok := _c.mutation.Platform(); ok {
-		if err := group.PlatformValidator(v); err != nil {
-			return &ValidationError{Name: "platform", err: fmt.Errorf(`ent: validator failed for field "Group.platform": %w`, err)}
-		}
-	}
 	if _, ok := _c.mutation.SubscriptionType(); !ok {
 		return &ValidationError{Name: "subscription_type", err: errors.New(`ent: missing required field "Group.subscription_type"`)}
 	}
@@ -883,9 +899,6 @@ func (_c *GroupCreate) check() error {
 	}
 	if _, ok := _c.mutation.McpXMLInject(); !ok {
 		return &ValidationError{Name: "mcp_xml_inject", err: errors.New(`ent: missing required field "Group.mcp_xml_inject"`)}
-	}
-	if _, ok := _c.mutation.SupportedModelScopes(); !ok {
-		return &ValidationError{Name: "supported_model_scopes", err: errors.New(`ent: missing required field "Group.supported_model_scopes"`)}
 	}
 	if _, ok := _c.mutation.SortOrder(); !ok {
 		return &ValidationError{Name: "sort_order", err: errors.New(`ent: missing required field "Group.sort_order"`)}
@@ -963,6 +976,14 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 		_spec.SetField(group.FieldDescription, field.TypeString, value)
 		_node.Description = &value
 	}
+	if value, ok := _c.mutation.Icon(); ok {
+		_spec.SetField(group.FieldIcon, field.TypeString, value)
+		_node.Icon = value
+	}
+	if value, ok := _c.mutation.Color(); ok {
+		_spec.SetField(group.FieldColor, field.TypeString, value)
+		_node.Color = value
+	}
 	if value, ok := _c.mutation.RateMultiplier(); ok {
 		_spec.SetField(group.FieldRateMultiplier, field.TypeFloat64, value)
 		_node.RateMultiplier = value
@@ -990,10 +1011,6 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(group.FieldStatus, field.TypeString, value)
 		_node.Status = value
-	}
-	if value, ok := _c.mutation.Platform(); ok {
-		_spec.SetField(group.FieldPlatform, field.TypeString, value)
-		_node.Platform = value
 	}
 	if value, ok := _c.mutation.SubscriptionType(); ok {
 		_spec.SetField(group.FieldSubscriptionType, field.TypeString, value)
@@ -1062,10 +1079,6 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.McpXMLInject(); ok {
 		_spec.SetField(group.FieldMcpXMLInject, field.TypeBool, value)
 		_node.McpXMLInject = value
-	}
-	if value, ok := _c.mutation.SupportedModelScopes(); ok {
-		_spec.SetField(group.FieldSupportedModelScopes, field.TypeJSON, value)
-		_node.SupportedModelScopes = value
 	}
 	if value, ok := _c.mutation.SortOrder(); ok {
 		_spec.SetField(group.FieldSortOrder, field.TypeInt, value)
@@ -1315,6 +1328,30 @@ func (u *GroupUpsert) ClearDescription() *GroupUpsert {
 	return u
 }
 
+// SetIcon sets the "icon" field.
+func (u *GroupUpsert) SetIcon(v string) *GroupUpsert {
+	u.Set(group.FieldIcon, v)
+	return u
+}
+
+// UpdateIcon sets the "icon" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateIcon() *GroupUpsert {
+	u.SetExcluded(group.FieldIcon)
+	return u
+}
+
+// SetColor sets the "color" field.
+func (u *GroupUpsert) SetColor(v string) *GroupUpsert {
+	u.Set(group.FieldColor, v)
+	return u
+}
+
+// UpdateColor sets the "color" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateColor() *GroupUpsert {
+	u.SetExcluded(group.FieldColor)
+	return u
+}
+
 // SetRateMultiplier sets the "rate_multiplier" field.
 func (u *GroupUpsert) SetRateMultiplier(v float64) *GroupUpsert {
 	u.Set(group.FieldRateMultiplier, v)
@@ -1408,18 +1445,6 @@ func (u *GroupUpsert) SetStatus(v string) *GroupUpsert {
 // UpdateStatus sets the "status" field to the value that was provided on create.
 func (u *GroupUpsert) UpdateStatus() *GroupUpsert {
 	u.SetExcluded(group.FieldStatus)
-	return u
-}
-
-// SetPlatform sets the "platform" field.
-func (u *GroupUpsert) SetPlatform(v string) *GroupUpsert {
-	u.Set(group.FieldPlatform, v)
-	return u
-}
-
-// UpdatePlatform sets the "platform" field to the value that was provided on create.
-func (u *GroupUpsert) UpdatePlatform() *GroupUpsert {
-	u.SetExcluded(group.FieldPlatform)
 	return u
 }
 
@@ -1741,18 +1766,6 @@ func (u *GroupUpsert) UpdateMcpXMLInject() *GroupUpsert {
 	return u
 }
 
-// SetSupportedModelScopes sets the "supported_model_scopes" field.
-func (u *GroupUpsert) SetSupportedModelScopes(v []string) *GroupUpsert {
-	u.Set(group.FieldSupportedModelScopes, v)
-	return u
-}
-
-// UpdateSupportedModelScopes sets the "supported_model_scopes" field to the value that was provided on create.
-func (u *GroupUpsert) UpdateSupportedModelScopes() *GroupUpsert {
-	u.SetExcluded(group.FieldSupportedModelScopes)
-	return u
-}
-
 // SetSortOrder sets the "sort_order" field.
 func (u *GroupUpsert) SetSortOrder(v int) *GroupUpsert {
 	u.Set(group.FieldSortOrder, v)
@@ -1976,6 +1989,34 @@ func (u *GroupUpsertOne) ClearDescription() *GroupUpsertOne {
 	})
 }
 
+// SetIcon sets the "icon" field.
+func (u *GroupUpsertOne) SetIcon(v string) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetIcon(v)
+	})
+}
+
+// UpdateIcon sets the "icon" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateIcon() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateIcon()
+	})
+}
+
+// SetColor sets the "color" field.
+func (u *GroupUpsertOne) SetColor(v string) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetColor(v)
+	})
+}
+
+// UpdateColor sets the "color" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateColor() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateColor()
+	})
+}
+
 // SetRateMultiplier sets the "rate_multiplier" field.
 func (u *GroupUpsertOne) SetRateMultiplier(v float64) *GroupUpsertOne {
 	return u.Update(func(s *GroupUpsert) {
@@ -2085,20 +2126,6 @@ func (u *GroupUpsertOne) SetStatus(v string) *GroupUpsertOne {
 func (u *GroupUpsertOne) UpdateStatus() *GroupUpsertOne {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateStatus()
-	})
-}
-
-// SetPlatform sets the "platform" field.
-func (u *GroupUpsertOne) SetPlatform(v string) *GroupUpsertOne {
-	return u.Update(func(s *GroupUpsert) {
-		s.SetPlatform(v)
-	})
-}
-
-// UpdatePlatform sets the "platform" field to the value that was provided on create.
-func (u *GroupUpsertOne) UpdatePlatform() *GroupUpsertOne {
-	return u.Update(func(s *GroupUpsert) {
-		s.UpdatePlatform()
 	})
 }
 
@@ -2470,20 +2497,6 @@ func (u *GroupUpsertOne) SetMcpXMLInject(v bool) *GroupUpsertOne {
 func (u *GroupUpsertOne) UpdateMcpXMLInject() *GroupUpsertOne {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateMcpXMLInject()
-	})
-}
-
-// SetSupportedModelScopes sets the "supported_model_scopes" field.
-func (u *GroupUpsertOne) SetSupportedModelScopes(v []string) *GroupUpsertOne {
-	return u.Update(func(s *GroupUpsert) {
-		s.SetSupportedModelScopes(v)
-	})
-}
-
-// UpdateSupportedModelScopes sets the "supported_model_scopes" field to the value that was provided on create.
-func (u *GroupUpsertOne) UpdateSupportedModelScopes() *GroupUpsertOne {
-	return u.Update(func(s *GroupUpsert) {
-		s.UpdateSupportedModelScopes()
 	})
 }
 
@@ -2894,6 +2907,34 @@ func (u *GroupUpsertBulk) ClearDescription() *GroupUpsertBulk {
 	})
 }
 
+// SetIcon sets the "icon" field.
+func (u *GroupUpsertBulk) SetIcon(v string) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetIcon(v)
+	})
+}
+
+// UpdateIcon sets the "icon" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateIcon() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateIcon()
+	})
+}
+
+// SetColor sets the "color" field.
+func (u *GroupUpsertBulk) SetColor(v string) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetColor(v)
+	})
+}
+
+// UpdateColor sets the "color" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateColor() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateColor()
+	})
+}
+
 // SetRateMultiplier sets the "rate_multiplier" field.
 func (u *GroupUpsertBulk) SetRateMultiplier(v float64) *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
@@ -3003,20 +3044,6 @@ func (u *GroupUpsertBulk) SetStatus(v string) *GroupUpsertBulk {
 func (u *GroupUpsertBulk) UpdateStatus() *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateStatus()
-	})
-}
-
-// SetPlatform sets the "platform" field.
-func (u *GroupUpsertBulk) SetPlatform(v string) *GroupUpsertBulk {
-	return u.Update(func(s *GroupUpsert) {
-		s.SetPlatform(v)
-	})
-}
-
-// UpdatePlatform sets the "platform" field to the value that was provided on create.
-func (u *GroupUpsertBulk) UpdatePlatform() *GroupUpsertBulk {
-	return u.Update(func(s *GroupUpsert) {
-		s.UpdatePlatform()
 	})
 }
 
@@ -3388,20 +3415,6 @@ func (u *GroupUpsertBulk) SetMcpXMLInject(v bool) *GroupUpsertBulk {
 func (u *GroupUpsertBulk) UpdateMcpXMLInject() *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateMcpXMLInject()
-	})
-}
-
-// SetSupportedModelScopes sets the "supported_model_scopes" field.
-func (u *GroupUpsertBulk) SetSupportedModelScopes(v []string) *GroupUpsertBulk {
-	return u.Update(func(s *GroupUpsert) {
-		s.SetSupportedModelScopes(v)
-	})
-}
-
-// UpdateSupportedModelScopes sets the "supported_model_scopes" field to the value that was provided on create.
-func (u *GroupUpsertBulk) UpdateSupportedModelScopes() *GroupUpsertBulk {
-	return u.Update(func(s *GroupUpsert) {
-		s.UpdateSupportedModelScopes()
 	})
 }
 

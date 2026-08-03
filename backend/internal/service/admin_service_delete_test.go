@@ -216,8 +216,8 @@ func (s *groupRepoStub) ListActive(ctx context.Context) ([]Group, error) {
 	panic("unexpected ListActive call")
 }
 
-func (s *groupRepoStub) ListActiveByPlatform(ctx context.Context, platform string) ([]Group, error) {
-	panic("unexpected ListActiveByPlatform call")
+func (s *groupRepoStub) ListActiveByUpstreamProtocol(ctx context.Context, platform string) ([]Group, error) {
+	panic("unexpected ListActiveByUpstreamProtocol call")
 }
 
 func (s *groupRepoStub) ExistsByName(ctx context.Context, name string) (bool, error) {

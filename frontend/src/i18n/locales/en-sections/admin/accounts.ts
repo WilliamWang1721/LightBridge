@@ -38,7 +38,7 @@ export default {
       dataImportFile: 'Data file',
       dataImportSelectedFiles: '{count} files selected',
       dataImportGroups: 'Import groups',
-      dataImportGroupsHint: 'Leave empty to use each platform default group; selected groups bind imported accounts to those groups.',
+      dataImportGroupsHint: 'Leave empty to use the system default group for each imported account; selected groups bind imported accounts to those groups regardless of upstream provider.',
       dataImportBatchSettings: 'Override imported account settings',
       dataImportRateMultiplier: 'Rate multiplier',
       dataImportAutoPause: 'Auto pause when expired',
@@ -360,7 +360,11 @@ export default {
         failed: 'Bulk update failed',
         noSelection: 'Please select accounts to edit',
         noFieldsSelected: 'Select at least one field to update',
-        mixedPlatformWarning: 'Selected accounts span multiple platforms ({platforms}). Model mapping presets shown are combined — ensure mappings are appropriate for each platform.'
+        mixedPlatformWarning: 'Selected accounts span multiple platforms ({platforms}). Model mapping presets shown are combined — ensure mappings are appropriate for each platform.',
+        relayModeUnchangedHint: 'Leave unchecked to keep the existing relay mode unchanged for this update.',
+        relayModeProtocolHint: 'Passthrough and full passthrough require the inbound and upstream protocols to match.',
+        relayModeMixedPlatformWarning: 'This relay-mode update applies to every selected platform. Review protocol compatibility for each platform before submitting.',
+        relayModeOverridesOpenAIPassthrough: 'This generic setting overrides the OpenAI-only full-passthrough shortcut below.'
       },
       bulkDeleteTitle: 'Bulk Delete Accounts',
       bulkDeleteConfirm: 'Delete the selected {count} account(s)? This action cannot be undone.',

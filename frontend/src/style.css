@@ -55,6 +55,23 @@
     @apply bg-gray-400 dark:bg-dark-500;
   }
 
+  /* Touch users cannot rely on hover to discover scrollable content. */
+  @media (pointer: coarse) {
+    @supports (-moz-appearance:none) {
+      * {
+        scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+      }
+
+      .dark * {
+        scrollbar-color: rgba(75, 85, 99, 0.5) transparent;
+      }
+    }
+
+    ::-webkit-scrollbar-thumb {
+      @apply bg-gray-300/60 dark:bg-dark-600/60;
+    }
+  }
+
   /* 选中文本样式 */
   ::selection {
     @apply bg-primary-500/20 text-primary-900 dark:text-primary-100;

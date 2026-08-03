@@ -8,7 +8,7 @@ import { useOnboardingStore } from "@/stores/onboarding";
 import { adminAPI } from "@/api/admin";
 import type {
   AdminGroup,
-  GroupPlatform,
+  GroupIcon,
   GroupUpstreamProtocol,
   SubscriptionType,
 } from "@/types";
@@ -22,14 +22,24 @@ import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 import EmptyState from "@/components/common/EmptyState.vue";
 import Select from "@/components/common/Select.vue";
 import Icon from "@/components/icons/Icon.vue";
+import GroupBadge from "@/components/common/GroupBadge.vue";
 import GroupRateMultipliersModal from "@/components/admin/group/GroupRateMultipliersModal.vue";
 import GroupRPMOverridesModal from "@/components/admin/group/GroupRPMOverridesModal.vue";
 import GroupCapacityBadge from "@/components/common/GroupCapacityBadge.vue";
+import GroupUpstreamBadges from "@/components/common/GroupUpstreamBadges.vue";
 import { VueDraggable } from "vue-draggable-plus";
 import { createStableObjectKeyResolver } from "@/utils/stableObjectKey";
 import { useKeyedDebouncedSearch } from "@/composables/useKeyedDebouncedSearch";
 import { getPersistedPageSize } from "@/composables/usePersistedPageSize";
 import { formatPeakRateWindow, hasPeakRate, serverTimezoneLabel } from "@/utils/peak-rate";
+import {
+  groupIconValues,
+  groupUpstreamProtocolBadgeClass,
+  normalizeGroupColor,
+  normalizeGroupIcon,
+  normalizeGroupUpstreamPlatforms,
+  normalizeGroupUpstreamProtocols,
+} from "@/utils/groupUpstreams";
 import {
   createDefaultMessagesDispatchFormState,
   messagesDispatchConfigToFormState,
@@ -124,6 +134,10 @@ const upstreamProtocolFilterOptions = computed(() => [
     label: t("admin.groups.upstreamProtocols.openai_chat_completions"),
   },
   {
+    value: "openai_embeddings",
+    label: t("admin.groups.upstreamProtocols.openai_embeddings"),
+  },
+  {
     value: "anthropic_messages",
     label: t("admin.groups.upstreamProtocols.anthropic_messages"),
   },
@@ -140,21 +154,28 @@ const subscriptionTypeOptions = computed(() => [
   { value: "subscription", label: t("admin.groups.subscription.subscription") },
 ]);
 
+const groupIconOptions = computed(() =>
+  groupIconValues.map((value) => ({
+    value,
+    label: t(`admin.groups.appearance.icons.${value}`),
+  })),
+);
+
+const groupColorPresets = [
+  "",
+  "#475569",
+  "#0F766E",
+  "#2563EB",
+  "#7C3AED",
+  "#C2410C",
+  "#BE123C",
+  "#3F3F46",
+] as const;
+
 const protocolLabel = (protocol: GroupUpstreamProtocol | string) =>
   t(`admin.groups.upstreamProtocols.${protocol}`);
 
-const protocolBadgeClass = (protocol: GroupUpstreamProtocol | string) => [
-  "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-  protocol === "openai_responses"
-    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-    : protocol === "openai_chat_completions"
-      ? "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"
-      : protocol === "anthropic_messages"
-        ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
-        : protocol === "gemini"
-          ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-          : "bg-gray-100 text-gray-600 dark:bg-dark-600 dark:text-gray-300",
-];
+const protocolBadgeClass = groupUpstreamProtocolBadgeClass;
 
 // 降级分组选项（创建时）- 未启用 claude_code_only 的活跃分组
 const fallbackGroupOptions = computed(() => {
@@ -283,6 +304,19 @@ const sortState = reactive({
   sort_order: "asc" as "asc" | "desc",
 });
 
+const copiedGroupsFor = (ids: number[]) =>
+  groups.value.filter((group) => ids.includes(group.id));
+
+const collectUpstreamPlatforms = (sourceGroups: AdminGroup[]) =>
+  normalizeGroupUpstreamPlatforms(
+    sourceGroups.flatMap((group) => group.upstream_platforms || []),
+  );
+
+const collectUpstreamProtocols = (sourceGroups: AdminGroup[]) =>
+  normalizeGroupUpstreamProtocols(
+    sourceGroups.flatMap((group) => group.upstream_protocols || []),
+  );
+
 let abortController: AbortController | null = null;
 
 const showCreateModal = ref(false);
@@ -308,6 +342,56 @@ const modelsListCandidatesTracker = createModelsListCandidatesTracker();
 const createModelsListSelectedCount = computed(
   () => createModelsListState.items.filter((item) => item.selected).length,
 );
+
+const createSourceGroups = computed(() =>
+  copiedGroupsFor(createForm.copy_accounts_from_group_ids),
+);
+const createUpstreamPlatforms = computed(() =>
+  collectUpstreamPlatforms(createSourceGroups.value),
+);
+const createUpstreamProtocols = computed(() =>
+  collectUpstreamProtocols(createSourceGroups.value),
+);
+const editSourceGroups = computed(() => {
+  const sourceGroups = copiedGroupsFor(editForm.copy_accounts_from_group_ids);
+  if (sourceGroups.length > 0) {
+    return sourceGroups;
+  }
+  return editingGroup.value ? [editingGroup.value] : [];
+});
+const editUpstreamPlatforms = computed(() =>
+  collectUpstreamPlatforms(editSourceGroups.value),
+);
+const editUpstreamProtocols = computed(() =>
+  collectUpstreamProtocols(editSourceGroups.value),
+);
+const createHasAntigravityUpstream = computed(() =>
+  createUpstreamPlatforms.value.includes("antigravity"),
+);
+const editHasAntigravityUpstream = computed(() =>
+  editUpstreamPlatforms.value.includes("antigravity"),
+);
+const createHasImageUpstream = computed(() =>
+  createUpstreamPlatforms.value.some(
+    (platform) => platform === "gemini" || platform === "antigravity",
+  ),
+);
+const editHasImageUpstream = computed(() =>
+  editUpstreamPlatforms.value.some(
+    (platform) => platform === "gemini" || platform === "antigravity",
+  ),
+);
+const hasOpenAICompatibleProtocol = (
+  protocols: readonly GroupUpstreamProtocol[],
+) =>
+  protocols.includes("openai_responses") ||
+  protocols.includes("openai_chat_completions");
+const createHasOpenAICompatibleUpstream = computed(() =>
+  hasOpenAICompatibleProtocol(createUpstreamProtocols.value),
+);
+const editHasOpenAICompatibleUpstream = computed(() =>
+  hasOpenAICompatibleProtocol(editUpstreamProtocols.value),
+);
 const editModelsListSelectedCount = computed(
   () => editModelsListState.items.filter((item) => item.selected).length,
 );
@@ -315,7 +399,8 @@ const editModelsListSelectedCount = computed(
 const createForm = reactive({
   name: "",
   description: "",
-  platform: "anthropic" as GroupPlatform,
+  icon: "folder" as GroupIcon,
+  color: "",
   rate_multiplier: 1.0,
   is_exclusive: false,
   subscription_type: "standard" as SubscriptionType,
@@ -348,10 +433,8 @@ const createForm = reactive({
   require_privacy_set: false,
   // 模型路由开关
   model_routing_enabled: false,
-  // 支持的模型系列（仅 antigravity 平台）
-  supported_model_scopes: ["claude", "gemini_text", "gemini_image"] as string[],
   // MCP XML 协议注入开关（仅 antigravity 平台）
-  mcp_xml_inject: true,
+  mcp_xml_inject: false,
   // 从分组复制账号
   copy_accounts_from_group_ids: [] as number[],
   // 分组级 RPM 限制（每用户每分钟最大请求数；0 = 不限制）
@@ -486,26 +569,6 @@ const removeSelectedAccount = (
   if (!rule) return;
 
   rule.accounts = rule.accounts.filter((a) => a.id !== accountId);
-};
-
-// 切换创建表单的模型系列选择
-const toggleCreateScope = (scope: string) => {
-  const idx = createForm.supported_model_scopes.indexOf(scope);
-  if (idx === -1) {
-    createForm.supported_model_scopes.push(scope);
-  } else {
-    createForm.supported_model_scopes.splice(idx, 1);
-  }
-};
-
-// 切换编辑表单的模型系列选择
-const toggleEditScope = (scope: string) => {
-  const idx = editForm.supported_model_scopes.indexOf(scope);
-  if (idx === -1) {
-    editForm.supported_model_scopes.push(scope);
-  } else {
-    editForm.supported_model_scopes.splice(idx, 1);
-  }
 };
 
 // 处理账号搜索输入框聚焦
@@ -651,7 +714,8 @@ const convertApiFormatToRoutingRules = async (
 const editForm = reactive({
   name: "",
   description: "",
-  platform: "anthropic" as GroupPlatform,
+  icon: "folder" as GroupIcon,
+  color: "",
   rate_multiplier: 1.0,
   is_exclusive: false,
   status: "active" as "active" | "inactive",
@@ -686,10 +750,8 @@ const editForm = reactive({
   require_privacy_set: false,
   // 模型路由开关
   model_routing_enabled: false,
-  // 支持的模型系列（仅 antigravity 平台）
-  supported_model_scopes: ["claude", "gemini_text", "gemini_image"] as string[],
   // MCP XML 协议注入开关（仅 antigravity 平台）
-  mcp_xml_inject: true,
+  mcp_xml_inject: false,
   // 从分组复制账号
   copy_accounts_from_group_ids: [] as number[],
   // 分组级 RPM 限制（每用户每分钟最大请求数；0 = 不限制）
@@ -909,7 +971,8 @@ const closeCreateModal = () => {
   clearAllAccountSearchState();
   createForm.name = "";
   createForm.description = "";
-  createForm.platform = "anthropic";
+  createForm.icon = "folder";
+  createForm.color = "";
   createForm.rate_multiplier = 1.0;
   createForm.is_exclusive = false;
   createForm.subscription_type = "standard";
@@ -932,8 +995,7 @@ const closeCreateModal = () => {
   resetMessagesDispatchFormState(createForm);
   createForm.require_oauth_only = false;
   createForm.require_privacy_set = false;
-  createForm.supported_model_scopes = ["claude", "gemini_text", "gemini_image"];
-  createForm.mcp_xml_inject = true;
+  createForm.mcp_xml_inject = false;
   createForm.copy_accounts_from_group_ids = [];
   createForm.rpm_limit = 0;
   resetModelsListState(createModelsListState);
@@ -981,6 +1043,8 @@ const handleCreateGroup = async () => {
     // 构建请求数据，包含模型路由配置
     const requestData = {
       ...createForm,
+      icon: normalizeGroupIcon(createForm.icon),
+      color: normalizeGroupColor(createForm.color),
       daily_limit_usd: normalizeOptionalLimit(
         createForm.daily_limit_usd as number | string | null,
       ),
@@ -994,7 +1058,9 @@ const handleCreateGroup = async () => {
         createModelRoutingRules.value,
       ),
       models_list_config: buildModelsListConfig(createModelsListState),
-      supported_model_scopes: createForm.supported_model_scopes,
+      mcp_xml_inject: createHasAntigravityUpstream.value
+        ? createForm.mcp_xml_inject
+        : false,
       messages_dispatch_model_config: messagesDispatchFormStateToConfig({
         allow_messages_dispatch: createForm.allow_messages_dispatch,
         opus_mapped_model: createForm.opus_mapped_model,
@@ -1040,7 +1106,8 @@ const handleEdit = async (group: AdminGroup) => {
   editingGroup.value = group;
   editForm.name = group.name;
   editForm.description = group.description || "";
-  editForm.platform = group.platform || "anthropic";
+  editForm.icon = normalizeGroupIcon(group.icon);
+  editForm.color = normalizeGroupColor(group.color);
   editForm.rate_multiplier = group.rate_multiplier;
   editForm.is_exclusive = group.is_exclusive;
   editForm.status = group.status;
@@ -1076,12 +1143,7 @@ const handleEdit = async (group: AdminGroup) => {
   editForm.require_oauth_only = group.require_oauth_only ?? false;
   editForm.require_privacy_set = group.require_privacy_set ?? false;
   editForm.model_routing_enabled = group.model_routing_enabled || false;
-  editForm.supported_model_scopes = group.supported_model_scopes || [
-    "claude",
-    "gemini_text",
-    "gemini_image",
-  ];
-  editForm.mcp_xml_inject = group.mcp_xml_inject ?? true;
+  editForm.mcp_xml_inject = group.mcp_xml_inject ?? false;
   editForm.copy_accounts_from_group_ids = []; // 复制账号字段每次编辑时重置为空
   editForm.rpm_limit = group.rpm_limit ?? 0;
   resetModelsListState(editModelsListState, group.models_list_config);
@@ -1122,6 +1184,8 @@ const handleUpdateGroup = async () => {
     // 转换 fallback_group_id: null -> 0 (后端使用 0 表示清除)
     const payload = {
       ...editForm,
+      icon: normalizeGroupIcon(editForm.icon),
+      color: normalizeGroupColor(editForm.color),
       daily_limit_usd: normalizeOptionalLimit(
         editForm.daily_limit_usd as number | string | null,
       ),
@@ -1141,7 +1205,9 @@ const handleUpdateGroup = async () => {
         editModelRoutingRules.value,
       ),
       models_list_config: buildModelsListConfig(editModelsListState),
-      supported_model_scopes: editForm.supported_model_scopes,
+      mcp_xml_inject: editHasAntigravityUpstream.value
+        ? editForm.mcp_xml_inject
+        : false,
       messages_dispatch_model_config: messagesDispatchFormStateToConfig({
         allow_messages_dispatch: editForm.allow_messages_dispatch,
         opus_mapped_model: editForm.opus_mapped_model,
@@ -1200,6 +1266,18 @@ const removeEditMessagesDispatchMapping = (row: MessagesDispatchMappingRow) => {
   if (index !== -1) {
     editForm.exact_model_mappings.splice(index, 1);
   }
+};
+
+const onCreateGroupColorInput = (event: Event) => {
+  createForm.color = normalizeGroupColor(
+    (event.target as HTMLInputElement).value,
+  );
+};
+
+const onEditGroupColorInput = (event: Event) => {
+  editForm.color = normalizeGroupColor(
+    (event.target as HTMLInputElement).value,
+  );
 };
 
 const handleRateMultipliers = (group: AdminGroup) => {
@@ -1325,9 +1403,11 @@ const useGroupsExternalTemplateBindings = () => ({
   EmptyState,
   Select,
   Icon,
+  GroupBadge,
   GroupRateMultipliersModal,
   GroupRPMOverridesModal,
   GroupCapacityBadge,
+  GroupUpstreamBadges,
   VueDraggable,
   hasPeakRate,
   invertModelsListSelection,
@@ -1339,6 +1419,8 @@ const useGroupsExternalTemplateBindings = () => ({
   upstreamProtocolFilterOptions,
   editStatusOptions,
   subscriptionTypeOptions,
+  groupIconOptions,
+  groupColorPresets,
   protocolLabel,
   protocolBadgeClass,
   fallbackGroupOptions,
@@ -1347,6 +1429,16 @@ const useGroupsExternalTemplateBindings = () => ({
   invalidRequestFallbackOptionsForEdit,
   copyAccountsGroupOptions,
   copyAccountsGroupOptionsForEdit,
+  createUpstreamPlatforms,
+  createUpstreamProtocols,
+  editUpstreamPlatforms,
+  editUpstreamProtocols,
+  createHasAntigravityUpstream,
+  editHasAntigravityUpstream,
+  createHasImageUpstream,
+  editHasImageUpstream,
+  createHasOpenAICompatibleUpstream,
+  editHasOpenAICompatibleUpstream,
   createModelsListSelectedCount,
   editModelsListSelectedCount,
   getCreateRuleRenderKey,
@@ -1356,8 +1448,6 @@ const useGroupsExternalTemplateBindings = () => ({
   searchAccountsByRule,
   selectAccount,
   removeSelectedAccount,
-  toggleCreateScope,
-  toggleEditScope,
   onAccountSearchFocus,
   addCreateRoutingRule,
   removeCreateRoutingRule,
@@ -1381,6 +1471,8 @@ const useGroupsExternalTemplateBindings = () => ({
   removeCreateMessagesDispatchMapping,
   addEditMessagesDispatchMapping,
   removeEditMessagesDispatchMapping,
+  onCreateGroupColorInput,
+  onEditGroupColorInput,
   handleRateMultipliers,
   handleRPMOverrides,
   handleDelete,

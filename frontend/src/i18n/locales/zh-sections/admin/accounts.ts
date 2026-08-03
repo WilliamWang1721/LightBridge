@@ -38,7 +38,7 @@ export default {
       dataImportFile: '数据文件',
       dataImportSelectedFiles: '已选择 {count} 个文件',
       dataImportGroups: '导入分组',
-      dataImportGroupsHint: '留空时使用各平台默认分组；选择后会绑定到这些分组。',
+      dataImportGroupsHint: '留空时为每个导入账号使用系统默认分组；选择后会将账号绑定到指定分组，不受上游服务商限制。',
       dataImportBatchSettings: '覆盖导入账号设置',
       dataImportRateMultiplier: '费率倍数',
       dataImportAutoPause: '过期后自动暂停',
@@ -447,7 +447,11 @@ export default {
         failed: '批量更新失败',
         noSelection: '请选择要编辑的账号',
         noFieldsSelected: '请至少选择一个要更新的字段',
-        mixedPlatformWarning: '所选账号跨越多个平台（{platforms}）。显示的模型映射预设为合并结果——请确保映射对每个平台都适用。'
+        mixedPlatformWarning: '所选账号跨越多个平台（{platforms}）。显示的模型映射预设为合并结果——请确保映射对每个平台都适用。',
+        relayModeUnchangedHint: '不勾选则本次不修改现有中转模式。',
+        relayModeProtocolHint: '透传和完全透传均要求入站协议与上游协议一致。',
+        relayModeMixedPlatformWarning: '此中转模式会应用到所有选中平台；提交前请逐个平台确认协议兼容性。',
+        relayModeOverridesOpenAIPassthrough: '当前通用设置会覆盖下方仅适用于 OpenAI 的完全透传快捷入口。'
       },
       bulkDeleteTitle: '批量删除账号',
       bulkDeleteConfirm: '确定要删除选中的 {count} 个账号吗？此操作无法撤销。',

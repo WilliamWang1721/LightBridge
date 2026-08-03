@@ -262,7 +262,7 @@ func (m *mockGroupRepoForGemini) ListWithFilters(ctx context.Context, params pag
 	return nil, nil, nil
 }
 func (m *mockGroupRepoForGemini) ListActive(ctx context.Context) ([]Group, error) { return nil, nil }
-func (m *mockGroupRepoForGemini) ListActiveByPlatform(ctx context.Context, platform string) ([]Group, error) {
+func (m *mockGroupRepoForGemini) ListActiveByUpstreamProtocol(ctx context.Context, platform string) ([]Group, error) {
 	return nil, nil
 }
 func (m *mockGroupRepoForGemini) ExistsByName(ctx context.Context, name string) (bool, error) {

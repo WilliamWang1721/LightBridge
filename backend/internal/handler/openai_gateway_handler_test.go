@@ -1361,7 +1361,7 @@ func TestOpenAIResponsesWebSocket_FailoverOnUpstreamUsageLimitEvent(t *testing.T
 		ID:      1802,
 		GroupID: &groupID,
 		User:    &service.User{ID: 1702, Status: service.StatusActive},
-		Group:   &service.Group{ID: groupID, Platform: service.PlatformOpenAI, Status: service.StatusActive},
+		Group:   &service.Group{ID: groupID, Status: service.StatusActive, Hydrated: true},
 	}
 	router := gin.New()
 	router.Use(func(c *gin.Context) {

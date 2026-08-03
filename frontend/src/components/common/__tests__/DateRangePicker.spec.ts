@@ -8,6 +8,7 @@ const messages: Record<string, string> = {
   'dates.today': 'Today',
   'dates.yesterday': 'Yesterday',
   'dates.last24Hours': 'Last 24 Hours',
+  'dates.yesterdayToToday': 'Yesterday to Today',
   'dates.last7Days': 'Last 7 Days',
   'dates.last14Days': 'Last 14 Days',
   'dates.last30Days': 'Last 30 Days',
@@ -34,9 +35,10 @@ const formatLocalDate = (date: Date): string => {
 }
 
 describe('DateRangePicker', () => {
-  it('uses last 24 hours as the default recognized preset', () => {
+  it('labels the calendar-day preset as yesterday to today', () => {
     const now = new Date()
-    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+    const yesterday = new Date(now)
+    yesterday.setDate(yesterday.getDate() - 1)
 
     const wrapper = mount(DateRangePicker, {
       props: {
@@ -50,7 +52,7 @@ describe('DateRangePicker', () => {
       }
     })
 
-    expect(wrapper.text()).toContain('Last 24 Hours')
+    expect(wrapper.text()).toContain('Yesterday to Today')
   })
 
   it('emits range updates with last24Hours preset when applied', async () => {
@@ -71,7 +73,7 @@ describe('DateRangePicker', () => {
 
     await wrapper.find('.date-picker-trigger').trigger('click')
     const presetButton = wrapper.findAll('.date-picker-preset').find((node) =>
-      node.text().includes('Last 24 Hours')
+      node.text().includes('Yesterday to Today')
     )
     expect(presetButton).toBeDefined()
 
@@ -79,7 +81,8 @@ describe('DateRangePicker', () => {
     await wrapper.find('.date-picker-apply').trigger('click')
 
     const nowAfterClick = new Date()
-    const yesterdayAfterClick = new Date(nowAfterClick.getTime() - 24 * 60 * 60 * 1000)
+    const yesterdayAfterClick = new Date(nowAfterClick)
+    yesterdayAfterClick.setDate(yesterdayAfterClick.getDate() - 1)
     const expectedStart = formatLocalDate(yesterdayAfterClick)
     const expectedEnd = formatLocalDate(nowAfterClick)
 

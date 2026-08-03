@@ -80,7 +80,7 @@ func (f *fakeGroupRepo) ListWithFilters(context.Context, pagination.PaginationPa
 	return nil, nil, nil
 }
 func (f *fakeGroupRepo) ListActive(context.Context) ([]service.Group, error) { return nil, nil }
-func (f *fakeGroupRepo) ListActiveByPlatform(context.Context, string) ([]service.Group, error) {
+func (f *fakeGroupRepo) ListActiveByUpstreamProtocol(context.Context, string) ([]service.Group, error) {
 	return nil, nil
 }
 func (f *fakeGroupRepo) ExistsByName(context.Context, string) (bool, error) { return false, nil }

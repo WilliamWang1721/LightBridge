@@ -36,7 +36,7 @@ func (s *GatewayService) SelectAccountForModelWithExclusions(ctx context.Context
 		}
 		groupID = resolvedGroupID
 		ctx = s.withGroupContext(ctx, group)
-		platform = PlatformForRequest(ctx, group.Platform)
+		platform = PlatformForRequest(ctx, PlatformAnthropic)
 	} else {
 		platform = PlatformForRequest(ctx, PlatformAnthropic)
 	}
@@ -127,12 +127,8 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 	)
 
 	if s.debugModelRoutingEnabled() && requestedModel != "" {
-		groupPlatform := ""
-		if group != nil {
-			groupPlatform = group.Platform
-		}
-		logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] select entry: group_id=%v group_platform=%s model=%s session=%s sticky_account=%d load_batch=%v concurrency=%v",
-			derefGroupID(groupID), groupPlatform, requestedModel, shortSessionHash(sessionHash), stickyAccountID, cfg.LoadBatchEnabled, s.concurrencyService != nil)
+		logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] select entry: group_id=%v inbound_protocol=%s model=%s session=%s sticky_account=%d load_batch=%v concurrency=%v",
+			derefGroupID(groupID), InboundProtocolFromContext(ctx), requestedModel, shortSessionHash(sessionHash), stickyAccountID, cfg.LoadBatchEnabled, s.concurrencyService != nil)
 	}
 
 	if s.concurrencyService == nil || !cfg.LoadBatchEnabled {

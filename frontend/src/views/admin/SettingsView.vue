@@ -66,7 +66,6 @@ import {
   SETTINGS_TABS,
   TABLE_PAGE_SIZE_MAX,
   TABLE_PAGE_SIZE_MIN,
-  type DefaultSubscriptionGroupOption,
   type SettingsTab,
 } from "@/views/admin/settings/model/settingsViewModel";
 import {
@@ -450,14 +449,16 @@ async function saveWebSearchConfig(): Promise<boolean> {
   }
 }
 
-const defaultSubscriptionGroupOptions = computed<
-  DefaultSubscriptionGroupOption[]
->(() =>
+const defaultSubscriptionGroupOptions = computed(() =>
   subscriptionGroups.value.map((group) => ({
     value: group.id,
     label: group.name,
     description: group.description,
-    platform: group.platform,
+    icon: group.icon,
+    color: group.color,
+    upstreamPlatforms: group.upstream_platforms,
+    upstreamProtocols: group.upstream_protocols,
+    availableIngressProtocols: group.available_ingress_protocols,
     subscriptionType: group.subscription_type,
     rate: group.rate_multiplier,
   })),

@@ -1,8 +1,6 @@
 package routes
 
 import (
-	"net/http"
-
 	"github.com/WilliamWang1721/LightBridge/internal/config"
 	"github.com/WilliamWang1721/LightBridge/internal/handler"
 	"github.com/WilliamWang1721/LightBridge/internal/server/middleware"
@@ -44,35 +42,17 @@ func RegisterGatewayRoutes(
 	gateway.Use(requireGroupAnthropic)
 	gateway.Use(privacyResp)
 	{
-		gateway.POST("/messages", func(c *gin.Context) {
-			switch getGroupPlatform(c) {
-			case service.PlatformOpenAI, service.PlatformGrok:
-				h.OpenAIGateway.Messages(c)
-			default:
-				h.Gateway.Messages(c)
-			}
-		})
-		gateway.POST("/messages/count_tokens", func(c *gin.Context) {
-			switch getGroupPlatform(c) {
-			case service.PlatformOpenAI, service.PlatformGrok:
-				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-				c.JSON(http.StatusNotFound, gin.H{"error": gin.H{
-					"type":    "not_found_error",
-					"message": "Token counting is not supported for this platform",
-				}})
-			default:
-				h.Gateway.CountTokens(c)
-			}
-		})
+		gateway.POST("/messages", h.Gateway.Messages)
+		gateway.POST("/messages/count_tokens", h.Gateway.CountTokens)
 		gateway.GET("/models", h.Gateway.Models)
 		gateway.GET("/usage", h.Gateway.Usage)
-		gateway.POST("/responses", openAICompatibleResponsesHandler(h))
-		gateway.POST("/responses/*subpath", openAICompatibleResponsesHandler(h))
+		gateway.POST("/responses", h.Gateway.Responses)
+		gateway.POST("/responses/*subpath", h.Gateway.Responses)
 		gateway.GET("/responses", h.OpenAIGateway.ResponsesWebSocket)
-		gateway.POST("/chat/completions", chatCompletionsHandler(h, "/v1/chat/completions"))
-		gateway.POST("/embeddings", openAIOnlyHandler(h.OpenAIGateway.Embeddings, "/v1/embeddings"))
-		gateway.POST("/images/generations", openAIOnlyHandler(h.OpenAIGateway.Images, "/v1/images/generations"))
-		gateway.POST("/images/edits", openAIOnlyHandler(h.OpenAIGateway.Images, "/v1/images/edits"))
+		gateway.POST("/chat/completions", h.Gateway.ChatCompletions)
+		gateway.POST("/embeddings", h.OpenAIGateway.Embeddings)
+		gateway.POST("/images/generations", h.OpenAIGateway.Images)
+		gateway.POST("/images/edits", h.OpenAIGateway.Images)
 	}
 
 	// Gemini 原生 API 兼容层（Gemini SDK/CLI 直连）
@@ -92,7 +72,7 @@ func RegisterGatewayRoutes(
 	}
 
 	// OpenAI Responses API（不带v1前缀的别名）
-	responsesHandler := openAICompatibleResponsesHandler(h)
+	responsesHandler := h.Gateway.Responses
 	r.POST("/responses", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, privacyResp, responsesHandler)
 	r.POST("/responses/*subpath", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, privacyResp, responsesHandler)
 	r.GET("/responses", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, h.OpenAIGateway.ResponsesWebSocket)
@@ -104,10 +84,10 @@ func RegisterGatewayRoutes(
 		codexDirect.GET("/responses", h.OpenAIGateway.ResponsesWebSocket)
 	}
 	// OpenAI Chat Completions API（不带v1前缀的别名）
-	r.POST("/chat/completions", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, privacyResp, chatCompletionsHandler(h, "/chat/completions"))
-	r.POST("/embeddings", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, privacyResp, openAIOnlyHandler(h.OpenAIGateway.Embeddings, "/embeddings"))
-	r.POST("/images/generations", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, privacyResp, openAIOnlyHandler(h.OpenAIGateway.Images, "/images/generations"))
-	r.POST("/images/edits", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, privacyResp, openAIOnlyHandler(h.OpenAIGateway.Images, "/images/edits"))
+	r.POST("/chat/completions", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, privacyResp, h.Gateway.ChatCompletions)
+	r.POST("/embeddings", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, privacyResp, h.OpenAIGateway.Embeddings)
+	r.POST("/images/generations", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, privacyResp, h.OpenAIGateway.Images)
+	r.POST("/images/edits", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, privacyResp, h.OpenAIGateway.Images)
 
 	// Antigravity 模型列表
 	r.GET("/antigravity/models", gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, h.Gateway.AntigravityModels)
@@ -144,61 +124,6 @@ func RegisterGatewayRoutes(
 		antigravityV1Beta.POST("/models/*modelAction", h.Gateway.GeminiV1BetaModels)
 	}
 
-}
-
-func getGroupPlatform(c *gin.Context) string {
-	apiKey, ok := middleware.GetAPIKeyFromContext(c)
-	if !ok || apiKey == nil || apiKey.Group == nil {
-		return ""
-	}
-	return apiKey.Group.Platform
-}
-
-func grokUnsupported(c *gin.Context, endpoint string) {
-	service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-	c.JSON(http.StatusNotFound, gin.H{"error": gin.H{
-		"type":    "not_found_error",
-		"message": endpoint + " is not supported for Grok groups",
-	}})
-}
-
-func openAICompatibleResponsesHandler(h *handler.Handlers) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		switch getGroupPlatform(c) {
-		case service.PlatformOpenAI, service.PlatformGrok:
-			h.OpenAIGateway.Responses(c)
-		default:
-			h.Gateway.Responses(c)
-		}
-	}
-}
-
-func chatCompletionsHandler(h *handler.Handlers, endpoint string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		switch getGroupPlatform(c) {
-		case service.PlatformOpenAI, service.PlatformGrok:
-			h.OpenAIGateway.ChatCompletions(c)
-		default:
-			h.Gateway.ChatCompletions(c)
-		}
-	}
-}
-
-func openAIOnlyHandler(next gin.HandlerFunc, endpoint string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		switch getGroupPlatform(c) {
-		case service.PlatformOpenAI:
-			next(c)
-		case service.PlatformGrok:
-			grokUnsupported(c, endpoint)
-		default:
-			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-			c.JSON(http.StatusNotFound, gin.H{"error": gin.H{
-				"type":    "not_found_error",
-				"message": endpoint + " is only supported for OpenAI groups",
-			}})
-		}
-	}
 }
 
 func shouldUseOpenAIHandler(c *gin.Context) bool {

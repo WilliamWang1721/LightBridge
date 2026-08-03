@@ -298,6 +298,119 @@ describe('BulkEditAccountModal', () => {
     })
   })
 
+  it('未启用通用中转模式时不写 extra', async () => {
+    const wrapper = mountModal({
+      selectedPlatforms: ['custom'],
+      selectedTypes: ['apikey']
+    })
+
+    expect(wrapper.text()).toContain('admin.accounts.bulkEdit.relayModeUnchangedHint')
+    await wrapper.get('#bulk-edit-status-enabled').setValue(true)
+    await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(adminAPI.accounts.bulkUpdate).toHaveBeenCalledWith([1, 2], {
+      status: 'active'
+    })
+  })
+
+  it.each(['router', 'passthrough', 'full_passthrough'] as const)(
+    'Custom 账号批量编辑可明确写入 %s 中转模式并清理旧字段',
+    async (relayMode) => {
+      const wrapper = mountModal({
+        selectedPlatforms: ['custom'],
+        selectedTypes: ['apikey']
+      })
+
+      await wrapper.get('#bulk-edit-relay-mode-enabled').setValue(true)
+      await wrapper.get('[data-testid="bulk-edit-relay-mode-select"]').setValue(relayMode)
+      await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
+      await flushPromises()
+
+      expect(adminAPI.accounts.bulkUpdate).toHaveBeenCalledWith([1, 2], {
+        extra: {
+          relay_mode: relayMode,
+          openai_passthrough: false,
+          openai_oauth_passthrough: false,
+          anthropic_passthrough: false
+        }
+      })
+    }
+  )
+
+  it('通用中转模式覆盖 OpenAI 全量透传快捷入口，避免冲突 payload', async () => {
+    const wrapper = mountModal({
+      selectedPlatforms: ['openai'],
+      selectedTypes: ['oauth']
+    })
+
+    await wrapper.get('#bulk-edit-openai-passthrough-enabled').setValue(true)
+    await wrapper.get('#bulk-edit-openai-passthrough-toggle').trigger('click')
+    await wrapper.get('#bulk-edit-relay-mode-enabled').setValue(true)
+    await wrapper.get('[data-testid="bulk-edit-relay-mode-select"]').setValue('passthrough')
+
+    expect(wrapper.get('#bulk-edit-openai-passthrough-enabled').attributes('disabled')).toBeDefined()
+    expect(wrapper.text()).toContain('admin.accounts.bulkEdit.relayModeOverridesOpenAIPassthrough')
+
+    await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(adminAPI.accounts.bulkUpdate).toHaveBeenCalledWith([1, 2], {
+      extra: {
+        relay_mode: 'passthrough',
+        openai_passthrough: false,
+        openai_oauth_passthrough: false,
+        anthropic_passthrough: false
+      }
+    })
+  })
+
+  it('混合平台账号仍可批量编辑中转模式，并显示协议兼容性提示', async () => {
+    const wrapper = mountModal({
+      selectedPlatforms: ['custom', 'openai'],
+      selectedTypes: ['apikey']
+    })
+
+    expect(wrapper.text()).toContain('admin.accounts.bulkEdit.relayModeMixedPlatformWarning')
+    await wrapper.get('#bulk-edit-relay-mode-enabled').setValue(true)
+    await wrapper.get('[data-testid="bulk-edit-relay-mode-select"]').setValue('full_passthrough')
+    await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(adminAPI.accounts.bulkUpdate).toHaveBeenCalledWith([1, 2], {
+      extra: {
+        relay_mode: 'full_passthrough',
+        openai_passthrough: false,
+        openai_oauth_passthrough: false,
+        anthropic_passthrough: false
+      }
+    })
+  })
+
+  it('通用中转模式不会丢弃其他已启用字段', async () => {
+    const wrapper = mountModal({
+      selectedPlatforms: ['custom'],
+      selectedTypes: ['apikey']
+    })
+
+    await wrapper.get('#bulk-edit-relay-mode-enabled').setValue(true)
+    await wrapper.get('[data-testid="bulk-edit-relay-mode-select"]').setValue('passthrough')
+    await wrapper.get('#bulk-edit-priority-enabled').setValue(true)
+    await wrapper.get('#bulk-edit-priority').setValue(7)
+    await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(adminAPI.accounts.bulkUpdate).toHaveBeenCalledWith([1, 2], {
+      priority: 7,
+      extra: {
+        relay_mode: 'passthrough',
+        openai_passthrough: false,
+        openai_oauth_passthrough: false,
+        anthropic_passthrough: false
+      }
+    })
+  })
+
   it('开启 OpenAI 自动透传时不再同时提交模型限制', async () => {
     const wrapper = mountModal({
       selectedPlatforms: ['openai'],

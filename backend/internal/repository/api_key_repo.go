@@ -4,10 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
 	dbent "github.com/WilliamWang1721/LightBridge/ent"
+	"github.com/WilliamWang1721/LightBridge/ent/account"
 	"github.com/WilliamWang1721/LightBridge/ent/apikey"
 	"github.com/WilliamWang1721/LightBridge/ent/group"
 	"github.com/WilliamWang1721/LightBridge/ent/schema/mixins"
@@ -73,7 +75,7 @@ func (r *apiKeyRepository) GetByID(ctx context.Context, id int64) (*service.APIK
 	m, err := r.activeQuery().
 		Where(apikey.IDEQ(id)).
 		WithUser().
-		WithGroup().
+		WithGroup(withGroupPresentationAccounts).
 		Only(ctx)
 	if err != nil {
 		if dbent.IsNotFound(err) {
@@ -107,7 +109,7 @@ func (r *apiKeyRepository) GetByKey(ctx context.Context, key string) (*service.A
 	m, err := r.activeQuery().
 		Where(apikey.KeyEQ(key)).
 		WithUser().
-		WithGroup().
+		WithGroup(withGroupPresentationAccounts).
 		Only(ctx)
 	if err != nil {
 		if dbent.IsNotFound(err) {
@@ -160,7 +162,8 @@ func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*se
 			q.Select(
 				group.FieldID,
 				group.FieldName,
-				group.FieldPlatform,
+				group.FieldIcon,
+				group.FieldColor,
 				group.FieldStatus,
 				group.FieldSubscriptionType,
 				group.FieldRateMultiplier,
@@ -179,7 +182,6 @@ func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*se
 				group.FieldModelRoutingEnabled,
 				group.FieldModelRouting,
 				group.FieldMcpXMLInject,
-				group.FieldSupportedModelScopes,
 				group.FieldAllowMessagesDispatch,
 				group.FieldDefaultMappedModel,
 				group.FieldMessagesDispatchModelConfig,
@@ -331,7 +333,7 @@ func (r *apiKeyRepository) ListByUserID(ctx context.Context, userID int64, param
 	}
 
 	keysQuery := q.
-		WithGroup().
+		WithGroup(withGroupPresentationAccounts).
 		Offset(params.Offset()).
 		Limit(params.Limit())
 	for _, order := range apiKeyListOrder(params) {
@@ -691,11 +693,12 @@ func groupEntityToService(g *dbent.Group) *service.Group {
 	if g == nil {
 		return nil
 	}
-	return &service.Group{
+	out := &service.Group{
 		ID:                              g.ID,
 		Name:                            g.Name,
 		Description:                     derefString(g.Description),
-		Platform:                        g.Platform,
+		Icon:                            g.Icon,
+		Color:                           g.Color,
 		RateMultiplier:                  g.RateMultiplier,
 		PeakRateEnabled:                 g.PeakRateEnabled,
 		PeakStart:                       g.PeakStart,
@@ -721,7 +724,6 @@ func groupEntityToService(g *dbent.Group) *service.Group {
 		ModelRouting:                    g.ModelRouting,
 		ModelRoutingEnabled:             g.ModelRoutingEnabled,
 		MCPXMLInject:                    g.McpXMLInject,
-		SupportedModelScopes:            g.SupportedModelScopes,
 		SortOrder:                       g.SortOrder,
 		AllowMessagesDispatch:           g.AllowMessagesDispatch,
 		RequireOAuthOnly:                g.RequireOauthOnly,
@@ -733,6 +735,54 @@ func groupEntityToService(g *dbent.Group) *service.Group {
 		CreatedAt:                       g.CreatedAt,
 		UpdatedAt:                       g.UpdatedAt,
 	}
+	if len(g.Edges.Accounts) == 0 {
+		return out
+	}
+	upstreamProtocols := make(map[string]struct{})
+	upstreamPlatforms := make(map[string]struct{})
+	ingressProtocols := make(map[string]struct{})
+	for _, entity := range g.Edges.Accounts {
+		accountView := &service.Account{
+			Platform:    entity.Platform,
+			SubPlatform: entity.SubPlatform,
+			Extra:       entity.Extra,
+			Credentials: entity.Credentials,
+		}
+		for _, protocol := range service.AccountUpstreamProtocols(accountView) {
+			upstreamProtocols[protocol] = struct{}{}
+		}
+		for _, protocol := range service.AccountAvailableIngressProtocols(accountView) {
+			ingressProtocols[protocol] = struct{}{}
+		}
+		if platform := accountView.EffectivePlatform(); platform != "" {
+			upstreamPlatforms[platform] = struct{}{}
+		}
+	}
+	out.UpstreamProtocols = sortedRepositoryStringSet(upstreamProtocols)
+	out.UpstreamPlatforms = sortedRepositoryStringSet(upstreamPlatforms)
+	out.AvailableIngressProtocols = sortedRepositoryStringSet(ingressProtocols)
+	return out
+}
+
+func withGroupPresentationAccounts(q *dbent.GroupQuery) {
+	q.WithAccounts(func(accounts *dbent.AccountQuery) {
+		accounts.Select(
+			account.FieldID,
+			account.FieldPlatform,
+			account.FieldSubPlatform,
+			account.FieldExtra,
+			account.FieldCredentials,
+		)
+	})
+}
+
+func sortedRepositoryStringSet(values map[string]struct{}) []string {
+	out := make([]string, 0, len(values))
+	for value := range values {
+		out = append(out, value)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func derefString(s *string) string {

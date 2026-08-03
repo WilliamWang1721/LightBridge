@@ -64,7 +64,31 @@
     </div>
 
     <div
-      v-if="buildType && !isReleaseBuild"
+      v-if="isContainerDeployment"
+      class="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-800/50 dark:bg-blue-900/20"
+    >
+      <Icon
+        name="infoCircle"
+        size="md"
+        :stroke-width="2"
+        class="mt-0.5 flex-shrink-0 text-blue-600 dark:text-blue-400"
+      />
+      <div>
+        <p class="text-sm font-medium text-blue-800 dark:text-blue-200">
+          {{ t('version.containerUpgradeTitle') }}
+        </p>
+        <p class="mt-1 text-sm text-blue-700/80 dark:text-blue-300/80">
+          {{ t('version.containerUpgradeHint') }}
+        </p>
+        <div class="mt-3 flex flex-wrap gap-2 text-xs">
+          <code class="rounded bg-blue-100 px-2 py-1 font-mono text-blue-800 dark:bg-blue-900/50 dark:text-blue-100">{{ t('version.containerUpgradePull') }}</code>
+          <code class="rounded bg-blue-100 px-2 py-1 font-mono text-blue-800 dark:bg-blue-900/50 dark:text-blue-100">{{ t('version.containerUpgradeUp') }}</code>
+        </div>
+      </div>
+    </div>
+
+    <div
+      v-else-if="buildType && !isReleaseBuild"
       class="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-800/50 dark:bg-blue-900/20"
     >
       <Icon
@@ -122,7 +146,7 @@
         </p>
       </div>
       <button
-        v-if="needRestart"
+        v-if="needRestart && canRestart"
         type="button"
         class="inline-flex items-center gap-2 rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
         :disabled="restarting"
@@ -209,6 +233,7 @@
 
           <div class="flex items-center gap-2 md:justify-end">
             <button
+              v-if="canRestart"
               type="button"
               class="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-dark-600 dark:bg-dark-800 dark:text-dark-200 dark:hover:bg-dark-700"
               @click="showUpgradeChanges(release)"
@@ -217,9 +242,10 @@
               {{ t('version.viewUpgradeChanges') }}
             </button>
             <button
+              v-if="canInPlaceUpdate"
               type="button"
               class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
-              :disabled="!isReleaseBuild || updating || restarting || isSameVersion(release.version, currentVersion)"
+              :disabled="updating || restarting || isSameVersion(release.version, currentVersion)"
               @click="confirmInstall(release)"
             >
               <Icon name="download" size="sm" :stroke-width="2" />
@@ -235,6 +261,7 @@
     </div>
 
     <ConfirmDialog
+      v-if="canInPlaceUpdate"
       :show="confirmDialogOpen"
       :title="t('version.installConfirmTitle')"
       :message="installConfirmMessage"
@@ -251,11 +278,12 @@
     </ConfirmDialog>
 
     <UpgradeChangesDialog
+      v-if="canRestart"
       :show="upgradeChangesOpen"
       :version="upgradeChangesRelease?.version"
       :body="upgradeChangesRelease?.body"
       :html-url="upgradeChangesRelease?.html_url"
-      :can-upgrade="isReleaseBuild && !isSameVersion(upgradeChangesRelease?.version, currentVersion)"
+      :can-upgrade="canInPlaceUpdate && !isSameVersion(upgradeChangesRelease?.version, currentVersion)"
       :upgrading="updating"
       :restarting="restarting"
       @close="upgradeChangesOpen = false"
@@ -275,6 +303,7 @@ import {
   listVersionReleases,
   performUpdate,
   restartService,
+  type UpdateCapabilities,
   type VersionRelease
 } from '@/api/admin/system'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
@@ -290,6 +319,12 @@ const releases = ref<VersionRelease[]>([])
 const currentVersion = ref('')
 const latestVersion = ref('')
 const buildType = ref('')
+const updateCapabilities = ref<UpdateCapabilities>({
+  deployment_type: 'unknown',
+  can_in_place_update: false,
+  can_rollback: false,
+  can_restart: false
+})
 const updating = ref(false)
 const updateError = ref('')
 const updateSuccess = ref(false)
@@ -303,6 +338,11 @@ const upgradeChangesOpen = ref(false)
 const versionType = ref<'production' | 'preview'>('production')
 
 const isReleaseBuild = computed(() => buildType.value === 'release')
+const isContainerDeployment = computed(() => updateCapabilities.value.deployment_type === 'container')
+const canInPlaceUpdate = computed(
+  () => isReleaseBuild.value && updateCapabilities.value.can_in_place_update
+)
+const canRestart = computed(() => updateCapabilities.value.can_restart)
 const publishedReleases = computed(() =>
   releases.value.filter((release) => {
     if (release.draft) return false
@@ -360,23 +400,27 @@ async function loadReleases(force = false) {
     currentVersion.value = releaseData.current_version || versionInfo?.current_version || appStore.currentVersion
     latestVersion.value = releaseData.latest_version || versionInfo?.latest_version || appStore.latestVersion
     buildType.value = releaseData.build_type || versionInfo?.build_type || appStore.buildType
+    updateCapabilities.value = releaseData.capabilities || versionInfo?.capabilities || appStore.updateCapabilities
     releases.value = releaseData.releases || []
   } catch (error) {
     loadError.value = getErrorMessage(error, t('version.loadVersionsFailed'))
     currentVersion.value = appStore.currentVersion
     latestVersion.value = appStore.latestVersion
     buildType.value = appStore.buildType
+    updateCapabilities.value = appStore.updateCapabilities
   } finally {
     loading.value = false
   }
 }
 
 function confirmInstall(release: VersionRelease) {
+  if (!canInPlaceUpdate.value) return
   selectedRelease.value = release
   confirmDialogOpen.value = true
 }
 
 function showUpgradeChanges(release: VersionRelease) {
+  if (!canRestart.value) return
   upgradeChangesRelease.value = release
   upgradeChangesOpen.value = true
 }
@@ -389,7 +433,7 @@ function handleUpgradeFromDialog() {
 }
 
 async function handleInstall() {
-  if (!selectedRelease.value || updating.value) return
+  if (!selectedRelease.value || !canInPlaceUpdate.value || updating.value) return
 
   confirmDialogOpen.value = false
   updating.value = true
@@ -418,7 +462,7 @@ async function handleInstall() {
 }
 
 async function handleRestart() {
-  if (restarting.value) return
+  if (!canRestart.value || restarting.value) return
 
   restarting.value = true
   restartCountdown.value = 8

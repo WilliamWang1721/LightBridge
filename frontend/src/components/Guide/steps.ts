@@ -51,16 +51,6 @@ export const getAdminSteps = (t: (key: string) => string, isSimpleMode = false):
     }
   },
   {
-    element: '[data-tour="group-form-platform"]',
-    popover: {
-      title: t('onboarding.admin.groupPlatform.title'),
-      description: t('onboarding.admin.groupPlatform.description'),
-      side: 'right',
-      align: 'start',
-      showButtons: ['next', 'previous']
-    }
-  },
-  {
     element: '[data-tour="group-form-multiplier"]',
     popover: {
       title: t('onboarding.admin.groupMultiplier.title'),

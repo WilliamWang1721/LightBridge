@@ -1612,7 +1612,7 @@ func (r *stubGroupRepo) ListActive(ctx context.Context) ([]service.Group, error)
 	return append([]service.Group(nil), r.active...), nil
 }
 
-func (r *stubGroupRepo) ListActiveByPlatform(ctx context.Context, platform string) ([]service.Group, error) {
+func (r *stubGroupRepo) ListActiveByUpstreamProtocol(ctx context.Context, platform string) ([]service.Group, error) {
 	out := make([]service.Group, 0, len(r.active))
 	for i := range r.active {
 		g := r.active[i]

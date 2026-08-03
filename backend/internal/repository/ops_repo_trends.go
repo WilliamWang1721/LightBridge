@@ -187,22 +187,25 @@ ORDER BY bucket ASC`
 func (r *opsRepository) getThroughputBreakdownByPlatform(ctx context.Context, start, end time.Time) ([]*service.OpsThroughputPlatformBreakdownItem, error) {
 	q := `
 WITH usage_totals AS (
-  SELECT COALESCE(NULLIF(g.platform,''), a.platform) AS platform,
+  SELECT ` + usageLogEffectivePlatformExpr + ` AS platform,
          COUNT(*) AS success_count,
          COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) AS token_consumed
   FROM usage_logs ul
-  LEFT JOIN groups g ON g.id = ul.group_id
   LEFT JOIN accounts a ON a.id = ul.account_id
   WHERE ul.created_at >= $1 AND ul.created_at < $2
   GROUP BY 1
 ),
 error_totals AS (
-  SELECT platform,
+  SELECT COALESCE(
+           ` + usageLogEffectivePlatformExpr + `,
+           NULLIF(LOWER(COALESCE(o.platform, '')), '')
+         ) AS platform,
          COUNT(*) AS error_count
-  FROM ops_error_logs
-  WHERE created_at >= $1 AND created_at < $2
-    AND COALESCE(status_code, 0) >= 400
-    AND is_count_tokens = FALSE  -- 排除 count_tokens 请求的错误
+  FROM ops_error_logs o
+  LEFT JOIN accounts a ON a.id = o.account_id
+  WHERE o.created_at >= $1 AND o.created_at < $2
+    AND COALESCE(o.status_code, 0) >= 400
+    AND o.is_count_tokens = FALSE  -- 排除 count_tokens 请求的错误
   GROUP BY 1
 ),
 combined AS (
@@ -264,19 +267,24 @@ WITH usage_totals AS (
          COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) AS token_consumed
   FROM usage_logs ul
   JOIN groups g ON g.id = ul.group_id
+  LEFT JOIN accounts a ON a.id = ul.account_id
   WHERE ul.created_at >= $1 AND ul.created_at < $2
-    AND g.platform = $3
+    AND ` + usageLogEffectivePlatformExpr + ` = $3
   GROUP BY 1, 2
 ),
 error_totals AS (
-  SELECT group_id,
+  SELECT o.group_id,
          COUNT(*) AS error_count
-  FROM ops_error_logs
-  WHERE created_at >= $1 AND created_at < $2
-    AND platform = $3
-    AND group_id IS NOT NULL
-    AND COALESCE(status_code, 0) >= 400
-    AND is_count_tokens = FALSE  -- 排除 count_tokens 请求的错误
+  FROM ops_error_logs o
+  LEFT JOIN accounts a ON a.id = o.account_id
+  WHERE o.created_at >= $1 AND o.created_at < $2
+    AND COALESCE(
+          ` + usageLogEffectivePlatformExpr + `,
+          NULLIF(LOWER(COALESCE(o.platform, '')), '')
+        ) = $3
+    AND o.group_id IS NOT NULL
+    AND COALESCE(o.status_code, 0) >= 400
+    AND o.is_count_tokens = FALSE  -- 排除 count_tokens 请求的错误
   GROUP BY 1
 ),
 combined AS (

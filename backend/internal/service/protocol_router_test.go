@@ -268,8 +268,8 @@ func TestPlatformForRequest_UsesInboundBeforeGroupFallback(t *testing.T) {
 	)
 }
 
-func TestQuotaPlatform_UsesInboundBeforeGroupFallback(t *testing.T) {
-	apiKey := &APIKey{Group: &Group{Platform: PlatformAnthropic}}
+func TestQuotaPlatform_UsesIngressWithoutGroupTypeFallback(t *testing.T) {
+	apiKey := &APIKey{Group: &Group{}}
 
 	require.Equal(t,
 		PlatformOpenAI,
@@ -280,7 +280,7 @@ func TestQuotaPlatform_UsesInboundBeforeGroupFallback(t *testing.T) {
 		QuotaPlatform(WithInboundProtocol(context.Background(), CustomProtocolGemini), apiKey),
 	)
 	require.Equal(t,
-		PlatformAnthropic,
+		"",
 		QuotaPlatform(context.Background(), apiKey),
 	)
 }
@@ -289,7 +289,7 @@ func TestGatewayResolvePlatform_UsesInboundBeforeGroupFallback(t *testing.T) {
 	svc := &GatewayService{}
 	ctx := WithInboundProtocol(context.Background(), CustomProtocolOpenAIResponses)
 
-	platform, hasForcePlatform, err := svc.resolvePlatform(ctx, nil, &Group{Platform: PlatformAnthropic})
+	platform, hasForcePlatform, err := svc.resolvePlatform(ctx, nil, &Group{})
 
 	require.NoError(t, err)
 	require.False(t, hasForcePlatform)

@@ -1,5 +1,15 @@
 <template>
   <form class="space-y-3" @submit.prevent="handleSubmit">
+    <div
+      v-if="settingsLoadFailed"
+      role="alert"
+      class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300"
+    >
+      <p>{{ t('auth.publicSettingsLoadFailed') }}</p>
+      <button type="button" class="mt-2 font-medium underline" @click="loadPublicSettings">
+        {{ t('common.retry') }}
+      </button>
+    </div>
     <input
       v-model="email"
       :data-testid="`${testIdPrefix}-create-account-email`"
@@ -71,7 +81,7 @@
       :data-testid="`${testIdPrefix}-create-account-submit`"
       type="button"
       class="btn btn-primary w-full"
-      :disabled="isSubmitting || !email.trim() || password.length < 6 || (invitationCodeEnabled && !invitationCode.trim())"
+      :disabled="settingsLoadFailed || isSubmitting || !email.trim() || password.length < 6 || !/^\d{6}$/.test(verifyCode.trim()) || (invitationCodeEnabled && !invitationCode.trim())"
       @click="handleSubmit"
     >
       {{ isSubmitting ? t('common.processing') : t('auth.createAccount') }}
@@ -129,6 +139,7 @@ const turnstileEnabled = ref(false)
 const turnstileSiteKey = ref('')
 const turnstileToken = ref('')
 const turnstileRef = ref<InstanceType<typeof TurnstileWidget> | null>(null)
+const settingsLoadFailed = ref(false)
 
 let countdownTimer: ReturnType<typeof setInterval> | null = null
 
@@ -240,14 +251,20 @@ async function handleSendCode() {
 
 function handleSubmit() {
   const trimmedEmail = email.value.trim()
-  if (!trimmedEmail || password.value.length < 6) {
+  const trimmedVerifyCode = verifyCode.value.trim()
+  if (settingsLoadFailed.value || !trimmedEmail || password.value.length < 6 || !/^\d{6}$/.test(trimmedVerifyCode)) {
+    if (trimmedVerifyCode && !/^\d{6}$/.test(trimmedVerifyCode)) {
+      appStore.showError(t('auth.invalidCode'))
+    } else if (!trimmedVerifyCode) {
+      appStore.showError(t('auth.codeRequired'))
+    }
     return
   }
 
   emit('submit', {
     email: trimmedEmail,
     password: password.value,
-    verifyCode: verifyCode.value.trim(),
+    verifyCode: trimmedVerifyCode,
     invitationCode: invitationCode.value.trim() || undefined
   })
 }
@@ -256,17 +273,20 @@ function emitSwitchToBind() {
   emit('switchToBind', email.value.trim())
 }
 
-onMounted(async () => {
+async function loadPublicSettings() {
+  settingsLoadFailed.value = false
   try {
     const settings = await getPublicSettings()
     invitationCodeEnabled.value = settings.invitation_code_enabled === true
     turnstileEnabled.value = settings.turnstile_enabled === true
     turnstileSiteKey.value = settings.turnstile_site_key || ''
   } catch {
-    invitationCodeEnabled.value = false
-    turnstileEnabled.value = false
-    turnstileSiteKey.value = ''
+    settingsLoadFailed.value = true
   }
+}
+
+onMounted(() => {
+  void loadPublicSettings()
 })
 
 onUnmounted(() => {

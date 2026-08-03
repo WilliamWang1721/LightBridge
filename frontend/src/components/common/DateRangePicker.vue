@@ -66,7 +66,7 @@
 
         <!-- Apply button -->
         <div class="date-picker-actions">
-          <button @click="apply" class="date-picker-apply">
+          <button @click="apply" class="date-picker-apply" :disabled="!isRangeValid">
             {{ t('dates.apply') }}
           </button>
         </div>
@@ -107,6 +107,7 @@ const containerRef = ref<HTMLElement | null>(null)
 const localStartDate = ref(props.startDate)
 const localEndDate = ref(props.endDate)
 const activePreset = ref<string | null>('last24Hours')
+const isRangeValid = computed(() => Boolean(localStartDate.value && localEndDate.value && localStartDate.value <= localEndDate.value))
 
 const today = computed(() => {
   // Use local timezone to avoid UTC timezone issues
@@ -153,11 +154,12 @@ const presets: DatePreset[] = [
     }
   },
   {
-    labelKey: 'dates.last24Hours',
+    labelKey: 'dates.yesterdayToToday',
     value: 'last24Hours',
     getRange: () => {
       const end = new Date()
-      const start = new Date(end.getTime() - 24 * 60 * 60 * 1000)
+      const start = new Date(end)
+      start.setDate(start.getDate() - 1)
       return {
         start: formatDateToString(start),
         end: formatDateToString(end)
@@ -268,6 +270,7 @@ const toggle = () => {
 }
 
 const apply = () => {
+  if (!isRangeValid.value) return
   emit('update:startDate', localStartDate.value)
   emit('update:endDate', localEndDate.value)
   emit('change', {
@@ -356,7 +359,8 @@ onUnmounted(() => {
   @apply border border-gray-200 dark:border-dark-700;
   @apply shadow-lg shadow-black/10 dark:shadow-black/30;
   @apply overflow-hidden;
-  @apply min-w-[320px];
+  width: min(320px, calc(100vw - 1rem));
+  @apply min-w-0;
 }
 
 .date-picker-presets {
@@ -421,6 +425,10 @@ onUnmounted(() => {
   @apply bg-primary-600 text-white;
   @apply hover:bg-primary-700;
   @apply transition-colors duration-150;
+}
+
+.date-picker-apply:disabled {
+  @apply cursor-not-allowed opacity-50;
 }
 
 /* Dropdown animation */

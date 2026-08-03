@@ -42,6 +42,23 @@ func TestLoadDefaultManagedProviderRegistryURL(t *testing.T) {
 	}
 }
 
+func TestLoadDefaultMarketplaceTimeout(t *testing.T) {
+	resetViperWithJWTSecret(t)
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.Equal(t, 60, cfg.Modules.MarketplaceTimeoutSeconds)
+}
+
+func TestLoadMarketplaceTimeoutOverride(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	viper.Set("modules.marketplace_timeout_seconds", 90)
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.Equal(t, 90, cfg.Modules.MarketplaceTimeoutSeconds)
+}
+
 func TestLoadUpgradesLegacyManagedProviderRegistryURL(t *testing.T) {
 	resetViperWithJWTSecret(t)
 	viper.Set("modules.marketplace_registry_url", LegacyManagedProviderRegistryURL)

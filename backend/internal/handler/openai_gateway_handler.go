@@ -7,7 +7,6 @@ import (
 
 	"github.com/WilliamWang1721/LightBridge/internal/config"
 	"github.com/WilliamWang1721/LightBridge/internal/pkg/ctxkey"
-	middleware2 "github.com/WilliamWang1721/LightBridge/internal/server/middleware"
 	"github.com/WilliamWang1721/LightBridge/internal/service"
 	"github.com/gin-gonic/gin"
 )
@@ -70,22 +69,6 @@ func setCustomRequiredProtocol(c *gin.Context, protocol string) {
 		return
 	}
 	c.Request = c.Request.WithContext(service.WithInboundProtocol(c.Request.Context(), strings.TrimSpace(protocol)))
-}
-
-func openAICompatibleRequestPlatform(apiKey *service.APIKey) string {
-	if apiKey != nil && apiKey.Group != nil && apiKey.Group.Platform == service.PlatformGrok {
-		return service.PlatformGrok
-	}
-	return service.PlatformOpenAI
-}
-
-func bindOpenAICompatibleRequestPlatform(c *gin.Context, apiKey *service.APIKey) string {
-	platform := openAICompatibleRequestPlatform(apiKey)
-	if platform == service.PlatformGrok && c != nil && c.Request != nil {
-		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), ctxkey.ForcePlatform, platform))
-		c.Set(string(middleware2.ContextKeyForcePlatform), platform)
-	}
-	return platform
 }
 
 // NewOpenAIGatewayHandler creates a new OpenAIGatewayHandler

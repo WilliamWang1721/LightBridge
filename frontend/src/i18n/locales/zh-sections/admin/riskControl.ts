@@ -141,7 +141,7 @@ export default {
       groupScope: '审计分组',
       groupScopeHint: '开启右侧开关表示全部分组，关闭后选择指定分组。',
       selectedGroups: '指定分组',
-      searchGroups: '搜索分组名称或平台',
+      searchGroups: '搜索分组名称或实际上游',
       noGroups: '暂无可用分组',
       modelFilter: '模型范围',
       modelFilterHint: '按客户端请求的模型名决定是否执行内容审计，模型映射后仍以请求模型判断。',

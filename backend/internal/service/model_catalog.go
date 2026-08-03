@@ -180,12 +180,16 @@ func (s *ModelCatalogService) ListCatalog(ctx context.Context, groupID *int64, i
 					continue
 				}
 				groups[g.ID] = ModelCatalogGroupRef{
-					ID:               g.ID,
-					Name:             g.Name,
-					Platform:         g.Platform,
-					SubscriptionType: g.SubscriptionType,
-					RateMultiplier:   g.RateMultiplier,
-					IsExclusive:      g.IsExclusive,
+					ID:                        g.ID,
+					Name:                      g.Name,
+					Icon:                      g.Icon,
+					Color:                     g.Color,
+					UpstreamPlatforms:         append([]string(nil), g.UpstreamPlatforms...),
+					UpstreamProtocols:         append([]string(nil), g.UpstreamProtocols...),
+					AvailableIngressProtocols: append([]string(nil), g.AvailableIngressProtocols...),
+					SubscriptionType:          g.SubscriptionType,
+					RateMultiplier:            g.RateMultiplier,
+					IsExclusive:               g.IsExclusive,
 				}
 			}
 		}
@@ -354,12 +358,16 @@ type ModelCatalogModel struct {
 }
 
 type ModelCatalogGroupRef struct {
-	ID               int64   `json:"id"`
-	Name             string  `json:"name"`
-	Platform         string  `json:"platform"`
-	SubscriptionType string  `json:"subscription_type"`
-	RateMultiplier   float64 `json:"rate_multiplier"`
-	IsExclusive      bool    `json:"is_exclusive"`
+	ID                        int64    `json:"id"`
+	Name                      string   `json:"name"`
+	Icon                      string   `json:"icon"`
+	Color                     string   `json:"color"`
+	UpstreamPlatforms         []string `json:"upstream_platforms"`
+	UpstreamProtocols         []string `json:"upstream_protocols"`
+	AvailableIngressProtocols []string `json:"available_ingress_protocols"`
+	SubscriptionType          string   `json:"subscription_type"`
+	RateMultiplier            float64  `json:"rate_multiplier"`
+	IsExclusive               bool     `json:"is_exclusive"`
 }
 
 type ModelCatalogSourceRef struct {

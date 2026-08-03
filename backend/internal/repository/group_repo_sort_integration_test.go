@@ -12,9 +12,9 @@ import (
 // 且排序基于 total 账号数而非 active 账号数。
 func (s *GroupRepoSuite) TestListWithAccountCountSort_AttachesActiveCount() {
 	// Group A: 2 total, 1 active (1 disabled account)
-	gA := &service.Group{Name: "sort-count-a", Platform: service.PlatformAnthropic, RateMultiplier: 1, Status: service.StatusActive, SubscriptionType: service.SubscriptionTypeStandard}
+	gA := &service.Group{Name: "sort-count-a", RateMultiplier: 1, Status: service.StatusActive, SubscriptionType: service.SubscriptionTypeStandard}
 	// Group B: 1 total, 1 active
-	gB := &service.Group{Name: "sort-count-b", Platform: service.PlatformAnthropic, RateMultiplier: 1, Status: service.StatusActive, SubscriptionType: service.SubscriptionTypeStandard}
+	gB := &service.Group{Name: "sort-count-b", RateMultiplier: 1, Status: service.StatusActive, SubscriptionType: service.SubscriptionTypeStandard}
 	s.Require().NoError(s.repo.Create(s.ctx, gA))
 	s.Require().NoError(s.repo.Create(s.ctx, gB))
 
@@ -69,8 +69,8 @@ func (s *GroupRepoSuite) TestListWithAccountCountSort_AttachesActiveCount() {
 }
 
 func (s *GroupRepoSuite) TestList_DefaultSortBySortOrderAsc() {
-	g1 := &service.Group{Name: "g1", Platform: service.PlatformAnthropic, RateMultiplier: 1, Status: service.StatusActive, SubscriptionType: service.SubscriptionTypeStandard, SortOrder: 20}
-	g2 := &service.Group{Name: "g2", Platform: service.PlatformAnthropic, RateMultiplier: 1, Status: service.StatusActive, SubscriptionType: service.SubscriptionTypeStandard, SortOrder: 10}
+	g1 := &service.Group{Name: "g1", RateMultiplier: 1, Status: service.StatusActive, SubscriptionType: service.SubscriptionTypeStandard, SortOrder: 20}
+	g2 := &service.Group{Name: "g2", RateMultiplier: 1, Status: service.StatusActive, SubscriptionType: service.SubscriptionTypeStandard, SortOrder: 10}
 	s.Require().NoError(s.repo.Create(s.ctx, g1))
 	s.Require().NoError(s.repo.Create(s.ctx, g2))
 
@@ -88,8 +88,8 @@ func (s *GroupRepoSuite) TestList_DefaultSortBySortOrderAsc() {
 }
 
 func (s *GroupRepoSuite) TestList_SortBySortOrderDesc() {
-	g1 := &service.Group{Name: "g1", Platform: service.PlatformAnthropic, RateMultiplier: 1, Status: service.StatusActive, SubscriptionType: service.SubscriptionTypeStandard, SortOrder: 40}
-	g2 := &service.Group{Name: "g2", Platform: service.PlatformAnthropic, RateMultiplier: 1, Status: service.StatusActive, SubscriptionType: service.SubscriptionTypeStandard, SortOrder: 50}
+	g1 := &service.Group{Name: "g1", RateMultiplier: 1, Status: service.StatusActive, SubscriptionType: service.SubscriptionTypeStandard, SortOrder: 40}
+	g2 := &service.Group{Name: "g2", RateMultiplier: 1, Status: service.StatusActive, SubscriptionType: service.SubscriptionTypeStandard, SortOrder: 50}
 	s.Require().NoError(s.repo.Create(s.ctx, g1))
 	s.Require().NoError(s.repo.Create(s.ctx, g2))
 

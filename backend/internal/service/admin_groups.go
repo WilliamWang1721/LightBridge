@@ -19,9 +19,9 @@ import (
 )
 
 // Group management implementations
-func (s *adminServiceImpl) ListGroups(ctx context.Context, page, pageSize int, platform, status, search string, isExclusive *bool, sortBy, sortOrder string) ([]Group, int64, error) {
+func (s *adminServiceImpl) ListGroups(ctx context.Context, page, pageSize int, upstreamProtocol, status, search string, isExclusive *bool, sortBy, sortOrder string) ([]Group, int64, error) {
 	params := pagination.PaginationParams{Page: page, PageSize: pageSize, SortBy: sortBy, SortOrder: sortOrder}
-	groups, result, err := s.groupRepo.ListWithFilters(ctx, params, platform, status, search, isExclusive)
+	groups, result, err := s.groupRepo.ListWithFilters(ctx, params, upstreamProtocol, status, search, isExclusive)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -32,16 +32,16 @@ func (s *adminServiceImpl) GetAllGroups(ctx context.Context) ([]Group, error) {
 	return s.groupRepo.ListActive(ctx)
 }
 
-func (s *adminServiceImpl) GetAllGroupsByPlatform(ctx context.Context, platform string) ([]Group, error) {
-	return s.groupRepo.ListActiveByPlatform(ctx, platform)
+func (s *adminServiceImpl) GetAllGroupsByUpstreamProtocol(ctx context.Context, upstreamProtocol string) ([]Group, error) {
+	return s.groupRepo.ListActiveByUpstreamProtocol(ctx, upstreamProtocol)
 }
 
 func (s *adminServiceImpl) GetGroup(ctx context.Context, id int64) (*Group, error) {
 	return s.groupRepo.GetByID(ctx, id)
 }
 
-func (s *adminServiceImpl) GetGroupModelsListCandidates(ctx context.Context, id int64, platform string) ([]string, error) {
-	platform = NormalizeGroupUpstreamProtocolFilter(platform)
+func (s *adminServiceImpl) GetGroupModelsListCandidates(ctx context.Context, id int64, upstreamProtocol string) ([]string, error) {
+	upstreamProtocol = NormalizeGroupUpstreamProtocolFilter(upstreamProtocol)
 	if id > 0 {
 		group, err := s.groupRepo.GetByIDLite(ctx, id)
 		if err != nil {
@@ -50,7 +50,7 @@ func (s *adminServiceImpl) GetGroupModelsListCandidates(ctx context.Context, id 
 		_ = group
 	}
 
-	candidates := defaultModelsListCandidateIDs(platform)
+	candidates := defaultModelsListCandidateIDs(upstreamProtocol)
 	if id <= 0 || s.accountRepo == nil {
 		return candidates, nil
 	}
@@ -80,11 +80,8 @@ func (s *adminServiceImpl) GetGroupModelsListCandidates(ctx context.Context, id 
 	return candidates, nil
 }
 
-func defaultModelsListCandidateIDs(platform string) []string {
-	if strings.TrimSpace(platform) == PlatformGrok {
-		return xai.DefaultModelIDs()
-	}
-	switch NormalizeGroupUpstreamProtocolFilter(platform) {
+func defaultModelsListCandidateIDs(upstreamProtocol string) []string {
+	switch NormalizeGroupUpstreamProtocolFilter(upstreamProtocol) {
 	case CustomProtocolOpenAIResponses, CustomProtocolOpenAIChatCompletions:
 		return openai.DefaultModelIDs()
 	case CustomProtocolGemini:
@@ -144,10 +141,9 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 	if input.RateMultiplier <= 0 {
 		return nil, errors.New("rate_multiplier must be > 0")
 	}
-
-	platform := input.Platform
-	if platform == "" {
-		platform = PlatformAnthropic
+	icon, color, err := NormalizeGroupAppearance(input.Icon, input.Color)
+	if err != nil {
+		return nil, err
 	}
 
 	subscriptionType := input.SubscriptionType
@@ -240,7 +236,8 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 	group := &Group{
 		Name:                            input.Name,
 		Description:                     input.Description,
-		Platform:                        platform,
+		Icon:                            icon,
+		Color:                           color,
 		RateMultiplier:                  input.RateMultiplier,
 		PeakRateEnabled:                 peakEnabled,
 		PeakStart:                       peakStart,
@@ -263,7 +260,6 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		FallbackGroupIDOnInvalidRequest: fallbackOnInvalidRequest,
 		ModelRouting:                    input.ModelRouting,
 		MCPXMLInject:                    mcpXMLInject,
-		SupportedModelScopes:            input.SupportedModelScopes,
 		AllowMessagesDispatch:           input.AllowMessagesDispatch,
 		RequireOAuthOnly:                input.RequireOAuthOnly,
 		RequirePrivacySet:               input.RequirePrivacySet,
@@ -272,7 +268,6 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		ModelsListConfig:                normalizeGroupModelsListConfig(input.ModelsListConfig),
 		RPMLimit:                        input.RPMLimit,
 	}
-	sanitizeGroupMessagesDispatchFields(group)
 	if err := s.groupRepo.Create(ctx, group); err != nil {
 		return nil, err
 	}
@@ -400,8 +395,21 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	if input.Description != "" {
 		group.Description = input.Description
 	}
-	if input.Platform != "" {
-		group.Platform = input.Platform
+	if input.Icon != nil || input.Color != nil {
+		icon := group.Icon
+		color := group.Color
+		if input.Icon != nil {
+			icon = *input.Icon
+		}
+		if input.Color != nil {
+			color = *input.Color
+		}
+		icon, color, err = NormalizeGroupAppearance(icon, color)
+		if err != nil {
+			return nil, err
+		}
+		group.Icon = icon
+		group.Color = color
 	}
 	if input.RateMultiplier != nil {
 		if *input.RateMultiplier <= 0 {
@@ -523,11 +531,6 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 		group.MCPXMLInject = *input.MCPXMLInject
 	}
 
-	// 支持的模型系列（仅 antigravity 平台使用）
-	if input.SupportedModelScopes != nil {
-		group.SupportedModelScopes = *input.SupportedModelScopes
-	}
-
 	// OpenAI Messages 调度配置
 	if input.AllowMessagesDispatch != nil {
 		group.AllowMessagesDispatch = *input.AllowMessagesDispatch
@@ -550,8 +553,6 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	if input.RPMLimit != nil {
 		group.RPMLimit = *input.RPMLimit
 	}
-	sanitizeGroupMessagesDispatchFields(group)
-
 	if err := s.groupRepo.Update(ctx, group); err != nil {
 		return nil, err
 	}

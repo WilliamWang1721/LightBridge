@@ -9,81 +9,43 @@ import (
 	"github.com/WilliamWang1721/LightBridge/internal/pkg/ctxkey"
 )
 
-func TestPlatformFromAPIKey_NilSafe(t *testing.T) {
-	if got := PlatformFromAPIKey(nil); got != "" {
-		t.Errorf("nil APIKey should yield empty string, got %q", got)
-	}
-}
-
-func TestPlatformFromAPIKey_NilGroup(t *testing.T) {
-	k := &APIKey{Group: nil}
-	if got := PlatformFromAPIKey(k); got != "" {
-		t.Errorf("APIKey with nil Group should yield empty string, got %q", got)
-	}
-}
-
-func TestPlatformFromAPIKey_DerivesFromGroup(t *testing.T) {
-	tests := []struct {
-		name     string
-		platform string
-	}{
-		{"anthropic", "anthropic"},
-		{"openai", "openai"},
-		{"gemini", "gemini"},
-		{"antigravity", "antigravity"},
-		{"empty", ""},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			k := &APIKey{
-				Group: &Group{Platform: tt.platform},
-			}
-			got := PlatformFromAPIKey(k)
-			if got != tt.platform {
-				t.Errorf("PlatformFromAPIKey(%q) = %q, want %q", tt.platform, got, tt.platform)
-			}
-		})
-	}
-}
-
 // TestQuotaPlatform 锁定配额计量口径：ForcePlatform 路由（如 /antigravity）按 ForcePlatform 计；
-// 普通网关请求按入站协议计，否则才回退到 Group 的历史平台字段。
+// 普通网关请求按入站协议计；分组不参与平台归因。
 // preflight 与 post-billing 共用此口径，保证一致。
 func TestQuotaPlatform(t *testing.T) {
-	apiKey := &APIKey{Group: &Group{Platform: PlatformAnthropic}}
+	apiKey := &APIKey{Group: &Group{}}
 
-	t.Run("no force platform falls back to group platform", func(t *testing.T) {
-		if got := QuotaPlatform(context.Background(), apiKey); got != PlatformAnthropic {
-			t.Errorf("QuotaPlatform without force = %q, want %q", got, PlatformAnthropic)
+	t.Run("no request protocol stays neutral", func(t *testing.T) {
+		if got := QuotaPlatform(context.Background(), apiKey); got != "" {
+			t.Errorf("QuotaPlatform without request protocol = %q, want empty", got)
 		}
 	})
 
-	t.Run("force platform overrides group platform", func(t *testing.T) {
+	t.Run("force platform is authoritative", func(t *testing.T) {
 		ctx := context.WithValue(context.Background(), ctxkey.ForcePlatform, PlatformAntigravity)
 		if got := QuotaPlatform(ctx, apiKey); got != PlatformAntigravity {
 			t.Errorf("QuotaPlatform with force = %q, want %q", got, PlatformAntigravity)
 		}
 	})
 
-	t.Run("inbound openai responses overrides group platform", func(t *testing.T) {
+	t.Run("inbound openai responses determines quota platform", func(t *testing.T) {
 		ctx := WithInboundProtocol(context.Background(), CustomProtocolOpenAIResponses)
 		if got := QuotaPlatform(ctx, apiKey); got != PlatformOpenAI {
 			t.Errorf("QuotaPlatform with OpenAI Responses inbound = %q, want %q", got, PlatformOpenAI)
 		}
 	})
 
-	t.Run("inbound gemini overrides group platform", func(t *testing.T) {
+	t.Run("inbound gemini determines quota platform", func(t *testing.T) {
 		ctx := WithInboundProtocol(context.Background(), CustomProtocolGemini)
 		if got := QuotaPlatform(ctx, apiKey); got != PlatformGemini {
 			t.Errorf("QuotaPlatform with Gemini inbound = %q, want %q", got, PlatformGemini)
 		}
 	})
 
-	t.Run("empty force platform falls back to group platform", func(t *testing.T) {
+	t.Run("empty force platform stays neutral without inbound protocol", func(t *testing.T) {
 		ctx := context.WithValue(context.Background(), ctxkey.ForcePlatform, "")
-		if got := QuotaPlatform(ctx, apiKey); got != PlatformAnthropic {
-			t.Errorf("QuotaPlatform with empty force = %q, want %q", got, PlatformAnthropic)
+		if got := QuotaPlatform(ctx, apiKey); got != "" {
+			t.Errorf("QuotaPlatform with empty force = %q, want empty", got)
 		}
 	})
 

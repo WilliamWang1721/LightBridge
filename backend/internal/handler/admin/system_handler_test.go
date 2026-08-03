@@ -17,11 +17,13 @@ import (
 )
 
 type systemHandlerUpdateServiceStub struct {
-	performErr  error
-	updateInfo  *service.UpdateInfo
-	checkErr    error
-	checkForces []bool
-	performCall int
+	performErr   error
+	rollbackErr  error
+	updateInfo   *service.UpdateInfo
+	checkErr     error
+	checkForces  []bool
+	performCall  int
+	rollbackCall int
 }
 
 func (s *systemHandlerUpdateServiceStub) CheckUpdate(_ context.Context, force bool) (*service.UpdateInfo, error) {
@@ -44,7 +46,8 @@ func (s *systemHandlerUpdateServiceStub) PerformUpdateToVersion(context.Context,
 }
 
 func (s *systemHandlerUpdateServiceStub) Rollback() error {
-	return nil
+	s.rollbackCall++
+	return s.rollbackErr
 }
 
 type systemUpdateResponseEnvelope struct {
@@ -62,6 +65,7 @@ type systemUpdateResponseEnvelope struct {
 type systemUpdateErrorEnvelope struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
+	Reason  string `json:"reason"`
 }
 
 func newSystemHandlerTestRouter(t *testing.T, updateSvc *systemHandlerUpdateServiceStub, repo *memoryIdempotencyRepoStub) *gin.Engine {
@@ -80,6 +84,7 @@ func newSystemHandlerTestRouter(t *testing.T, updateSvc *systemHandlerUpdateServ
 
 	router := gin.New()
 	router.POST("/api/v1/admin/system/update", handler.PerformUpdate)
+	router.POST("/api/v1/admin/system/rollback", handler.Rollback)
 	return router
 }
 
@@ -150,4 +155,51 @@ func TestSystemHandlerPerformUpdateFailureReturnsActionableError(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 	require.Equal(t, http.StatusInternalServerError, body.Code)
 	require.Equal(t, "update failed: download failed", body.Message)
+}
+
+func TestSystemHandlerPerformUpdateContainerReturnsStableConflict(t *testing.T) {
+	updateSvc := &systemHandlerUpdateServiceStub{
+		performErr: service.ErrInPlaceUpdateUnsupported,
+	}
+	repo := newMemoryIdempotencyRepoStub()
+	router := newSystemHandlerTestRouter(t, updateSvc, repo)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/system/update", nil)
+	req.Header.Set("Idempotency-Key", "container-update")
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusConflict, rec.Code)
+	require.Equal(t, 1, updateSvc.performCall)
+	requireSystemLockStatus(t, repo, service.IdempotencyStatusFailedRetryable)
+
+	var body systemUpdateErrorEnvelope
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	require.Equal(t, http.StatusConflict, body.Code)
+	require.Equal(t, "IN_PLACE_UPDATE_UNSUPPORTED", body.Reason)
+	require.Contains(t, body.Message, "docker compose pull")
+	require.Contains(t, body.Message, "docker compose up -d")
+}
+
+func TestSystemHandlerRollbackContainerReturnsStableConflict(t *testing.T) {
+	updateSvc := &systemHandlerUpdateServiceStub{
+		rollbackErr: service.ErrInPlaceUpdateUnsupported,
+	}
+	repo := newMemoryIdempotencyRepoStub()
+	router := newSystemHandlerTestRouter(t, updateSvc, repo)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/system/rollback", nil)
+	req.Header.Set("Idempotency-Key", "container-rollback")
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusConflict, rec.Code)
+	require.Equal(t, 1, updateSvc.rollbackCall)
+	requireSystemLockStatus(t, repo, service.IdempotencyStatusFailedRetryable)
+
+	var body systemUpdateErrorEnvelope
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	require.Equal(t, http.StatusConflict, body.Code)
+	require.Equal(t, "IN_PLACE_UPDATE_UNSUPPORTED", body.Reason)
+	require.Contains(t, body.Message, "docker compose pull")
 }

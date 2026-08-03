@@ -10,6 +10,7 @@ import { opsAPI, type OpsDashboardOverview, type OpsMetricThresholds, type OpsRe
 import type { OpsRequestDetailsPreset } from './OpsRequestDetailsModal.vue'
 import { useAdminSettingsStore } from '@/stores'
 import { formatNumber } from '@/utils/format'
+import type { Group } from '@/types'
 
 type RealtimeWindow = '1min' | '5min' | '30min' | '1h'
 
@@ -104,7 +105,12 @@ function formatCustomTimeRangeLabel(startTime: string, endTime: string): string 
   return `${formatDate(start)} ~ ${formatDate(end)}`
 }
 
-const groups = ref<Array<{ id: number; name: string; platform: string }>>([])
+type OpsGroup = Pick<
+  Group,
+  'id' | 'name' | 'icon' | 'color' | 'upstream_platforms' | 'upstream_protocols' | 'available_ingress_protocols'
+>
+
+const groups = ref<OpsGroup[]>([])
 
 const platformOptions = computed(() => [
   { value: '', label: t('common.all') },
@@ -136,7 +142,9 @@ const queryModeOptions = computed(() => [
 ])
 
 const groupOptions = computed(() => {
-  const filtered = props.platform ? groups.value.filter((g) => g.platform === props.platform) : groups.value
+  const filtered = props.platform
+    ? groups.value.filter((g) => g.upstream_platforms?.some((platform) => platform === props.platform))
+    : groups.value
   return [{ value: null, label: t('common.all') }, ...filtered.map((g) => ({ value: g.id, label: g.name }))]
 })
 
@@ -145,7 +153,7 @@ watch(
   (newPlatform) => {
     if (!newPlatform) return
     const currentGroup = groups.value.find((g) => g.id === props.groupId)
-    if (currentGroup && currentGroup.platform !== newPlatform) {
+    if (currentGroup && !currentGroup.upstream_platforms?.some((platform) => platform === newPlatform)) {
       emit('update:group', null)
     }
   }
@@ -154,7 +162,15 @@ watch(
 onMounted(async () => {
   try {
     const list = await adminAPI.groups.getAll()
-    groups.value = list.map((g) => ({ id: g.id, name: g.name, platform: g.platform }))
+    groups.value = list.map((g) => ({
+      id: g.id,
+      name: g.name,
+      icon: g.icon,
+      color: g.color,
+      upstream_platforms: g.upstream_platforms,
+      upstream_protocols: g.upstream_protocols,
+      available_ingress_protocols: g.available_ingress_protocols,
+    }))
   } catch (e) {
     console.error('[OpsDashboardHeader] Failed to load groups', e)
     groups.value = []

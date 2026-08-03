@@ -1110,9 +1110,7 @@ function closeMobile() {
 
 function handleMenuItemClick(itemPath: string) {
   if (mobileOpen.value) {
-    setTimeout(() => {
-      appStore.setMobileOpen(false)
-    }, 150)
+    appStore.setMobileOpen(false)
   }
 
   // Map paths to tour selectors

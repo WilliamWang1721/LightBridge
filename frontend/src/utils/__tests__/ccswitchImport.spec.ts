@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
-  OPENAI_CC_SWITCH_CODEX_MODEL,
-  buildCcSwitchImportDeeplink
+  buildCcSwitchImportDeeplink,
+  resolveCcSwitchImportConfig
 } from '@/utils/ccswitchImport'
-import type { GroupPlatform } from '@/types'
 
 function paramsFromDeeplink(deeplink: string): URLSearchParams {
   const query = deeplink.split('?')[1] || ''
@@ -18,30 +17,46 @@ describe('ccswitchImport utils', () => {
     usageScript: 'return true'
   }
 
-  it('adds the Codex model parameter for OpenAI imports', () => {
+  it('uses the operator-selected endpoint and model for Codex imports', () => {
     const params = paramsFromDeeplink(
       buildCcSwitchImportDeeplink({
         ...baseInput,
-        platform: 'openai',
-        clientType: 'claude'
+        endpoint: 'https://codex.example.com/v1',
+        model: 'gpt-custom-latest',
+        availableIngressProtocols: ['openai_responses'],
+        clientType: 'codex'
       })
     )
 
     expect(params.get('resource')).toBe('provider')
     expect(params.get('app')).toBe('codex')
-    expect(params.get('endpoint')).toBe(baseInput.baseUrl)
-    expect(params.get('model')).toBe(OPENAI_CC_SWITCH_CODEX_MODEL)
+    expect(params.get('endpoint')).toBe('https://codex.example.com/v1')
+    expect(params.get('model')).toBe('gpt-custom-latest')
     expect(atob(params.get('usageScript') || '')).toBe(baseInput.usageScript)
   })
 
-  it.each([
-    { platform: 'anthropic' as GroupPlatform, clientType: 'claude' as const, app: 'claude' },
-    { platform: 'gemini' as GroupPlatform, clientType: 'gemini' as const, app: 'gemini' }
-  ])('does not add a model parameter for $platform imports', ({ platform, clientType, app }) => {
+  it('does not inject a hard-coded Codex model when the operator leaves it blank', () => {
     const params = paramsFromDeeplink(
       buildCcSwitchImportDeeplink({
         ...baseInput,
-        platform,
+        availableIngressProtocols: ['openai_responses'],
+        clientType: 'codex',
+        model: '  '
+      })
+    )
+
+    expect(params.get('app')).toBe('codex')
+    expect(params.has('model')).toBe(false)
+  })
+
+  it.each([
+    { availableIngressProtocols: ['anthropic_messages'] as const, clientType: 'claude' as const, app: 'claude' },
+    { availableIngressProtocols: ['gemini'] as const, clientType: 'gemini' as const, app: 'gemini' }
+  ])('does not add a model parameter for $clientType imports', ({ availableIngressProtocols, clientType, app }) => {
+    const params = paramsFromDeeplink(
+      buildCcSwitchImportDeeplink({
+        ...baseInput,
+        availableIngressProtocols: [...availableIngressProtocols],
         clientType
       })
     )
@@ -51,17 +66,14 @@ describe('ccswitchImport utils', () => {
     expect(params.has('model')).toBe(false)
   })
 
-  it('keeps Antigravity imports on the selected client endpoint without a model parameter', () => {
-    const params = paramsFromDeeplink(
+  it('does not fall back to Claude when no ingress protocol is known', () => {
+    expect(resolveCcSwitchImportConfig([], 'claude', baseInput.baseUrl)).toBeNull()
+    expect(() =>
       buildCcSwitchImportDeeplink({
         ...baseInput,
-        platform: 'antigravity',
-        clientType: 'gemini'
+        availableIngressProtocols: [],
+        clientType: 'claude'
       })
-    )
-
-    expect(params.get('app')).toBe('gemini')
-    expect(params.get('endpoint')).toBe(`${baseInput.baseUrl}/antigravity`)
-    expect(params.has('model')).toBe(false)
+    ).toThrow('Unsupported CC Switch client protocol')
   })
 })

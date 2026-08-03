@@ -83,6 +83,7 @@ const success = ref(false)
 const hint = ref(t('payment.stripePopup.redirecting'))
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
+let initTimeout: ReturnType<typeof setTimeout> | null = null
 
 function closeWindow() { window.close() }
 
@@ -91,6 +92,10 @@ onMounted(() => {
     if (event.origin !== window.location.origin) return
     if (event.data?.type !== 'STRIPE_POPUP_INIT') return
     window.removeEventListener('message', handler)
+    if (initTimeout) {
+      clearTimeout(initTimeout)
+      initTimeout = null
+    }
     initStripe(event.data.clientSecret, event.data.publishableKey)
   }
   window.addEventListener('message', handler)
@@ -99,7 +104,7 @@ onMounted(() => {
     window.opener.postMessage({ type: 'STRIPE_POPUP_READY' }, window.location.origin)
   }
 
-  setTimeout(() => {
+  initTimeout = setTimeout(() => {
     if (!error.value && !success.value) {
       error.value = t('payment.stripePopup.timeout')
     }
@@ -108,6 +113,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (pollTimer) clearInterval(pollTimer)
+  if (initTimeout) clearTimeout(initTimeout)
 })
 
 async function initStripe(clientSecret: string, publishableKey: string) {
@@ -163,6 +169,9 @@ function startPolling() {
         if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
         success.value = true
         setTimeout(closeWindow, 2000)
+      } else if (status === 'FAILED' || status === 'CANCELLED' || status === 'EXPIRED') {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
+        error.value = t('payment.result.failed')
       }
     } catch { /* ignore */ }
   }, 3000)

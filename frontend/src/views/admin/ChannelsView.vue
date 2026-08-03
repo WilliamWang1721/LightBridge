@@ -276,6 +276,63 @@
               :entity-id="editingChannel.id"
               title="Channel Proxy Policy"
             />
+
+            <!-- Associated groups are provider-neutral channel membership. -->
+            <div>
+              <label class="input-label text-xs">
+                {{ t('admin.channels.form.groups', 'Associated Groups') }} <span class="text-red-500">*</span>
+                <span v-if="form.group_ids.length > 0" class="ml-1 font-normal text-gray-400">
+                  ({{ t('admin.channels.form.selectedCount', { count: form.group_ids.length }, `已选 ${form.group_ids.length} 个`) }})
+                </span>
+              </label>
+              <div class="max-h-48 overflow-auto rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-dark-600 dark:bg-dark-900">
+                <div v-if="groupsLoading" class="py-2 text-center text-xs text-gray-500">
+                  {{ t('common.loading', 'Loading...') }}
+                </div>
+                <div v-else-if="allGroups.length === 0" class="py-2 text-center text-xs text-gray-500">
+                  {{ t('admin.channels.form.noGroupsAvailable', 'No groups available') }}
+                </div>
+                <div v-else class="flex flex-wrap gap-1.5">
+                  <label
+                    v-for="group in allGroups"
+                    :key="group.id"
+                    class="inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors"
+                    :class="[
+                      form.group_ids.includes(group.id)
+                        ? 'border-primary-300 bg-primary-50 dark:border-primary-700 dark:bg-primary-900/20'
+                        : 'border-gray-200 hover:bg-gray-50 dark:border-dark-600 dark:hover:bg-dark-700',
+                      isGroupInOtherChannel(group.id) ? 'opacity-40' : '',
+                    ]"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="form.group_ids.includes(group.id)"
+                      :disabled="isGroupInOtherChannel(group.id)"
+                      class="h-3 w-3 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      @change="toggleGroup(group.id)"
+                    />
+                    <GroupBadge
+                      :name="group.name"
+                      :icon="group.icon"
+                      :color="group.color"
+                      :upstream-platforms="group.upstream_platforms"
+                      :upstream-protocols="group.upstream_protocols"
+                      :rate-multiplier="group.rate_multiplier"
+                      :title="group.available_ingress_protocols?.join(', ') || ''"
+                    />
+                    <GroupUpstreamBadges
+                      :upstream-platforms="group.upstream_platforms"
+                      :upstream-protocols="group.upstream_protocols"
+                    />
+                    <span class="text-[10px] text-gray-400">{{ group.account_count || 0 }}</span>
+                    <span
+                      v-if="isGroupInOtherChannel(group.id)"
+                      class="text-[10px] text-gray-400"
+                    >{{ getGroupInOtherChannelLabel(group.id) }}</span>
+                  </label>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- Platform Tab Content -->
@@ -285,52 +342,6 @@
             v-show="section.enabled && activeTab === section.platform"
             class="space-y-4"
           >
-            <!-- Groups -->
-            <div>
-              <label class="input-label text-xs">
-                {{ t('admin.channels.form.groups', 'Associated Groups') }} <span class="text-red-500">*</span>
-                <span v-if="section.group_ids.length > 0" class="ml-1 font-normal text-gray-400">
-                  ({{ t('admin.channels.form.selectedCount', { count: section.group_ids.length }, `已选 ${section.group_ids.length} 个`) }})
-                </span>
-              </label>
-              <div class="max-h-40 overflow-auto rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-dark-600 dark:bg-dark-900">
-                <div v-if="groupsLoading" class="py-2 text-center text-xs text-gray-500">
-                  {{ t('common.loading', 'Loading...') }}
-                </div>
-                <div v-else-if="getGroupsForPlatform(section.platform).length === 0" class="py-2 text-center text-xs text-gray-500">
-                  {{ t('admin.channels.form.noGroupsAvailable', 'No groups available') }}
-                </div>
-                <div v-else class="flex flex-wrap gap-1">
-                  <label
-                    v-for="group in getGroupsForPlatform(section.platform)"
-                    :key="group.id"
-                    class="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-gray-200 px-2 py-1 text-xs transition-colors hover:bg-gray-50 dark:border-dark-600 dark:hover:bg-dark-700"
-                    :class="[
-                      section.group_ids.includes(group.id) ? 'bg-primary-50 border-primary-300 dark:bg-primary-900/20 dark:border-primary-700' : '',
-                      isGroupInOtherChannel(group.id, section.platform) ? 'opacity-40' : ''
-                    ]"
-                  >
-                    <input
-                      type="checkbox"
-                      :checked="section.group_ids.includes(group.id)"
-                      :disabled="isGroupInOtherChannel(group.id, section.platform)"
-                      class="h-3 w-3 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                      @change="toggleGroupInSection(sIdx, group.id)"
-                    />
-                    <span :class="['font-medium', platformTextClass(group.platform)]">{{ group.name }}</span>
-                    <span
-                      :class="['rounded-full px-1 py-0 text-[10px]', platformBadgeLightClass(group.platform)]"
-                    >{{ group.rate_multiplier }}x</span>
-                    <span class="text-[10px] text-gray-400">{{ group.account_count || 0 }}</span>
-                    <span
-                      v-if="isGroupInOtherChannel(group.id, section.platform)"
-                      class="text-[10px] text-gray-400"
-                    >{{ getGroupInOtherChannelLabel(group.id) }}</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-
             <!-- Web Search Emulation (Anthropic only, hidden when global disabled) -->
             <div v-if="section.platform === 'anthropic' && webSearchGlobalEnabled" class="border-t border-gray-200 pt-3 dark:border-dark-600">
               <div class="flex items-center justify-between">
@@ -503,7 +514,7 @@
                   <label class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.channels.form.ruleGroups') }}</label>
                   <div class="mt-1 flex flex-wrap gap-1">
                     <label
-                      v-for="gid in section.group_ids"
+                      v-for="gid in form.group_ids"
                       :key="gid"
                       class="inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors"
                       :class="rule.group_ids.includes(gid)
@@ -511,10 +522,10 @@
                         : 'border-gray-200 hover:bg-gray-50 dark:border-dark-600 dark:hover:bg-dark-700'"
                     >
                       <input type="checkbox" :checked="rule.group_ids.includes(gid)" class="h-3 w-3 rounded border-gray-300 text-primary-600 focus:ring-primary-500" @change="rule.group_ids.includes(gid) ? rule.group_ids.splice(rule.group_ids.indexOf(gid), 1) : rule.group_ids.push(gid)" />
-                      <span :class="['font-medium', platformTextClass(section.platform)]">{{ getGroupNameById(gid) }}</span>
+                      <span class="font-medium text-gray-700 dark:text-gray-300" :style="groupTextStyle(gid)">{{ getGroupNameById(gid) }}</span>
                     </label>
                   </div>
-                  <p v-if="section.group_ids.length === 0" class="mt-1 text-xs text-gray-400">
+                  <p v-if="form.group_ids.length === 0" class="mt-1 text-xs text-gray-400">
                     {{ t('admin.channels.form.noGroupsInChannel') }}
                   </p>
                 </div>
@@ -640,9 +651,9 @@ import { adminAPI } from '@/api/admin'
 import type { Channel, ChannelModelPricing, CreateChannelRequest, UpdateChannelRequest, AccountStatsPricingRule } from '@/api/admin/channels'
 import type { PricingFormEntry } from '@/components/admin/channel/types'
 import { mTokToPerToken, perTokenToMTok, apiIntervalsToForm, formIntervalsToAPI, findModelConflict, validateIntervals } from '@/components/admin/channel/types'
-import type { AdminGroup, GroupPlatform } from '@/types'
+import type { AdminGroup, UpstreamPlatform } from '@/types'
 import type { Column } from '@/components/common/types'
-import { platformTextClass, platformBadgeLightClass } from '@/utils/platformColors'
+import { platformTextClass } from '@/utils/platformColors'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import DataTable from '@/components/common/DataTable.vue'
@@ -653,6 +664,8 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
+import GroupBadge from '@/components/common/GroupBadge.vue'
+import GroupUpstreamBadges from '@/components/common/GroupUpstreamBadges.vue'
 import Toggle from '@/components/common/Toggle.vue'
 import PricingEntryCard from '@/components/admin/channel/PricingEntryCard.vue'
 import ProxyPolicyPanel from '@/components/admin/proxy/ProxyPolicyPanel.vue'
@@ -684,10 +697,9 @@ interface FormPricingRule {
 
 // ── Platform Section type ──
 interface PlatformSection {
-  platform: GroupPlatform
+  platform: UpstreamPlatform
   enabled: boolean
   collapsed: boolean
-  group_ids: number[]
   model_mapping: Record<string, string>
   model_pricing: PricingFormEntry[]
   web_search_emulation: boolean
@@ -761,6 +773,7 @@ const form = reactive({
   status: 'active',
   restrict_models: false,
   billing_model_source: 'channel_mapped' as string,
+  group_ids: [] as number[],
   platforms: [] as PlatformSection[],
   apply_pricing_to_account_stats: false,
 })
@@ -768,7 +781,7 @@ const form = reactive({
 let abortController: AbortController | null = null
 
 // ── Platform config ──
-const platformOrder: GroupPlatform[] = ['anthropic', 'openai', 'gemini', 'grok', 'antigravity']
+const platformOrder: UpstreamPlatform[] = ['anthropic', 'openai', 'gemini', 'grok', 'antigravity']
 
 // ── Helpers ──
 function formatDate(value: string): string {
@@ -779,12 +792,11 @@ function formatDate(value: string): string {
 // ── Platform section helpers ──
 const activePlatforms = computed(() => form.platforms.filter(s => s.enabled).map(s => s.platform))
 
-function addPlatformSection(platform: GroupPlatform) {
+function addPlatformSection(platform: UpstreamPlatform) {
   form.platforms.push({
     platform,
     enabled: true,
     collapsed: false,
-    group_ids: [],
     model_mapping: {},
     model_pricing: [],
     web_search_emulation: false,
@@ -794,7 +806,7 @@ function addPlatformSection(platform: GroupPlatform) {
   })
 }
 
-function togglePlatform(platform: GroupPlatform) {
+function togglePlatform(platform: UpstreamPlatform) {
   const section = form.platforms.find(s => s.platform === platform)
   if (section) {
     section.enabled = !section.enabled
@@ -804,10 +816,6 @@ function togglePlatform(platform: GroupPlatform) {
   } else {
     addPlatformSection(platform)
   }
-}
-
-function getGroupsForPlatform(platform: GroupPlatform): AdminGroup[] {
-  return allGroups.value.filter(g => g.platform === platform)
 }
 
 // ── Group helpers ──
@@ -822,7 +830,7 @@ const groupToChannelMap = computed(() => {
   return map
 })
 
-function isGroupInOtherChannel(groupId: number, _platform: string): boolean {
+function isGroupInOtherChannel(groupId: number): boolean {
   return groupToChannelMap.value.has(groupId)
 }
 
@@ -844,13 +852,17 @@ const deleteConfirmMessage = computed(() => {
   )
 })
 
-function toggleGroupInSection(sectionIdx: number, groupId: number) {
-  const section = form.platforms[sectionIdx]
-  const idx = section.group_ids.indexOf(groupId)
+function toggleGroup(groupId: number) {
+  const idx = form.group_ids.indexOf(groupId)
   if (idx >= 0) {
-    section.group_ids.splice(idx, 1)
+    form.group_ids.splice(idx, 1)
+    for (const section of form.platforms) {
+      for (const rule of section.account_stats_pricing_rules) {
+        rule.group_ids = rule.group_ids.filter((id) => id !== groupId)
+      }
+    }
   } else {
-    section.group_ids.push(groupId)
+    form.group_ids.push(groupId)
   }
 }
 
@@ -981,6 +993,11 @@ function getGroupNameById(groupId: number): string {
   return group ? group.name : `#${groupId}`
 }
 
+function groupTextStyle(groupId: number): Record<string, string> | undefined {
+  const color = allGroups.value.find((group) => group.id === groupId)?.color?.trim()
+  return color && /^#[0-9A-Fa-f]{6}$/.test(color) ? { color } : undefined
+}
+
 // ── Account search for pricing rules ──
 interface SimpleAccount { id: number; name: string; platform: string }
 
@@ -1086,7 +1103,7 @@ function accountStatsRulesToAPI(): AccountStatsPricingRule[] {
 
 // ── Form ↔ API conversion ──
 function formToAPI(): { group_ids: number[], model_pricing: ChannelModelPricing[], model_mapping: Record<string, Record<string, string>>, features_config: Record<string, unknown> } {
-  const group_ids: number[] = []
+  const group_ids = [...new Set(form.group_ids)]
   const model_pricing: ChannelModelPricing[] = []
   const model_mapping: Record<string, Record<string, string>> = {}
   // Preserve existing features_config fields not managed by the form
@@ -1096,7 +1113,6 @@ function formToAPI(): { group_ids: number[], model_pricing: ChannelModelPricing[
 
   for (const section of form.platforms) {
     if (!section.enabled) continue
-    group_ids.push(...section.group_ids)
 
     // Model mapping per platform
     if (Object.keys(section.model_mapping).length > 0) {
@@ -1167,23 +1183,29 @@ function formToAPI(): { group_ids: number[], model_pricing: ChannelModelPricing[
 }
 
 function apiToForm(channel: Channel): PlatformSection[] {
-  // Build a map: groupID → platform
-  const groupPlatformMap = new Map<number, GroupPlatform>()
-  for (const g of allGroups.value) {
-    groupPlatformMap.set(g.id, g.platform)
-  }
-
-  // Determine which platforms are active (from groups + pricing + mapping)
-  const activePlatforms = new Set<GroupPlatform>()
-  for (const gid of channel.group_ids || []) {
-    const p = groupPlatformMap.get(gid)
-    if (p) activePlatforms.add(p)
-  }
+  // Platform sections are pricing/model namespaces, independent of group membership.
+  const activePlatforms = new Set<UpstreamPlatform>()
   for (const p of channel.model_pricing || []) {
-    if (p.platform) activePlatforms.add(p.platform as GroupPlatform)
+    if (p.platform) activePlatforms.add(p.platform as UpstreamPlatform)
   }
   for (const p of Object.keys(channel.model_mapping || {})) {
-    if (platformOrder.includes(p as GroupPlatform)) activePlatforms.add(p as GroupPlatform)
+    if (platformOrder.includes(p as UpstreamPlatform)) activePlatforms.add(p as UpstreamPlatform)
+  }
+  const featureConfig = channel.features_config || {}
+  for (const featureKey of ['web_search_emulation', 'codex_image_generation_bridge', 'bedrock_cc_compat']) {
+    const platformFlags = featureConfig[featureKey] as Record<string, boolean> | undefined
+    for (const [platform, enabled] of Object.entries(platformFlags || {})) {
+      if (enabled && platformOrder.includes(platform as UpstreamPlatform)) {
+        activePlatforms.add(platform as UpstreamPlatform)
+      }
+    }
+  }
+  for (const rule of channel.account_stats_pricing_rules || []) {
+    for (const pricing of rule.pricing || []) {
+      if (platformOrder.includes(pricing.platform as UpstreamPlatform)) {
+        activePlatforms.add(pricing.platform as UpstreamPlatform)
+      }
+    }
   }
 
   // Build sections in platform order
@@ -1191,7 +1213,6 @@ function apiToForm(channel: Channel): PlatformSection[] {
   for (const platform of platformOrder) {
     if (!activePlatforms.has(platform)) continue
 
-    const groupIds = (channel.group_ids || []).filter(gid => groupPlatformMap.get(gid) === platform)
     const mapping = (channel.model_mapping || {})[platform] || {}
     const pricing = (channel.model_pricing || [])
       .filter(p => (p.platform || 'anthropic') === platform)
@@ -1220,7 +1241,6 @@ function apiToForm(channel: Channel): PlatformSection[] {
       platform,
       enabled: true,
       collapsed: false,
-      group_ids: groupIds,
       model_mapping: { ...mapping },
       model_pricing: pricing,
       web_search_emulation: webSearchEnabled,
@@ -1318,6 +1338,7 @@ function resetForm() {
   form.status = 'active'
   form.restrict_models = false
   form.billing_model_source = 'channel_mapped'
+  form.group_ids = []
   form.platforms = []
   form.apply_pricing_to_account_stats = false
   activeTab.value = 'basic'
@@ -1340,8 +1361,8 @@ async function openEditDialog(channel: Channel) {
   form.status = channel.status
   form.restrict_models = channel.restrict_models || false
   form.billing_model_source = channel.billing_model_source || 'channel_mapped'
+  form.group_ids = [...(channel.group_ids || [])]
   form.apply_pricing_to_account_stats = channel.apply_pricing_to_account_stats || false
-  // Must load groups first so apiToForm can map groupID → platform
   await Promise.all([loadGroups(), loadAllChannelsForConflict()])
   form.platforms = apiToForm(channel)
 
@@ -1354,27 +1375,12 @@ async function openEditDialog(channel: Channel) {
   showDialog.value = true
 }
 
-/** Distribute flat channel-level rules into the matching platform section based on group_ids */
+/** Distribute flat channel-level rules by their pricing namespace. */
 function distributeRulesToPlatforms(apiRules: AccountStatsPricingRule[]) {
-  // Build groupID → platform lookup
-  const groupPlatformMap = new Map<number, GroupPlatform>()
-  for (const g of allGroups.value) {
-    groupPlatformMap.set(g.id, g.platform)
-  }
-
   for (const apiRule of apiRules) {
-    // Infer platform from group_ids
-    const platforms = new Set<GroupPlatform>()
-    for (const gid of apiRule.group_ids || []) {
-      const p = groupPlatformMap.get(gid)
-      if (p) platforms.add(p)
-    }
-    // If pricing has a platform field, use that as fallback
-    if (platforms.size === 0 && apiRule.pricing?.length > 0) {
-      const p = apiRule.pricing[0].platform as GroupPlatform | undefined
-      if (p) platforms.add(p)
-    }
-    const targetPlatform = platforms.size >= 1 ? [...platforms][0] : null
+    const targetPlatform = apiRule.pricing?.find((pricing) =>
+      platformOrder.includes(pricing.platform as UpstreamPlatform),
+    )?.platform as UpstreamPlatform | undefined
     if (!targetPlatform) continue
 
     const section = form.platforms.find(s => s.platform === targetPlatform)
@@ -1439,14 +1445,14 @@ async function handleSubmit() {
     return
   }
 
+  if (form.group_ids.length === 0) {
+    appStore.showError(t('admin.channels.noGroupsSelectedNeutral', '请至少选择一个分组'))
+    activeTab.value = 'basic'
+    return
+  }
+
   // Check for pricing entries with empty models (would be silently skipped)
   for (const section of form.platforms.filter(s => s.enabled)) {
-    if (section.group_ids.length === 0) {
-      const platformLabel = t('admin.groups.platforms.' + section.platform, section.platform)
-      appStore.showError(t('admin.channels.noGroupsSelected', { platform: platformLabel }, `${platformLabel} 平台未选择分组，请至少选择一个分组或禁用该平台`))
-      activeTab.value = section.platform
-      return
-    }
     for (const entry of section.model_pricing) {
       if (entry.models.length === 0) {
         const platformLabel = t('admin.groups.platforms.' + section.platform, section.platform)

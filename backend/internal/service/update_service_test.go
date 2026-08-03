@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"runtime"
@@ -30,11 +31,14 @@ func (s *updateServiceCacheStub) SetUpdateInfo(_ context.Context, data string, _
 }
 
 type updateServiceGitHubClientStub struct {
-	release  *GitHubRelease
-	releases []GitHubRelease
+	release          *GitHubRelease
+	releases         []GitHubRelease
+	fetchLatestCalls int
+	downloadCalls    int
 }
 
 func (s *updateServiceGitHubClientStub) FetchLatestRelease(context.Context, string) (*GitHubRelease, error) {
+	s.fetchLatestCalls++
 	return s.release, nil
 }
 
@@ -49,11 +53,12 @@ func (s *updateServiceGitHubClientStub) FetchReleases(context.Context, string, i
 }
 
 func (s *updateServiceGitHubClientStub) DownloadFile(context.Context, string, string, int64) error {
-	panic("DownloadFile should not be called when no update is available")
+	s.downloadCalls++
+	return errors.New("DownloadFile should not be called")
 }
 
 func (s *updateServiceGitHubClientStub) FetchChecksumFile(context.Context, string) ([]byte, error) {
-	panic("FetchChecksumFile should not be called when no update is available")
+	return nil, errors.New("FetchChecksumFile should not be called")
 }
 
 func TestUpdateServicePerformUpdateNoUpdateReturnsSentinel(t *testing.T) {
@@ -68,12 +73,131 @@ func TestUpdateServicePerformUpdateNoUpdateReturnsSentinel(t *testing.T) {
 		"0.1.132",
 		"release",
 	)
+	svc.deploymentTypeResolver = func() string { return DeploymentTypeBinary }
 
 	err := svc.PerformUpdate(context.Background())
 
 	require.Error(t, err)
 	require.True(t, errors.Is(err, ErrNoUpdateAvailable))
 	require.ErrorIs(t, err, ErrNoUpdateAvailable)
+}
+
+func TestUpdateServiceContainerRejectsBeforeFetchingOrDownloading(t *testing.T) {
+	githubClient := &updateServiceGitHubClientStub{
+		release: &GitHubRelease{
+			TagName: "v0.1.133",
+			Name:    "v0.1.133",
+		},
+	}
+	svc := NewUpdateService(&updateServiceCacheStub{}, githubClient, "0.1.132", "release")
+	svc.deploymentTypeResolver = func() string { return DeploymentTypeContainer }
+
+	err := svc.PerformUpdateToVersion(context.Background(), "")
+
+	require.ErrorIs(t, err, ErrInPlaceUpdateUnsupported)
+	require.Equal(t, 0, githubClient.fetchLatestCalls)
+	require.Equal(t, 0, githubClient.downloadCalls)
+}
+
+func TestUpdateServiceContainerRollbackRejectsBeforeAccessingExecutable(t *testing.T) {
+	svc := NewUpdateService(&updateServiceCacheStub{}, &updateServiceGitHubClientStub{}, "0.1.132", "release")
+	svc.deploymentTypeResolver = func() string { return DeploymentTypeContainer }
+
+	err := svc.Rollback()
+
+	require.ErrorIs(t, err, ErrInPlaceUpdateUnsupported)
+}
+
+func TestUpdateServiceBinaryDeploymentKeepsExistingUpdatePath(t *testing.T) {
+	githubClient := &updateServiceGitHubClientStub{
+		release: &GitHubRelease{
+			TagName: "v0.1.132",
+			Name:    "v0.1.132",
+		},
+	}
+	svc := NewUpdateService(&updateServiceCacheStub{}, githubClient, "0.1.132", "release")
+	svc.deploymentTypeResolver = func() string { return DeploymentTypeBinary }
+
+	err := svc.PerformUpdate(context.Background())
+
+	require.ErrorIs(t, err, ErrNoUpdateAvailable)
+	require.NotErrorIs(t, err, ErrInPlaceUpdateUnsupported)
+	require.Equal(t, 1, githubClient.fetchLatestCalls)
+}
+
+func TestDetectUpdateDeploymentTypePrefersExplicitEnvironment(t *testing.T) {
+	tests := []struct {
+		name    string
+		env     map[string]string
+		markers map[string]bool
+		want    string
+	}{
+		{
+			name:    "explicit container overrides absent marker",
+			env:     map[string]string{updateDeploymentTypeEnv: "container"},
+			markers: map[string]bool{},
+			want:    DeploymentTypeContainer,
+		},
+		{
+			name:    "explicit binary overrides docker marker",
+			env:     map[string]string{updateDeploymentTypeEnv: "binary"},
+			markers: map[string]bool{"/.dockerenv": true},
+			want:    DeploymentTypeBinary,
+		},
+		{
+			name:    "docker marker is detected",
+			markers: map[string]bool{"/.dockerenv": true},
+			want:    DeploymentTypeContainer,
+		},
+		{
+			name:    "podman marker is detected",
+			markers: map[string]bool{"/run/.containerenv": true},
+			want:    DeploymentTypeContainer,
+		},
+		{
+			name:    "defaults to binary",
+			markers: map[string]bool{},
+			want:    DeploymentTypeBinary,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := DetectUpdateDeploymentType(
+				func(key string) (string, bool) {
+					value, ok := tt.env[key]
+					return value, ok
+				},
+				func(path string) bool { return tt.markers[path] },
+			)
+
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestUpdateInfoSerializesDeploymentCapabilities(t *testing.T) {
+	svc := NewUpdateService(
+		&updateServiceCacheStub{},
+		&updateServiceGitHubClientStub{release: &GitHubRelease{TagName: "v0.1.133", Name: "v0.1.133"}},
+		"0.1.132",
+		"release",
+	)
+	svc.deploymentTypeResolver = func() string { return DeploymentTypeContainer }
+
+	info, err := svc.CheckUpdate(context.Background(), true)
+	require.NoError(t, err)
+
+	payload, err := json.Marshal(info)
+	require.NoError(t, err)
+	var decoded struct {
+		Capabilities UpdateCapabilities `json:"capabilities"`
+	}
+	require.NoError(t, json.Unmarshal(payload, &decoded))
+	require.Equal(t, DeploymentTypeContainer, decoded.Capabilities.DeploymentType)
+	require.False(t, decoded.Capabilities.CanInPlaceUpdate)
+	require.False(t, decoded.Capabilities.CanRollback)
+	require.False(t, decoded.Capabilities.CanRestart)
 }
 
 func TestUpdateServiceListVersionReleasesIncludesHistory(t *testing.T) {

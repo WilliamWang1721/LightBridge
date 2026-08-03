@@ -30,9 +30,9 @@ func TestUserAvailableChannel_Unauthenticated401(t *testing.T) {
 func TestFilterUserVisibleGroups_IntersectionOnly(t *testing.T) {
 	// 渠道挂在 {g1, g2, g3}，用户只允许 {g1, g3} —— 响应必须仅含 g1/g3。
 	groups := []service.AvailableGroupRef{
-		{ID: 1, Name: "g1", Platform: "anthropic"},
-		{ID: 2, Name: "g2", Platform: "anthropic"},
-		{ID: 3, Name: "g3", Platform: "openai"},
+		{ID: 1, Name: "g1", UpstreamPlatforms: []string{"anthropic"}},
+		{ID: 2, Name: "g2", UpstreamPlatforms: []string{"anthropic"}},
+		{ID: 3, Name: "g3", UpstreamPlatforms: []string{"openai"}},
 	}
 	allowed := map[int64]struct{}{1: {}, 3: {}}
 
@@ -72,7 +72,7 @@ func TestUserAvailableChannel_FieldWhitelist(t *testing.T) {
 		Platforms: []userChannelPlatformSection{
 			{
 				Platform:        "anthropic",
-				Groups:          []userAvailableGroup{{ID: 1, Name: "g1", Platform: "anthropic"}},
+				Groups:          []userAvailableGroup{{ID: 1, Name: "g1", UpstreamPlatforms: []string{"anthropic"}}},
 				SupportedModels: []userSupportedModel{},
 			},
 		},
@@ -107,7 +107,7 @@ func TestUserAvailableChannel_FieldWhitelist(t *testing.T) {
 	require.NoError(t, err)
 	var groupDecoded map[string]any
 	require.NoError(t, json.Unmarshal(rawGroup, &groupDecoded))
-	for _, key := range []string{"id", "name", "platform", "subscription_type", "rate_multiplier", "is_exclusive"} {
+	for _, key := range []string{"id", "name", "icon", "color", "upstream_platforms", "upstream_protocols", "available_ingress_protocols", "subscription_type", "rate_multiplier", "is_exclusive"} {
 		_, exists := groupDecoded[key]
 		require.Truef(t, exists, "group DTO must expose %q", key)
 	}
@@ -131,9 +131,9 @@ func TestUserAvailableChannel_FieldWhitelist(t *testing.T) {
 	}
 }
 
-func TestBuildPlatformSections_GroupsByPlatform(t *testing.T) {
-	// 一个渠道横跨 anthropic / openai / 空平台：应该生成 2 个 section，
-	// 按 platform 字母序排序，各自 groups 和 supported_models 只含同平台条目。
+func TestBuildPlatformSections_SharesProviderNeutralGroups(t *testing.T) {
+	// 渠道模型按定价平台分段，但分组是渠道级访问边界，每个 section
+	// 必须共享同一组可见分组，不能再按旧分组类型切分。
 	ch := service.AvailableChannel{
 		Name: "ch",
 		SupportedModels: []service.SupportedModel{
@@ -142,16 +142,16 @@ func TestBuildPlatformSections_GroupsByPlatform(t *testing.T) {
 		},
 	}
 	visible := []userAvailableGroup{
-		{ID: 1, Name: "g-openai", Platform: "openai"},
-		{ID: 2, Name: "g-ant", Platform: "anthropic"},
-		{ID: 3, Name: "g-empty", Platform: ""},
+		{ID: 1, Name: "g-openai", UpstreamPlatforms: []string{"openai"}},
+		{ID: 2, Name: "g-ant", UpstreamPlatforms: []string{"anthropic"}},
+		{ID: 3, Name: "g-empty"},
 	}
 	sections := buildPlatformSections(ch, visible)
 	require.Len(t, sections, 2)
 	require.Equal(t, "anthropic", sections[0].Platform)
 	require.Equal(t, "openai", sections[1].Platform)
-	require.Len(t, sections[0].Groups, 1)
-	require.Equal(t, int64(2), sections[0].Groups[0].ID)
+	require.Len(t, sections[0].Groups, 3)
+	require.Len(t, sections[1].Groups, 3)
 	require.Len(t, sections[0].SupportedModels, 1)
 	require.Equal(t, "claude-sonnet-4-6", sections[0].SupportedModels[0].Name)
 }

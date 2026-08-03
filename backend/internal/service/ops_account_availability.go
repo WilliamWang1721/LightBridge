@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 )
 
@@ -66,14 +67,15 @@ func (s *OpsService) GetAccountAvailabilityStats(ctx context.Context, platformFi
 		}
 
 		isAvailable := acc.IsSchedulable()
+		effectivePlatform := strings.TrimSpace(acc.EffectivePlatform())
 
-		if acc.Platform != "" {
-			if _, ok := platform[acc.Platform]; !ok {
-				platform[acc.Platform] = &PlatformAvailability{
-					Platform: acc.EffectivePlatform(),
+		if effectivePlatform != "" {
+			if _, ok := platform[effectivePlatform]; !ok {
+				platform[effectivePlatform] = &PlatformAvailability{
+					Platform: effectivePlatform,
 				}
 			}
-			p := platform[acc.Platform]
+			p := platform[effectivePlatform]
 			p.TotalAccounts++
 			if isAvailable {
 				p.AvailableCount++
@@ -92,12 +94,13 @@ func (s *OpsService) GetAccountAvailabilityStats(ctx context.Context, platformFi
 			}
 			if _, ok := group[grp.ID]; !ok {
 				group[grp.ID] = &GroupAvailability{
-					GroupID:   grp.ID,
-					GroupName: grp.Name,
-					Platform:  grp.Platform,
+					GroupID:           grp.ID,
+					GroupName:         grp.Name,
+					UpstreamPlatforms: []string{},
 				}
 			}
 			g := group[grp.ID]
+			g.UpstreamPlatforms = addOpsUpstreamPlatform(g.UpstreamPlatforms, effectivePlatform)
 			g.TotalAccounts++
 			if isAvailable {
 				g.AvailableCount++

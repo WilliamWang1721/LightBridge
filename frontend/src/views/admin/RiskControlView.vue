@@ -732,9 +732,19 @@
                   :class="isGroupSelected(group.id) ? 'border-primary-300 bg-primary-50 dark:border-primary-700 dark:bg-primary-900/20' : 'border-gray-100 hover:bg-gray-50 dark:border-dark-700 dark:hover:bg-dark-700/60'"
                   @click="toggleGroup(group.id)"
                 >
-                  <span class="min-w-0">
-                    <span class="block truncate text-sm font-semibold text-gray-900 dark:text-white">{{ group.name }}</span>
-                    <span class="mt-1 inline-flex rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-500 dark:bg-dark-700 dark:text-gray-400">{{ group.platform }}</span>
+                  <span class="min-w-0 space-y-1">
+                    <GroupBadge
+                      :name="group.name"
+                      :icon="group.icon"
+                      :color="group.color"
+                      :upstream-platforms="group.upstream_platforms"
+                      :upstream-protocols="group.upstream_protocols"
+                      :show-rate="false"
+                    />
+                    <GroupUpstreamBadges
+                      :upstream-platforms="group.upstream_platforms"
+                      :upstream-protocols="group.upstream_protocols"
+                    />
                   </span>
                   <span
                     class="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border"
@@ -1109,6 +1119,8 @@ import Select from '@/components/common/Select.vue'
 import Toggle from '@/components/common/Toggle.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import ModelWhitelistSelector from '@/components/account/ModelWhitelistSelector.vue'
+import GroupBadge from '@/components/common/GroupBadge.vue'
+import GroupUpstreamBadges from '@/components/common/GroupUpstreamBadges.vue'
 import { adminAPI } from '@/api/admin'
 import type {
   ContentModerationAPIKeyLoad,
@@ -1382,7 +1394,7 @@ const groupFilterOptions = computed<SelectOption[]>(() => [
   { value: 0, label: t('admin.riskControl.filters.allGroups') },
   ...groups.value.map((group) => ({
     value: group.id,
-    label: `${group.name} (${group.platform})`,
+    label: group.name,
   })),
 ])
 
@@ -1408,7 +1420,11 @@ const filteredGroups = computed(() => {
   const keyword = groupSearch.value.trim().toLowerCase()
   if (!keyword) return groups.value
   return groups.value.filter((group) => {
-    return group.name.toLowerCase().includes(keyword) || String(group.platform).toLowerCase().includes(keyword)
+    return [
+      group.name,
+      ...(group.upstream_platforms ?? []),
+      ...(group.upstream_protocols ?? []),
+    ].some((value) => value.toLowerCase().includes(keyword))
   })
 })
 

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -33,7 +34,11 @@ func (h *GatewayHandler) Usage(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	// 解析可选的日期范围参数（用于 model_stats 查询）
-	startTime, endTime := h.parseUsageDateRange(c)
+	startTime, endTime, err := h.parseUsageDateRange(c)
+	if err != nil {
+		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+		return
+	}
 	days, ok := parseAPIKeyDailyUsageDays(c.DefaultQuery("days", ""))
 	if !ok {
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Invalid days, allowed range is 1-90")
@@ -64,22 +69,33 @@ func (h *GatewayHandler) Usage(c *gin.Context) {
 }
 
 // parseUsageDateRange 解析 start_date / end_date query params，默认返回近 30 天范围
-func (h *GatewayHandler) parseUsageDateRange(c *gin.Context) (time.Time, time.Time) {
-	now := timezone.Now()
-	endTime := now
-	startTime := now.AddDate(0, 0, -30)
+func (h *GatewayHandler) parseUsageDateRange(c *gin.Context) (time.Time, time.Time, error) {
+	userTimezone := c.Query("timezone")
+	today := timezone.StartOfDayInUserLocation(timezone.NowInUserLocation(userTimezone), userTimezone)
+	startTime := today.AddDate(0, 0, -29)
+	endTime := today.AddDate(0, 0, 1)
 
 	if s := c.Query("start_date"); s != "" {
-		if t, err := timezone.ParseInLocation("2006-01-02", s); err == nil {
-			startTime = t
+		parsed, err := timezone.ParseInUserLocation("2006-01-02", s, userTimezone)
+		if err != nil {
+			return time.Time{}, time.Time{}, fmt.Errorf("invalid start_date, expected YYYY-MM-DD")
 		}
+		startTime = parsed
 	}
 	if s := c.Query("end_date"); s != "" {
-		if t, err := timezone.ParseInLocation("2006-01-02", s); err == nil {
-			endTime = t.AddDate(0, 0, 1) // half-open range upper bound
+		parsed, err := timezone.ParseInUserLocation("2006-01-02", s, userTimezone)
+		if err != nil {
+			return time.Time{}, time.Time{}, fmt.Errorf("invalid end_date, expected YYYY-MM-DD")
 		}
+		endTime = parsed.AddDate(0, 0, 1) // half-open range upper bound
 	}
-	return startTime, endTime
+	if !startTime.Before(endTime) {
+		return time.Time{}, time.Time{}, fmt.Errorf("start_date must be on or before end_date")
+	}
+	if endTime.Sub(startTime) > 366*24*time.Hour {
+		return time.Time{}, time.Time{}, fmt.Errorf("date range cannot exceed 366 days")
+	}
+	return startTime, endTime, nil
 }
 
 // buildUsageData 构建 today/total 用量摘要
@@ -274,6 +290,7 @@ func (h *GatewayHandler) usageUnrestricted(c *gin.Context, ctx context.Context, 
 		"mode":      "unrestricted",
 		"isValid":   true,
 		"planName":  "钱包余额",
+		"planCode":  "wallet_balance",
 		"remaining": latestUser.Balance,
 		"unit":      "USD",
 		"balance":   latestUser.Balance,

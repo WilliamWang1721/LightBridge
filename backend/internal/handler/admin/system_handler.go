@@ -74,6 +74,7 @@ func (h *SystemHandler) ListVersionReleases(c *gin.Context) {
 		"current_version": info.CurrentVersion,
 		"latest_version":  info.LatestVersion,
 		"build_type":      info.BuildType,
+		"capabilities":    info.Capabilities,
 		"releases":        releases,
 	})
 }
@@ -99,6 +100,10 @@ func (h *SystemHandler) PerformUpdate(c *gin.Context) {
 		}()
 
 		if err := h.updateSvc.PerformUpdateToVersion(ctx, req.Version); err != nil {
+			if errors.Is(err, service.ErrInPlaceUpdateUnsupported) {
+				releaseReason = "SYSTEM_UPDATE_UNSUPPORTED"
+				return nil, err
+			}
 			if errors.Is(err, service.ErrNoUpdateAvailable) {
 				info, checkErr := h.updateSvc.CheckUpdate(ctx, false)
 				if checkErr != nil {
@@ -144,6 +149,10 @@ func (h *SystemHandler) Rollback(c *gin.Context) {
 		}()
 
 		if err := h.updateSvc.Rollback(); err != nil {
+			if errors.Is(err, service.ErrInPlaceUpdateUnsupported) {
+				releaseReason = "SYSTEM_ROLLBACK_UNSUPPORTED"
+				return nil, err
+			}
 			releaseReason = "SYSTEM_ROLLBACK_FAILED"
 			return nil, infraerrors.InternalServer("SYSTEM_ROLLBACK_FAILED", "rollback failed: "+err.Error()).WithCause(err)
 		}

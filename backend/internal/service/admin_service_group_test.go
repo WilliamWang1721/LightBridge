@@ -97,8 +97,8 @@ func (s *groupRepoStubForAdmin) ListActive(_ context.Context) ([]Group, error) {
 	panic("unexpected ListActive call")
 }
 
-func (s *groupRepoStubForAdmin) ListActiveByPlatform(_ context.Context, _ string) ([]Group, error) {
-	panic("unexpected ListActiveByPlatform call")
+func (s *groupRepoStubForAdmin) ListActiveByUpstreamProtocol(_ context.Context, _ string) ([]Group, error) {
+	panic("unexpected ListActiveByUpstreamProtocol call")
 }
 
 func (s *groupRepoStubForAdmin) ExistsByName(_ context.Context, _ string) (bool, error) {
@@ -575,8 +575,8 @@ func (s *groupRepoStubForFallbackCycle) ListActive(_ context.Context) ([]Group, 
 	panic("unexpected ListActive call")
 }
 
-func (s *groupRepoStubForFallbackCycle) ListActiveByPlatform(_ context.Context, _ string) ([]Group, error) {
-	panic("unexpected ListActiveByPlatform call")
+func (s *groupRepoStubForFallbackCycle) ListActiveByUpstreamProtocol(_ context.Context, _ string) ([]Group, error) {
+	panic("unexpected ListActiveByUpstreamProtocol call")
 }
 
 func (s *groupRepoStubForFallbackCycle) ExistsByName(_ context.Context, _ string) (bool, error) {
@@ -650,8 +650,8 @@ func (s *groupRepoStubForInvalidRequestFallback) ListActive(_ context.Context) (
 	panic("unexpected ListActive call")
 }
 
-func (s *groupRepoStubForInvalidRequestFallback) ListActiveByPlatform(_ context.Context, _ string) ([]Group, error) {
-	panic("unexpected ListActiveByPlatform call")
+func (s *groupRepoStubForInvalidRequestFallback) ListActiveByUpstreamProtocol(_ context.Context, _ string) ([]Group, error) {
+	panic("unexpected ListActiveByUpstreamProtocol call")
 }
 
 func (s *groupRepoStubForInvalidRequestFallback) ExistsByName(_ context.Context, _ string) (bool, error) {
@@ -729,7 +729,7 @@ func TestAdminService_CreateGroup_InvalidRequestFallbackRejectsFallbackGroup(t *
 	}{
 		{
 			name:        "subscription_group",
-			fallback:    &Group{ID: 10, Platform: PlatformAnthropic, SubscriptionType: SubscriptionTypeSubscription},
+			fallback:    &Group{ID: 10, SubscriptionType: SubscriptionTypeSubscription},
 			wantMessage: "fallback group cannot be subscription type",
 		},
 		{

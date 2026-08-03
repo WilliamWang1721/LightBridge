@@ -44,8 +44,17 @@
             <div v-if="selectedGroupId === group.id" class="h-2 w-2 rounded-full bg-white"></div>
           </div>
           <div class="flex-1">
-            <span class="font-medium text-gray-900 dark:text-white">{{ group.name }}</span>
-            <span class="ml-2 text-xs text-gray-400">{{ group.platform }}</span>
+            <GroupBadge
+              :name="group.name"
+              :icon="group.icon"
+              :color="group.color"
+              :show-rate="false"
+            />
+            <GroupUpstreamBadges
+              class="mt-1.5"
+              :upstream-platforms="group.upstream_platforms"
+              :upstream-protocols="group.upstream_protocols"
+            />
           </div>
         </label>
       </div>
@@ -82,6 +91,8 @@ import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { AdminUser, AdminGroup } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import GroupBadge from '@/components/common/GroupBadge.vue'
+import GroupUpstreamBadges from '@/components/common/GroupUpstreamBadges.vue'
 import Icon from '@/components/icons/Icon.vue'
 
 interface Props {

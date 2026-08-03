@@ -35,16 +35,9 @@ func (s *GatewayService) resolvePlatform(ctx context.Context, groupID *int64, gr
 	if hasForcePlatform && forcePlatform != "" {
 		return forcePlatform, true, nil
 	}
-	if group != nil {
-		return PlatformForRequest(ctx, group.Platform), false, nil
-	}
-	if groupID != nil {
-		group, err := s.resolveGroupByID(ctx, *groupID)
-		if err != nil {
-			return "", false, err
-		}
-		return PlatformForRequest(ctx, group.Platform), false, nil
-	}
+	// An unannotated gateway call is the legacy Anthropic Messages entrypoint.
+	// Normal HTTP handlers always bind the actual inbound protocol before
+	// scheduling. The group is only an account boundary, never a protocol hint.
 	return PlatformForRequest(ctx, PlatformAnthropic), false, nil
 }
 

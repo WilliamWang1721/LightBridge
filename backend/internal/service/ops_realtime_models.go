@@ -1,6 +1,10 @@
 package service
 
-import "time"
+import (
+	"sort"
+	"strings"
+	"time"
+)
 
 // PlatformConcurrencyInfo aggregates concurrency usage by platform.
 type PlatformConcurrencyInfo struct {
@@ -15,13 +19,13 @@ type PlatformConcurrencyInfo struct {
 //
 // Note: one account can belong to multiple groups; group totals are therefore not additive across groups.
 type GroupConcurrencyInfo struct {
-	GroupID        int64   `json:"group_id"`
-	GroupName      string  `json:"group_name"`
-	Platform       string  `json:"platform"`
-	CurrentInUse   int64   `json:"current_in_use"`
-	MaxCapacity    int64   `json:"max_capacity"`
-	LoadPercentage float64 `json:"load_percentage"`
-	WaitingInQueue int64   `json:"waiting_in_queue"`
+	GroupID           int64    `json:"group_id"`
+	GroupName         string   `json:"group_name"`
+	UpstreamPlatforms []string `json:"upstream_platforms"`
+	CurrentInUse      int64    `json:"current_in_use"`
+	MaxCapacity       int64    `json:"max_capacity"`
+	LoadPercentage    float64  `json:"load_percentage"`
+	WaitingInQueue    int64    `json:"waiting_in_queue"`
 }
 
 // AccountConcurrencyInfo represents real-time concurrency usage for a single account.
@@ -59,13 +63,28 @@ type PlatformAvailability struct {
 
 // GroupAvailability aggregates account availability by group.
 type GroupAvailability struct {
-	GroupID        int64  `json:"group_id"`
-	GroupName      string `json:"group_name"`
-	Platform       string `json:"platform"`
-	TotalAccounts  int64  `json:"total_accounts"`
-	AvailableCount int64  `json:"available_count"`
-	RateLimitCount int64  `json:"rate_limit_count"`
-	ErrorCount     int64  `json:"error_count"`
+	GroupID           int64    `json:"group_id"`
+	GroupName         string   `json:"group_name"`
+	UpstreamPlatforms []string `json:"upstream_platforms"`
+	TotalAccounts     int64    `json:"total_accounts"`
+	AvailableCount    int64    `json:"available_count"`
+	RateLimitCount    int64    `json:"rate_limit_count"`
+	ErrorCount        int64    `json:"error_count"`
+}
+
+func addOpsUpstreamPlatform(platforms []string, platform string) []string {
+	platform = strings.TrimSpace(platform)
+	if platform == "" {
+		return platforms
+	}
+	for _, existing := range platforms {
+		if existing == platform {
+			return platforms
+		}
+	}
+	platforms = append(platforms, platform)
+	sort.Strings(platforms)
+	return platforms
 }
 
 // AccountAvailability represents current availability for a single account.

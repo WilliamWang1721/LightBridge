@@ -13,12 +13,16 @@ import (
 // 订阅 vs 标准（SubscriptionType）、默认倍率（RateMultiplier）。用户专属倍率
 // 不在这里暴露，前端自己通过 /groups/rates 拉取，和 API 密钥页面保持一致。
 type AvailableGroupRef struct {
-	ID               int64
-	Name             string
-	Platform         string
-	SubscriptionType string
-	RateMultiplier   float64
-	IsExclusive      bool
+	ID                        int64
+	Name                      string
+	Icon                      string
+	Color                     string
+	UpstreamPlatforms         []string
+	UpstreamProtocols         []string
+	AvailableIngressProtocols []string
+	SubscriptionType          string
+	RateMultiplier            float64
+	IsExclusive               bool
 }
 
 // AvailableChannel 可用渠道视图：用于「可用渠道」页面展示渠道基础信息 +
@@ -59,12 +63,16 @@ func (s *ChannelService) ListAvailable(ctx context.Context) ([]AvailableChannel,
 	for i := range groups {
 		g := groups[i]
 		groupByID[g.ID] = AvailableGroupRef{
-			ID:               g.ID,
-			Name:             g.Name,
-			Platform:         g.Platform,
-			SubscriptionType: g.SubscriptionType,
-			RateMultiplier:   g.RateMultiplier,
-			IsExclusive:      g.IsExclusive,
+			ID:                        g.ID,
+			Name:                      g.Name,
+			Icon:                      g.Icon,
+			Color:                     g.Color,
+			UpstreamPlatforms:         append([]string(nil), g.UpstreamPlatforms...),
+			UpstreamProtocols:         append([]string(nil), g.UpstreamProtocols...),
+			AvailableIngressProtocols: append([]string(nil), g.AvailableIngressProtocols...),
+			SubscriptionType:          g.SubscriptionType,
+			RateMultiplier:            g.RateMultiplier,
+			IsExclusive:               g.IsExclusive,
 		}
 	}
 

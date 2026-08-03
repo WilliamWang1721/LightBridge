@@ -10,6 +10,19 @@
           {{ t('auth.signInToAccount') }}
         </p>
       </div>
+      <div
+        v-if="publicSettingsError"
+        role="alert"
+        class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300"
+      >
+        <p>{{ t('auth.publicSettingsLoadFailed') }}</p>
+        <button type="button" class="mt-3 font-medium underline" @click="loadPublicSettings">
+          {{ t('common.retry') }}
+        </button>
+      </div>
+      <p v-else-if="!publicSettingsLoaded" role="status" class="text-center text-sm text-gray-500 dark:text-dark-400">
+        {{ t('auth.publicSettingsLoading') }}
+      </p>
       <!-- Login Form -->
       <form @submit.prevent="handleLogin" class="space-y-5">
         <!-- Email Input -->
@@ -232,6 +245,7 @@ const isLoading = ref<boolean>(false)
 const errorMessage = ref<string>('')
 const showPassword = ref<boolean>(false)
 const publicSettingsLoaded = ref<boolean>(false)
+const publicSettingsError = ref<boolean>(false)
 
 // Public settings
 const turnstileEnabled = ref<boolean>(false)
@@ -305,7 +319,7 @@ watch(validationToastMessage, (value, previousValue) => {
 
 // ==================== Lifecycle ====================
 
-onMounted(async () => {
+onMounted(() => {
   const expiredFlag = sessionStorage.getItem('auth_expired')
   if (expiredFlag) {
     sessionStorage.removeItem('auth_expired')
@@ -314,6 +328,12 @@ onMounted(async () => {
     appStore.showWarning(message)
   }
 
+  void loadPublicSettings()
+})
+
+async function loadPublicSettings(): Promise<void> {
+  publicSettingsLoaded.value = false
+  publicSettingsError.value = false
   try {
     const settings = await getPublicSettings()
     turnstileEnabled.value = settings.turnstile_enabled
@@ -329,14 +349,12 @@ onMounted(async () => {
     backendModeEnabled.value = settings.backend_mode_enabled
     passwordResetEnabled.value = settings.password_reset_enabled
     applyLoginAgreementSettings(settings)
+    publicSettingsLoaded.value = true
   } catch (error) {
     console.error('Failed to load public settings:', error)
-    loginAgreementEnabled.value = false
-    agreementAccepted.value = true
-  } finally {
-    publicSettingsLoaded.value = true
+    publicSettingsError.value = true
   }
-})
+}
 
 // ==================== Login Agreement ====================
 
@@ -397,7 +415,7 @@ function rejectLoginAgreement(): void {
   localStorage.removeItem(LOGIN_AGREEMENT_STORAGE_KEY)
   agreementAccepted.value = false
   showAgreementModal.value = false
-  appStore.showWarning('未同意最新条款前，无法输入账号密码或使用快捷登录。')
+  appStore.showWarning(t('auth.agreementRequiredForLogin'))
 }
 
 // ==================== Turnstile Handlers ====================
@@ -428,7 +446,7 @@ function validateForm(): boolean {
   let isValid = true
 
   if (agreementGateActive.value) {
-    appStore.showWarning('请先阅读并同意最新条款后再登录。')
+    appStore.showWarning(t('auth.agreementRequired'))
     if (loginAgreementMode.value !== 'checkbox') {
       showAgreementModal.value = true
     }

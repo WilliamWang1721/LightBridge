@@ -8,20 +8,20 @@
       <!-- Row 1: group name and upstream protocols -->
       <GroupBadge
         :name="name"
-        :platform="upstreamProtocols?.length ? undefined : platform"
+        :icon="icon"
+        :color="color"
+        :upstream-platforms="upstreamPlatforms"
+        :upstream-protocols="upstreamProtocols"
         :subscription-type="subscriptionType"
         :show-rate="false"
         class="groupOptionItemBadge"
       />
-      <div v-if="upstreamProtocols?.length" class="mt-1 flex flex-wrap gap-1">
-        <span
-          v-for="protocol in upstreamProtocols"
-          :key="protocol"
-          :class="protocolBadgeClass(protocol)"
-        >
-          {{ protocolLabel(protocol) }}
-        </span>
-      </div>
+      <GroupUpstreamBadges
+        v-if="upstreamPlatforms?.length || upstreamProtocols?.length"
+        class="mt-1"
+        :upstream-platforms="upstreamPlatforms"
+        :upstream-protocols="upstreamProtocols"
+      />
       <!-- Row 2: description with top spacing -->
       <span
         v-if="description"
@@ -33,8 +33,12 @@
 
     <!-- Right: rate pill + checkmark (vertically centered to first row) -->
     <div class="flex shrink-0 items-center gap-2 pt-0.5">
-      <!-- Rate pill (platform color) -->
-      <span v-if="rateMultiplier !== undefined" :class="['inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold', ratePillClass]">
+      <!-- Rate pill -->
+      <span
+        v-if="rateMultiplier !== undefined"
+        :class="['inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold', ratePillClass]"
+        :style="ratePillStyle"
+      >
         <template v-if="hasCustomRate">
           <span class="mr-1 line-through opacity-50">{{ rateMultiplier }}x</span>
           <span class="font-bold">{{ userRateMultiplier }}x</span>
@@ -60,13 +64,17 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import type { CSSProperties } from 'vue'
 import GroupBadge from './GroupBadge.vue'
-import { useI18n } from 'vue-i18n'
-import type { SubscriptionType, GroupPlatform, GroupUpstreamProtocol } from '@/types'
+import type { GroupIcon, SubscriptionType, GroupPlatform, GroupUpstreamProtocol } from '@/types'
+import GroupUpstreamBadges from './GroupUpstreamBadges.vue'
+import { normalizeGroupColor } from '@/utils/groupUpstreams'
 
 interface Props {
   name: string
-  platform?: GroupPlatform
+  icon?: GroupIcon | string | null
+  color?: string | null
+  upstreamPlatforms?: GroupPlatform[]
   upstreamProtocols?: GroupUpstreamProtocol[]
   subscriptionType?: SubscriptionType
   rateMultiplier?: number
@@ -82,7 +90,6 @@ const props = withDefaults(defineProps<Props>(), {
   showCheckmark: true,
   userRateMultiplier: null
 })
-const { t } = useI18n()
 
 // Whether user has a custom rate different from default
 const hasCustomRate = computed(() => {
@@ -94,35 +101,19 @@ const hasCustomRate = computed(() => {
   )
 })
 
-const protocolLabel = (protocol: GroupUpstreamProtocol | string) =>
-  t(`admin.groups.upstreamProtocols.${protocol}`)
+const normalizedColor = computed(() => normalizeGroupColor(props.color))
 
-const protocolBadgeClass = (protocol: GroupUpstreamProtocol | string) => [
-  'rounded-full px-1.5 py-0.5 text-[10px] font-medium',
-  protocol === 'openai_responses'
-    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-    : protocol === 'openai_chat_completions'
-      ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400'
-      : protocol === 'anthropic_messages'
-        ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
-        : protocol === 'gemini'
-          ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-          : 'bg-gray-100 text-gray-600 dark:bg-dark-600 dark:text-gray-300'
-]
-
-// Rate pill color matches platform badge color
 const ratePillClass = computed(() => {
-  switch (props.platform) {
-    case 'anthropic':
-      return 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'
-    case 'openai':
-      return 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-    case 'gemini':
-      return 'bg-sky-50 text-sky-700 dark:bg-sky-900/20 dark:text-sky-400'
-    case 'grok':
-      return 'bg-zinc-50 text-zinc-700 dark:bg-zinc-900/40 dark:text-zinc-300'
-    default: // antigravity and others
-      return 'bg-violet-50 text-violet-700 dark:bg-violet-900/20 dark:text-violet-400'
+  return normalizedColor.value
+    ? ''
+    : 'bg-gray-100 text-gray-700 dark:bg-dark-600 dark:text-gray-300'
+})
+
+const ratePillStyle = computed<CSSProperties | undefined>(() => {
+  if (!normalizedColor.value) return undefined
+  return {
+    color: normalizedColor.value,
+    backgroundColor: `${normalizedColor.value}14`,
   }
 })
 </script>

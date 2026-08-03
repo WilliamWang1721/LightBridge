@@ -492,9 +492,21 @@ export interface PaginationConfig {
 
 // ==================== API Key & Group Types ====================
 
-export type GroupPlatform = 'anthropic' | 'openai' | 'gemini' | 'grok' | 'antigravity' | 'custom'
-export type GroupUpstreamProtocol = 'openai_responses' | 'openai_chat_completions' | 'anthropic_messages' | 'gemini'
-export type AccountProtocol = GroupUpstreamProtocol | 'openai_embeddings'
+export type UpstreamPlatform = 'anthropic' | 'openai' | 'gemini' | 'grok' | 'antigravity' | 'custom'
+/** @deprecated Groups are provider-neutral; use UpstreamPlatform for account facts. */
+export type GroupPlatform = UpstreamPlatform
+export type GroupUpstreamProtocol = 'openai_responses' | 'openai_chat_completions' | 'openai_embeddings' | 'anthropic_messages' | 'gemini'
+export type AccountProtocol = GroupUpstreamProtocol
+export type GroupIcon =
+  | 'folder'
+  | 'server'
+  | 'cloud'
+  | 'bolt'
+  | 'shield'
+  | 'cube'
+  | 'terminal'
+  | 'sparkles'
+  | 'users'
 
 export type SubscriptionType = 'standard' | 'subscription'
 
@@ -509,8 +521,14 @@ export interface Group {
   id: number
   name: string
   description: string | null
-  platform: GroupPlatform
+  icon?: GroupIcon | null
+  color?: string | null
+  /** Platforms derived from accounts currently bound to this group. */
+  upstream_platforms?: GroupPlatform[]
+  /** Protocols derived from accounts currently bound to this group. */
   upstream_protocols?: GroupUpstreamProtocol[]
+  /** Ingress protocols accepted after applying each account's relay mode. */
+  available_ingress_protocols?: GroupUpstreamProtocol[]
   rate_multiplier: number
   peak_rate_enabled: boolean
   peak_start: string
@@ -534,7 +552,7 @@ export interface Group {
   claude_code_only: boolean
   fallback_group_id: number | null
   fallback_group_id_on_invalid_request: number | null
-  // OpenAI Messages 调度开关（用户侧需要此字段判断是否展示 Claude Code 教程）
+  // Messages 调度设置
   allow_messages_dispatch?: boolean
   default_mapped_model?: string
   messages_dispatch_model_config?: OpenAIMessagesDispatchModelConfig
@@ -549,11 +567,8 @@ export interface AdminGroup extends Group {
   model_routing: Record<string, number[]> | null
   model_routing_enabled: boolean
 
-  // MCP XML 协议注入（仅 antigravity 平台使用）
+  // MCP XML 协议注入
   mcp_xml_inject: boolean
-
-  // 支持的模型系列（仅 antigravity 平台使用）
-  supported_model_scopes?: string[]
 
   // 分组下账号数量（仅管理员可见）
   account_count?: number
@@ -636,7 +651,8 @@ export interface UpdateApiKeyRequest {
 export interface CreateGroupRequest {
   name: string
   description?: string | null
-  platform?: GroupPlatform
+  icon?: GroupIcon | null
+  color?: string | null
   rate_multiplier?: number
   peak_rate_enabled?: boolean
   peak_start?: string
@@ -657,7 +673,6 @@ export interface CreateGroupRequest {
   fallback_group_id?: number | null
   fallback_group_id_on_invalid_request?: number | null
   mcp_xml_inject?: boolean
-  supported_model_scopes?: string[]
   models_list_config?: ModelsListConfig
   allow_messages_dispatch?: boolean
   default_mapped_model?: string
@@ -674,7 +689,8 @@ export interface CreateGroupRequest {
 export interface UpdateGroupRequest {
   name?: string
   description?: string | null
-  platform?: GroupPlatform
+  icon?: GroupIcon | null
+  color?: string | null
   rate_multiplier?: number
   peak_rate_enabled?: boolean
   peak_start?: string
@@ -696,7 +712,6 @@ export interface UpdateGroupRequest {
   fallback_group_id?: number | null
   fallback_group_id_on_invalid_request?: number | null
   mcp_xml_inject?: boolean
-  supported_model_scopes?: string[]
   models_list_config?: ModelsListConfig
   allow_messages_dispatch?: boolean
   default_mapped_model?: string

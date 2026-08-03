@@ -47,7 +47,7 @@ func (s *stubGroupRepoForAvailable) List(ctx context.Context, params pagination.
 func (s *stubGroupRepoForAvailable) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, status, search string, isExclusive *bool) ([]Group, *pagination.PaginationResult, error) {
 	return nil, nil, nil
 }
-func (s *stubGroupRepoForAvailable) ListActiveByPlatform(ctx context.Context, platform string) ([]Group, error) {
+func (s *stubGroupRepoForAvailable) ListActiveByUpstreamProtocol(ctx context.Context, platform string) ([]Group, error) {
 	return nil, nil
 }
 func (s *stubGroupRepoForAvailable) ExistsByName(ctx context.Context, name string) (bool, error) {
@@ -102,7 +102,7 @@ func TestListAvailable_InactiveGroupIDSilentlyDropped(t *testing.T) {
 		GroupIDs: []int64{1, 99},
 	}}
 	groupRepo := &stubGroupRepoForAvailable{
-		activeGroups: []Group{{ID: 1, Name: "g1", Platform: "anthropic"}},
+		activeGroups: []Group{{ID: 1, Name: "g1", UpstreamPlatforms: []string{"anthropic"}}},
 	}
 	svc := newAvailableChannelService(channels, groupRepo)
 	out, err := svc.ListAvailable(context.Background())
