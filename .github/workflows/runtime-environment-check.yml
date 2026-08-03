@@ -10,109 +10,13 @@ on:
     - cron: '30 4 * * 2'
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: runtime-environment-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  review-repair:
-    name: Apply reviewed provider-neutral fixes
-    if: github.event_name == 'pull_request' && github.actor != 'github-actions[bot]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 35
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: agent/complete-bug-audit-fixes
-          fetch-depth: 1
-          persist-credentials: true
-
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: backend/go.mod
-          check-latest: false
-          cache: true
-          cache-dependency-path: backend/go.sum
-
-      - name: Apply and validate reviewed fixes
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 tools/ci/apply_provider_neutral_review_fixes_round3.py
-          gofmt -w \
-            backend/internal/handler/admin/system_handler_test.go \
-            backend/internal/handler/openai_gateway_handler_test.go \
-            backend/internal/service/admin_service_group_test.go \
-            backend/internal/service/channel_service.go \
-            backend/internal/service/channel_service_test.go \
-            backend/internal/service/gateway_multiplatform_test.go \
-            backend/internal/service/protocol_router_test.go
-          bash -n deploy/install-datamanagementd.sh
-          python3 tools/ci/check_environment_contract.py
-          git diff --check
-
-      - name: Run targeted backend review tests
-        working-directory: backend
-        shell: bash
-        run: |
-          set +e
-          go test -tags=unit -json ./internal/handler/admin ./internal/handler ./internal/service > /tmp/review-tests.json
-          status=$?
-          set -e
-          python3 - <<'PY'
-          import json
-          from collections import defaultdict, deque
-
-          recent = defaultdict(lambda: deque(maxlen=80))
-          failed_tests = []
-          failed_packages = set()
-          with open('/tmp/review-tests.json', encoding='utf-8') as handle:
-              for raw in handle:
-                  try:
-                      event = json.loads(raw)
-                  except json.JSONDecodeError:
-                      continue
-                  package = event.get('Package', '<unknown>')
-                  output = event.get('Output')
-                  if output:
-                      recent[package].append(output.rstrip())
-                  if event.get('Action') == 'fail':
-                      test = event.get('Test')
-                      if test:
-                          failed_tests.append((package, test))
-                      else:
-                          failed_packages.add(package)
-
-          print('FAILED TESTS')
-          for package, test in failed_tests:
-              print(f'- {package}: {test}')
-          packages = sorted(failed_packages | {package for package, _ in failed_tests})
-          print('\nFAILED PACKAGES AND RECENT OUTPUT')
-          for package in packages:
-              print(f'\n=== {package} ===')
-              for line in recent[package]:
-                  print(line)
-          PY
-          exit "$status"
-
-      - name: Commit and push reviewed fixes
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -f \
-            tools/ci/apply_provider_neutral_review_fixes.py \
-            tools/ci/apply_provider_neutral_review_fixes_round2.py \
-            tools/ci/apply_provider_neutral_review_fixes_round3.py \
-            tools/ci/.review-trigger
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add --all
-          git diff --cached --check
-          git commit -m 'fix: align provider-neutral routing and runtime contract'
-          git push origin HEAD:agent/complete-bug-audit-fixes
-
   environment-contract:
     name: Environment and dependency contract
     runs-on: ubuntu-latest
