@@ -1,0 +1,62 @@
+name: Codebase Inventory
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'docs/architecture/CODEBASE_INVENTORY.tsv'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: codebase-inventory-main
+  cancel-in-progress: true
+
+jobs:
+  refresh-inventory:
+    name: Refresh deterministic repository inventory
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout default branch
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Regenerate, verify, and commit inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git checkout -B inventory-refresh origin/main
+
+            python3 tools/codebase_inventory.py
+            python3 tools/codebase_inventory.py --check
+            git diff --check
+
+            git add docs/architecture/CODEBASE_INVENTORY.tsv
+            if git diff --cached --quiet; then
+              echo 'Codebase inventory is already current.'
+              exit 0
+            fi
+
+            git commit -m 'chore: refresh codebase inventory [skip ci]'
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+
+            echo "Inventory push raced with another main update (attempt ${attempt}); retrying."
+            sleep $((attempt * 3))
+          done
+
+          echo 'Unable to synchronize codebase inventory after three attempts.' >&2
+          exit 1
