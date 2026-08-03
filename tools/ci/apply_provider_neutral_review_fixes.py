@@ -1,0 +1,556 @@
+#!/usr/bin/env python3
+from pathlib import Path
+
+
+def read(path: str) -> str:
+    return Path(path).read_text(encoding="utf-8")
+
+
+def write(path: str, text: str) -> None:
+    Path(path).write_text(text, encoding="utf-8")
+
+
+def replace_once(path: str, old: str, new: str) -> None:
+    text = read(path)
+    count = text.count(old)
+    if count != 1:
+        raise SystemExit(f"{path}: expected one occurrence, found {count}: {old[:120]!r}")
+    write(path, text.replace(old, new, 1))
+
+
+def replace_all(path: str, old: str, new: str, minimum: int = 1) -> None:
+    text = read(path)
+    count = text.count(old)
+    if count < minimum:
+        raise SystemExit(f"{path}: expected at least {minimum} occurrences, found {count}: {old[:120]!r}")
+    write(path, text.replace(old, new))
+
+
+def replace_in_section(path: str, start: str, end: str, old: str, new: str) -> None:
+    text = read(path)
+    start_index = text.index(start)
+    end_index = text.index(end, start_index)
+    section = text[start_index:end_index]
+    count = section.count(old)
+    if count != 1:
+        raise SystemExit(f"{path}: expected one occurrence in section {start!r}, found {count}")
+    section = section.replace(old, new, 1)
+    write(path, text[:start_index] + section + text[end_index:])
+
+
+replace_once(
+    "backend/internal/handler/admin/system_handler_test.go",
+    "\trequire.Zero(t, updateSvc.rollbackCall)\n\trequire.Equal(t, []bool{false}, updateSvc.checkForces)",
+    "\trequire.Zero(t, updateSvc.rollbackCall)\n\trequire.Empty(t, updateSvc.checkForces)",
+)
+replace_once(
+    "backend/internal/handler/admin/system_handler_test.go",
+    "\trequire.Equal(t, 1, updateSvc.performCall)\n\trequire.Empty(t, updateSvc.checkForces)\n\trequireSystemLockStatus(t, repo, service.IdempotencyStatusFailedRetryable)",
+    "\trequire.Equal(t, 1, updateSvc.performCall)\n\trequire.Equal(t, []bool{false}, updateSvc.checkForces)\n\trequireSystemLockStatus(t, repo, service.IdempotencyStatusFailedRetryable)",
+)
+
+replace_once(
+    "backend/internal/handler/openai_gateway_handler_test.go",
+    """func (s *openAIWSUsageHandlerAccountRepoStub) ListSchedulableByGroupIDAndPlatform(ctx context.Context, groupID int64, platform string) ([]service.Account, error) {
+\treturn s.ListSchedulableByPlatform(ctx, platform)
+}
+
+func (s *openAIWSUsageHandlerAccountRepoStub) GetByID""",
+    """func (s *openAIWSUsageHandlerAccountRepoStub) ListSchedulableByGroupIDAndPlatform(ctx context.Context, groupID int64, platform string) ([]service.Account, error) {
+\treturn s.ListSchedulableByPlatform(ctx, platform)
+}
+
+func (s *openAIWSUsageHandlerAccountRepoStub) ListSchedulableByGroupID(context.Context, int64) ([]service.Account, error) {
+\tif !s.account.IsSchedulable() {
+\t\treturn nil, nil
+\t}
+\treturn []service.Account{s.account}, nil
+}
+
+func (s *openAIWSUsageHandlerAccountRepoStub) GetByID""",
+)
+replace_once(
+    "backend/internal/handler/openai_gateway_handler_test.go",
+    """func (s *openAIWSFailoverHandlerAccountRepoStub) ListSchedulableByGroupIDAndPlatform(ctx context.Context, groupID int64, platform string) ([]service.Account, error) {
+\treturn s.ListSchedulableByPlatform(ctx, platform)
+}
+
+func (s *openAIWSFailoverHandlerAccountRepoStub) ListSchedulableUngroupedByPlatform""",
+    """func (s *openAIWSFailoverHandlerAccountRepoStub) ListSchedulableByGroupIDAndPlatform(ctx context.Context, groupID int64, platform string) ([]service.Account, error) {
+\treturn s.ListSchedulableByPlatform(ctx, platform)
+}
+
+func (s *openAIWSFailoverHandlerAccountRepoStub) ListSchedulableByGroupID(context.Context, int64) ([]service.Account, error) {
+\tout := make([]service.Account, 0, len(s.accounts))
+\tfor _, account := range s.accounts {
+\t\tif account.IsSchedulable() {
+\t\t\tout = append(out, account)
+\t\t}
+\t}
+\treturn out, nil
+}
+
+func (s *openAIWSFailoverHandlerAccountRepoStub) ListSchedulableUngroupedByPlatform""",
+)
+
+replace_once(
+    "backend/internal/service/admin_service_group_test.go",
+    "func TestAdminService_CreateGroup_ClearsMessagesDispatchFieldsForNonOpenAIPlatform(t *testing.T) {",
+    "func TestAdminService_CreateGroup_PreservesMessagesDispatchForProviderNeutralGroup(t *testing.T) {",
+)
+replace_in_section(
+    "backend/internal/service/admin_service_group_test.go",
+    "func TestAdminService_CreateGroup_PreservesMessagesDispatchForProviderNeutralGroup",
+    "func TestAdminService_UpdateGroup_ClearsMessagesDispatchFieldsWhenPlatformChangesAwayFromOpenAI",
+    """\trequire.False(t, repo.created.AllowMessagesDispatch)
+\trequire.Empty(t, repo.created.DefaultMappedModel)
+\trequire.Equal(t, OpenAIMessagesDispatchModelConfig{}, repo.created.MessagesDispatchModelConfig)
+""",
+    """\trequire.True(t, repo.created.AllowMessagesDispatch)
+\trequire.Equal(t, "gpt-5.4", repo.created.DefaultMappedModel)
+\trequire.Equal(t, OpenAIMessagesDispatchModelConfig{OpusMappedModel: "gpt-5.4"}, repo.created.MessagesDispatchModelConfig)
+""",
+)
+replace_once(
+    "backend/internal/service/admin_service_group_test.go",
+    "func TestAdminService_UpdateGroup_ClearsMessagesDispatchFieldsWhenPlatformChangesAwayFromOpenAI(t *testing.T) {",
+    "func TestAdminService_UpdateGroup_IgnoresLegacyPlatformChangeAndPreservesMessagesDispatch(t *testing.T) {",
+)
+replace_in_section(
+    "backend/internal/service/admin_service_group_test.go",
+    "func TestAdminService_UpdateGroup_IgnoresLegacyPlatformChangeAndPreservesMessagesDispatch",
+    "func TestAdminService_ListGroups_WithSearch",
+    """\trequire.Equal(t, PlatformAnthropic, repo.updated.Platform)
+\trequire.False(t, repo.updated.AllowMessagesDispatch)
+\trequire.Empty(t, repo.updated.DefaultMappedModel)
+\trequire.Equal(t, OpenAIMessagesDispatchModelConfig{}, repo.updated.MessagesDispatchModelConfig)
+""",
+    """\trequire.Equal(t, PlatformOpenAI, repo.updated.Platform)
+\trequire.True(t, repo.updated.AllowMessagesDispatch)
+\trequire.Equal(t, "gpt-5.4", repo.updated.DefaultMappedModel)
+\trequire.Equal(t, OpenAIMessagesDispatchModelConfig{SonnetMappedModel: "gpt-5.3-codex"}, repo.updated.MessagesDispatchModelConfig)
+""",
+)
+replace_once(
+    "backend/internal/service/admin_service_group_test.go",
+    "func TestAdminService_UpdateGroup_InvalidRequestFallbackAllowsPlatformChange(t *testing.T) {",
+    "func TestAdminService_UpdateGroup_InvalidRequestFallbackIgnoresLegacyPlatformChange(t *testing.T) {",
+)
+replace_in_section(
+    "backend/internal/service/admin_service_group_test.go",
+    "func TestAdminService_UpdateGroup_InvalidRequestFallbackIgnoresLegacyPlatformChange",
+    "func TestAdminService_UpdateGroup_InvalidRequestFallbackSubscriptionMismatch",
+    "\trequire.Equal(t, PlatformOpenAI, repo.updated.Platform)",
+    "\trequire.Equal(t, PlatformAnthropic, repo.updated.Platform)",
+)
+
+replace_all(
+    "backend/internal/service/protocol_router_test.go",
+    "[]string{PlatformAnthropic, PlatformOpenAI, PlatformGemini, PlatformCustom}",
+    "[]string{PlatformAnthropic, PlatformOpenAI, PlatformGemini, PlatformGrok, PlatformCustom}",
+    minimum=2,
+)
+
+replace_once(
+    "backend/internal/service/channel_service.go",
+    """\twildcardMappingByGP     map[channelGroupPlatformKey][]*wildcardMappingEntry // (groupID, platform) → 通配符映射（按配置顺序，先匹配先使用）
+\tchannelByGroupID        map[int64]*Channel                                  // groupID → 渠道
+""",
+    """\twildcardMappingByGP     map[channelGroupPlatformKey][]*wildcardMappingEntry // (groupID, platform) → 通配符映射（按配置顺序，先匹配先使用）
+\tchannelByGroupID        map[int64]*Channel                                  // groupID → 渠道
+\tplatformsByGroupID      map[int64]map[string]struct{}                       // groupID → 渠道中已配置的平台集合
+""",
+)
+replace_once(
+    "backend/internal/service/channel_service.go",
+    """\t\twildcardMappingByGP:     make(map[channelGroupPlatformKey][]*wildcardMappingEntry),
+\t\tchannelByGroupID:        make(map[int64]*Channel),
+\t\tbyID:                    make(map[int64]*Channel),
+""",
+    """\t\twildcardMappingByGP:     make(map[channelGroupPlatformKey][]*wildcardMappingEntry),
+\t\tchannelByGroupID:        make(map[int64]*Channel),
+\t\tplatformsByGroupID:      make(map[int64]map[string]struct{}),
+\t\tbyID:                    make(map[int64]*Channel),
+""",
+)
+replace_once(
+    "backend/internal/service/channel_service.go",
+    """// expandPricingToCache 将渠道的模型定价展开到缓存（按分组+平台维度）。
+// 分组不再限制平台，因此每个分组会装填该渠道下所有平台的定价；查找时再按请求协议平台选择。
+func expandPricingToCache""",
+    """func registerChannelPlatform(cache *channelCache, groupID int64, platform string) {
+\tplatform = strings.TrimSpace(platform)
+\tif platform == "" {
+\t\treturn
+\t}
+\tplatforms := cache.platformsByGroupID[groupID]
+\tif platforms == nil {
+\t\tplatforms = make(map[string]struct{})
+\t\tcache.platformsByGroupID[groupID] = platforms
+\t}
+\tplatforms[platform] = struct{}{}
+}
+
+// expandPricingToCache 将渠道的模型定价展开到缓存（按分组+平台维度）。
+// 分组不再限制平台，因此每个分组会装填该渠道下所有平台的定价；查找时再按请求协议平台选择。
+func expandPricingToCache""",
+)
+replace_once(
+    "backend/internal/service/channel_service.go",
+    """\t\tpricingPlatform := pricing.Platform
+\t\tgpKey := channelGroupPlatformKey{groupID: gid, platform: pricingPlatform}
+""",
+    """\t\tpricingPlatform := strings.TrimSpace(pricing.Platform)
+\t\tregisterChannelPlatform(cache, gid, pricingPlatform)
+\t\tgpKey := channelGroupPlatformKey{groupID: gid, platform: pricingPlatform}
+""",
+)
+replace_once(
+    "backend/internal/service/channel_service.go",
+    """\tfor mappingPlatform := range ch.ModelMapping {
+\t\tplatformMapping, ok := ch.ModelMapping[mappingPlatform]
+""",
+    """\tfor mappingPlatform := range ch.ModelMapping {
+\t\tregisterChannelPlatform(cache, gid, mappingPlatform)
+\t\tplatformMapping, ok := ch.ModelMapping[mappingPlatform]
+""",
+)
+replace_once(
+    "backend/internal/service/channel_service.go",
+    """// matchingPlatforms 返回请求平台对应的可匹配平台列表。
+// 各平台严格独立，只返回自身。
+func matchingPlatforms(requestPlatform string) []string {
+\treturn []string{requestPlatform}
+}
+""",
+    """// matchingPlatforms 返回请求平台对应的可匹配平台列表。
+// 显式平台始终严格隔离；缺少协议上下文时，仅在渠道配置只有一个平台时
+// 使用该唯一平台。多平台配置保持 fail-closed，避免跨平台同名模型串价。
+func matchingPlatforms(cache *channelCache, groupID int64, requestPlatform string) []string {
+\trequestPlatform = strings.TrimSpace(requestPlatform)
+\tif requestPlatform != "" {
+\t\treturn []string{requestPlatform}
+\t}
+\tplatforms := cache.platformsByGroupID[groupID]
+\tif len(platforms) != 1 {
+\t\treturn nil
+\t}
+\tfor platform := range platforms {
+\t\treturn []string{platform}
+\t}
+\treturn nil
+}
+""",
+)
+replace_all(
+    "backend/internal/service/channel_service.go",
+    "matchingPlatforms(requestPlatform)",
+    "matchingPlatforms(cache, groupID, requestPlatform)",
+    minimum=4,
+)
+
+replace_once(
+    "backend/internal/service/channel_service_test.go",
+    """func newTestChannelServiceWithAuth(repo *mockChannelRepository, auth *mockChannelAuthCacheInvalidator) *ChannelService {
+\treturn NewChannelService(repo, nil, auth, nil)
+}
+
+// makeStandardRepo""",
+    """func newTestChannelServiceWithAuth(repo *mockChannelRepository, auth *mockChannelAuthCacheInvalidator) *ChannelService {
+\treturn NewChannelService(repo, nil, auth, nil)
+}
+
+func channelContextForPlatform(platform string) context.Context {
+\treturn context.WithValue(context.Background(), ctxkey.ForcePlatform, platform)
+}
+
+// makeStandardRepo""",
+)
+replace_once(
+    "backend/internal/service/channel_service_test.go",
+    """func makeStandardRepo(ch Channel, groupPlatforms map[int64]string) *mockChannelRepository {
+\treturn &mockChannelRepository{
+\t\tlistAllFn: func(_ context.Context) ([]Channel, error) {
+\t\t\treturn []Channel{ch}, nil
+\t\t},
+\t\tgetGroupPlatformsFn: func(_ context.Context, _ []int64) (map[int64]string, error) {
+\t\t\treturn groupPlatforms, nil
+\t\t},
+\t}
+}
+""",
+    """func makeStandardRepo(ch Channel, _ map[int64]string) *mockChannelRepository {
+\treturn &mockChannelRepository{
+\t\tlistAllFn: func(_ context.Context) ([]Channel, error) {
+\t\t\treturn []Channel{ch}, nil
+\t\t},
+\t}
+}
+""",
+)
+
+old_group_error = """func TestBuildCache_GroupPlatformError(t *testing.T) {
+\tch := Channel{
+\t\tID:       1,
+\t\tStatus:   StatusActive,
+\t\tGroupIDs: []int64{10},
+\t\tModelPricing: []ChannelModelPricing{
+\t\t\t{ID: 100, Platform: "anthropic", Models: []string{"claude-opus-4"}},
+\t\t},
+\t}
+\trepo := &mockChannelRepository{
+\t\tlistAllFn: func(_ context.Context) ([]Channel, error) {
+\t\t\treturn []Channel{ch}, nil
+\t\t},
+\t\tgetGroupPlatformsFn: func(_ context.Context, _ []int64) (map[int64]string, error) {
+\t\t\treturn nil, errors.New("group platforms failed")
+\t\t},
+\t}
+\tsvc := newTestChannelService(repo)
+
+\t// Should fail-close: error propagated when group platforms cannot be loaded
+\tresult, err := svc.GetChannelForGroup(context.Background(), 10)
+\trequire.Error(t, err)
+\trequire.Nil(t, result)
+
+\t// Within error-TTL, second call should hit cache (empty) and return nil, nil
+\tresult2, err2 := svc.GetChannelForGroup(context.Background(), 10)
+\trequire.NoError(t, err2)
+\trequire.Nil(t, result2)
+}
+"""
+new_group_error = """func TestBuildCache_IgnoresLegacyGroupPlatformLookup(t *testing.T) {
+\tch := Channel{
+\t\tID:       1,
+\t\tStatus:   StatusActive,
+\t\tGroupIDs: []int64{10},
+\t\tModelPricing: []ChannelModelPricing{
+\t\t\t{ID: 100, Platform: PlatformAnthropic, Models: []string{"claude-opus-4"}},
+\t\t},
+\t}
+\tlegacyCalls := 0
+\trepo := &mockChannelRepository{
+\t\tlistAllFn: func(_ context.Context) ([]Channel, error) {
+\t\t\treturn []Channel{ch}, nil
+\t\t},
+\t\tgetGroupPlatformsFn: func(_ context.Context, _ []int64) (map[int64]string, error) {
+\t\t\tlegacyCalls++
+\t\t\treturn nil, errors.New("legacy group platform lookup must not run")
+\t\t},
+\t}
+\tsvc := newTestChannelService(repo)
+
+\tresult, err := svc.GetChannelForGroup(context.Background(), 10)
+\trequire.NoError(t, err)
+\trequire.NotNil(t, result)
+\trequire.Zero(t, legacyCalls)
+\trequire.NotNil(t, svc.GetChannelModelPricing(channelContextForPlatform(PlatformAnthropic), 10, "claude-opus-4"))
+}
+"""
+replace_once("backend/internal/service/channel_service_test.go", old_group_error, new_group_error)
+
+replace_in_section(
+    "backend/internal/service/channel_service_test.go",
+    "func TestGetChannelModelPricing_PlatformFiltering",
+    "func TestGetChannelModelPricing_ReturnsCopy",
+    """\t// Group 10 (anthropic) should NOT see openai pricing
+\tresult := svc.GetChannelModelPricing(context.Background(), 10, "gpt-5.1")
+""",
+    """\tanthropicCtx := channelContextForPlatform(PlatformAnthropic)
+\topenAICtx := channelContextForPlatform(PlatformOpenAI)
+
+\t// An Anthropic request should NOT see OpenAI pricing.
+\tresult := svc.GetChannelModelPricing(anthropicCtx, 10, "gpt-5.1")
+""",
+)
+replace_in_section("backend/internal/service/channel_service_test.go", "func TestGetChannelModelPricing_PlatformFiltering", "func TestGetChannelModelPricing_ReturnsCopy", "result = svc.GetChannelModelPricing(context.Background(), 10, \"claude-opus-4\")", "result = svc.GetChannelModelPricing(anthropicCtx, 10, \"claude-opus-4\")")
+replace_in_section("backend/internal/service/channel_service_test.go", "func TestGetChannelModelPricing_PlatformFiltering", "func TestGetChannelModelPricing_ReturnsCopy", "result = svc.GetChannelModelPricing(context.Background(), 20, \"gpt-5.1\")", "result = svc.GetChannelModelPricing(openAICtx, 20, \"gpt-5.1\")")
+replace_in_section("backend/internal/service/channel_service_test.go", "func TestGetChannelModelPricing_PlatformFiltering", "func TestGetChannelModelPricing_ReturnsCopy", "result = svc.GetChannelModelPricing(context.Background(), 20, \"claude-opus-4\")", "result = svc.GetChannelModelPricing(openAICtx, 20, \"claude-opus-4\")")
+
+replace_in_section(
+    "backend/internal/service/channel_service_test.go",
+    "func TestBuildCache_PlatformFiltering",
+    "func TestBuildCache_WildcardPreservesConfigOrder",
+    """\t// anthropic group sees only anthropic models
+\trequire.NotNil(t, svc.GetChannelModelPricing(context.Background(), 10, "claude-opus-4"))
+\trequire.Nil(t, svc.GetChannelModelPricing(context.Background(), 10, "gpt-5.1"))
+
+\t// openai group sees only openai models
+\trequire.NotNil(t, svc.GetChannelModelPricing(context.Background(), 20, "gpt-5.1"))
+\trequire.Nil(t, svc.GetChannelModelPricing(context.Background(), 20, "claude-opus-4"))
+""",
+    """\tanthropicCtx := channelContextForPlatform(PlatformAnthropic)
+\topenAICtx := channelContextForPlatform(PlatformOpenAI)
+
+\trequire.NotNil(t, svc.GetChannelModelPricing(anthropicCtx, 10, "claude-opus-4"))
+\trequire.Nil(t, svc.GetChannelModelPricing(anthropicCtx, 10, "gpt-5.1"))
+\trequire.NotNil(t, svc.GetChannelModelPricing(openAICtx, 20, "gpt-5.1"))
+\trequire.Nil(t, svc.GetChannelModelPricing(openAICtx, 20, "claude-opus-4"))
+""",
+)
+
+replace_in_section(
+    "backend/internal/service/channel_service_test.go",
+    "func TestGetChannelModelPricing_NonAntigravityUnaffected",
+    "// ---------------------------------------------------------------------------\n// 10. ToUsageFields",
+    """\t// anthropic 分组应该只看到 anthropic 的定价
+\tresult := svc.GetChannelModelPricing(context.Background(), 10, "shared-model")
+""",
+    """\tanthropicCtx := channelContextForPlatform(PlatformAnthropic)
+\tgeminiCtx := channelContextForPlatform(PlatformGemini)
+
+\tresult := svc.GetChannelModelPricing(anthropicCtx, 10, "shared-model")
+""",
+)
+replace_in_section("backend/internal/service/channel_service_test.go", "func TestGetChannelModelPricing_NonAntigravityUnaffected", "// ---------------------------------------------------------------------------\n// 10. ToUsageFields", "result = svc.GetChannelModelPricing(context.Background(), 20, \"shared-model\")", "result = svc.GetChannelModelPricing(geminiCtx, 20, \"shared-model\")")
+
+replace_in_section(
+    "backend/internal/service/channel_service_test.go",
+    "func TestResolveChannelMapping_AntigravityDoesNotSeeWildcardMappingFromOtherPlatforms",
+    "// ---------------------------------------------------------------------------\n// 13. Create/Update with mapping conflict validation",
+    """\t// antigravity 分组不应看到 anthropic/gemini 的通配符映射
+\tresult := svc.ResolveChannelMapping(context.Background(), 10, "claude-opus-4")
+""",
+    """\tantigravityCtx := channelContextForPlatform(PlatformAntigravity)
+\tanthropicCtx := channelContextForPlatform(PlatformAnthropic)
+
+\tresult := svc.ResolveChannelMapping(antigravityCtx, 10, "claude-opus-4")
+""",
+)
+replace_in_section("backend/internal/service/channel_service_test.go", "func TestResolveChannelMapping_AntigravityDoesNotSeeWildcardMappingFromOtherPlatforms", "// ---------------------------------------------------------------------------\n// 13. Create/Update with mapping conflict validation", "result = svc.ResolveChannelMapping(context.Background(), 10, \"gemini-2.5-pro\")", "result = svc.ResolveChannelMapping(antigravityCtx, 10, \"gemini-2.5-pro\")")
+replace_in_section("backend/internal/service/channel_service_test.go", "func TestResolveChannelMapping_AntigravityDoesNotSeeWildcardMappingFromOtherPlatforms", "// ---------------------------------------------------------------------------\n// 13. Create/Update with mapping conflict validation", "result = svc.ResolveChannelMapping(context.Background(), 20, \"claude-opus-4\")", "result = svc.ResolveChannelMapping(anthropicCtx, 20, \"claude-opus-4\")")
+
+replace_in_section(
+    "backend/internal/service/gateway_multiplatform_test.go",
+    't.Run("Gemini负载排序-优先OAuth"',
+    't.Run("模型路由-过滤路径覆盖"',
+    'result, err := svc.SelectAccountWithLoadAwareness(ctx, &groupID, "gemini", "gemini-2.5-pro", nil, "", int64(0))',
+    'result, err := svc.SelectAccountWithLoadAwareness(WithInboundProtocol(ctx, CustomProtocolGemini), &groupID, "gemini", "gemini-2.5-pro", nil, "", int64(0))',
+)
+replace_in_section(
+    "backend/internal/service/gateway_multiplatform_test.go",
+    't.Run("ClaudeCode限制-回退分组"',
+    't.Run("ClaudeCode限制-无降级返回错误"',
+    'result, err := svc.SelectAccountWithLoadAwareness(ctx, &groupID, "", "gemini-2.5-pro", nil, "", int64(0))',
+    'result, err := svc.SelectAccountWithLoadAwareness(WithInboundProtocol(ctx, CustomProtocolGemini), &groupID, "", "gemini-2.5-pro", nil, "", int64(0))',
+)
+
+replace_once(
+    "Makefile",
+    ".PHONY: build build-backend build-frontend build-datamanagementd test test-backend test-frontend test-frontend-critical test-datamanagementd test-model-sync-smoke model-sync-smoke secret-scan audit-codebase check-runtime-contract runtime-smoke",
+    ".PHONY: build build-backend build-frontend test test-backend test-frontend test-frontend-critical test-model-sync-smoke model-sync-smoke secret-scan audit-codebase check-runtime-contract runtime-smoke",
+)
+replace_once("Makefile", "# 编译 datamanagementd（宿主机数据管理进程）\nbuild-datamanagementd:\n\t@cd datamanagement && go build -o datamanagementd ./cmd/datamanagementd\n\n", "")
+replace_once("Makefile", "test-datamanagementd:\n\t@cd datamanagement && go test ./...\n\n", "")
+
+installer = "deploy/install-datamanagementd.sh"
+text = read(installer)
+text = text.replace("# 或：\n#   sudo ./install-datamanagementd.sh --source /path/to/LightBridge/repo\n", "")
+text = text.replace('SOURCE_PATH=""\n', "")
+text = text.replace("  install-datamanagementd.sh [--binary <datamanagementd二进制路径>] [--source <仓库路径>]\n", "  install-datamanagementd.sh --binary <datamanagementd二进制路径>\n")
+text = text.replace("  --source  指定 LightBridge 仓库路径（脚本会执行 go build）\n", "")
+text = text.replace("  sudo ./install-datamanagementd.sh --binary ./datamanagement/datamanagementd\n  sudo ./install-datamanagementd.sh --source /opt/LightBridge-src\n", "  sudo ./install-datamanagementd.sh --binary /path/to/datamanagementd\n")
+text = text.replace('''    --source)
+      SOURCE_PATH="${2:-}"
+      shift 2
+      ;;
+''', "")
+old_validation = '''if [[ -n "$BIN_PATH" && -n "$SOURCE_PATH" ]]; then
+  echo "错误: --binary 与 --source 只能二选一"
+  exit 1
+fi
+
+if [[ -z "$BIN_PATH" && -z "$SOURCE_PATH" ]]; then
+  echo "错误: 必须提供 --binary 或 --source"
+  exit 1
+fi
+'''
+new_validation = '''if [[ -z "$BIN_PATH" ]]; then
+  echo "错误: 必须提供 --binary"
+  exit 1
+fi
+'''
+if old_validation not in text:
+    raise SystemExit("installer validation block not found")
+text = text.replace(old_validation, new_validation, 1)
+source_block = '''if [[ -n "$SOURCE_PATH" ]]; then
+  if [[ ! -d "$SOURCE_PATH/datamanagement" ]]; then
+    echo "错误: 无效仓库路径，未找到 $SOURCE_PATH/datamanagement"
+    exit 1
+  fi
+  echo "[1/6] 从源码构建 datamanagementd..."
+  (cd "$SOURCE_PATH/datamanagement" && go build -o datamanagementd ./cmd/datamanagementd)
+  BIN_PATH="$SOURCE_PATH/datamanagement/datamanagementd"
+fi
+
+'''
+if source_block not in text:
+    raise SystemExit("installer source build block not found")
+text = text.replace(source_block, "", 1)
+write(installer, text)
+
+docs = "deploy/DATAMANAGEMENTD_CN.md"
+text = read(docs)
+start = text.index("## 2. 宿主机构建与运行")
+end = text.index("## 3. systemd 托管（推荐）")
+replacement = '''## 2. 获取并运行发行版二进制
+
+本仓库不包含 `datamanagementd` 的源码模块。请从与当前 LightBridge 版本匹配的可信发行渠道取得二进制，并先核对版本与校验和，再安装到宿主机：
+
+```bash
+/path/to/datamanagementd -version
+sha256sum /path/to/datamanagementd
+
+mkdir -p /var/lib/LightBridge/datamanagement
+chown -R LightBridge:LightBridge /var/lib/LightBridge/datamanagement
+```
+
+手动启动示例：
+
+```bash
+/path/to/datamanagementd \\
+  -socket-path /tmp/LightBridge-datamanagement.sock \\
+  -sqlite-path /var/lib/LightBridge/datamanagement/datamanagementd.db \\
+  -version 1.0.0
+```
+
+'''
+text = text[:start] + replacement + text[end:]
+text = text.replace('''# 方式一：使用现成二进制
+sudo ./deploy/install-datamanagementd.sh --binary /path/to/datamanagementd
+
+# 方式二：从源码构建后安装
+sudo ./deploy/install-datamanagementd.sh --source /path/to/LightBridge
+''', '''sudo ./deploy/install-datamanagementd.sh --binary /path/to/datamanagementd
+''')
+write(docs, text)
+
+contract = "tools/ci/check_environment_contract.py"
+text = read(contract)
+insertion = '''
+installer = ROOT / "deploy/install-datamanagementd.sh"
+require(installer.is_file(), "deploy/install-datamanagementd.sh is required")
+if installer.is_file():
+    installer_text = installer.read_text(encoding="utf-8")
+    require(installer_text.startswith("#!/"), "datamanagement installer must have a shell shebang")
+    require("--binary" in installer_text, "datamanagement installer must accept a release binary")
+    require("--source" not in installer_text, "datamanagement installer must not advertise missing source builds")
+
+service_unit = ROOT / "deploy/LightBridge-datamanagementd.service"
+require(service_unit.is_file(), "datamanagement systemd unit is required")
+if service_unit.is_file():
+    unit_text = service_unit.read_text(encoding="utf-8")
+    require("ExecStart=/opt/LightBridge/datamanagementd" in unit_text, "datamanagement service must run the installed binary")
+    require("NoNewPrivileges=true" in unit_text, "datamanagement service must enable NoNewPrivileges")
+
+makefile = read("Makefile")
+require("build-datamanagementd" not in makefile, "Makefile must not build a source module that is not present")
+require("test-datamanagementd" not in makefile, "Makefile must not test a source module that is not present")
+datamanagement_docs = read("deploy/DATAMANAGEMENTD_CN.md")
+require("--source" not in datamanagement_docs, "datamanagement documentation must describe binary-only installation")
+'''
+marker = "if ERRORS:\n"
+if marker not in text:
+    raise SystemExit("environment contract insertion marker not found")
+text = text.replace(marker, insertion + "\n" + marker, 1)
+write(contract, text)
