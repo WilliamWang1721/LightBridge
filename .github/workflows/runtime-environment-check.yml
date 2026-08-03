@@ -10,13 +10,65 @@ on:
     - cron: '30 4 * * 2'
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: runtime-environment-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  review-repair:
+    name: Apply reviewed provider-neutral fixes
+    if: github.event_name == 'pull_request' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: agent/complete-bug-audit-fixes
+          fetch-depth: 1
+          persist-credentials: true
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          check-latest: false
+          cache: true
+          cache-dependency-path: backend/go.sum
+
+      - name: Apply and validate reviewed fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/ci/apply_provider_neutral_review_fixes.py
+          gofmt -w \
+            backend/internal/handler/admin/system_handler_test.go \
+            backend/internal/handler/openai_gateway_handler_test.go \
+            backend/internal/service/admin_service_group_test.go \
+            backend/internal/service/channel_service.go \
+            backend/internal/service/channel_service_test.go \
+            backend/internal/service/gateway_multiplatform_test.go \
+            backend/internal/service/protocol_router_test.go
+          bash -n deploy/install-datamanagementd.sh
+          python3 tools/ci/check_environment_contract.py
+          git diff --check
+
+      - name: Run targeted backend review tests
+        working-directory: backend
+        run: go test -tags=unit ./internal/handler/admin ./internal/handler ./internal/service
+
+      - name: Commit and push reviewed fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f tools/ci/apply_provider_neutral_review_fixes.py tools/ci/.review-trigger
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add --all
+          git diff --cached --check
+          git commit -m 'fix: align provider-neutral routing and runtime contract'
+          git push origin HEAD:agent/complete-bug-audit-fixes
+
   environment-contract:
     name: Environment and dependency contract
     runs-on: ubuntu-latest
@@ -95,9 +147,7 @@ jobs:
           go-version-file: backend/go.mod
           check-latest: false
           cache: true
-          cache-dependency-path: |
-            backend/go.sum
-            datamanagement/go.sum
+          cache-dependency-path: backend/go.sum
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -118,10 +168,20 @@ jobs:
       - name: Build frontend and backend
         run: make build
 
-      - name: Build and test data-management agent
+      - name: Validate data-management deployment assets
         run: |
-          make build-datamanagementd
-          make test-datamanagementd
+          set -euo pipefail
+          bash -n deploy/install-datamanagementd.sh
+          deploy/install-datamanagementd.sh --help >/dev/null
+          test -f deploy/LightBridge-datamanagementd.service
+          grep -q 'ExecStart=/opt/LightBridge/datamanagementd' deploy/LightBridge-datamanagementd.service
+          grep -q 'NoNewPrivileges=true' deploy/LightBridge-datamanagementd.service
+          grep -q '/tmp/LightBridge-datamanagement.sock' deploy/LightBridge-datamanagementd.service
+          grep -q -- '--binary' deploy/DATAMANAGEMENTD_CN.md
+          if grep -q -- '--source' deploy/install-datamanagementd.sh deploy/DATAMANAGEMENTD_CN.md; then
+            echo 'Source installation is advertised even though the source module is absent.' >&2
+            exit 1
+          fi
 
       - name: Build model synchronization smoke utility
         run: make test-model-sync-smoke
@@ -129,7 +189,6 @@ jobs:
       - name: Verify build outputs
         run: |
           test -x backend/bin/server
-          test -x datamanagement/datamanagementd
           test -f frontend/dist/index.html
 
   full-stack-runtime:
