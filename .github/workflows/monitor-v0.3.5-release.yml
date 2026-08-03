@@ -1,0 +1,88 @@
+name: Monitor v0.3.5 Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/release-triggers/v0.3.5-monitor'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: monitor-release-v0.3.5
+  cancel-in-progress: false
+
+jobs:
+  monitor-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      TAG_NAME: v0.3.5
+      TARGET_SHA: bba126145ed832b872100d97378399cd7d1e690d
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Locate dispatched Release run
+        id: locate
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_id=''
+          for _ in $(seq 1 60); do
+            run_id="$(gh api \
+              "repos/${GITHUB_REPOSITORY}/actions/workflows/release.yml/runs?event=workflow_dispatch&per_page=20" \
+              --jq '.workflow_runs | map(select(.created_at >= "2026-08-03T12:20:00Z")) | .[0].id // empty')"
+            if [ -n "$run_id" ]; then
+              break
+            fi
+            sleep 10
+          done
+          if [ -z "$run_id" ]; then
+            echo 'Unable to locate the dispatched Release workflow run.' >&2
+            exit 1
+          fi
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "Located Release run $run_id"
+
+      - name: Wait for Release workflow
+        shell: bash
+        run: gh run watch "${{ steps.locate.outputs.run_id }}" --repo "$GITHUB_REPOSITORY" --exit-status --interval 15
+
+      - name: Verify tag target and record successful release
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --force origin "refs/tags/${TAG_NAME}:refs/tags/${TAG_NAME}"
+          actual_sha="$(git rev-list -n 1 "${TAG_NAME}^{commit}")"
+          if [ "$actual_sha" != "$TARGET_SHA" ]; then
+            echo "Tag target mismatch: ${actual_sha}" >&2
+            exit 1
+          fi
+
+          run_json="$(gh run view "${{ steps.locate.outputs.run_id }}" --repo "$GITHUB_REPOSITORY" --json databaseId,status,conclusion,url,workflowName,createdAt,updatedAt)"
+          conclusion="$(jq -r '.conclusion' <<<"$run_json")"
+          if [ "$conclusion" != 'success' ]; then
+            echo "Release conclusion is ${conclusion}" >&2
+            exit 1
+          fi
+
+          mkdir -p .github/release-status
+          {
+            echo "tag=${TAG_NAME}"
+            echo "target_sha=${TARGET_SHA}"
+            jq -r '"run_id=" + (.databaseId|tostring), "workflow=" + .workflowName, "status=" + .status, "conclusion=" + .conclusion, "url=" + .url, "created_at=" + .createdAt, "updated_at=" + .updatedAt' <<<"$run_json"
+          } > .github/release-status/v0.3.5-success.txt
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/release-status/v0.3.5-success.txt
+          git commit -m 'chore(release): record successful v0.3.5 release'
+          git push origin HEAD:main
