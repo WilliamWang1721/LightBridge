@@ -137,7 +137,7 @@ jobs:
       - name: Verify build outputs
         run: |
           test -x backend/bin/server
-          test -f frontend/dist/index.html
+          test -f backend/internal/web/dist/index.html
 
   full-stack-runtime:
     name: Build image and run the complete stack
