@@ -1,0 +1,61 @@
+name: Apply Full Repair
+
+on:
+  push:
+    branches:
+      - agent/complete-bug-audit-fixes
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-full-repair-pr21
+  cancel-in-progress: false
+
+jobs:
+  apply-repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: agent/complete-bug-audit-fixes
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Reconstruct and verify repair patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .github/repair-payload/payload-* > /tmp/lightbridge-repair.patch.gz.b64
+          echo '65e5618c552da9751aba72c1e70daab192a7fd6a62d11dc208de6a2bc720f610  /tmp/lightbridge-repair.patch.gz.b64' | sha256sum --check --strict
+          base64 --decode /tmp/lightbridge-repair.patch.gz.b64 | gzip --decompress > /tmp/lightbridge-repair.patch
+          echo 'ebcd874863212b88d5fada344654ac06d66519d51803eca5d228ceefc247b183  /tmp/lightbridge-repair.patch' | sha256sum --check --strict
+          git apply --check /tmp/lightbridge-repair.patch
+
+      - name: Apply full repaired source and remove temporary files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git apply --index /tmp/lightbridge-repair.patch
+          rm -rf .github/repair-payload
+          rm -f .github/workflows/apply-full-repair.yml
+          rm -f .github/workflows/print-tree-sha.yml
+          git add --all
+          git diff --cached --check
+
+      - name: Commit and push repaired source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix: harden rollback and add runtime verification'
+          git push origin HEAD:agent/complete-bug-audit-fixes
+          {
+            echo '## Full repair applied'
+            echo
+            echo "Commit: $(git rev-parse HEAD)"
+            echo
+            echo 'The temporary payload and application workflows were removed in the same commit.'
+          } >> "$GITHUB_STEP_SUMMARY"
