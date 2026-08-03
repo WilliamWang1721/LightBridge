@@ -55,7 +55,47 @@ jobs:
 
       - name: Run targeted backend review tests
         working-directory: backend
-        run: go test -tags=unit ./internal/handler/admin ./internal/handler ./internal/service
+        shell: bash
+        run: |
+          set +e
+          go test -tags=unit -json ./internal/handler/admin ./internal/handler ./internal/service > /tmp/review-tests.json
+          status=$?
+          set -e
+          python3 - <<'PY'
+          import json
+          from collections import defaultdict, deque
+
+          recent = defaultdict(lambda: deque(maxlen=80))
+          failed_tests = []
+          failed_packages = set()
+          with open('/tmp/review-tests.json', encoding='utf-8') as handle:
+              for raw in handle:
+                  try:
+                      event = json.loads(raw)
+                  except json.JSONDecodeError:
+                      continue
+                  package = event.get('Package', '<unknown>')
+                  output = event.get('Output')
+                  if output:
+                      recent[package].append(output.rstrip())
+                  if event.get('Action') == 'fail':
+                      test = event.get('Test')
+                      if test:
+                          failed_tests.append((package, test))
+                      else:
+                          failed_packages.add(package)
+
+          print('FAILED TESTS')
+          for package, test in failed_tests:
+              print(f'- {package}: {test}')
+          packages = sorted(failed_packages | {package for package, _ in failed_tests})
+          print('\nFAILED PACKAGES AND RECENT OUTPUT')
+          for package in packages:
+              print(f'\n=== {package} ===')
+              for line in recent[package]:
+                  print(line)
+          PY
+          exit "$status"
 
       - name: Commit and push reviewed fixes
         shell: bash
