@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - agent/complete-bug-audit-fixes
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -39,8 +42,9 @@ jobs:
       - name: Collect repaired dependency files
         run: |
           mkdir repaired-dependencies
-          cp backend/go.mod backend/go.sum repaired-dependencies/
-          cp frontend/package.json frontend/pnpm-lock.yaml repaired-dependencies/
+          cp backend/go.mod backend/go.sum repaired-dependencies/backend-go.mod
+          cp frontend/package.json repaired-dependencies/frontend-package.json
+          cp frontend/pnpm-lock.yaml repaired-dependencies/frontend-pnpm-lock.yaml
       - uses: actions/upload-artifact@v4
         with:
           name: repaired-dependencies
