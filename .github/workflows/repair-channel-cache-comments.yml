@@ -1,0 +1,76 @@
+name: Repair channel cache contract comments
+
+on:
+  push:
+    branches:
+      - agent/complete-bug-audit-fixes
+    paths:
+      - .github/workflows/repair-channel-cache-comments.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: repair-channel-cache-contract-comments
+  cancel-in-progress: false
+
+jobs:
+  repair-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: agent/complete-bug-audit-fixes
+          fetch-depth: 1
+          persist-credentials: true
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          check-latest: false
+          cache: true
+          cache-dependency-path: backend/go.sum
+
+      - name: Align channel cache comments with neutral fallback behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('backend/internal/service/channel_service.go')
+          text = path.read_text(encoding='utf-8')
+          replacements = {
+              '// 各平台严格独立，只在本平台内查找（先精确匹配，再通配符）。':
+                  '// 先查请求平台，再查平台中立配置；每个平台内部均先精确匹配，再通配符匹配。',
+              '// 只在本平台的定价列表中查找。':
+                  '// 按请求平台查找，并允许平台中立定价作为兜底。',
+          }
+          for old, new in replacements.items():
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'expected one occurrence of {old!r}, found {count}')
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+          gofmt -w backend/internal/service/channel_service.go
+          git diff --check
+
+      - name: Run channel service unit tests
+        working-directory: backend
+        run: go test -tags=unit ./internal/service
+
+      - name: Commit verified comment repair and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/repair-channel-cache-comments.yml
+          git add \
+            backend/internal/service/channel_service.go \
+            .github/workflows/repair-channel-cache-comments.yml
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'docs: align channel cache comments with neutral fallback'
+          git push origin HEAD:agent/complete-bug-audit-fixes
