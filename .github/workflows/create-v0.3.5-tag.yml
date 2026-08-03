@@ -1,0 +1,88 @@
+name: Create v0.3.5 Tag
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/release-triggers/v0.3.5'
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: create-release-tag-v0.3.5
+  cancel-in-progress: false
+
+jobs:
+  create-tag-and-dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TAG_NAME: v0.3.5
+      TARGET_SHA: bba126145ed832b872100d97378399cd7d1e690d
+    steps:
+      - name: Checkout main with full history
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Validate target and create annotated tag
+        id: tag
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git fetch --force origin main --tags
+          git cat-file -e "${TARGET_SHA}^{commit}"
+
+          if ! git merge-base --is-ancestor "$TARGET_SHA" origin/main; then
+            echo "Target $TARGET_SHA is not an ancestor of origin/main" >&2
+            exit 1
+          fi
+
+          if git show-ref --verify --quiet "refs/tags/${TAG_NAME}"; then
+            existing_sha="$(git rev-list -n 1 "${TAG_NAME}^{commit}")"
+            if [ "$existing_sha" != "$TARGET_SHA" ]; then
+              echo "Tag ${TAG_NAME} already exists at ${existing_sha}, expected ${TARGET_SHA}" >&2
+              exit 1
+            fi
+            echo "Tag ${TAG_NAME} already exists at the expected commit; no new release dispatch will be created."
+            echo "created=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag -a "$TAG_NAME" "$TARGET_SHA" -m "Release ${TAG_NAME}"
+          git push origin "refs/tags/${TAG_NAME}"
+          echo "created=true" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch full Release workflow
+        if: steps.tag.outputs.created == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload='{"ref":"main","inputs":{"tag":"v0.3.5","simple_release":"false"}}'
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header 'Accept: application/vnd.github+json' \
+            --header 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/release.yml/dispatches" \
+            --data "$payload"
+
+      - name: Record result
+        shell: bash
+        run: |
+          {
+            echo '## v0.3.5 release dispatch'
+            echo
+            echo "- Tag: ${TAG_NAME}"
+            echo "- Target: ${TARGET_SHA}"
+            echo "- Created in this run: ${{ steps.tag.outputs.created }}"
+          } >> "$GITHUB_STEP_SUMMARY"
