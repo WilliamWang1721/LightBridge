@@ -148,7 +148,7 @@ PY
 
 "${COMPOSE[@]}" exec -T LightBridge sh -ec '
   test "$LIGHTBRIDGE_DEPLOYMENT_TYPE" = container
-  test "$(id -u)" = 1000
+  test "$(stat -c %u /proc/1)" = 1000
   pg_dump --version
   psql --version
 ' >"$ARTIFACT_DIR/runtime-tools.txt"
