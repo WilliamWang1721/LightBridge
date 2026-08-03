@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: apply-full-repair-pr21
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   apply-repair:
