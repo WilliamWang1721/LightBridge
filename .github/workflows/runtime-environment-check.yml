@@ -120,7 +120,7 @@ jobs:
         run: |
           set -euo pipefail
           bash -n deploy/install-datamanagementd.sh
-          deploy/install-datamanagementd.sh --help >/dev/null
+          bash deploy/install-datamanagementd.sh --help >/dev/null
           test -f deploy/LightBridge-datamanagementd.service
           grep -q 'ExecStart=/opt/LightBridge/datamanagementd' deploy/LightBridge-datamanagementd.service
           grep -q 'NoNewPrivileges=true' deploy/LightBridge-datamanagementd.service
