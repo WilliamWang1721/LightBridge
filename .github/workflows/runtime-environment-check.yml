@@ -40,7 +40,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 tools/ci/apply_provider_neutral_review_fixes_round2.py
+          python3 tools/ci/apply_provider_neutral_review_fixes_round3.py
           gofmt -w \
             backend/internal/handler/admin/system_handler_test.go \
             backend/internal/handler/openai_gateway_handler_test.go \
@@ -104,6 +104,7 @@ jobs:
           rm -f \
             tools/ci/apply_provider_neutral_review_fixes.py \
             tools/ci/apply_provider_neutral_review_fixes_round2.py \
+            tools/ci/apply_provider_neutral_review_fixes_round3.py \
             tools/ci/.review-trigger
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
