@@ -1,0 +1,32 @@
+name: Export CI Worktree
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: export-ci-worktree-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Archive exact checked-out worktree
+        run: |
+          set -euo pipefail
+          tar --exclude=.git -czf /tmp/lightbridge-ci-worktree.tar.gz .
+          git rev-parse HEAD > /tmp/checkout-commit.txt
+          git ls-files | sort > /tmp/tracked-files.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lightbridge-ci-worktree-${{ github.run_id }}
+          path: |
+            /tmp/lightbridge-ci-worktree.tar.gz
+            /tmp/checkout-commit.txt
+            /tmp/tracked-files.txt
+          retention-days: 1
