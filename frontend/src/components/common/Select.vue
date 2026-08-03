@@ -6,8 +6,13 @@
       @click="toggle"
       :disabled="disabled"
       :aria-expanded="isOpen"
-      :aria-haspopup="true"
-      aria-label="Select option"
+      aria-haspopup="listbox"
+      role="combobox"
+      :id="id"
+      :aria-label="ariaLabel || (!ariaLabelledby ? placeholderText : undefined)"
+      :aria-labelledby="ariaLabelledby || undefined"
+      :aria-controls="listboxId"
+      :aria-activedescendant="activeOptionId"
       :class="[
         'select-trigger',
         isOpen && 'select-trigger-open',
@@ -41,6 +46,7 @@
           :class="[instanceId]"
           :style="dropdownStyle"
           role="listbox"
+          :id="listboxId"
           @click.stop
           @mousedown.stop
           @keydown="onDropdownKeyDown"
@@ -64,6 +70,7 @@
               v-for="(option, index) in filteredOptions"
               :key="`${typeof getOptionValue(option)}:${String(getOptionValue(option) ?? '')}`"
               role="option"
+              :id="getOptionId(index)"
               :aria-selected="isSelected(option)"
               :aria-disabled="isOptionDisabled(option)"
               @click.stop="!isOptionDisabled(option) && selectOption(option)"
@@ -135,6 +142,9 @@ interface Props {
   labelKey?: string
   creatable?: boolean
   creatablePrefix?: string
+  id?: string
+  ariaLabel?: string
+  ariaLabelledby?: string
 }
 
 interface Emits {
@@ -180,10 +190,15 @@ const dropdownStyle = computed(() => {
   if (!triggerRect.value) return {}
 
   const rect = triggerRect.value
+  const viewportPadding = 8
+  const desiredWidth = Math.max(rect.width, 200)
+  const width = Math.min(desiredWidth, window.innerWidth - viewportPadding * 2)
+  const left = Math.min(Math.max(rect.left, viewportPadding), window.innerWidth - viewportPadding - width)
   const style: Record<string, string> = {
     position: 'fixed',
-    left: `${rect.left}px`,
-    minWidth: `${rect.width}px`,
+    left: `${left}px`,
+    width: `${width}px`,
+    maxWidth: `calc(100vw - ${viewportPadding * 2}px)`,
     zIndex: '100000020'
   }
 
@@ -195,6 +210,10 @@ const dropdownStyle = computed(() => {
 
   return style
 })
+
+const listboxId = `${instanceId}-listbox`
+const getOptionId = (index: number) => `${instanceId}-option-${index}`
+const activeOptionId = computed(() => focusedIndex.value >= 0 ? getOptionId(focusedIndex.value) : undefined)
 
 const getOptionValue = (option: any): any => {
   if (typeof option === 'object' && option !== null) {

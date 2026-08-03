@@ -48,6 +48,7 @@ export default {
       columns: {
         status: 'Status',
         fileName: 'File Name',
+        origin: 'Origin',
         size: 'Size',
         expiresAt: 'Expires At',
         triggeredBy: 'Triggered By',
@@ -67,7 +68,16 @@ export default {
       },
       trigger: {
         manual: 'Manual',
-        scheduled: 'Scheduled'
+        scheduled: 'Scheduled',
+        versionManager: 'Version Manager'
+      },
+      versionSnapshot: {
+        label: 'Version Manager snapshot',
+        update: 'Before update: {sourceVersion} → {targetVersion}',
+        updateWithoutTarget: 'Before update from {sourceVersion}',
+        rollback: 'Before rollback from {sourceVersion}',
+        operationId: 'Operation: {id}',
+        initiatedBy: 'Initiated by: {initiatedBy}'
       },
       neverExpire: 'Never',
       empty: 'No backup records',

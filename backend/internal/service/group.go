@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -15,18 +16,25 @@ type OpenAIMessagesDispatchModelConfig = domain.OpenAIMessagesDispatchModelConfi
 type GroupModelsListConfig = domain.GroupModelsListConfig
 
 type Group struct {
-	ID                 int64
-	Name               string
-	Description        string
-	Platform           string
-	RateMultiplier     float64
-	PeakRateEnabled    bool
-	PeakStart          string
-	PeakEnd            string
-	PeakRateMultiplier float64
-	IsExclusive        bool
-	Status             string
-	Hydrated           bool // indicates the group was loaded from a trusted repository source
+	ID          int64
+	Name        string
+	Description string
+	Icon        string
+	Color       string
+	// Platform is retained as a deprecated compatibility hint for older API
+	// clients and rollback-era in-memory objects. Routing never reads it.
+	Platform string
+	// SupportedModelScopes is retained only for backward-compatible decoding.
+	// Account capabilities and ModelsListConfig are authoritative.
+	SupportedModelScopes []string
+	RateMultiplier       float64
+	PeakRateEnabled      bool
+	PeakStart            string
+	PeakEnd              string
+	PeakRateMultiplier   float64
+	IsExclusive          bool
+	Status               string
+	Hydrated             bool // indicates the group was loaded from a trusted repository source
 
 	SubscriptionType    string
 	DailyLimitUSD       *float64
@@ -54,12 +62,8 @@ type Group struct {
 	ModelRouting        map[string][]int64
 	ModelRoutingEnabled bool
 
-	// MCP XML 协议注入开关（仅 antigravity 平台使用）
+	// MCP XML 协议注入开关
 	MCPXMLInject bool
-
-	// 支持的模型系列（仅 antigravity 平台使用）
-	// 可选值: claude, gemini_text, gemini_image
-	SupportedModelScopes []string
 
 	// 分组排序
 	SortOrder int
@@ -84,9 +88,16 @@ type Group struct {
 	ActiveAccountCount      int64
 	RateLimitedAccountCount int64
 	// UpstreamProtocols is derived from accounts currently bound to the group.
-	// It replaces the old "group platform" UI/filtering semantics without adding
-	// another persisted group field.
+	// It describes the request protocols accepted by at least one bound account.
 	UpstreamProtocols []string
+	// UpstreamPlatforms is derived from the effective platforms of accounts
+	// currently bound to the group. Unlike protocol, this distinguishes providers
+	// that share a wire format, such as Grok and OpenAI Responses.
+	UpstreamPlatforms []string
+	// AvailableIngressProtocols is derived from each bound account's upstream
+	// protocol and relay mode. Router accounts contribute all implemented message
+	// ingress protocols; passthrough accounts contribute only their actual protocol.
+	AvailableIngressProtocols []string
 }
 
 func (g *Group) IsActive() bool {
@@ -102,14 +113,11 @@ func AccountUpstreamProtocols(account *Account) []string {
 		return nil
 	}
 	supported := account.SupportedTargetProtocols()
-	if account.RelayMode() == RelayModeRouter && accountSupportsAnyMessageProtocol(account) {
-		return allRoutableMessageProtocols()
-	}
 	protocols := make([]string, 0, len(supported))
 	seen := make(map[string]struct{}, len(supported))
 	for _, proto := range supported {
 		proto = strings.TrimSpace(proto)
-		if !IsMessageProtocol(proto) {
+		if proto == "" {
 			continue
 		}
 		if _, ok := seen[proto]; ok {
@@ -122,29 +130,95 @@ func AccountUpstreamProtocols(account *Account) []string {
 	return protocols
 }
 
-func allRoutableMessageProtocols() []string {
-	protocols := []string{
-		CustomProtocolAnthropicMessages,
-		CustomProtocolGemini,
-		CustomProtocolOpenAIChatCompletions,
-		CustomProtocolOpenAIResponses,
+var groupMessageIngressProtocols = []string{
+	CustomProtocolAnthropicMessages,
+	CustomProtocolOpenAIResponses,
+	CustomProtocolOpenAIChatCompletions,
+	CustomProtocolGemini,
+}
+
+// AccountAvailableIngressProtocols returns protocols that callers may use at
+// LightBridge's public endpoints for this account. It deliberately differs from
+// AccountUpstreamProtocols: Router can convert between implemented message
+// protocols, while passthrough modes require an exact wire protocol match.
+func AccountAvailableIngressProtocols(account *Account) []string {
+	actual := AccountUpstreamProtocols(account)
+	if account == nil || account.RelayMode() != RelayModeRouter {
+		return actual
 	}
-	sort.Strings(protocols)
-	return protocols
+
+	seen := make(map[string]struct{}, len(actual)+len(groupMessageIngressProtocols))
+	out := make([]string, 0, len(actual)+len(groupMessageIngressProtocols))
+	hasMessageUpstream := false
+	for _, protocol := range actual {
+		if IsMessageProtocol(protocol) {
+			hasMessageUpstream = true
+		}
+		if _, ok := seen[protocol]; ok {
+			continue
+		}
+		seen[protocol] = struct{}{}
+		out = append(out, protocol)
+	}
+	if hasMessageUpstream {
+		for _, protocol := range groupMessageIngressProtocols {
+			if _, ok := seen[protocol]; ok {
+				continue
+			}
+			seen[protocol] = struct{}{}
+			out = append(out, protocol)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+var groupColorPattern = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
+
+var allowedGroupIcons = map[string]struct{}{
+	"":         {},
+	"folder":   {},
+	"server":   {},
+	"cloud":    {},
+	"bolt":     {},
+	"shield":   {},
+	"cube":     {},
+	"terminal": {},
+	"sparkles": {},
+	"users":    {},
+}
+
+// NormalizeGroupAppearance validates and canonicalizes administrator-supplied
+// presentation metadata. Empty values deliberately mean neutral defaults.
+func NormalizeGroupAppearance(icon, color string) (string, string, error) {
+	icon = strings.ToLower(strings.TrimSpace(icon))
+	color = strings.TrimSpace(color)
+	if _, ok := allowedGroupIcons[icon]; !ok {
+		return "", "", fmt.Errorf("unsupported group icon %q", icon)
+	}
+	if color != "" {
+		if !groupColorPattern.MatchString(color) {
+			return "", "", errors.New("group color must be empty or use #RRGGBB")
+		}
+		color = strings.ToUpper(color)
+	}
+	return icon, color, nil
 }
 
 func NormalizeGroupUpstreamProtocolFilter(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case CustomProtocolOpenAIResponses, PlatformOpenAI:
+	case CustomProtocolOpenAIResponses:
 		return CustomProtocolOpenAIResponses
 	case CustomProtocolOpenAIChatCompletions:
 		return CustomProtocolOpenAIChatCompletions
-	case CustomProtocolAnthropicMessages, PlatformAnthropic, "claude":
+	case CustomProtocolOpenAIEmbeddings:
+		return CustomProtocolOpenAIEmbeddings
+	case CustomProtocolAnthropicMessages:
 		return CustomProtocolAnthropicMessages
-	case CustomProtocolGemini, PlatformAntigravity:
+	case CustomProtocolGemini:
 		return CustomProtocolGemini
 	default:
-		return strings.TrimSpace(value)
+		return ""
 	}
 }
 
@@ -187,7 +261,7 @@ func IsGroupContextValid(group *Group) bool {
 	if !group.Hydrated {
 		return false
 	}
-	if group.Platform == "" || group.Status == "" {
+	if group.Status == "" {
 		return false
 	}
 	return true

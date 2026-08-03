@@ -43,7 +43,7 @@ func TestOpenAISubmitUsageRecordTaskCopiesRequestContext(t *testing.T) {
 
 func TestSubmitUsageRecordTaskCopiesPlatformContext(t *testing.T) {
 	parent := service.WithInboundProtocol(context.Background(), service.CustomProtocolOpenAIResponses)
-	apiKey := &service.APIKey{Group: &service.Group{Platform: service.PlatformAnthropic}}
+	apiKey := &service.APIKey{Group: &service.Group{}}
 
 	var gotPlatform string
 	h := &GatewayHandler{}
@@ -57,7 +57,7 @@ func TestSubmitUsageRecordTaskCopiesPlatformContext(t *testing.T) {
 func TestSubmitUsageRecordTaskCopiesForcePlatformContext(t *testing.T) {
 	parent := service.WithInboundProtocol(context.Background(), service.CustomProtocolOpenAIResponses)
 	parent = context.WithValue(parent, ctxkey.ForcePlatform, service.PlatformAntigravity)
-	apiKey := &service.APIKey{Group: &service.Group{Platform: service.PlatformAnthropic}}
+	apiKey := &service.APIKey{Group: &service.Group{}}
 
 	var gotPlatform string
 	h := &OpenAIGatewayHandler{}

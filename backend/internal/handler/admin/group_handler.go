@@ -84,14 +84,15 @@ func NewGroupHandler(adminService service.AdminService, dashboardService *servic
 type CreateGroupRequest struct {
 	Name             string             `json:"name" binding:"required"`
 	Description      string             `json:"description"`
-	Platform         string             `json:"platform" binding:"omitempty,oneof=anthropic openai gemini grok antigravity"`
+	Icon             string             `json:"icon" binding:"max=32"`
+	Color            string             `json:"color" binding:"omitempty,len=7,hexcolor"`
 	RateMultiplier   float64            `json:"rate_multiplier"`
 	IsExclusive      bool               `json:"is_exclusive"`
 	SubscriptionType string             `json:"subscription_type" binding:"omitempty,oneof=standard subscription"`
 	DailyLimitUSD    optionalLimitField `json:"daily_limit_usd"`
 	WeeklyLimitUSD   optionalLimitField `json:"weekly_limit_usd"`
 	MonthlyLimitUSD  optionalLimitField `json:"monthly_limit_usd"`
-	// 图片生成计费配置（antigravity 和 gemini 平台使用，负数表示清除配置）
+	// 图片生成计费配置（负数表示清除配置）
 	AllowImageGeneration            bool     `json:"allow_image_generation"`
 	ImageRateIndependent            bool     `json:"image_rate_independent"`
 	ImageRateMultiplier             *float64 `json:"image_rate_multiplier"`
@@ -105,13 +106,11 @@ type CreateGroupRequest struct {
 	ClaudeCodeOnly                  bool     `json:"claude_code_only"`
 	FallbackGroupID                 *int64   `json:"fallback_group_id"`
 	FallbackGroupIDOnInvalidRequest *int64   `json:"fallback_group_id_on_invalid_request"`
-	// 模型路由配置（仅 anthropic 平台使用）
+	// 模型路由配置
 	ModelRouting        map[string][]int64 `json:"model_routing"`
 	ModelRoutingEnabled bool               `json:"model_routing_enabled"`
 	MCPXMLInject        *bool              `json:"mcp_xml_inject"`
-	// 支持的模型系列（仅 antigravity 平台使用）
-	SupportedModelScopes []string `json:"supported_model_scopes"`
-	// OpenAI Messages 调度配置（仅 openai 平台使用）
+	// Messages 调度配置
 	AllowMessagesDispatch       bool                                      `json:"allow_messages_dispatch"`
 	RequireOAuthOnly            bool                                      `json:"require_oauth_only"`
 	RequirePrivacySet           bool                                      `json:"require_privacy_set"`
@@ -128,7 +127,8 @@ type CreateGroupRequest struct {
 type UpdateGroupRequest struct {
 	Name             string             `json:"name"`
 	Description      string             `json:"description"`
-	Platform         string             `json:"platform" binding:"omitempty,oneof=anthropic openai gemini grok antigravity"`
+	Icon             *string            `json:"icon" binding:"omitempty,max=32"`
+	Color            *string            `json:"color" binding:"omitempty,len=7,hexcolor"`
 	RateMultiplier   *float64           `json:"rate_multiplier"`
 	IsExclusive      *bool              `json:"is_exclusive"`
 	Status           string             `json:"status" binding:"omitempty,oneof=active inactive"`
@@ -136,7 +136,7 @@ type UpdateGroupRequest struct {
 	DailyLimitUSD    optionalLimitField `json:"daily_limit_usd"`
 	WeeklyLimitUSD   optionalLimitField `json:"weekly_limit_usd"`
 	MonthlyLimitUSD  optionalLimitField `json:"monthly_limit_usd"`
-	// 图片生成计费配置（antigravity 和 gemini 平台使用，负数表示清除配置）
+	// 图片生成计费配置（负数表示清除配置）
 	AllowImageGeneration            *bool    `json:"allow_image_generation"`
 	ImageRateIndependent            *bool    `json:"image_rate_independent"`
 	ImageRateMultiplier             *float64 `json:"image_rate_multiplier"`
@@ -150,13 +150,11 @@ type UpdateGroupRequest struct {
 	ClaudeCodeOnly                  *bool    `json:"claude_code_only"`
 	FallbackGroupID                 *int64   `json:"fallback_group_id"`
 	FallbackGroupIDOnInvalidRequest *int64   `json:"fallback_group_id_on_invalid_request"`
-	// 模型路由配置（仅 anthropic 平台使用）
+	// 模型路由配置
 	ModelRouting        map[string][]int64 `json:"model_routing"`
 	ModelRoutingEnabled *bool              `json:"model_routing_enabled"`
 	MCPXMLInject        *bool              `json:"mcp_xml_inject"`
-	// 支持的模型系列（仅 antigravity 平台使用）
-	SupportedModelScopes *[]string `json:"supported_model_scopes"`
-	// OpenAI Messages 调度配置（仅 openai 平台使用）
+	// Messages 调度配置
 	AllowMessagesDispatch       *bool                                      `json:"allow_messages_dispatch"`
 	RequireOAuthOnly            *bool                                      `json:"require_oauth_only"`
 	RequirePrivacySet           *bool                                      `json:"require_privacy_set"`
@@ -173,10 +171,7 @@ type UpdateGroupRequest struct {
 // GET /api/v1/admin/groups
 func (h *GroupHandler) List(c *gin.Context) {
 	page, pageSize := response.ParsePagination(c)
-	platform := c.Query("upstream_protocol")
-	if platform == "" {
-		platform = c.Query("platform")
-	}
+	upstreamProtocol := c.Query("upstream_protocol")
 	status := c.Query("status")
 	search := c.Query("search")
 	// 标准化和验证 search 参数
@@ -194,7 +189,7 @@ func (h *GroupHandler) List(c *gin.Context) {
 		isExclusive = &val
 	}
 
-	groups, total, err := h.adminService.ListGroups(c.Request.Context(), page, pageSize, platform, status, search, isExclusive, sortBy, sortOrder)
+	groups, total, err := h.adminService.ListGroups(c.Request.Context(), page, pageSize, upstreamProtocol, status, search, isExclusive, sortBy, sortOrder)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
@@ -210,16 +205,13 @@ func (h *GroupHandler) List(c *gin.Context) {
 // GetAll handles getting all active groups without pagination
 // GET /api/v1/admin/groups/all
 func (h *GroupHandler) GetAll(c *gin.Context) {
-	platform := c.Query("upstream_protocol")
-	if platform == "" {
-		platform = c.Query("platform")
-	}
+	upstreamProtocol := c.Query("upstream_protocol")
 
 	var groups []service.Group
 	var err error
 
-	if platform != "" {
-		groups, err = h.adminService.GetAllGroupsByPlatform(c.Request.Context(), platform)
+	if upstreamProtocol != "" {
+		groups, err = h.adminService.GetAllGroupsByUpstreamProtocol(c.Request.Context(), upstreamProtocol)
 	} else {
 		groups, err = h.adminService.GetAllGroups(c.Request.Context())
 	}
@@ -266,7 +258,7 @@ func (h *GroupHandler) GetModelsListCandidates(c *gin.Context) {
 	models, err := h.adminService.GetGroupModelsListCandidates(
 		c.Request.Context(),
 		groupID,
-		firstNonEmptyGroupQuery(c.Query("upstream_protocol"), c.Query("platform")),
+		c.Query("upstream_protocol"),
 	)
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -274,15 +266,6 @@ func (h *GroupHandler) GetModelsListCandidates(c *gin.Context) {
 	}
 
 	response.Success(c, gin.H{"models": models})
-}
-
-func firstNonEmptyGroupQuery(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return value
-		}
-	}
-	return ""
 }
 
 // Create handles creating a new group
@@ -297,7 +280,8 @@ func (h *GroupHandler) Create(c *gin.Context) {
 	group, err := h.adminService.CreateGroup(c.Request.Context(), &service.CreateGroupInput{
 		Name:                            req.Name,
 		Description:                     req.Description,
-		Platform:                        req.Platform,
+		Icon:                            req.Icon,
+		Color:                           req.Color,
 		RateMultiplier:                  req.RateMultiplier,
 		IsExclusive:                     req.IsExclusive,
 		SubscriptionType:                req.SubscriptionType,
@@ -320,7 +304,6 @@ func (h *GroupHandler) Create(c *gin.Context) {
 		ModelRouting:                    req.ModelRouting,
 		ModelRoutingEnabled:             req.ModelRoutingEnabled,
 		MCPXMLInject:                    req.MCPXMLInject,
-		SupportedModelScopes:            req.SupportedModelScopes,
 		AllowMessagesDispatch:           req.AllowMessagesDispatch,
 		RequireOAuthOnly:                req.RequireOAuthOnly,
 		RequirePrivacySet:               req.RequirePrivacySet,
@@ -356,7 +339,8 @@ func (h *GroupHandler) Update(c *gin.Context) {
 	group, err := h.adminService.UpdateGroup(c.Request.Context(), groupID, &service.UpdateGroupInput{
 		Name:                            req.Name,
 		Description:                     req.Description,
-		Platform:                        req.Platform,
+		Icon:                            req.Icon,
+		Color:                           req.Color,
 		RateMultiplier:                  req.RateMultiplier,
 		IsExclusive:                     req.IsExclusive,
 		Status:                          req.Status,
@@ -380,7 +364,6 @@ func (h *GroupHandler) Update(c *gin.Context) {
 		ModelRouting:                    req.ModelRouting,
 		ModelRoutingEnabled:             req.ModelRoutingEnabled,
 		MCPXMLInject:                    req.MCPXMLInject,
-		SupportedModelScopes:            req.SupportedModelScopes,
 		AllowMessagesDispatch:           req.AllowMessagesDispatch,
 		RequireOAuthOnly:                req.RequireOAuthOnly,
 		RequirePrivacySet:               req.RequirePrivacySet,

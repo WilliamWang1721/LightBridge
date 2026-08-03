@@ -1,8 +1,6 @@
-import type { GroupPlatform } from '@/types'
+import type { GroupUpstreamProtocol } from '@/types'
 
-export const OPENAI_CC_SWITCH_CODEX_MODEL = 'gpt-5.4'
-
-export type CcSwitchClientType = 'claude' | 'gemini'
+export type CcSwitchClientType = 'claude' | 'gemini' | 'codex'
 
 export interface CcSwitchImportConfig {
   app: string
@@ -12,7 +10,9 @@ export interface CcSwitchImportConfig {
 
 export interface CcSwitchImportDeeplinkInput {
   baseUrl: string
-  platform?: GroupPlatform | null
+  endpoint?: string
+  model?: string
+  availableIngressProtocols?: GroupUpstreamProtocol[] | null
   clientType: CcSwitchClientType
   providerName: string
   apiKey: string
@@ -20,37 +20,47 @@ export interface CcSwitchImportDeeplinkInput {
 }
 
 export function resolveCcSwitchImportConfig(
-  platform: GroupPlatform | undefined | null,
+  availableIngressProtocols: GroupUpstreamProtocol[] | undefined | null,
   clientType: CcSwitchClientType,
-  baseUrl: string
-): CcSwitchImportConfig {
-  switch (platform || 'anthropic') {
-    case 'antigravity':
-      return {
-        app: clientType === 'gemini' ? 'gemini' : 'claude',
-        endpoint: `${baseUrl}/antigravity`
-      }
-    case 'openai':
+  endpoint: string,
+  model?: string
+): CcSwitchImportConfig | null {
+  const protocols = new Set(availableIngressProtocols ?? [])
+  const normalizedEndpoint = endpoint.trim()
+  const normalizedModel = model?.trim()
+  switch (clientType) {
+    case 'codex':
+      if (!protocols.has('openai_responses')) return null
       return {
         app: 'codex',
-        endpoint: baseUrl,
-        model: OPENAI_CC_SWITCH_CODEX_MODEL
+        endpoint: normalizedEndpoint,
+        ...(normalizedModel ? { model: normalizedModel } : {})
       }
     case 'gemini':
+      if (!protocols.has('gemini')) return null
       return {
         app: 'gemini',
-        endpoint: baseUrl
+        endpoint: normalizedEndpoint
       }
-    default:
+    case 'claude':
+      if (!protocols.has('anthropic_messages')) return null
       return {
         app: 'claude',
-        endpoint: baseUrl
+        endpoint: normalizedEndpoint
       }
   }
 }
 
 export function buildCcSwitchImportDeeplink(input: CcSwitchImportDeeplinkInput): string {
-  const config = resolveCcSwitchImportConfig(input.platform, input.clientType, input.baseUrl)
+  const config = resolveCcSwitchImportConfig(
+    input.availableIngressProtocols,
+    input.clientType,
+    input.endpoint || input.baseUrl,
+    input.model
+  )
+  if (!config) {
+    throw new Error(`Unsupported CC Switch client protocol: ${input.clientType}`)
+  }
   const entries: [string, string][] = [
     ['resource', 'provider'],
     ['app', config.app],

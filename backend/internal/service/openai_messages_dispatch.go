@@ -89,12 +89,3 @@ func (g *Group) ResolveMessagesDispatchModel(requestedModel string) string {
 		return ""
 	}
 }
-
-func sanitizeGroupMessagesDispatchFields(g *Group) {
-	if g == nil || g.Platform == PlatformOpenAI {
-		return
-	}
-	g.AllowMessagesDispatch = false
-	g.DefaultMappedModel = ""
-	g.MessagesDispatchModelConfig = OpenAIMessagesDispatchModelConfig{}
-}

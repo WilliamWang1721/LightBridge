@@ -79,11 +79,12 @@
             :class="[
               'sticky-header-cell py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-dark-400',
               getAdaptivePaddingClass(),
-              { 'cursor-pointer hover:bg-gray-100 dark:hover:bg-dark-700': column.sortable },
+              { 'cursor-pointer hover:bg-gray-100 dark:hover:bg-dark-700': column.sortable && hasCustomHeader(column.key) },
               getStickyColumnClass(column, index),
               column.class
             ]"
-            @click="column.sortable && handleSort(column.key)"
+            :aria-sort="getAriaSort(column)"
+            @click="column.sortable && hasCustomHeader(column.key) && handleSort(column.key)"
           >
             <slot
               :name="`header-${column.key}`"
@@ -91,9 +92,14 @@
               :sort-key="sortKey"
               :sort-order="sortOrder"
             >
-              <div class="flex items-center space-x-1">
+              <button
+                v-if="column.sortable"
+                type="button"
+                class="flex w-full items-center space-x-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+                @click.stop="handleSort(column.key)"
+              >
                 <span>{{ column.label }}</span>
-                <span v-if="column.sortable" class="text-gray-400 dark:text-dark-500">
+                <span class="text-gray-400 dark:text-dark-500" aria-hidden="true">
                   <svg
                     v-if="sortKey === column.key"
                     class="h-4 w-4"
@@ -113,6 +119,9 @@
                     />
                   </svg>
                 </span>
+              </button>
+              <div v-else class="flex items-center space-x-1">
+                <span>{{ column.label }}</span>
               </div>
             </slot>
           </th>
@@ -196,13 +205,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch, nextTick, useSlots } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useI18n } from 'vue-i18n'
 import type { Column } from './types'
 import Icon from '@/components/icons/Icon.vue'
 
 const { t } = useI18n()
+const slots = useSlots()
 
 const desktopViewportQuery = '(min-width: 768px)'
 const isDesktopViewport = ref(
@@ -392,6 +402,14 @@ const getSortableKeys = () => {
     if (col.sortable) keys.add(col.key)
   }
   return keys
+}
+
+const hasCustomHeader = (key: string) => Boolean(slots[`header-${key}`])
+
+const getAriaSort = (column: Column): 'ascending' | 'descending' | 'none' | undefined => {
+  if (!column.sortable) return undefined
+  if (sortKey.value !== column.key) return 'none'
+  return sortOrder.value === 'desc' ? 'descending' : 'ascending'
 }
 
 const normalizeSortKey = (candidate: string) => {
@@ -714,6 +732,7 @@ defineExpose({
   flex: 1;
   min-height: 0;
   isolation: isolate;
+  scrollbar-gutter: stable;
 }
 
 /* 表头容器，确保在滚动时覆盖表体内容 */

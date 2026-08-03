@@ -8,8 +8,8 @@ import (
 
 // ResponsesToAnthropicRequest converts a Responses API request into an
 // Anthropic Messages request. This is the reverse of AnthropicToResponses and
-// enables Anthropic platform groups to accept OpenAI Responses API requests
-// by converting them to the native /v1/messages format before forwarding upstream.
+// lets an Anthropic Messages upstream accept OpenAI Responses requests by
+// converting them to the native /v1/messages format before forwarding upstream.
 func ResponsesToAnthropicRequest(req *ResponsesRequest) (*AnthropicRequest, error) {
 	system, messages, err := convertResponsesInputToAnthropic(req.Input)
 	if err != nil {

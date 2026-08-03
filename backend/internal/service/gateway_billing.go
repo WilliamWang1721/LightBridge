@@ -56,28 +56,18 @@ type postUsageBillingParams struct {
 	IsSubscriptionBill    bool
 	AccountRateMultiplier float64
 	APIKeyService         APIKeyQuotaUpdater
-	Platform              string // 来自 APIKey 关联 Group 的平台标识
-}
-
-// PlatformFromAPIKey 从 APIKey 关联的 Group 推导 platform 名称。
-// apiKey 为 nil 或 Group 信息缺失时返回空串（调用方据此 short-circuit quota 累加）。
-// 导出供 handler 层调用。
-func PlatformFromAPIKey(apiKey *APIKey) string {
-	if apiKey == nil || apiKey.Group == nil {
-		return ""
-	}
-	return apiKey.Group.Platform
+	Platform              string // 本次请求的平台归因
 }
 
 // QuotaPlatform 返回 user×platform 配额计量使用的平台标识。
 // 强制平台路由（如 /antigravity）优先按 ctx 中的 ForcePlatform 计量；
-// 普通网关请求按入站协议计量，最后才回退到 APIKey 关联 Group 的历史平台字段。
+// 普通网关请求按入站协议计量。分组不携带平台语义。
 //
 // 注意：必须用带 ForcePlatform 的请求 context 调用（如 handler 的 c.Request.Context()）。
 // 后扣运行在 worker 池的 background ctx 上没有 ForcePlatform，因此后扣平台由 handler
 // 预先算定、经 RecordUsageInput.QuotaPlatform 传入，不要在后扣链路用 worker ctx 调用本函数。
-func QuotaPlatform(ctx context.Context, apiKey *APIKey) string {
-	return PlatformForRequest(ctx, PlatformFromAPIKey(apiKey))
+func QuotaPlatform(ctx context.Context, _ *APIKey) string {
+	return PlatformForRequest(ctx, "")
 }
 
 func (p *postUsageBillingParams) shouldDeductAPIKeyQuota() bool {

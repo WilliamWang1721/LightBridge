@@ -3,12 +3,16 @@
     <div v-if="group" class="space-y-4">
       <!-- 分组信息 -->
       <div class="flex flex-wrap items-center gap-3 rounded-lg bg-gray-50 px-4 py-2.5 text-sm dark:bg-dark-700">
-        <span class="inline-flex items-center gap-1.5" :class="platformColorClass">
-          <PlatformIcon :platform="group.platform" size="sm" />
-          {{ t('admin.groups.platforms.' + group.platform) }}
-        </span>
-        <span class="text-gray-400">|</span>
-        <span class="font-medium text-gray-900 dark:text-white">{{ group.name }}</span>
+        <GroupBadge
+          :name="group.name"
+          :icon="group.icon"
+          :color="group.color"
+          :show-rate="false"
+        />
+        <GroupUpstreamBadges
+          :upstream-platforms="group.upstream_platforms"
+          :upstream-protocols="group.upstream_protocols"
+        />
         <span class="text-gray-400">|</span>
         <span class="text-gray-600 dark:text-gray-400">
           {{ t('admin.groups.columns.rateMultiplier') }}: {{ group.rate_multiplier }}x
@@ -248,7 +252,8 @@ import type { AdminGroup, AdminUser } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import Icon from '@/components/icons/Icon.vue'
-import PlatformIcon from '@/components/common/PlatformIcon.vue'
+import GroupBadge from '@/components/common/GroupBadge.vue'
+import GroupUpstreamBadges from '@/components/common/GroupUpstreamBadges.vue'
 
 interface LocalEntry extends GroupRateMultiplierEntry {}
 
@@ -279,16 +284,6 @@ const pageSize = ref(10)
 const batchFactor = ref<number | null>(null)
 
 let searchTimeout: ReturnType<typeof setTimeout>
-
-const platformColorClass = computed(() => {
-  switch (props.group?.platform) {
-    case 'anthropic': return 'text-orange-700 dark:text-orange-400'
-    case 'openai': return 'text-emerald-700 dark:text-emerald-400'
-    case 'grok': return 'text-zinc-700 dark:text-zinc-200'
-    case 'antigravity': return 'text-blue-700 dark:text-blue-400'
-    default: return 'text-blue-700 dark:text-blue-400'
-  }
-})
 
 // 是否显示"最终倍率"预览列
 const showFinalRate = computed(() => {

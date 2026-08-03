@@ -55,7 +55,7 @@ func TestHasOpenAIProviderModuleAccountsFindsTopLevelProviderMarker(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	mock.ExpectQuery(regexp.QuoteMeta(`
 SELECT COUNT(*)
@@ -79,7 +79,7 @@ func TestHasOpenAIProviderModuleAccountsIgnoresUnboundAccounts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	mock.ExpectQuery("SELECT COUNT\\(\\*\\).*FROM accounts").WillReturnRows(
 		sqlmock.NewRows([]string{"count"}).AddRow(0),

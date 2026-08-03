@@ -112,12 +112,20 @@ export default {
     ipRestrictionEnabled: 'IP restriction enabled',
     ccSwitchNotInstalled: 'CC-Switch is not installed or the protocol handler is not registered. Please install CC-Switch first or manually copy the API key.',
     ccsClientSelect: {
-      title: 'Select Client',
-      description: 'Please select the client type to import to CC-Switch:',
+      title: 'Review CC-Switch Import',
+      description: 'Select a compatible client and review the endpoint before importing:',
       claudeCode: 'Claude Code',
       claudeCodeDesc: 'Import as Claude Code configuration',
       geminiCli: 'Gemini CLI',
       geminiCliDesc: 'Import as Gemini CLI configuration',
+      codex: 'Codex',
+      codexDesc: 'Import as an OpenAI Responses configuration',
+      noCompatibleClient: 'This group does not currently expose a protocol supported by CC-Switch.',
+      endpoint: 'Endpoint',
+      model: 'Model',
+      modelPlaceholder: 'Optional model ID',
+      modelHint: 'Leave blank to let CC-Switch or the client choose its configured model.',
+      import: 'Import'
     },
     // Quota and expiration
     quotaLimit: 'Quota Limit',

@@ -23,7 +23,7 @@
       </template>
       <!-- Countdown -->
       <div v-if="expired" class="text-center">
-        <p class="text-lg font-medium text-red-500">{{ t('payment.qr.expired') }}</p>
+        <p class="text-lg font-medium text-red-500">{{ terminalMessage }}</p>
       </div>
       <div v-else class="text-center">
         <p class="text-sm text-gray-500 dark:text-gray-400">{{ qrUrl ? t('payment.qr.expiresIn') : '' }}</p>
@@ -111,6 +111,7 @@ const expired = ref(false)
 const cancelling = ref(false)
 const success = ref(false)
 const paidOrder = ref<PaymentOrder | null>(null)
+const terminalStatus = ref<'expired' | 'cancelled' | 'failed' | 'invalid'>('expired')
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let countdownTimer: ReturnType<typeof setInterval> | null = null
@@ -142,6 +143,8 @@ const countdownDisplay = computed(() => {
   const s = remainingSeconds.value % 60
   return m.toString().padStart(2, '0') + ':' + s.toString().padStart(2, '0')
 })
+
+const terminalMessage = computed(() => t(`payment.qr.${terminalStatus.value}`))
 
 function getLogoForType(): string | null {
   if (isAlipay.value) return alipayIcon
@@ -201,6 +204,7 @@ async function pollStatus() {
     emit('success')
   } else if (order.status === 'EXPIRED' || order.status === 'CANCELLED' || order.status === 'FAILED') {
     cleanup()
+    terminalStatus.value = order.status.toLowerCase() as 'expired' | 'cancelled' | 'failed'
     expired.value = true
   }
 }
@@ -229,12 +233,14 @@ async function tryRecoverPendingOrder(order: PaymentOrder): Promise<PaymentOrder
 function startCountdown(seconds: number) {
   remainingSeconds.value = Math.max(0, seconds)
   if (remainingSeconds.value <= 0) {
+    terminalStatus.value = 'expired'
     expired.value = true
     return
   }
   countdownTimer = setInterval(() => {
     remainingSeconds.value--
     if (remainingSeconds.value <= 0) {
+      terminalStatus.value = 'expired'
       expired.value = true
       cleanup()
     }
@@ -280,13 +286,23 @@ function init() {
   verifyAttempts = 0
   lastVerifyAt = 0
 
-  let seconds = 30 * 60
-  if (props.expiresAt) {
-    const expiresAt = new Date(props.expiresAt)
-    seconds = Math.floor((expiresAt.getTime() - Date.now()) / 1000)
+  if (!props.orderId || (!props.qrCode && !props.payUrl)) {
+    terminalStatus.value = 'invalid'
+    expired.value = true
+    return
   }
+
+  const expiresAt = new Date(props.expiresAt)
+  if (!props.expiresAt || !Number.isFinite(expiresAt.getTime())) {
+    terminalStatus.value = 'invalid'
+    expired.value = true
+    return
+  }
+  const seconds = Math.floor((expiresAt.getTime() - Date.now()) / 1000)
   startCountdown(seconds)
-  pollTimer = setInterval(pollStatus, 3000)
+  if (!expired.value) {
+    pollTimer = setInterval(pollStatus, 3000)
+  }
   renderQR()
 }
 

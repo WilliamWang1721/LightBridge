@@ -22,13 +22,20 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 	apiKey, _ := middleware2.GetAPIKeyFromContext(c)
 
 	var groupID *int64
-	var platform string
-
-	if apiKey != nil && apiKey.Group != nil {
-		groupID = &apiKey.Group.ID
-		platform = apiKey.Group.Platform
+	if apiKey != nil {
+		groupID = apiKey.GroupID
+		if groupID == nil && apiKey.Group != nil && apiKey.Group.ID > 0 {
+			resolvedGroupID := apiKey.Group.ID
+			groupID = &resolvedGroupID
+		}
 	}
-	platform = service.PlatformForRequest(c.Request.Context(), platform)
+	platform := service.PlatformForRequest(c.Request.Context(), "")
+	if platform == "" && apiKey != nil && apiKey.Group != nil {
+		// Retain the removed group platform only as a rollback-era response-schema
+		// hint. It must never constrain routing, quota attribution, or protocol
+		// conversion.
+		platform = strings.TrimSpace(apiKey.Group.Platform)
+	}
 
 	// Get available models from all schedulable accounts in the selected group.
 	availableModels := h.gatewayService.GetAvailableModels(c.Request.Context(), groupID, platform)
@@ -43,34 +50,11 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 		return
 	}
 
-	// Fallback to default models
-	if platform == service.PlatformOpenAI {
-		c.JSON(http.StatusOK, gin.H{
-			"object": "list",
-			"data":   openai.DefaultModels,
-		})
-		return
-	}
-
-	if platform == service.PlatformGrok {
-		c.JSON(http.StatusOK, gin.H{
-			"object": "list",
-			"data":   xai.DefaultModels(),
-		})
-		return
-	}
-
-	if platform == service.PlatformGemini {
-		c.JSON(http.StatusOK, gin.H{
-			"object": "list",
-			"data":   geminicli.DefaultModels,
-		})
-		return
-	}
-
+	// An empty account set has no implicit provider identity. Returning an empty
+	// list avoids resurrecting the old Anthropic group default.
 	c.JSON(http.StatusOK, gin.H{
 		"object": "list",
-		"data":   claude.DefaultModels,
+		"data":   []claude.Model{},
 	})
 }
 
@@ -224,12 +208,14 @@ func defaultModelIDsForPlatform(platform string) []string {
 			ids = append(ids, model.ID)
 		}
 		return ids
-	default:
+	case service.PlatformAnthropic:
 		ids := make([]string, 0, len(claude.DefaultModels))
 		for _, model := range claude.DefaultModels {
 			ids = append(ids, model.ID)
 		}
 		return ids
+	default:
+		return nil
 	}
 }
 

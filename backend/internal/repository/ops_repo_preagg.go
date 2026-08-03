@@ -29,15 +29,15 @@ func (r *opsRepository) UpsertHourlyMetrics(ctx context.Context, startTime, endT
 	// unique index; our ON CONFLICT target must match that expression set.
 	q := `
 WITH usage_base AS (
-  SELECT
-    date_trunc('hour', ul.created_at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS bucket_start,
-    g.platform AS platform,
-    ul.group_id AS group_id,
+	  SELECT
+	    date_trunc('hour', ul.created_at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS bucket_start,
+	    ` + usageLogEffectivePlatformExpr + ` AS platform,
+	    ul.group_id AS group_id,
     ul.duration_ms AS duration_ms,
     ul.first_token_ms AS first_token_ms,
     (ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens) AS tokens
-  FROM usage_logs ul
-  JOIN groups g ON g.id = ul.group_id
+	  FROM usage_logs ul
+	  LEFT JOIN accounts a ON a.id = ul.account_id
   WHERE ul.created_at >= $1 AND ul.created_at < $2
 ),
 usage_agg AS (
@@ -70,19 +70,24 @@ usage_agg AS (
 ),
 error_base AS (
   SELECT
-    date_trunc('hour', created_at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS bucket_start,
-    -- platform is NULL for some early-phase errors (e.g. before routing); map to a sentinel
-    -- value so platform-level GROUPING SETS don't collide with the overall (platform=NULL) row.
-    COALESCE(platform, 'unknown') AS platform,
-    group_id AS group_id,
-    is_business_limited AS is_business_limited,
-    error_owner AS error_owner,
-    status_code AS client_status_code,
-    COALESCE(upstream_status_code, status_code, 0) AS effective_status_code
-  FROM ops_error_logs
-  -- Exclude count_tokens requests from error metrics as they are informational probes
-  WHERE created_at >= $1 AND created_at < $2
-    AND is_count_tokens = FALSE
+	    date_trunc('hour', o.created_at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS bucket_start,
+	    -- platform is NULL for some early-phase errors (e.g. before routing); map to a sentinel
+	    -- value so platform-level GROUPING SETS don't collide with the overall (platform=NULL) row.
+	    COALESCE(
+	      ` + usageLogEffectivePlatformExpr + `,
+	      NULLIF(LOWER(COALESCE(o.platform, '')), ''),
+	      'unknown'
+	    ) AS platform,
+	    o.group_id AS group_id,
+	    o.is_business_limited AS is_business_limited,
+	    o.error_owner AS error_owner,
+	    o.status_code AS client_status_code,
+	    COALESCE(o.upstream_status_code, o.status_code, 0) AS effective_status_code
+	  FROM ops_error_logs o
+	  LEFT JOIN accounts a ON a.id = o.account_id
+	  -- Exclude count_tokens requests from error metrics as they are informational probes
+	  WHERE o.created_at >= $1 AND o.created_at < $2
+	    AND o.is_count_tokens = FALSE
 ),
 error_agg AS (
   SELECT

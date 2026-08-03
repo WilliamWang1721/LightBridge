@@ -83,7 +83,7 @@
             </div>
             <div class="w-full sm:w-40">
               <Select
-                v-model="filters.platform"
+                v-model="filters.upstream_platform"
                 :options="platformFilterOptions"
                 :placeholder="t('admin.subscriptions.allPlatforms')"
                 @change="applyFilters"
@@ -203,7 +203,10 @@
             <GroupBadge
               v-if="row.group"
               :name="row.group.name"
-              :platform="row.group.platform"
+              :icon="row.group.icon"
+              :color="row.group.color"
+              :upstream-platforms="row.group.upstream_platforms"
+              :upstream-protocols="row.group.upstream_protocols"
               :subscription-type="row.group.subscription_type"
               :rate-multiplier="row.group.rate_multiplier"
               :show-rate="false"
@@ -503,7 +506,9 @@
               <GroupBadge
                 v-if="option"
                 :name="(option as unknown as GroupOption).label"
-                :platform="(option as unknown as GroupOption).platform"
+                :icon="(option as unknown as GroupOption).icon"
+                :color="(option as unknown as GroupOption).color"
+                :upstream-platforms="(option as unknown as GroupOption).upstreamPlatforms"
                 :upstream-protocols="(option as unknown as GroupOption).upstreamProtocols"
                 :subscription-type="(option as unknown as GroupOption).subscriptionType"
                 :rate-multiplier="(option as unknown as GroupOption).rate"
@@ -513,7 +518,10 @@
             <template #option="{ option, selected }">
               <GroupOptionItem
                 :name="(option as unknown as GroupOption).label"
-                :platform="(option as unknown as GroupOption).platform"
+                :icon="(option as unknown as GroupOption).icon"
+                :color="(option as unknown as GroupOption).color"
+                :upstream-platforms="(option as unknown as GroupOption).upstreamPlatforms"
+                :upstream-protocols="(option as unknown as GroupOption).upstreamProtocols"
                 :subscription-type="(option as unknown as GroupOption).subscriptionType"
                 :rate-multiplier="(option as unknown as GroupOption).rate"
                 :description="(option as unknown as GroupOption).description"
@@ -743,7 +751,7 @@ import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
-import type { UserSubscription, Group, GroupPlatform, SubscriptionType } from '@/types'
+import type { UserSubscription, Group, SubscriptionType } from '@/types'
 import type { SimpleUser } from '@/api/admin/usage'
 import type { Column } from '@/components/common/types'
 import { formatDateOnly } from '@/utils/format'
@@ -768,8 +776,11 @@ interface GroupOption {
   value: number
   label: string
   description: string | null
-  platform: GroupPlatform
+  icon?: Group['icon']
+  color?: Group['color']
+  upstreamPlatforms?: Group['upstream_platforms']
   upstreamProtocols?: Group['upstream_protocols']
+  availableIngressProtocols?: Group['available_ingress_protocols']
   subscriptionType: SubscriptionType
   rate: number
 }
@@ -922,7 +933,7 @@ let userSearchTimeout: ReturnType<typeof setTimeout> | null = null
 const filters = reactive({
   status: 'active',
   group_id: '',
-  platform: '',
+  upstream_platform: '',
   user_id: null as number | null
 })
 
@@ -982,8 +993,11 @@ const subscriptionGroupOptions = computed(() =>
       value: g.id,
       label: g.name,
       description: g.description,
-      platform: g.platform,
+      icon: g.icon,
+      color: g.color,
+      upstreamPlatforms: g.upstream_platforms,
       upstreamProtocols: g.upstream_protocols,
+      availableIngressProtocols: g.available_ingress_protocols,
       subscriptionType: g.subscription_type,
       rate: g.rate_multiplier
     }))
@@ -1010,7 +1024,7 @@ const loadSubscriptions = async () => {
       {
         status: (filters.status as any) || undefined,
         group_id: filters.group_id ? parseInt(filters.group_id) : undefined,
-        platform: filters.platform || undefined,
+        upstream_platform: filters.upstream_platform || undefined,
         user_id: filters.user_id || undefined,
         sort_by: sortState.sort_by,
         sort_order: sortState.sort_order

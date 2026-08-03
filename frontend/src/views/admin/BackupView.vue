@@ -118,12 +118,13 @@
         </div>
 
         <div class="overflow-x-auto">
-          <table class="w-full min-w-[800px] text-sm">
+          <table class="w-full min-w-[920px] text-sm">
             <thead>
               <tr class="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500 dark:border-dark-700 dark:text-gray-400">
                 <th class="py-2 pr-4">ID</th>
                 <th class="py-2 pr-4">{{ t('admin.backup.columns.status') }}</th>
                 <th class="py-2 pr-4">{{ t('admin.backup.columns.fileName') }}</th>
+                <th class="py-2 pr-4">{{ t('admin.backup.columns.origin') }}</th>
                 <th class="py-2 pr-4">{{ t('admin.backup.columns.size') }}</th>
                 <th class="py-2 pr-4">{{ t('admin.backup.columns.expiresAt') }}</th>
                 <th class="py-2 pr-4">{{ t('admin.backup.columns.triggeredBy') }}</th>
@@ -145,12 +146,29 @@
                   </span>
                 </td>
                 <td class="py-3 pr-4 text-xs">{{ record.file_name }}</td>
+                <td class="py-3 pr-4 text-xs">
+                  <template v-if="record.metadata?.version_action">
+                    <p :data-test="`version-snapshot-${record.id}`" class="font-medium text-gray-800 dark:text-gray-200">
+                      {{ t('admin.backup.versionSnapshot.label') }}
+                    </p>
+                    <p class="mt-0.5 text-gray-600 dark:text-gray-400">
+                      {{ formatVersionSnapshot(record) }}
+                    </p>
+                    <p v-if="record.metadata.system_operation_id" class="mt-0.5 font-mono text-[11px] text-gray-500 dark:text-gray-500">
+                      {{ t('admin.backup.versionSnapshot.operationId', { id: record.metadata.system_operation_id }) }}
+                    </p>
+                    <p class="mt-0.5 text-gray-500 dark:text-gray-500">
+                      {{ t('admin.backup.versionSnapshot.initiatedBy', { initiatedBy: record.metadata.initiating_admin_id }) }}
+                    </p>
+                  </template>
+                  <span v-else class="text-gray-400 dark:text-gray-500">—</span>
+                </td>
                 <td class="py-3 pr-4 text-xs">{{ formatSize(record.size_bytes) }}</td>
                 <td class="py-3 pr-4 text-xs">
                   {{ record.expires_at ? formatDate(record.expires_at) : t('admin.backup.neverExpire') }}
                 </td>
                 <td class="py-3 pr-4 text-xs">
-                  {{ record.triggered_by === 'scheduled' ? t('admin.backup.trigger.scheduled') : t('admin.backup.trigger.manual') }}
+                  {{ formatTriggeredBy(record.triggered_by) }}
                 </td>
                 <td class="py-3 pr-4 text-xs">{{ formatDate(record.started_at) }}</td>
                 <td class="py-3 text-xs">
@@ -166,6 +184,7 @@
                     <button
                       v-if="record.status === 'completed'"
                       type="button"
+                      :data-test="`restore-backup-${record.id}`"
                       class="btn btn-secondary btn-xs"
                       :disabled="restoringId === record.id"
                       @click="restoreBackup(record.id)"
@@ -183,7 +202,7 @@
                 </td>
               </tr>
               <tr v-if="backups.length === 0">
-                <td colspan="8" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                <td colspan="9" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">
                   {{ t('admin.backup.empty') }}
                 </td>
               </tr>
@@ -594,6 +613,37 @@ function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function formatVersionSnapshot(record: BackupRecord): string {
+  const metadata = record.metadata
+  if (!metadata) return ''
+
+  const sourceVersion = displayVersion(metadata.source_version)
+  if (metadata.version_action === 'update') {
+    return metadata.target_version
+      ? t('admin.backup.versionSnapshot.update', {
+        sourceVersion,
+        targetVersion: displayVersion(metadata.target_version),
+      })
+      : t('admin.backup.versionSnapshot.updateWithoutTarget', { sourceVersion })
+  }
+
+  return t('admin.backup.versionSnapshot.rollback', { sourceVersion })
+}
+
+function formatTriggeredBy(triggeredBy: string): string {
+  if (triggeredBy === 'version_manager') {
+    return t('admin.backup.trigger.versionManager')
+  }
+  return triggeredBy === 'scheduled'
+    ? t('admin.backup.trigger.scheduled')
+    : t('admin.backup.trigger.manual')
+}
+
+function displayVersion(version?: string): string {
+  const normalized = String(version || '').trim().replace(/^v/i, '')
+  return normalized ? `v${normalized}` : t('common.notAvailable')
 }
 
 function formatDate(value?: string): string {

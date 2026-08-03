@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/WilliamWang1721/LightBridge/internal/pkg/pagination"
@@ -18,13 +19,23 @@ func (s *OpsService) listAllAccountsForOps(ctx context.Context, platformFilter s
 		return []Account{}, nil
 	}
 
+	effectivePlatformFilter := strings.TrimSpace(strings.ToLower(platformFilter))
+	repositoryPlatformFilter := effectivePlatformFilter
+	if effectivePlatformFilter == PlatformAntigravity {
+		// Antigravity is stored as platform=gemini + sub_platform=antigravity.
+		// Fetch without the repository's raw platform predicate, then apply the
+		// effective-platform filter below.
+		repositoryPlatformFilter = ""
+	}
+
 	out := make([]Account, 0, 128)
+	fetched := 0
 	page := 1
 	for {
 		accounts, pageInfo, err := s.accountRepo.ListWithFilters(ctx, pagination.PaginationParams{
 			Page:     page,
 			PageSize: opsAccountsPageSize,
-		}, platformFilter, "", "", "", 0, "")
+		}, repositoryPlatformFilter, "", "", "", 0, "")
 		if err != nil {
 			return nil, err
 		}
@@ -32,8 +43,14 @@ func (s *OpsService) listAllAccountsForOps(ctx context.Context, platformFilter s
 			break
 		}
 
-		out = append(out, accounts...)
-		if pageInfo != nil && int64(len(out)) >= pageInfo.Total {
+		fetched += len(accounts)
+		for _, account := range accounts {
+			if effectivePlatformFilter == "" ||
+				strings.EqualFold(account.EffectivePlatform(), effectivePlatformFilter) {
+				out = append(out, account)
+			}
+		}
+		if pageInfo != nil && int64(fetched) >= pageInfo.Total {
 			break
 		}
 		if len(accounts) < opsAccountsPageSize {
@@ -42,7 +59,7 @@ func (s *OpsService) listAllAccountsForOps(ctx context.Context, platformFilter s
 
 		page++
 		if page > 10_000 {
-			log.Printf("[Ops] listAllAccountsForOps: aborting after too many pages (platform=%q)", platformFilter)
+			log.Printf("[Ops] listAllAccountsForOps: aborting after too many pages (upstream_platform=%q)", platformFilter)
 			break
 		}
 	}
@@ -128,6 +145,7 @@ func (s *OpsService) GetConcurrencyStats(
 		if acc.ID <= 0 {
 			continue
 		}
+		effectivePlatform := strings.TrimSpace(acc.EffectivePlatform())
 
 		var matchedGroup *Group
 		if groupIDFilter != nil && *groupIDFilter > 0 {
@@ -183,13 +201,13 @@ func (s *OpsService) GetConcurrencyStats(
 		}
 
 		// Platform aggregation.
-		if acc.Platform != "" {
-			if _, ok := platform[acc.Platform]; !ok {
-				platform[acc.Platform] = &PlatformConcurrencyInfo{
-					Platform: acc.EffectivePlatform(),
+		if effectivePlatform != "" {
+			if _, ok := platform[effectivePlatform]; !ok {
+				platform[effectivePlatform] = &PlatformConcurrencyInfo{
+					Platform: effectivePlatform,
 				}
 			}
-			p := platform[acc.Platform]
+			p := platform[effectivePlatform]
 			p.MaxCapacity += int64(acc.Concurrency)
 			p.CurrentInUse += currentInUse
 			p.WaitingInQueue += waiting
@@ -200,19 +218,16 @@ func (s *OpsService) GetConcurrencyStats(
 			grp := matchedGroup
 			if _, ok := group[grp.ID]; !ok {
 				group[grp.ID] = &GroupConcurrencyInfo{
-					GroupID:   grp.ID,
-					GroupName: grp.Name,
-					Platform:  grp.Platform,
+					GroupID:           grp.ID,
+					GroupName:         grp.Name,
+					UpstreamPlatforms: []string{},
 				}
 			}
 			g := group[grp.ID]
 			if g.GroupName == "" && grp.Name != "" {
 				g.GroupName = grp.Name
 			}
-			if g.Platform != "" && grp.Platform != "" && g.Platform != grp.Platform {
-				// Groups are expected to be platform-scoped. If mismatch is observed, avoid misleading labels.
-				g.Platform = ""
-			}
+			g.UpstreamPlatforms = addOpsUpstreamPlatform(g.UpstreamPlatforms, effectivePlatform)
 			g.MaxCapacity += int64(acc.Concurrency)
 			g.CurrentInUse += currentInUse
 			g.WaitingInQueue += waiting
@@ -223,19 +238,16 @@ func (s *OpsService) GetConcurrencyStats(
 				}
 				if _, ok := group[grp.ID]; !ok {
 					group[grp.ID] = &GroupConcurrencyInfo{
-						GroupID:   grp.ID,
-						GroupName: grp.Name,
-						Platform:  grp.Platform,
+						GroupID:           grp.ID,
+						GroupName:         grp.Name,
+						UpstreamPlatforms: []string{},
 					}
 				}
 				g := group[grp.ID]
 				if g.GroupName == "" && grp.Name != "" {
 					g.GroupName = grp.Name
 				}
-				if g.Platform != "" && grp.Platform != "" && g.Platform != grp.Platform {
-					// Groups are expected to be platform-scoped. If mismatch is observed, avoid misleading labels.
-					g.Platform = ""
-				}
+				g.UpstreamPlatforms = addOpsUpstreamPlatform(g.UpstreamPlatforms, effectivePlatform)
 				g.MaxCapacity += int64(acc.Concurrency)
 				g.CurrentInUse += currentInUse
 				g.WaitingInQueue += waiting

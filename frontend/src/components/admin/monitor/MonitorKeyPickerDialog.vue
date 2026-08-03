@@ -50,7 +50,10 @@
                 <GroupBadge
                   v-if="k.group"
                   :name="k.group.name"
-                  :platform="k.group.platform"
+                  :icon="k.group.icon"
+                  :color="k.group.color"
+                  :upstream-platforms="k.group.upstream_platforms"
+                  :upstream-protocols="k.group.upstream_protocols"
                   :subscription-type="k.group.subscription_type"
                   :rate-multiplier="k.group.rate_multiplier"
                   :user-rate-multiplier="userGroupRates[k.group.id]"
@@ -75,8 +78,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { ApiKey } from '@/types'
-import type { Provider } from '@/api/admin/channelMonitor'
+import type { ApiKey, GroupUpstreamProtocol } from '@/types'
+import type { APIMode, Provider } from '@/api/admin/channelMonitor'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import GroupBadge from '@/components/common/GroupBadge.vue'
 import { maskApiKey } from '@/utils/maskApiKey'
@@ -86,6 +89,7 @@ const props = withDefaults(defineProps<{
   loading: boolean
   keys: ApiKey[]
   provider: Provider
+  apiMode: APIMode
   userGroupRates?: Record<number, number>
 }>(), {
   userGroupRates: () => ({}),
@@ -100,6 +104,14 @@ const { t } = useI18n()
 
 const search = ref('')
 
+const requiredIngressProtocol = computed<GroupUpstreamProtocol>(() => {
+  if (props.provider === 'anthropic') return 'anthropic_messages'
+  if (props.provider === 'gemini') return 'gemini'
+  return props.apiMode === 'responses'
+    ? 'openai_responses'
+    : 'openai_chat_completions'
+})
+
 watch(() => props.show, (shown) => {
   if (!shown) search.value = ''
 })
@@ -107,7 +119,9 @@ watch(() => props.show, (shown) => {
 const filteredKeys = computed<ApiKey[]>(() => {
   const q = search.value.trim().toLowerCase()
   return props.keys.filter((k) => {
-    if (k.group?.platform !== props.provider) return false
+    if (!k.group?.available_ingress_protocols?.includes(requiredIngressProtocol.value)) {
+      return false
+    }
     if (!q) return true
     return (
       k.name.toLowerCase().includes(q) ||

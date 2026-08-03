@@ -27,6 +27,12 @@ const (
 	settingKeyBackupRecords  = "backup_records"
 
 	maxBackupRecords = 100
+
+	// DefaultPreVersionBackupRetentionDays keeps operator-requested snapshots
+	// before a version action for two weeks. A pre-version snapshot is a
+	// PostgreSQL logical dump only; it does not include binaries, configuration,
+	// Redis, or filesystem data.
+	DefaultPreVersionBackupRetentionDays = 14
 )
 
 var (
@@ -84,23 +90,35 @@ type BackupScheduleConfig struct {
 	RetainCount int    `json:"retain_count"` // 最多保留份数，0=不限制
 }
 
+// BackupRecordMetadata identifies the version-management operation that
+// requested a backup. It is optional so records serialized before this type was
+// introduced remain compatible.
+type BackupRecordMetadata struct {
+	SourceVersion     string `json:"source_version,omitempty"`
+	VersionAction     string `json:"version_action,omitempty"` // update, rollback
+	TargetVersion     string `json:"target_version,omitempty"`
+	SystemOperationID string `json:"system_operation_id,omitempty"`
+	InitiatingAdminID int64  `json:"initiating_admin_id,omitempty"`
+}
+
 // BackupRecord 备份记录
 type BackupRecord struct {
-	ID            string `json:"id"`
-	Status        string `json:"status"`      // pending, running, completed, failed
-	BackupType    string `json:"backup_type"` // postgres
-	FileName      string `json:"file_name"`
-	S3Key         string `json:"s3_key"`
-	SizeBytes     int64  `json:"size_bytes"`
-	TriggeredBy   string `json:"triggered_by"` // manual, scheduled
-	ErrorMsg      string `json:"error_message,omitempty"`
-	StartedAt     string `json:"started_at"`
-	FinishedAt    string `json:"finished_at,omitempty"`
-	ExpiresAt     string `json:"expires_at,omitempty"`     // 过期时间
-	Progress      string `json:"progress,omitempty"`       // "dumping", "uploading", ""
-	RestoreStatus string `json:"restore_status,omitempty"` // "", "running", "completed", "failed"
-	RestoreError  string `json:"restore_error,omitempty"`
-	RestoredAt    string `json:"restored_at,omitempty"`
+	ID            string                `json:"id"`
+	Status        string                `json:"status"`      // pending, running, completed, failed
+	BackupType    string                `json:"backup_type"` // postgres
+	FileName      string                `json:"file_name"`
+	S3Key         string                `json:"s3_key"`
+	SizeBytes     int64                 `json:"size_bytes"`
+	TriggeredBy   string                `json:"triggered_by"` // manual, scheduled, version_manager
+	ErrorMsg      string                `json:"error_message,omitempty"`
+	StartedAt     string                `json:"started_at"`
+	FinishedAt    string                `json:"finished_at,omitempty"`
+	ExpiresAt     string                `json:"expires_at,omitempty"`     // 过期时间
+	Progress      string                `json:"progress,omitempty"`       // "dumping", "uploading", ""
+	RestoreStatus string                `json:"restore_status,omitempty"` // "", "running", "completed", "failed"
+	RestoreError  string                `json:"restore_error,omitempty"`
+	RestoredAt    string                `json:"restored_at,omitempty"`
+	Metadata      *BackupRecordMetadata `json:"metadata,omitempty"`
 }
 
 // BackupService 数据库备份恢复服务
@@ -421,9 +439,32 @@ func (s *BackupService) runScheduledBackup() {
 
 // ─── 备份/恢复核心 ───
 
-// CreateBackup 创建全量数据库备份并上传到 S3（流式处理）
+// CreateBackup creates a PostgreSQL logical dump and uploads its gzip stream to
+// configured S3-compatible storage. Existing callers intentionally retain the
+// metadata-free record contract.
 // expireDays: 备份过期天数，0=永不过期，默认14天
 func (s *BackupService) CreateBackup(ctx context.Context, triggeredBy string, expireDays int) (*BackupRecord, error) {
+	return s.createBackup(ctx, triggeredBy, expireDays, nil)
+}
+
+// CreateBackupWithMetadata synchronously creates the same PostgreSQL logical
+// dump as CreateBackup while associating it with an operation. It does not
+// capture application binaries, configuration, Redis, or filesystem data.
+func (s *BackupService) CreateBackupWithMetadata(
+	ctx context.Context,
+	triggeredBy string,
+	expireDays int,
+	metadata BackupRecordMetadata,
+) (*BackupRecord, error) {
+	return s.createBackup(ctx, triggeredBy, expireDays, &metadata)
+}
+
+func (s *BackupService) createBackup(
+	ctx context.Context,
+	triggeredBy string,
+	expireDays int,
+	metadata *BackupRecordMetadata,
+) (*BackupRecord, error) {
 	if s.shuttingDown.Load() {
 		return nil, infraerrors.ServiceUnavailable("SERVER_SHUTTING_DOWN", "server is shutting down")
 	}
@@ -473,6 +514,7 @@ func (s *BackupService) CreateBackup(ctx context.Context, triggeredBy string, ex
 		TriggeredBy: triggeredBy,
 		StartedAt:   now.Format(time.RFC3339),
 		ExpiresAt:   expiresAt,
+		Metadata:    cloneBackupRecordMetadata(metadata),
 	}
 
 	// 流式执行: pg_dump -> gzip -> S3 upload
@@ -527,7 +569,14 @@ func (s *BackupService) CreateBackup(ctx context.Context, triggeredBy string, ex
 		_ = s.saveRecord(ctx, record)
 		return record, fmt.Errorf("backup upload: %w", err)
 	}
-	<-gzipDone // 确保 gzip goroutine 已退出
+	if gzErr := <-gzipDone; gzErr != nil { // 确保 gzip goroutine 已退出并传播流错误
+		record.Status = "failed"
+		record.ErrorMsg = fmt.Sprintf("gzip/dump failed: %v", gzErr)
+		record.FinishedAt = time.Now().Format(time.RFC3339)
+		s.deleteUploadedBackupAfterStreamFailure(objectStore, s3Key)
+		_ = s.saveRecord(ctx, record)
+		return record, fmt.Errorf("backup gzip/dump: %w", gzErr)
+	}
 
 	record.SizeBytes = sizeBytes
 	record.Status = "completed"
@@ -537,6 +586,24 @@ func (s *BackupService) CreateBackup(ctx context.Context, triggeredBy string, ex
 	}
 
 	return record, nil
+}
+
+func cloneBackupRecordMetadata(metadata *BackupRecordMetadata) *BackupRecordMetadata {
+	if metadata == nil {
+		return nil
+	}
+	clone := *metadata
+	return &clone
+}
+
+// deleteUploadedBackupAfterStreamFailure removes an object that storage
+// accepted before the dump/gzip stream reported its terminal error.
+func (s *BackupService) deleteUploadedBackupAfterStreamFailure(objectStore BackupObjectStore, key string) {
+	cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := objectStore.Delete(cleanupCtx, key); err != nil {
+		logger.LegacyPrintf("service.backup", "[Backup] 删除流失败后的上传对象失败: key=%s err=%v", key, err)
+	}
 }
 
 // StartBackup 异步创建备份，立即返回 running 状态的记录
@@ -696,7 +763,15 @@ func (s *BackupService) executeBackup(record *BackupRecord, objectStore BackupOb
 		_ = s.saveRecord(context.Background(), record)
 		return
 	}
-	<-gzipDone // 确保 gzip goroutine 已退出
+	if gzErr := <-gzipDone; gzErr != nil { // 确保 gzip goroutine 已退出并传播流错误
+		record.Status = "failed"
+		record.ErrorMsg = fmt.Sprintf("gzip/dump failed: %v", gzErr)
+		record.Progress = ""
+		record.FinishedAt = time.Now().Format(time.RFC3339)
+		s.deleteUploadedBackupAfterStreamFailure(objectStore, record.S3Key)
+		_ = s.saveRecord(context.Background(), record)
+		return
+	}
 
 	record.SizeBytes = sizeBytes
 	record.Status = "completed"

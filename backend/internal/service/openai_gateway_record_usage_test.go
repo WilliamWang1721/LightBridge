@@ -1667,7 +1667,6 @@ func newOpenAIImageChannelPricingResolverForTest(t *testing.T, groupID int64, mo
 		PerRequestPrice: &price,
 	}
 	cache.channelByGroupID[groupID] = &Channel{ID: groupID, Status: StatusActive}
-	cache.groupPlatform[groupID] = ""
 	cache.loadedAt = time.Now()
 	cs := &ChannelService{}
 	cs.cache.Store(cache)

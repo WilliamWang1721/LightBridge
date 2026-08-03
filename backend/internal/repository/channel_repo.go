@@ -520,32 +520,3 @@ func unmarshalFeaturesConfig(data []byte) map[string]any {
 	}
 	return m
 }
-
-// GetGroupPlatforms 批量查询分组 ID 对应的平台
-func (r *channelRepository) GetGroupPlatforms(ctx context.Context, groupIDs []int64) (map[int64]string, error) {
-	if len(groupIDs) == 0 {
-		return make(map[int64]string), nil
-	}
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, platform FROM groups WHERE id = ANY($1)`,
-		pq.Array(groupIDs),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("get group platforms: %w", err)
-	}
-	defer rows.Close() //nolint:errcheck
-
-	result := make(map[int64]string, len(groupIDs))
-	for rows.Next() {
-		var id int64
-		var platform string
-		if err := rows.Scan(&id, &platform); err != nil {
-			return nil, fmt.Errorf("scan group platform: %w", err)
-		}
-		result[id] = platform
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate group platforms: %w", err)
-	}
-	return result, nil
-}

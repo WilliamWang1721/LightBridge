@@ -99,7 +99,6 @@ func newStubAdminService() *stubAdminService {
 	group := service.Group{
 		ID:        2,
 		Name:      "group",
-		Platform:  service.PlatformAnthropic,
 		Status:    service.StatusActive,
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -286,7 +285,7 @@ func (s *stubAdminService) GetAllGroups(ctx context.Context) ([]service.Group, e
 	return s.groups, nil
 }
 
-func (s *stubAdminService) GetAllGroupsByPlatform(ctx context.Context, platform string) ([]service.Group, error) {
+func (s *stubAdminService) GetAllGroupsByUpstreamProtocol(ctx context.Context, upstreamProtocol string) ([]service.Group, error) {
 	return s.groups, nil
 }
 
@@ -295,8 +294,8 @@ func (s *stubAdminService) GetGroup(ctx context.Context, id int64) (*service.Gro
 	return &group, nil
 }
 
-func (s *stubAdminService) GetGroupModelsListCandidates(ctx context.Context, id int64, platform string) ([]string, error) {
-	if platform == service.PlatformOpenAI {
+func (s *stubAdminService) GetGroupModelsListCandidates(ctx context.Context, id int64, upstreamProtocol string) ([]string, error) {
+	if upstreamProtocol == service.CustomProtocolOpenAIResponses {
 		return []string{"gpt-5.5", "gpt-5.4"}, nil
 	}
 	return []string{"claude-sonnet-4-6"}, nil

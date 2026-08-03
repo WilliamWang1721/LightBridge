@@ -1,0 +1,26 @@
+services:
+  LightBridge:
+    image: lightbridge:ci
+    pull_policy: never
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 36
+      start_period: 10s
+
+  postgres:
+    restart: "no"
+    healthcheck:
+      interval: 3s
+      timeout: 3s
+      retries: 40
+      start_period: 5s
+
+  redis:
+    restart: "no"
+    healthcheck:
+      interval: 3s
+      timeout: 3s
+      retries: 40
+      start_period: 3s

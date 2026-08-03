@@ -105,7 +105,10 @@
                 <GroupBadge
                   v-if="row.group"
                   :name="row.group.name"
-                  :platform="row.group.platform"
+                  :icon="row.group.icon"
+                  :color="row.group.color"
+                  :upstream-platforms="row.group.upstream_platforms"
+                  :upstream-protocols="row.group.upstream_protocols"
                   :subscription-type="row.group.subscription_type"
                   :rate-multiplier="row.group.rate_multiplier"
                   :user-rate-multiplier="userGroupRates[row.group.id]"
@@ -415,7 +418,9 @@
               <GroupBadge
                 v-if="option"
                 :name="(option as unknown as GroupOption).label"
-                :platform="(option as unknown as GroupOption).platform"
+                :icon="(option as unknown as GroupOption).icon"
+                :color="(option as unknown as GroupOption).color"
+                :upstream-platforms="(option as unknown as GroupOption).upstreamPlatforms"
                 :upstream-protocols="(option as unknown as GroupOption).upstreamProtocols"
                 :subscription-type="(option as unknown as GroupOption).subscriptionType"
                 :rate-multiplier="(option as unknown as GroupOption).rate"
@@ -426,7 +431,10 @@
             <template #option="{ option, selected }">
               <GroupOptionItem
                 :name="(option as unknown as GroupOption).label"
-                :platform="(option as unknown as GroupOption).platform"
+                :icon="(option as unknown as GroupOption).icon"
+                :color="(option as unknown as GroupOption).color"
+                :upstream-platforms="(option as unknown as GroupOption).upstreamPlatforms"
+                :upstream-protocols="(option as unknown as GroupOption).upstreamProtocols"
                 :subscription-type="(option as unknown as GroupOption).subscriptionType"
                 :rate-multiplier="(option as unknown as GroupOption).rate"
                 :user-rate-multiplier="(option as unknown as GroupOption).userRate"
@@ -923,12 +931,11 @@
       :show="showUseKeyModal"
       :api-key="selectedKey?.key || ''"
       :base-url="publicSettings?.api_base_url || ''"
-      :platform="selectedKey?.group?.platform || null"
-      :allow-messages-dispatch="selectedKey?.group?.allow_messages_dispatch || false"
+      :available-ingress-protocols="selectedKey?.group?.available_ingress_protocols || []"
       @close="closeUseKeyModal"
     />
 
-    <!-- CCS Client Selection Dialog for Antigravity -->
+    <!-- CC Switch import preview -->
     <BaseDialog
       :show="showCcsClientSelect"
       :title="t('keys.ccsClientSelect.title')"
@@ -939,10 +946,12 @@
         <p class="text-sm text-gray-600 dark:text-gray-400">
           {{ t('keys.ccsClientSelect.description') }}
 	        </p>
-	        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
 	          <button
-	            @click="handleCcsClientSelect('claude')"
-	            class="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-200 dark:border-dark-600 hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all"
+	            v-if="compatibleCcsClients.includes('claude')"
+	            type="button"
+	            @click="selectedCcsClientType = 'claude'"
+	            :class="['flex flex-col items-center gap-2 p-4 rounded-xl border-2 hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all', selectedCcsClientType === 'claude' ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' : 'border-gray-200 dark:border-dark-600']"
 	          >
 	            <Icon name="terminal" size="xl" class="text-gray-600 dark:text-gray-400" />
 	            <span class="font-medium text-gray-900 dark:text-white">{{
@@ -953,8 +962,10 @@
 	            }}</span>
 	          </button>
 	          <button
-	            @click="handleCcsClientSelect('gemini')"
-	            class="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-200 dark:border-dark-600 hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all"
+	            v-if="compatibleCcsClients.includes('gemini')"
+	            type="button"
+	            @click="selectedCcsClientType = 'gemini'"
+	            :class="['flex flex-col items-center gap-2 p-4 rounded-xl border-2 hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all', selectedCcsClientType === 'gemini' ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' : 'border-gray-200 dark:border-dark-600']"
 	          >
 	            <Icon name="sparkles" size="xl" class="text-gray-600 dark:text-gray-400" />
 	            <span class="font-medium text-gray-900 dark:text-white">{{
@@ -964,12 +975,44 @@
 	              t('keys.ccsClientSelect.geminiCliDesc')
 	            }}</span>
 	          </button>
+	          <button
+	            v-if="compatibleCcsClients.includes('codex')"
+	            type="button"
+	            @click="selectedCcsClientType = 'codex'"
+	            :class="['flex flex-col items-center gap-2 p-4 rounded-xl border-2 hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all', selectedCcsClientType === 'codex' ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' : 'border-gray-200 dark:border-dark-600']"
+	          >
+	            <Icon name="terminal" size="xl" class="text-gray-600 dark:text-gray-400" />
+	            <span class="font-medium text-gray-900 dark:text-white">{{ t('keys.ccsClientSelect.codex') }}</span>
+	            <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('keys.ccsClientSelect.codexDesc') }}</span>
+	          </button>
+	        </div>
+	        <p v-if="compatibleCcsClients.length === 0" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
+	          {{ t('keys.ccsClientSelect.noCompatibleClient') }}
+	        </p>
+	        <div v-else class="space-y-3">
+	          <div>
+	            <label class="input-label">{{ t('keys.ccsClientSelect.endpoint') }}</label>
+	            <input v-model="ccsEndpoint" type="url" class="input" required />
+	          </div>
+	          <div v-if="selectedCcsClientType === 'codex'">
+	            <label class="input-label">{{ t('keys.ccsClientSelect.model') }}</label>
+	            <input v-model="ccsModel" type="text" class="input" :placeholder="t('keys.ccsClientSelect.modelPlaceholder')" />
+	            <p class="input-hint">{{ t('keys.ccsClientSelect.modelHint') }}</p>
+	          </div>
 	        </div>
 	      </div>
       <template #footer>
-        <div class="flex justify-end">
+        <div class="flex justify-end gap-2">
           <button @click="closeCcsClientSelect" class="btn btn-secondary">
             {{ t('common.cancel') }}
+          </button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            :disabled="!pendingCcsRow || !selectedCcsClientType || !ccsEndpoint.trim()"
+            @click="confirmCcsImport"
+          >
+            {{ t('keys.ccsClientSelect.import') }}
           </button>
         </div>
       </template>
@@ -1021,7 +1064,9 @@
           >
             <GroupOptionItem
               :name="option.label"
-              :platform="option.platform"
+              :icon="option.icon"
+              :color="option.color"
+              :upstream-platforms="option.upstreamPlatforms"
               :upstream-protocols="option.upstreamProtocols"
               :subscription-type="option.subscriptionType"
               :rate-multiplier="option.rate"
@@ -1067,7 +1112,7 @@ import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 	import EndpointPopover from '@/components/keys/EndpointPopover.vue'
 	import GroupBadge from '@/components/common/GroupBadge.vue'
 	import GroupOptionItem from '@/components/common/GroupOptionItem.vue'
-	import type { ApiKey, Group, PublicSettings, SubscriptionType, GroupPlatform } from '@/types'
+	import type { ApiKey, Group, PublicSettings, SubscriptionType } from '@/types'
 import type { Column } from '@/components/common/types'
 import type { BatchApiKeyUsageStats } from '@/api/usage'
 import { formatDateTime } from '@/utils/format'
@@ -1091,8 +1136,11 @@ interface GroupOption {
   rate: number
   userRate: number | null
   subscriptionType: SubscriptionType
-  platform: GroupPlatform
+  icon?: Group['icon']
+  color?: Group['color']
+  upstreamPlatforms?: Group['upstream_platforms']
   upstreamProtocols?: Group['upstream_protocols']
+  availableIngressProtocols?: Group['available_ingress_protocols']
 }
 
 const appStore = useAppStore()
@@ -1145,6 +1193,18 @@ const showResetRateLimitDialog = ref(false)
 const showUseKeyModal = ref(false)
 const showCcsClientSelect = ref(false)
 const pendingCcsRow = ref<ApiKey | null>(null)
+const selectedCcsClientType = ref<CcSwitchClientType | null>(null)
+const ccsEndpoint = ref('')
+const ccsModel = ref('')
+const compatibleCcsClients = computed<CcSwitchClientType[]>(() => {
+  const group = pendingCcsRow.value?.group
+  const protocols = new Set(group?.available_ingress_protocols ?? group?.upstream_protocols ?? [])
+  const clients: CcSwitchClientType[] = []
+  if (protocols.has('anthropic_messages')) clients.push('claude')
+  if (protocols.has('gemini')) clients.push('gemini')
+  if (protocols.has('openai_responses')) clients.push('codex')
+  return clients
+})
 const selectedKey = ref<ApiKey | null>(null)
 const copiedKeyId = ref<number | null>(null)
 const groupSelectorKeyId = ref<number | null>(null)
@@ -1250,7 +1310,9 @@ const groupOptions = computed(() =>
     rate: group.rate_multiplier,
     userRate: userGroupRates.value[group.id] ?? null,
     subscriptionType: group.subscription_type,
-    platform: group.platform,
+    icon: group.icon,
+    color: group.color,
+    upstreamPlatforms: group.upstream_platforms,
     upstreamProtocols: group.upstream_protocols
   }))
 )
@@ -1692,22 +1754,16 @@ const resetRateLimitUsage = async () => {
 }
 
 const importToCcswitch = (row: ApiKey) => {
-  const platform = row.group?.platform || 'anthropic'
-
-  // For antigravity platform, show client selection dialog
-  if (platform === 'antigravity') {
-    pendingCcsRow.value = row
-    showCcsClientSelect.value = true
-    return
-  }
-
-  // For other platforms, execute directly
-  executeCcsImport(row, platform === 'gemini' ? 'gemini' : 'claude')
+  pendingCcsRow.value = row
+  ccsEndpoint.value = publicSettings.value?.api_base_url || window.location.origin
+  ccsModel.value = ''
+  selectedCcsClientType.value = null
+  showCcsClientSelect.value = true
+  selectedCcsClientType.value = compatibleCcsClients.value[0] ?? null
 }
 
 const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType) => {
   const baseUrl = publicSettings.value?.api_base_url || window.location.origin
-  const platform = row.group?.platform || 'anthropic'
 
   const usageScript = `({
     request: {
@@ -1726,16 +1782,19 @@ const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType) => {
     }
   })`
   const providerName = (publicSettings.value?.site_name || 'LightBridge').trim() || 'LightBridge'
-  const deeplink = buildCcSwitchImportDeeplink({
-    baseUrl,
-    platform,
-    clientType,
-    providerName,
-    apiKey: row.key,
-    usageScript
-  })
 
   try {
+    const deeplink = buildCcSwitchImportDeeplink({
+      baseUrl,
+      endpoint: ccsEndpoint.value,
+      model: clientType === 'codex' ? ccsModel.value : undefined,
+      availableIngressProtocols:
+        row.group?.available_ingress_protocols ?? row.group?.upstream_protocols ?? [],
+      clientType,
+      providerName,
+      apiKey: row.key,
+      usageScript
+    })
     window.open(deeplink, '_self')
 
     // Check if the protocol handler worked by detecting if we're still focused
@@ -1750,17 +1809,20 @@ const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType) => {
   }
 }
 
-const handleCcsClientSelect = (clientType: CcSwitchClientType) => {
-  if (pendingCcsRow.value) {
-    executeCcsImport(pendingCcsRow.value, clientType)
-  }
+const confirmCcsImport = () => {
+  if (!pendingCcsRow.value || !selectedCcsClientType.value || !ccsEndpoint.value.trim()) return
+  executeCcsImport(pendingCcsRow.value, selectedCcsClientType.value)
   showCcsClientSelect.value = false
   pendingCcsRow.value = null
+  selectedCcsClientType.value = null
 }
 
 const closeCcsClientSelect = () => {
   showCcsClientSelect.value = false
   pendingCcsRow.value = null
+  selectedCcsClientType.value = null
+  ccsEndpoint.value = ''
+  ccsModel.value = ''
 }
 
 function formatResetTime(resetAt: string | null): string {

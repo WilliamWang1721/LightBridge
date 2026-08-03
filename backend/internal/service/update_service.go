@@ -22,7 +22,8 @@ import (
 )
 
 var (
-	ErrNoUpdateAvailable = infraerrors.Conflict("ALREADY_UP_TO_DATE", "no update available; current version is latest")
+	ErrNoUpdateAvailable        = infraerrors.Conflict("ALREADY_UP_TO_DATE", "no update available; current version is latest")
+	ErrInPlaceUpdateUnsupported = infraerrors.Conflict("IN_PLACE_UPDATE_UNSUPPORTED", "in-place updates are not supported for container deployments; run `docker compose pull` then `docker compose up -d`")
 )
 
 const (
@@ -36,6 +37,15 @@ const (
 
 	// Security: max download size (500MB)
 	maxDownloadSize = 500 * 1024 * 1024
+
+	// DeploymentTypeBinary represents a host-managed binary installation.
+	DeploymentTypeBinary = "binary"
+	// DeploymentTypeContainer represents a container-managed installation.
+	DeploymentTypeContainer = "container"
+
+	// Explicit deployment markers take precedence over filesystem heuristics.
+	updateDeploymentTypeEnv = "LIGHTBRIDGE_DEPLOYMENT_TYPE"
+	updateContainerEnv      = "LIGHTBRIDGE_CONTAINER"
 )
 
 // UpdateCache defines cache operations for update service
@@ -54,10 +64,11 @@ type GitHubReleaseClient interface {
 
 // UpdateService handles software updates
 type UpdateService struct {
-	cache          UpdateCache
-	githubClient   GitHubReleaseClient
-	currentVersion string
-	buildType      string // "source" for manual builds, "release" for CI builds
+	cache                  UpdateCache
+	githubClient           GitHubReleaseClient
+	currentVersion         string
+	buildType              string // "source" for manual builds, "release" for CI builds
+	deploymentTypeResolver func() string
 }
 
 type VersionRelease struct {
@@ -75,22 +86,100 @@ type VersionRelease struct {
 // NewUpdateService creates a new UpdateService
 func NewUpdateService(cache UpdateCache, githubClient GitHubReleaseClient, version, buildType string) *UpdateService {
 	return &UpdateService{
-		cache:          cache,
-		githubClient:   githubClient,
-		currentVersion: version,
-		buildType:      buildType,
+		cache:                  cache,
+		githubClient:           githubClient,
+		currentVersion:         version,
+		buildType:              buildType,
+		deploymentTypeResolver: resolveUpdateDeploymentType,
 	}
 }
 
 // UpdateInfo contains update information
 type UpdateInfo struct {
-	CurrentVersion string       `json:"current_version"`
-	LatestVersion  string       `json:"latest_version"`
-	HasUpdate      bool         `json:"has_update"`
-	ReleaseInfo    *ReleaseInfo `json:"release_info,omitempty"`
-	Cached         bool         `json:"cached"`
-	Warning        string       `json:"warning,omitempty"`
-	BuildType      string       `json:"build_type"` // "source" or "release"
+	CurrentVersion string             `json:"current_version"`
+	LatestVersion  string             `json:"latest_version"`
+	HasUpdate      bool               `json:"has_update"`
+	ReleaseInfo    *ReleaseInfo       `json:"release_info,omitempty"`
+	Cached         bool               `json:"cached"`
+	Warning        string             `json:"warning,omitempty"`
+	BuildType      string             `json:"build_type"` // "source" or "release"
+	Capabilities   UpdateCapabilities `json:"capabilities"`
+}
+
+// UpdateCapabilities describes which local lifecycle actions are safe for the
+// current deployment. The fields are intentionally independent of build type:
+// a source build is still host-managed, while a container must always be
+// upgraded by replacing its image.
+type UpdateCapabilities struct {
+	DeploymentType   string `json:"deployment_type"`
+	CanInPlaceUpdate bool   `json:"can_in_place_update"`
+	CanRollback      bool   `json:"can_rollback"`
+	CanRestart       bool   `json:"can_restart"`
+}
+
+// Capabilities returns the current deployment's safe local update actions.
+func (s *UpdateService) Capabilities() UpdateCapabilities {
+	deploymentType := DeploymentTypeBinary
+	if s.deploymentTypeResolver != nil {
+		deploymentType = s.deploymentTypeResolver()
+	}
+	if deploymentType != DeploymentTypeContainer {
+		deploymentType = DeploymentTypeBinary
+	}
+
+	canOperateInPlace := deploymentType != DeploymentTypeContainer
+	return UpdateCapabilities{
+		DeploymentType:   deploymentType,
+		CanInPlaceUpdate: canOperateInPlace,
+		CanRollback:      canOperateInPlace,
+		CanRestart:       canOperateInPlace,
+	}
+}
+
+func (s *UpdateService) ensureInPlaceUpdateSupported() error {
+	if !s.Capabilities().CanInPlaceUpdate {
+		return ErrInPlaceUpdateUnsupported
+	}
+	return nil
+}
+
+// DetectUpdateDeploymentType determines the deployment type without retaining
+// process-global state. Its injectable dependencies keep container detection
+// deterministic in tests and allow an explicit operator setting to override
+// marker-file heuristics.
+func DetectUpdateDeploymentType(
+	lookupEnv func(string) (string, bool),
+	fileExists func(string) bool,
+) string {
+	if lookupEnv != nil {
+		for _, key := range []string{updateDeploymentTypeEnv, updateContainerEnv} {
+			if raw, ok := lookupEnv(key); ok {
+				switch strings.ToLower(strings.TrimSpace(raw)) {
+				case "1", "true", "yes", "container", "docker", "podman", "kubernetes", "k8s":
+					return DeploymentTypeContainer
+				case "0", "false", "no", "binary", "host", "bare-metal", "systemd":
+					return DeploymentTypeBinary
+				}
+			}
+		}
+	}
+
+	if fileExists != nil {
+		for _, marker := range []string{"/.dockerenv", "/run/.containerenv"} {
+			if fileExists(marker) {
+				return DeploymentTypeContainer
+			}
+		}
+	}
+
+	return DeploymentTypeBinary
+}
+
+func resolveUpdateDeploymentType() string {
+	return DetectUpdateDeploymentType(os.LookupEnv, func(path string) bool {
+		_, err := os.Stat(path)
+		return err == nil
+	})
 }
 
 // ReleaseInfo contains GitHub release details
@@ -151,6 +240,7 @@ func (s *UpdateService) CheckUpdate(ctx context.Context, force bool) (*UpdateInf
 			HasUpdate:      false,
 			Warning:        err.Error(),
 			BuildType:      s.buildType,
+			Capabilities:   s.Capabilities(),
 		}, nil
 	}
 
@@ -198,6 +288,10 @@ func (s *UpdateService) PerformUpdate(ctx context.Context) error {
 }
 
 func (s *UpdateService) PerformUpdateToVersion(ctx context.Context, targetVersion string) error {
+	if err := s.ensureInPlaceUpdateSupported(); err != nil {
+		return err
+	}
+
 	info, err := s.updateInfoForTargetVersion(ctx, targetVersion)
 	if err != nil {
 		return err
@@ -335,8 +429,9 @@ func (s *UpdateService) updateInfoForTargetVersion(ctx context.Context, targetVe
 				Prerelease:  release.Prerelease,
 				Assets:      assets,
 			},
-			Cached:    false,
-			BuildType: s.buildType,
+			Cached:       false,
+			BuildType:    s.buildType,
+			Capabilities: s.Capabilities(),
 		}, nil
 	}
 	return nil, fmt.Errorf("release version %s was not found", targetVersion)
@@ -344,6 +439,10 @@ func (s *UpdateService) updateInfoForTargetVersion(ctx context.Context, targetVe
 
 // Rollback restores the previous version
 func (s *UpdateService) Rollback() error {
+	if err := s.ensureInPlaceUpdateSupported(); err != nil {
+		return err
+	}
+
 	exePath, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("failed to get executable path: %w", err)
@@ -395,8 +494,9 @@ func (s *UpdateService) fetchLatestRelease(ctx context.Context) (*UpdateInfo, er
 			Prerelease:  release.Prerelease,
 			Assets:      assets,
 		},
-		Cached:    false,
-		BuildType: s.buildType,
+		Cached:       false,
+		BuildType:    s.buildType,
+		Capabilities: s.Capabilities(),
 	}, nil
 }
 
@@ -636,6 +736,7 @@ func (s *UpdateService) getFromCache(ctx context.Context) (*UpdateInfo, error) {
 		ReleaseInfo:    cached.ReleaseInfo,
 		Cached:         true,
 		BuildType:      s.buildType,
+		Capabilities:   s.Capabilities(),
 	}, nil
 }
 

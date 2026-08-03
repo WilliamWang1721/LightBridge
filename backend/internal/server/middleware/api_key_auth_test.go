@@ -278,9 +278,8 @@ func TestAPIKeyAuthOverwritesInvalidContextGroup(t *testing.T) {
 	router.Use(gin.HandlerFunc(NewAPIKeyAuthMiddleware(apiKeyService, nil, cfg)))
 
 	invalidGroup := &service.Group{
-		ID:       group.ID,
-		Platform: group.Platform,
-		Status:   group.Status,
+		ID:     group.ID,
+		Status: group.Status,
 	}
 	router.GET("/t", func(c *gin.Context) {
 		groupFromCtx, ok := c.Request.Context().Value(ctxkey.Group).(*service.Group)

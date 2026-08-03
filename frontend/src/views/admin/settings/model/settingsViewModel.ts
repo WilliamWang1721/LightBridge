@@ -146,7 +146,11 @@ export interface DefaultSubscriptionGroupOption {
   value: number;
   label: string;
   description: string | null;
-  platform: AdminGroup["platform"];
+  icon: AdminGroup["icon"];
+  color: AdminGroup["color"];
+  upstreamPlatforms: AdminGroup["upstream_platforms"];
+  upstreamProtocols: AdminGroup["upstream_protocols"];
+  availableIngressProtocols: AdminGroup["available_ingress_protocols"];
   subscriptionType: AdminGroup["subscription_type"];
   rate: number;
   [key: string]: unknown;

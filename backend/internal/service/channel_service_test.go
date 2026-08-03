@@ -197,15 +197,16 @@ func newTestChannelServiceWithAuth(repo *mockChannelRepository, auth *mockChanne
 	return NewChannelService(repo, nil, auth, nil)
 }
 
+func channelContextForPlatform(platform string) context.Context {
+	return context.WithValue(context.Background(), ctxkey.ForcePlatform, platform)
+}
+
 // makeStandardRepo returns a repo that serves one active channel with anthropic pricing
 // for group 1, with the given model pricing and model mapping.
-func makeStandardRepo(ch Channel, groupPlatforms map[int64]string) *mockChannelRepository {
+func makeStandardRepo(ch Channel, _ map[int64]string) *mockChannelRepository {
 	return &mockChannelRepository{
 		listAllFn: func(_ context.Context) ([]Channel, error) {
 			return []Channel{ch}, nil
-		},
-		getGroupPlatformsFn: func(_ context.Context, _ []int64) (map[int64]string, error) {
-			return groupPlatforms, nil
 		},
 	}
 }
@@ -757,22 +758,25 @@ func TestGetChannelModelPricing_PlatformFiltering(t *testing.T) {
 	repo := makeStandardRepo(ch, map[int64]string{10: "anthropic", 20: "openai"})
 	svc := newTestChannelService(repo)
 
-	// Group 10 (anthropic) should NOT see openai pricing
-	result := svc.GetChannelModelPricing(context.Background(), 10, "gpt-5.1")
+	anthropicCtx := channelContextForPlatform(PlatformAnthropic)
+	openAICtx := channelContextForPlatform(PlatformOpenAI)
+
+	// An Anthropic request should NOT see OpenAI pricing.
+	result := svc.GetChannelModelPricing(anthropicCtx, 10, "gpt-5.1")
 	require.Nil(t, result)
 
 	// Group 10 (anthropic) should see anthropic pricing
-	result = svc.GetChannelModelPricing(context.Background(), 10, "claude-opus-4")
+	result = svc.GetChannelModelPricing(anthropicCtx, 10, "claude-opus-4")
 	require.NotNil(t, result)
 	require.Equal(t, int64(200), result.ID)
 
 	// Group 20 (openai) should see openai pricing
-	result = svc.GetChannelModelPricing(context.Background(), 20, "gpt-5.1")
+	result = svc.GetChannelModelPricing(openAICtx, 20, "gpt-5.1")
 	require.NotNil(t, result)
 	require.Equal(t, int64(100), result.ID)
 
 	// Group 20 (openai) should NOT see anthropic pricing
-	result = svc.GetChannelModelPricing(context.Background(), 20, "claude-opus-4")
+	result = svc.GetChannelModelPricing(openAICtx, 20, "claude-opus-4")
 	require.Nil(t, result)
 }
 
@@ -1164,34 +1168,32 @@ func TestBuildCache_DBError(t *testing.T) {
 	require.Equal(t, 1, callCount)
 }
 
-func TestBuildCache_GroupPlatformError(t *testing.T) {
+func TestBuildCache_IgnoresLegacyGroupPlatformLookup(t *testing.T) {
 	ch := Channel{
 		ID:       1,
 		Status:   StatusActive,
 		GroupIDs: []int64{10},
 		ModelPricing: []ChannelModelPricing{
-			{ID: 100, Platform: "anthropic", Models: []string{"claude-opus-4"}},
+			{ID: 100, Platform: PlatformAnthropic, Models: []string{"claude-opus-4"}},
 		},
 	}
+	legacyCalls := 0
 	repo := &mockChannelRepository{
 		listAllFn: func(_ context.Context) ([]Channel, error) {
 			return []Channel{ch}, nil
 		},
 		getGroupPlatformsFn: func(_ context.Context, _ []int64) (map[int64]string, error) {
-			return nil, errors.New("group platforms failed")
+			legacyCalls++
+			return nil, errors.New("legacy group platform lookup must not run")
 		},
 	}
 	svc := newTestChannelService(repo)
 
-	// Should fail-close: error propagated when group platforms cannot be loaded
 	result, err := svc.GetChannelForGroup(context.Background(), 10)
-	require.Error(t, err)
-	require.Nil(t, result)
-
-	// Within error-TTL, second call should hit cache (empty) and return nil, nil
-	result2, err2 := svc.GetChannelForGroup(context.Background(), 10)
-	require.NoError(t, err2)
-	require.Nil(t, result2)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Zero(t, legacyCalls)
+	require.NotNil(t, svc.GetChannelModelPricing(channelContextForPlatform(PlatformAnthropic), 10, "claude-opus-4"))
 }
 
 func TestBuildCache_MultipleGroupsSameChannel(t *testing.T) {
@@ -1233,13 +1235,13 @@ func TestBuildCache_PlatformFiltering(t *testing.T) {
 	})
 	svc := newTestChannelService(repo)
 
-	// anthropic group sees only anthropic models
-	require.NotNil(t, svc.GetChannelModelPricing(context.Background(), 10, "claude-opus-4"))
-	require.Nil(t, svc.GetChannelModelPricing(context.Background(), 10, "gpt-5.1"))
+	anthropicCtx := channelContextForPlatform(PlatformAnthropic)
+	openAICtx := channelContextForPlatform(PlatformOpenAI)
 
-	// openai group sees only openai models
-	require.NotNil(t, svc.GetChannelModelPricing(context.Background(), 20, "gpt-5.1"))
-	require.Nil(t, svc.GetChannelModelPricing(context.Background(), 20, "claude-opus-4"))
+	require.NotNil(t, svc.GetChannelModelPricing(anthropicCtx, 10, "claude-opus-4"))
+	require.Nil(t, svc.GetChannelModelPricing(anthropicCtx, 10, "gpt-5.1"))
+	require.NotNil(t, svc.GetChannelModelPricing(openAICtx, 20, "gpt-5.1"))
+	require.Nil(t, svc.GetChannelModelPricing(openAICtx, 20, "claude-opus-4"))
 }
 
 func TestBuildCache_WildcardPreservesConfigOrder(t *testing.T) {
@@ -1953,23 +1955,17 @@ func TestChannelPlatformForContext(t *testing.T) {
 // ===========================================================================
 
 func TestMatchingPlatforms(t *testing.T) {
-	tests := []struct {
-		name          string
-		groupPlatform string
-		want          []string
-	}{
-		{"antigravity returns itself only", PlatformAntigravity, []string{PlatformAntigravity}},
-		{"anthropic returns itself", PlatformAnthropic, []string{PlatformAnthropic}},
-		{"gemini returns itself", PlatformGemini, []string{PlatformGemini}},
-		{"openai returns itself", PlatformOpenAI, []string{PlatformOpenAI}},
+	cache := newEmptyChannelCache()
+	cache.platformsByGroupID[10] = map[string]struct{}{PlatformAnthropic: {}}
+	cache.platformsByGroupID[20] = map[string]struct{}{
+		PlatformAnthropic: {},
+		PlatformOpenAI:    {},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := matchingPlatforms(tt.groupPlatform)
-			require.Equal(t, tt.want, result)
-		})
-	}
+	require.Equal(t, []string{PlatformAntigravity, ""}, matchingPlatforms(cache, 10, PlatformAntigravity))
+	require.Equal(t, []string{PlatformAnthropic, ""}, matchingPlatforms(cache, 10, ""))
+	require.Equal(t, []string{""}, matchingPlatforms(cache, 20, ""))
+	require.Equal(t, []string{""}, matchingPlatforms(cache, 999, ""))
 }
 
 // ===========================================================================
@@ -1990,7 +1986,7 @@ func TestGetChannelModelPricing_AntigravityDoesNotSeeCrossPlatformPricing(t *tes
 	repo := makeStandardRepo(ch, map[int64]string{10: PlatformAntigravity})
 	svc := newTestChannelService(repo)
 
-	result := svc.GetChannelModelPricing(context.Background(), 10, "claude-opus-4-6")
+	result := svc.GetChannelModelPricing(channelContextForPlatform(PlatformAntigravity), 10, "claude-opus-4-6")
 	require.Nil(t, result, "antigravity group should NOT see anthropic-platform pricing")
 }
 
@@ -2008,7 +2004,7 @@ func TestGetChannelModelPricing_AnthropicCannotSeeAntigravityPricing(t *testing.
 	repo := makeStandardRepo(ch, map[int64]string{10: PlatformAnthropic})
 	svc := newTestChannelService(repo)
 
-	result := svc.GetChannelModelPricing(context.Background(), 10, "claude-opus-4-6")
+	result := svc.GetChannelModelPricing(channelContextForPlatform(PlatformAnthropic), 10, "claude-opus-4-6")
 	require.Nil(t, result, "anthropic group should NOT see antigravity-platform pricing")
 }
 
@@ -2032,7 +2028,7 @@ func TestResolveChannelMapping_AntigravityDoesNotSeeCrossPlatformMapping(t *test
 	repo := makeStandardRepo(ch, map[int64]string{10: PlatformAntigravity})
 	svc := newTestChannelService(repo)
 
-	result := svc.ResolveChannelMapping(context.Background(), 10, "claude-opus-4-5")
+	result := svc.ResolveChannelMapping(channelContextForPlatform(PlatformAntigravity), 10, "claude-opus-4-5")
 	require.False(t, result.Mapped, "antigravity group should NOT apply anthropic mapping")
 	require.Equal(t, "claude-opus-4-5", result.MappedModel)
 }
@@ -2056,7 +2052,7 @@ func TestGetChannelModelPricing_AntigravityDoesNotSeeSameModelFromOtherPlatforms
 	repo := makeStandardRepo(ch, map[int64]string{10: PlatformAntigravity})
 	svc := newTestChannelService(repo)
 
-	result := svc.GetChannelModelPricing(context.Background(), 10, "shared-model")
+	result := svc.GetChannelModelPricing(channelContextForPlatform(PlatformAntigravity), 10, "shared-model")
 	require.Nil(t, result, "antigravity group should NOT see anthropic/gemini-platform pricing")
 }
 
@@ -2074,7 +2070,7 @@ func TestGetChannelModelPricing_AntigravityDoesNotSeeGeminiOnlyPricing(t *testin
 	repo := makeStandardRepo(ch, map[int64]string{10: PlatformAntigravity})
 	svc := newTestChannelService(repo)
 
-	result := svc.GetChannelModelPricing(context.Background(), 10, "gemini-model")
+	result := svc.GetChannelModelPricing(channelContextForPlatform(PlatformAntigravity), 10, "gemini-model")
 	require.Nil(t, result, "antigravity group should NOT see gemini-platform pricing")
 }
 
@@ -2093,7 +2089,7 @@ func TestGetChannelModelPricing_AntigravityDoesNotSeeWildcardFromOtherPlatforms(
 	repo := makeStandardRepo(ch, map[int64]string{10: PlatformAntigravity})
 	svc := newTestChannelService(repo)
 
-	result := svc.GetChannelModelPricing(context.Background(), 10, "shared-model")
+	result := svc.GetChannelModelPricing(channelContextForPlatform(PlatformAntigravity), 10, "shared-model")
 	require.Nil(t, result, "antigravity group should NOT see wildcard pricing from other platforms")
 }
 
@@ -2112,7 +2108,7 @@ func TestResolveChannelMapping_AntigravityDoesNotSeeMappingFromOtherPlatforms(t 
 	repo := makeStandardRepo(ch, map[int64]string{10: PlatformAntigravity})
 	svc := newTestChannelService(repo)
 
-	result := svc.ResolveChannelMapping(context.Background(), 10, "alias")
+	result := svc.ResolveChannelMapping(channelContextForPlatform(PlatformAntigravity), 10, "alias")
 	require.False(t, result.Mapped, "antigravity group should NOT see mapping from other platforms")
 	require.Equal(t, "alias", result.MappedModel)
 }
@@ -2133,10 +2129,11 @@ func TestCheckRestricted_AntigravityDoesNotSeeModelsFromOtherPlatforms(t *testin
 	repo := makeStandardRepo(ch, map[int64]string{10: PlatformAntigravity})
 	svc := newTestChannelService(repo)
 
-	restricted := svc.IsModelRestricted(context.Background(), 10, "shared-model")
+	antigravityCtx := channelContextForPlatform(PlatformAntigravity)
+	restricted := svc.IsModelRestricted(antigravityCtx, 10, "shared-model")
 	require.True(t, restricted, "shared-model from other platforms should be restricted for antigravity")
 
-	restricted = svc.IsModelRestricted(context.Background(), 10, "unknown-model")
+	restricted = svc.IsModelRestricted(antigravityCtx, 10, "unknown-model")
 	require.True(t, restricted, "unknown-model should be restricted for antigravity")
 }
 
@@ -2155,13 +2152,14 @@ func TestGetChannelModelPricing_AntigravityOwnPricingWorks(t *testing.T) {
 	svc := newTestChannelService(repo)
 
 	// Claude 模型匹配 antigravity 定价
-	result := svc.GetChannelModelPricing(context.Background(), 10, "claude-sonnet-4")
+	antigravityCtx := channelContextForPlatform(PlatformAntigravity)
+	result := svc.GetChannelModelPricing(antigravityCtx, 10, "claude-sonnet-4")
 	require.NotNil(t, result)
 	require.Equal(t, int64(600), result.ID)
 	require.InDelta(t, 15e-6, *result.InputPrice, 1e-12)
 
 	// Gemini 模型匹配 antigravity 定价
-	result = svc.GetChannelModelPricing(context.Background(), 10, "gemini-2.5-flash")
+	result = svc.GetChannelModelPricing(antigravityCtx, 10, "gemini-2.5-flash")
 	require.NotNil(t, result)
 	require.Equal(t, int64(601), result.ID)
 	require.InDelta(t, 2e-6, *result.InputPrice, 1e-12)
@@ -2182,14 +2180,16 @@ func TestGetChannelModelPricing_NonAntigravityUnaffected(t *testing.T) {
 	repo := makeStandardRepo(ch, map[int64]string{10: PlatformAnthropic, 20: PlatformGemini})
 	svc := newTestChannelService(repo)
 
-	// anthropic 分组应该只看到 anthropic 的定价
-	result := svc.GetChannelModelPricing(context.Background(), 10, "shared-model")
+	anthropicCtx := channelContextForPlatform(PlatformAnthropic)
+	geminiCtx := channelContextForPlatform(PlatformGemini)
+
+	result := svc.GetChannelModelPricing(anthropicCtx, 10, "shared-model")
 	require.NotNil(t, result)
 	require.Equal(t, int64(600), result.ID)
 	require.InDelta(t, 10e-6, *result.InputPrice, 1e-12)
 
 	// gemini 分组应该只看到 gemini 的定价
-	result = svc.GetChannelModelPricing(context.Background(), 20, "shared-model")
+	result = svc.GetChannelModelPricing(geminiCtx, 20, "shared-model")
 	require.NotNil(t, result)
 	require.Equal(t, int64(601), result.ID)
 	require.InDelta(t, 5e-6, *result.InputPrice, 1e-12)
@@ -2337,17 +2337,19 @@ func TestResolveChannelMapping_AntigravityDoesNotSeeWildcardMappingFromOtherPlat
 	repo := makeStandardRepo(ch, map[int64]string{10: PlatformAntigravity, 20: PlatformAnthropic})
 	svc := newTestChannelService(repo)
 
-	// antigravity 分组不应看到 anthropic/gemini 的通配符映射
-	result := svc.ResolveChannelMapping(context.Background(), 10, "claude-opus-4")
+	antigravityCtx := channelContextForPlatform(PlatformAntigravity)
+	anthropicCtx := channelContextForPlatform(PlatformAnthropic)
+
+	result := svc.ResolveChannelMapping(antigravityCtx, 10, "claude-opus-4")
 	require.False(t, result.Mapped)
 	require.Equal(t, "claude-opus-4", result.MappedModel)
 
-	result = svc.ResolveChannelMapping(context.Background(), 10, "gemini-2.5-pro")
+	result = svc.ResolveChannelMapping(antigravityCtx, 10, "gemini-2.5-pro")
 	require.False(t, result.Mapped)
 	require.Equal(t, "gemini-2.5-pro", result.MappedModel)
 
 	// anthropic 分组应该能看到 anthropic 的通配符映射
-	result = svc.ResolveChannelMapping(context.Background(), 20, "claude-opus-4")
+	result = svc.ResolveChannelMapping(anthropicCtx, 20, "claude-opus-4")
 	require.True(t, result.Mapped)
 	require.Equal(t, "claude-override", result.MappedModel)
 }

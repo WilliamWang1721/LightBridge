@@ -324,7 +324,9 @@
                     <GroupBadge
                       v-if="option"
                       :name="(option as unknown as GroupOption).label"
-                      :platform="(option as unknown as GroupOption).platform"
+                      :icon="(option as unknown as GroupOption).icon"
+                      :color="(option as unknown as GroupOption).color"
+                      :upstream-platforms="(option as unknown as GroupOption).upstreamPlatforms"
                       :upstream-protocols="(option as unknown as GroupOption).upstreamProtocols"
                       :subscription-type="(option as unknown as GroupOption).subscriptionType"
                       :rate-multiplier="(option as unknown as GroupOption).rate"
@@ -336,7 +338,10 @@
                   <template #option="{ option, selected }">
                     <GroupOptionItem
                       :name="(option as unknown as GroupOption).label"
-                      :platform="(option as unknown as GroupOption).platform"
+                      :icon="(option as unknown as GroupOption).icon"
+                      :color="(option as unknown as GroupOption).color"
+                      :upstream-platforms="(option as unknown as GroupOption).upstreamPlatforms"
+                      :upstream-protocols="(option as unknown as GroupOption).upstreamProtocols"
                       :subscription-type="(option as unknown as GroupOption).subscriptionType"
                       :rate-multiplier="(option as unknown as GroupOption).rate"
                       :description="(option as unknown as GroupOption).description"
@@ -621,7 +626,6 @@ import type {
   RedeemCode,
   RedeemCodeType,
   Group,
-  GroupPlatform,
   SubscriptionType,
   BatchUpdateRedeemCodeFields
 } from '@/types'
@@ -644,8 +648,11 @@ interface GroupOption {
   value: number
   label: string
   description: string | null
-  platform: GroupPlatform
+  icon?: Group['icon']
+  color?: Group['color']
+  upstreamPlatforms?: Group['upstream_platforms']
   upstreamProtocols?: Group['upstream_protocols']
+  availableIngressProtocols?: Group['available_ingress_protocols']
   subscriptionType: SubscriptionType
   rate: number
 }
@@ -663,8 +670,11 @@ const subscriptionGroupOptions = computed(() => {
       value: g.id,
       label: g.name,
       description: g.description,
-      platform: g.platform,
+      icon: g.icon,
+      color: g.color,
+      upstreamPlatforms: g.upstream_platforms,
       upstreamProtocols: g.upstream_protocols,
+      availableIngressProtocols: g.available_ingress_protocols,
       subscriptionType: g.subscription_type,
       rate: g.rate_multiplier
     }))

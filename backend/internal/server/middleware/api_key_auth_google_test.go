@@ -262,7 +262,6 @@ func TestApiKeyAuthWithSubscriptionGoogleSetsGroupContext(t *testing.T) {
 		ID:       99,
 		Name:     "g1",
 		Status:   service.StatusActive,
-		Platform: service.PlatformGemini,
 		Hydrated: true,
 	}
 	user := &service.User{
@@ -395,7 +394,6 @@ func TestApiKeyAuthWithSubscriptionGoogle_MarksUnavailableGroupBusinessLimited(t
 			ID:       groupID,
 			Name:     "deleted",
 			Status:   "deleted",
-			Platform: service.PlatformGemini,
 			Hydrated: true,
 		},
 	}
@@ -676,7 +674,6 @@ func TestApiKeyAuthWithSubscriptionGoogle_SubscriptionLimitExceededReturns429(t 
 		ID:               77,
 		Name:             "gemini-sub",
 		Status:           service.StatusActive,
-		Platform:         service.PlatformGemini,
 		Hydrated:         true,
 		SubscriptionType: service.SubscriptionTypeSubscription,
 		DailyLimitUSD:    &limit,

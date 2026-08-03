@@ -187,13 +187,12 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 
 	// 绑定分组
 	groupIDs := input.GroupIDs
-	// 如果没有指定分组,自动绑定对应平台的默认分组
+	// 如果没有指定分组，自动绑定共享 default 分组。
 	if len(groupIDs) == 0 && !input.SkipDefaultGroupBind {
-		defaultGroupName := input.Platform + "-default"
-		groups, err := s.groupRepo.ListActiveByPlatform(ctx, input.Platform)
+		groups, err := s.groupRepo.ListActive(ctx)
 		if err == nil {
 			for _, g := range groups {
-				if g.Name == defaultGroupName {
+				if g.Name == "default" {
 					groupIDs = []int64{g.ID}
 					break
 				}
@@ -209,8 +208,6 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 	}
 
 	// 归一化平台别名：将旧的 "antigravity" 平台输入转换为 gemini + sub_platform。
-	// 注意：分组绑定/混合渠道检查（上方）仍使用 input.Platform 别名，以匹配
-	// 历史上以 platform="antigravity" 存在的 antigravity-default 分组。
 	normalizedPlatform, subPlatform := NormalizePlatform(input.Platform)
 	if normalizedPlatform == PlatformGrok && input.Type == AccountTypeOAuth && input.Concurrency <= 0 {
 		input.Concurrency = 1

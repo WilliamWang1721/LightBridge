@@ -763,7 +763,6 @@ func newTestChannelServiceForStats(t *testing.T, channel *Channel, groupID int64
 	t.Helper()
 	cache := newEmptyChannelCache()
 	cache.channelByGroupID[groupID] = channel
-	cache.groupPlatform[groupID] = platform
 	cs := &ChannelService{}
 	cache.loadedAt = time.Now()
 	cs.cache.Store(cache)

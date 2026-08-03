@@ -196,7 +196,6 @@ func newChannelServiceWithCache(groupID int64, ch *Channel) *ChannelService {
 	cache := &channelCache{
 		channelByGroupID: map[int64]*Channel{groupID: ch},
 		byID:             map[int64]*Channel{ch.ID: ch},
-		groupPlatform:    map[int64]string{},
 		loadedAt:         time.Now(),
 	}
 	svc.cache.Store(cache)

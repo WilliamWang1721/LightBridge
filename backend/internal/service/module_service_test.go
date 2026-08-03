@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/WilliamWang1721/LightBridge/internal/config"
 	"github.com/WilliamWang1721/LightBridge/internal/modules"
 	"github.com/stretchr/testify/require"
 )
@@ -140,6 +141,27 @@ func (i *fakeMarketplaceInstaller) InstallArchive(ctx context.Context, archivePa
 		}
 	}
 	return &module, nil
+}
+
+func TestMarketplaceTimeoutDefaultsOverridesAndFallback(t *testing.T) {
+	const wantDefault = 60 * time.Second
+
+	t.Run("new service uses the default", func(t *testing.T) {
+		svc := NewModuleService(nil)
+		require.Equal(t, wantDefault, svc.effectiveMarketplaceTimeout())
+	})
+
+	t.Run("configured value overrides the default", func(t *testing.T) {
+		cfg := &config.Config{}
+		cfg.Modules.MarketplaceTimeoutSeconds = 90
+		svc := ProvideModuleService(cfg, nil, nil, nil, nil, nil)
+		require.Equal(t, 90*time.Second, svc.effectiveMarketplaceTimeout())
+	})
+
+	t.Run("zero-value service falls back to the default", func(t *testing.T) {
+		var svc *ModuleService
+		require.Equal(t, wantDefault, svc.effectiveMarketplaceTimeout())
+	})
 }
 
 func TestDecodeMarketplaceRegistryPreservesLocalizedModuleText(t *testing.T) {

@@ -323,7 +323,7 @@ describe('PaymentResultView', () => {
     expect(resolveOrderPublicByResumeToken).not.toHaveBeenCalled()
     expect(verifyOrderPublic).not.toHaveBeenCalled()
     expect(pollOrderStatus).not.toHaveBeenCalled()
-    expect(wrapper.text()).toContain('payment.result.failed')
+    expect(wrapper.text()).toContain('payment.result.unverifiable')
     expect(wrapper.text()).not.toContain('sub2_20260420abcd1234')
   })
 

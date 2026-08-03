@@ -7,7 +7,7 @@
   >
     <div class="space-y-4">
       <!-- No Group Assigned Warning -->
-      <div v-if="!platform" class="flex items-start gap-3 p-4 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800">
+      <div v-if="!hasUsableIngressProtocol" class="flex items-start gap-3 p-4 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800">
         <svg class="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
         </svg>
@@ -139,14 +139,13 @@ import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { useClipboard } from '@/composables/useClipboard'
-import type { GroupPlatform } from '@/types'
+import type { GroupUpstreamProtocol } from '@/types'
 
 interface Props {
   show: boolean
   apiKey: string
   baseUrl: string
-  platform: GroupPlatform | null
-  allowMessagesDispatch?: boolean
+  availableIngressProtocols?: GroupUpstreamProtocol[] | null
 }
 
 interface Emits {
@@ -174,26 +173,28 @@ const { copyToClipboard: clipboardCopy } = useClipboard()
 
 const copiedIndex = ref<number | null>(null)
 const activeTab = ref<string>('unix')
-const activeClientTab = ref<string>('claude')
+const activeClientTab = ref<string>('')
 
-// Reset tabs when platform changes
+const ingressProtocols = computed(() => new Set(props.availableIngressProtocols ?? []))
+const supportsAnthropic = computed(() => ingressProtocols.value.has('anthropic_messages'))
+const supportsOpenAI = computed(() => ingressProtocols.value.has('openai_responses'))
+const supportsGemini = computed(() => ingressProtocols.value.has('gemini'))
+const hasUsableIngressProtocol = computed(
+  () => supportsAnthropic.value || supportsOpenAI.value || supportsGemini.value
+)
+
+// Select the first real capability. An empty protocol list stays neutral.
 const defaultClientTab = computed(() => {
-  switch (props.platform) {
-    case 'openai':
-      return 'codex'
-    case 'gemini':
-      return 'gemini'
-    case 'antigravity':
-      return 'claude'
-    default:
-      return 'claude'
-  }
+  if (supportsOpenAI.value) return 'codex'
+  if (supportsAnthropic.value) return 'claude'
+  if (supportsGemini.value) return 'gemini'
+  return ''
 })
 
-watch(() => props.platform, () => {
+watch(() => props.availableIngressProtocols, () => {
   activeTab.value = 'unix'
   activeClientTab.value = defaultClientTab.value
-}, { immediate: true })
+}, { immediate: true, deep: true })
 
 // Reset shell tab when client changes
 watch(activeClientTab, () => {
@@ -264,36 +265,23 @@ const SparkleIcon = {
 }
 
 const clientTabs = computed((): TabConfig[] => {
-  if (!props.platform) return []
-  switch (props.platform) {
-    case 'openai': {
-      const tabs: TabConfig[] = [
-        { id: 'codex', label: t('keys.useKeyModal.cliTabs.codexCli'), icon: TerminalIcon },
-        { id: 'codex-ws', label: t('keys.useKeyModal.cliTabs.codexCliWs'), icon: TerminalIcon },
-      ]
-      if (props.allowMessagesDispatch) {
-        tabs.push({ id: 'claude', label: t('keys.useKeyModal.cliTabs.claudeCode'), icon: TerminalIcon })
-      }
-      tabs.push({ id: 'opencode', label: t('keys.useKeyModal.cliTabs.opencode'), icon: TerminalIcon })
-      return tabs
-    }
-    case 'gemini':
-      return [
-        { id: 'gemini', label: t('keys.useKeyModal.cliTabs.geminiCli'), icon: SparkleIcon },
-        { id: 'opencode', label: t('keys.useKeyModal.cliTabs.opencode'), icon: TerminalIcon }
-      ]
-    case 'antigravity':
-      return [
-        { id: 'claude', label: t('keys.useKeyModal.cliTabs.claudeCode'), icon: TerminalIcon },
-        { id: 'gemini', label: t('keys.useKeyModal.cliTabs.geminiCli'), icon: SparkleIcon },
-        { id: 'opencode', label: t('keys.useKeyModal.cliTabs.opencode'), icon: TerminalIcon }
-      ]
-    default:
-      return [
-        { id: 'claude', label: t('keys.useKeyModal.cliTabs.claudeCode'), icon: TerminalIcon },
-        { id: 'opencode', label: t('keys.useKeyModal.cliTabs.opencode'), icon: TerminalIcon }
-      ]
+  const tabs: TabConfig[] = []
+  if (supportsOpenAI.value) {
+    tabs.push(
+      { id: 'codex', label: t('keys.useKeyModal.cliTabs.codexCli'), icon: TerminalIcon },
+      { id: 'codex-ws', label: t('keys.useKeyModal.cliTabs.codexCliWs'), icon: TerminalIcon }
+    )
   }
+  if (supportsAnthropic.value) {
+    tabs.push({ id: 'claude', label: t('keys.useKeyModal.cliTabs.claudeCode'), icon: TerminalIcon })
+  }
+  if (supportsGemini.value) {
+    tabs.push({ id: 'gemini', label: t('keys.useKeyModal.cliTabs.geminiCli'), icon: SparkleIcon })
+  }
+  if (tabs.length > 0) {
+    tabs.push({ id: 'opencode', label: t('keys.useKeyModal.cliTabs.opencode'), icon: TerminalIcon })
+  }
+  return tabs
 })
 
 // Shell tabs (3 types for environment variable based configs)
@@ -320,36 +308,26 @@ const currentTabs = computed(() => {
 })
 
 const platformDescription = computed(() => {
-  switch (props.platform) {
-    case 'openai':
-      if (activeClientTab.value === 'claude') {
-        return t('keys.useKeyModal.description')
-      }
+  switch (activeClientTab.value) {
+    case 'codex':
+    case 'codex-ws':
       return t('keys.useKeyModal.openai.description')
     case 'gemini':
       return t('keys.useKeyModal.gemini.description')
-    case 'antigravity':
-      return t('keys.useKeyModal.antigravity.description')
     default:
       return t('keys.useKeyModal.description')
   }
 })
 
 const platformNote = computed(() => {
-  switch (props.platform) {
-    case 'openai':
-      if (activeClientTab.value === 'claude') {
-        return t('keys.useKeyModal.note')
-      }
+  switch (activeClientTab.value) {
+    case 'codex':
+    case 'codex-ws':
       return activeTab.value === 'windows'
         ? t('keys.useKeyModal.openai.noteWindows')
         : t('keys.useKeyModal.openai.note')
     case 'gemini':
       return t('keys.useKeyModal.gemini.note')
-    case 'antigravity':
-      return activeClientTab.value === 'claude'
-        ? t('keys.useKeyModal.antigravity.claudeNote')
-        : t('keys.useKeyModal.antigravity.geminiNote')
     default:
       return t('keys.useKeyModal.note')
   }
@@ -384,52 +362,36 @@ const currentFiles = computed((): FileConfig[] => {
     return trimmed.endsWith('/v1') ? trimmed : `${trimmed}/v1`
   }
   const apiBase = ensureV1(baseRoot)
-  const antigravityBase = ensureV1(`${baseRoot}/antigravity`)
-  const antigravityGeminiBase = (() => {
-    const trimmed = `${baseRoot}/antigravity`.replace(/\/+$/, '')
-    return trimmed.endsWith('/v1beta') ? trimmed : `${trimmed}/v1beta`
-  })()
   const geminiBase = (() => {
     const trimmed = baseRoot.replace(/\/+$/, '')
     return trimmed.endsWith('/v1beta') ? trimmed : `${trimmed}/v1beta`
   })()
 
   if (activeClientTab.value === 'opencode') {
-    switch (props.platform) {
-      case 'anthropic':
-        return [generateOpenCodeConfig('anthropic', apiBase, apiKey)]
-      case 'openai':
-        return [generateOpenCodeConfig('openai', apiBase, apiKey)]
-      case 'gemini':
-        return [generateOpenCodeConfig('gemini', geminiBase, apiKey)]
-      case 'antigravity':
-        return [
-          generateOpenCodeConfig('antigravity-claude', antigravityBase, apiKey, 'opencode.json (Claude)'),
-          generateOpenCodeConfig('antigravity-gemini', antigravityGeminiBase, apiKey, 'opencode.json (Gemini)')
-        ]
-      default:
-        return [generateOpenCodeConfig('openai', apiBase, apiKey)]
+    const files: FileConfig[] = []
+    if (supportsOpenAI.value) {
+      files.push(generateOpenCodeConfig('openai', apiBase, apiKey, 'opencode.json (OpenAI)'))
     }
+    if (supportsAnthropic.value) {
+      files.push(generateOpenCodeConfig('anthropic', apiBase, apiKey, 'opencode.json (Claude)'))
+    }
+    if (supportsGemini.value) {
+      files.push(generateOpenCodeConfig('gemini', geminiBase, apiKey, 'opencode.json (Gemini)'))
+    }
+    return files
   }
 
-  switch (props.platform) {
-    case 'openai':
-      if (activeClientTab.value === 'claude') {
-        return generateAnthropicFiles(baseUrl, apiKey)
-      }
-      if (activeClientTab.value === 'codex-ws') {
-        return generateOpenAIWsFiles(baseUrl, apiKey)
-      }
+  switch (activeClientTab.value) {
+    case 'codex-ws':
+      return generateOpenAIWsFiles(baseUrl, apiKey)
+    case 'codex':
       return generateOpenAIFiles(baseUrl, apiKey)
     case 'gemini':
       return [generateGeminiCliContent(baseUrl, apiKey)]
-    case 'antigravity':
-      if (activeClientTab.value === 'gemini') {
-        return [generateGeminiCliContent(`${baseUrl}/antigravity`, apiKey)]
-      }
-      return generateAnthropicFiles(`${baseUrl}/antigravity`, apiKey)
-    default:
+    case 'claude':
       return generateAnthropicFiles(baseUrl, apiKey)
+    default:
+      return []
   }
 })
 

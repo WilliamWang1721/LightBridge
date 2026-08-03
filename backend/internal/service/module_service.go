@@ -37,6 +37,8 @@ type ModuleService struct {
 	marketplaceTimeout      time.Duration
 }
 
+const defaultMarketplaceTimeout = 60 * time.Second
+
 func (s *ModuleService) SetOutboundRuntime(runtime modules.OutboundRuntime) {
 	if s == nil {
 		return
@@ -45,7 +47,7 @@ func (s *ModuleService) SetOutboundRuntime(runtime modules.OutboundRuntime) {
 }
 
 func NewModuleService(store modules.Store) *ModuleService {
-	return &ModuleService{store: store, moduleDataDir: "data", marketplaceTimeout: 20 * time.Second}
+	return &ModuleService{store: store, moduleDataDir: "data", marketplaceTimeout: defaultMarketplaceTimeout}
 }
 
 func ProvideModuleService(
@@ -60,7 +62,7 @@ func ProvideModuleService(
 	if cfg != nil && strings.TrimSpace(cfg.Modules.DataDir) != "" {
 		dataDir = strings.TrimSpace(cfg.Modules.DataDir)
 	}
-	marketplaceTimeout := 20 * time.Second
+	marketplaceTimeout := defaultMarketplaceTimeout
 	if cfg != nil && cfg.Modules.MarketplaceTimeoutSeconds > 0 {
 		marketplaceTimeout = time.Duration(cfg.Modules.MarketplaceTimeoutSeconds) * time.Second
 	}
@@ -683,7 +685,7 @@ func (s *ModuleService) downloadMarketplacePackage(ctx context.Context, entry Mo
 
 func (s *ModuleService) effectiveMarketplaceTimeout() time.Duration {
 	if s == nil || s.marketplaceTimeout <= 0 {
-		return 20 * time.Second
+		return defaultMarketplaceTimeout
 	}
 	return s.marketplaceTimeout
 }

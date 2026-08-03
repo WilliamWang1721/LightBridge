@@ -72,9 +72,6 @@ func mustCreateGroup(t *testing.T, client *dbent.Client, g *service.Group) *serv
 	t.Helper()
 	ctx := context.Background()
 
-	if g.Platform == "" {
-		g.Platform = service.PlatformAnthropic
-	}
 	if g.Status == "" {
 		g.Status = service.StatusActive
 	}
@@ -84,7 +81,6 @@ func mustCreateGroup(t *testing.T, client *dbent.Client, g *service.Group) *serv
 
 	create := client.Group.Create().
 		SetName(g.Name).
-		SetPlatform(g.Platform).
 		SetStatus(g.Status).
 		SetSubscriptionType(g.SubscriptionType).
 		SetRateMultiplier(g.RateMultiplier).

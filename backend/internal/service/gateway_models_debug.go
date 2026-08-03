@@ -71,21 +71,46 @@ func (s *GatewayService) GetAvailableModels(ctx context.Context, groupID *int64,
 		mapping := acc.GetModelMapping()
 		if len(mapping) > 0 {
 			hasAnyMapping = true
-			for model := range mapping {
+			for model, target := range mapping {
 				if !strings.Contains(model, "*") {
 					modelSet[model] = struct{}{}
+					continue
+				}
+				// Wildcard keys cannot be listed literally. When their concrete
+				// target is itself accepted by the wildcard, expose that target so
+				// an enabled group model list does not hide a routable model.
+				target = strings.TrimSpace(target)
+				if target != "" && !strings.Contains(target, "*") && matchWildcard(model, target) {
+					modelSet[target] = struct{}{}
 				}
 			}
 		}
 	}
 
-	// If no account has model_mapping, return nil (use default)
+	// If no account exposes an explicit catalog, derive defaults from the
+	// actual bound upstreams. This keeps /v1/models provider-neutral without
+	// falling back to the removed Anthropic group type.
 	if !hasAnyMapping {
-		if s.modelsListCache != nil {
-			s.modelsListCache.Set(cacheKey, []string(nil), s.modelsListCacheTTL)
-			modelsListCacheStoreTotal.Add(1)
+		for i := range accounts {
+			acc := &accounts[i]
+			if acc.IsAntigravity() {
+				for _, model := range defaultModelsListCandidateIDs(PlatformAntigravity) {
+					modelSet[model] = struct{}{}
+				}
+				continue
+			}
+			if acc.IsGrok() {
+				for _, model := range defaultModelsListCandidateIDs(PlatformGrok) {
+					modelSet[model] = struct{}{}
+				}
+				continue
+			}
+			for _, protocol := range AccountUpstreamProtocols(acc) {
+				for _, model := range defaultModelsListCandidateIDs(protocol) {
+					modelSet[model] = struct{}{}
+				}
+			}
 		}
-		return nil
 	}
 
 	// Convert to slice

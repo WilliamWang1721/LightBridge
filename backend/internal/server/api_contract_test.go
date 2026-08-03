@@ -346,7 +346,8 @@ func TestAPIContracts(t *testing.T) {
 						"peak_end": "",
 						"peak_rate_multiplier": 0,
 						"description": "desc",
-						"platform": "anthropic",
+						"icon": "",
+						"color": "",
 						"rate_multiplier": 1.5,
 						"is_exclusive": false,
 						"status": "active",
@@ -369,7 +370,9 @@ func TestAPIContracts(t *testing.T) {
 						"rpm_limit": 0,
 						"created_at": "2025-01-02T03:04:05Z",
 						"updated_at": "2025-01-02T03:04:05Z",
-						"upstream_protocols": null
+						"upstream_platforms": null,
+						"upstream_protocols": null,
+						"available_ingress_protocols": null
 					}
 				]
 			}`,
@@ -1612,7 +1615,7 @@ func (r *stubGroupRepo) ListActive(ctx context.Context) ([]service.Group, error)
 	return append([]service.Group(nil), r.active...), nil
 }
 
-func (r *stubGroupRepo) ListActiveByPlatform(ctx context.Context, platform string) ([]service.Group, error) {
+func (r *stubGroupRepo) ListActiveByUpstreamProtocol(ctx context.Context, platform string) ([]service.Group, error) {
 	out := make([]service.Group, 0, len(r.active))
 	for i := range r.active {
 		g := r.active[i]

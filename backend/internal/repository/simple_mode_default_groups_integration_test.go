@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/WilliamWang1721/LightBridge/ent/group"
-	"github.com/WilliamWang1721/LightBridge/internal/service"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,11 +27,7 @@ func TestEnsureSimpleModeDefaultGroups_CreatesMissingDefaults(t *testing.T) {
 		require.True(t, exists, "expected group %s to exist", name)
 	}
 
-	assertGroupExists(service.PlatformAnthropic + "-default")
-	assertGroupExists(service.PlatformOpenAI + "-default")
-	assertGroupExists(service.PlatformGemini + "-default")
-	assertGroupExists(service.PlatformAntigravity + "-default-1")
-	assertGroupExists(service.PlatformAntigravity + "-default-2")
+	assertGroupExists("default")
 }
 
 func TestEnsureSimpleModeDefaultGroups_IgnoresSoftDeletedGroups(t *testing.T) {
@@ -43,15 +38,11 @@ func TestEnsureSimpleModeDefaultGroups_IgnoresSoftDeletedGroups(t *testing.T) {
 	seedCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	// Create and then soft-delete an anthropic default group.
-	g, err := client.Group.Create().
-		SetName(service.PlatformAnthropic + "-default").
-		SetPlatform(service.PlatformAnthropic).
-		SetStatus(service.StatusActive).
-		SetSubscriptionType(service.SubscriptionTypeStandard).
-		SetRateMultiplier(1.0).
-		SetIsExclusive(false).
-		Save(seedCtx)
+	// Migration 008 seeds the neutral default group. Soft-delete that row so
+	// this test verifies recreation instead of colliding with the seed data.
+	g, err := client.Group.Query().
+		Where(group.NameEQ("default"), group.DeletedAtIsNil()).
+		Only(seedCtx)
 	require.NoError(t, err)
 
 	_, err = client.Group.Delete().Where(group.IDEQ(g.ID)).Exec(seedCtx)
@@ -60,12 +51,12 @@ func TestEnsureSimpleModeDefaultGroups_IgnoresSoftDeletedGroups(t *testing.T) {
 	require.NoError(t, ensureSimpleModeDefaultGroups(seedCtx, client))
 
 	// New active one should exist.
-	count, err := client.Group.Query().Where(group.NameEQ(service.PlatformAnthropic+"-default"), group.DeletedAtIsNil()).Count(seedCtx)
+	count, err := client.Group.Query().Where(group.NameEQ("default"), group.DeletedAtIsNil()).Count(seedCtx)
 	require.NoError(t, err)
 	require.Equal(t, 1, count)
 }
 
-func TestEnsureSimpleModeDefaultGroups_AntigravityNeedsTwoGroupsOnlyByCount(t *testing.T) {
+func TestEnsureSimpleModeDefaultGroups_IsIdempotentAndProviderNeutral(t *testing.T) {
 	ctx := context.Background()
 	tx := testEntTx(t)
 	client := tx.Client()
@@ -73,12 +64,10 @@ func TestEnsureSimpleModeDefaultGroups_AntigravityNeedsTwoGroupsOnlyByCount(t *t
 	seedCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	mustCreateGroup(t, client, &service.Group{Name: "ag-custom-1-" + time.Now().Format(time.RFC3339Nano), Platform: service.PlatformAntigravity})
-	mustCreateGroup(t, client, &service.Group{Name: "ag-custom-2-" + time.Now().Format(time.RFC3339Nano), Platform: service.PlatformAntigravity})
-
+	require.NoError(t, ensureSimpleModeDefaultGroups(seedCtx, client))
 	require.NoError(t, ensureSimpleModeDefaultGroups(seedCtx, client))
 
-	count, err := client.Group.Query().Where(group.PlatformEQ(service.PlatformAntigravity), group.DeletedAtIsNil()).Count(seedCtx)
+	count, err := client.Group.Query().Where(group.NameEQ("default"), group.DeletedAtIsNil()).Count(seedCtx)
 	require.NoError(t, err)
-	require.GreaterOrEqual(t, count, 2)
+	require.Equal(t, 1, count)
 }

@@ -244,7 +244,7 @@ type UserDashboardStats struct {
 	Rpm int64 `json:"rpm"` // 近5分钟平均每分钟请求数
 	Tpm int64 `json:"tpm"` // 近5分钟平均每分钟Token数
 
-	// 按"有效平台"维度拆分（与 ops 路径口径一致：group.platform 优先，否则 account.platform）
+	// 按实际选中账号的平台维度拆分（与 ops 路径口径一致）。
 	ByPlatform []PlatformDashboardStats `json:"by_platform,omitempty"`
 }
 
@@ -293,7 +293,7 @@ type UsageStats struct {
 }
 
 // PlatformUsage 表示某用户/某 API key 在单个"有效平台"维度的用量明细。
-// Platform 取值与 ops 路径口径一致：优先 groups.platform，否则 accounts.platform。
+// Platform 取值与 ops 路径口径一致：来自实际处理请求的账号上游。
 type PlatformUsage struct {
 	Platform        string  `json:"platform"`
 	TodayActualCost float64 `json:"today_actual_cost"`

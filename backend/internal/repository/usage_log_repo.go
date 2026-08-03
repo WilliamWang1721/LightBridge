@@ -92,10 +92,29 @@ const rawUsageLogModelColumn = "model"
 // 配合 `FROM usage_logs ul` JOIN 查询使用。
 const usageLogSuccessFilterUL = "ul.actual_cost > 0"
 
-// usageLogEffectivePlatformExpr 用于按"有效平台"维度聚合 usage_logs：
-// 优先取请求实际走的分组 platform，若分组未设置 platform 再 fallback 到 account.platform。
-// 配套要求查询里 LEFT JOIN groups g ON g.id = ul.group_id 与 LEFT JOIN accounts a ON a.id = ul.account_id。
-const usageLogEffectivePlatformExpr = "COALESCE(NULLIF(g.platform,''), a.platform)"
+// usageLogEffectivePlatformExpr derives the upstream platform from the account
+// that actually served the request. Antigravity accounts are persisted as
+// platform=gemini + sub_platform=antigravity, but remain a distinct upstream
+// platform in analytics and filters. Queries using this expression must join
+// accounts as alias "a".
+const usageLogEffectivePlatformExpr = `(CASE
+	WHEN LOWER(COALESCE(a.sub_platform, '')) = 'antigravity'
+		OR LOWER(COALESCE(a.platform, '')) = 'antigravity'
+		THEN 'antigravity'
+	ELSE NULLIF(LOWER(COALESCE(a.platform, '')), '')
+END)`
+
+// opsErrorEffectivePlatformExpr follows the same account-first attribution for
+// error rows. Errors raised before account selection have no account_id, so
+// their recorded ingress/routing platform remains the only available fallback.
+// It is intentionally a correlated lookup because buildErrorWhere is reused by
+// queries that do not otherwise need to join accounts.
+const opsErrorEffectivePlatformExpr = `COALESCE(
+	(SELECT ` + usageLogEffectivePlatformExpr + `
+	 FROM accounts a
+	 WHERE a.id = ops_error_logs.account_id),
+	NULLIF(LOWER(COALESCE(ops_error_logs.platform, '')), '')
+)`
 
 // dateFormatWhitelist 将 granularity 参数映射为 PostgreSQL TO_CHAR 格式字符串，防止外部输入直接拼入 SQL
 var dateFormatWhitelist = map[string]string{

@@ -1,12 +1,12 @@
 <template>
   <span
     :class="[
-      'inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium transition-colors',
+      'inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-medium transition-colors',
       badgeClass
     ]"
+    :style="badgeStyle"
   >
-    <!-- Platform logo -->
-    <PlatformIcon v-if="platform" :platform="platform" size="sm" />
+    <Icon :name="normalizedIcon" size="xs" class="shrink-0" />
     <!-- Group name -->
     <span class="truncate">{{ name }}</span>
     <!-- Right side label -->
@@ -25,13 +25,18 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import type { CSSProperties } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { SubscriptionType, GroupPlatform } from '@/types'
-import PlatformIcon from './PlatformIcon.vue'
+import type { GroupIcon, SubscriptionType, GroupPlatform, GroupUpstreamProtocol } from '@/types'
+import Icon from '@/components/icons/Icon.vue'
+import { normalizeGroupColor, normalizeGroupIcon } from '@/utils/groupUpstreams'
 
 interface Props {
   name: string
-  platform?: GroupPlatform
+  icon?: GroupIcon | string | null
+  color?: string | null
+  upstreamPlatforms?: GroupPlatform[] | string[]
+  upstreamProtocols?: GroupUpstreamProtocol[] | string[]
   subscriptionType?: SubscriptionType
   rateMultiplier?: number
   userRateMultiplier?: number | null // 用户专属倍率
@@ -56,6 +61,16 @@ const props = withDefaults(defineProps<Props>(), {
 const { t } = useI18n()
 
 const isSubscription = computed(() => props.subscriptionType === 'subscription')
+const normalizedIcon = computed(() => normalizeGroupIcon(props.icon))
+const normalizedColor = computed(() => normalizeGroupColor(props.color))
+const badgeStyle = computed<CSSProperties | undefined>(() => {
+  if (!normalizedColor.value) return undefined
+  return {
+    color: normalizedColor.value,
+    borderColor: `${normalizedColor.value}55`,
+    backgroundColor: `${normalizedColor.value}14`,
+  }
+})
 
 // 是否有专属倍率（且与默认倍率不同）
 const hasCustomRate = computed(() => {
@@ -114,47 +129,14 @@ const labelClass = computed(() => {
     }
   }
 
-  // 正常状态或无天数：根据平台显示主题色
-  if (props.platform === 'anthropic') {
-    return `${base} bg-orange-200/60 text-orange-800 dark:bg-orange-800/40 dark:text-orange-300`
-  }
-  if (props.platform === 'openai') {
-    return `${base} bg-emerald-200/60 text-emerald-800 dark:bg-emerald-800/40 dark:text-emerald-300`
-  }
-  if (props.platform === 'grok') {
-    return `${base} bg-zinc-200/70 text-zinc-800 dark:bg-zinc-700/60 dark:text-zinc-200`
-  }
-  if (props.platform === 'gemini') {
-    return `${base} bg-blue-200/60 text-blue-800 dark:bg-blue-800/40 dark:text-blue-300`
-  }
-  return `${base} bg-violet-200/60 text-violet-800 dark:bg-violet-800/40 dark:text-violet-300`
+  return `${base} bg-black/10 dark:bg-white/10`
 })
 
-// Badge color based on platform and subscription type
+// Group appearance is independent from upstream brands. Empty values stay neutral.
 const badgeClass = computed(() => {
-  if (props.platform === 'anthropic') {
-    // Claude: orange theme
-    return isSubscription.value
-      ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
-      : 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'
-  } else if (props.platform === 'openai') {
-    // OpenAI: green theme
-    return isSubscription.value
-      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-      : 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-  } else if (props.platform === 'grok') {
-    return isSubscription.value
-      ? 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800/70 dark:text-zinc-200'
-      : 'bg-zinc-50 text-zinc-700 dark:bg-zinc-900/40 dark:text-zinc-300'
-  }
-  if (props.platform === 'gemini') {
-    return isSubscription.value
-      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-      : 'bg-sky-50 text-sky-700 dark:bg-sky-900/20 dark:text-sky-400'
-  }
-  // Fallback: original colors
+  if (normalizedColor.value) return ''
   return isSubscription.value
-    ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400'
-    : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+    ? 'border-violet-200 bg-violet-100 text-violet-700 dark:border-violet-900/50 dark:bg-violet-900/30 dark:text-violet-400'
+    : 'border-gray-200 bg-gray-100 text-gray-700 dark:border-dark-500 dark:bg-dark-600 dark:text-gray-300'
 })
 </script>

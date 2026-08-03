@@ -539,7 +539,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useDebounceFn } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
@@ -595,6 +595,9 @@ const exportingSelected = ref(false)
 let listFetchSeq = 0
 let detailFetchSeq = 0
 let schedulerAccountFetchSeq = 0
+const autoRefreshIntervalMs = 5_000
+let autoRefreshTimer: number | undefined
+let isAutoRefreshInFlight = false
 
 function resetTimeRange() {
   const range = createOpsLocalTimeRange(24 * 60 * 60 * 1000)
@@ -672,11 +675,11 @@ const compactVisiblePages = computed<(number | string)[]>(() => {
   return [1, '...', page.value, '...', totalPageCount]
 })
 
-async function fetchRequestErrors(options: { keepSelection?: boolean } = {}) {
+async function fetchRequestErrors(options: { keepSelection?: boolean; silent?: boolean } = {}) {
   const timeParams = buildOpsISOTimeRange(startTime.value, endTime.value)
   if (!timeParams) return
   const fetchSeq = ++listFetchSeq
-  loadingList.value = true
+  if (!options.silent) loadingList.value = true
   try {
     const params: OpsErrorListQueryParams = {
       page: page.value,
@@ -696,8 +699,7 @@ async function fetchRequestErrors(options: { keepSelection?: boolean } = {}) {
     requestErrors.value = res.items || []
     total.value = res.total || 0
 
-    const selectedStillVisible = requestErrors.value.some((item) => item.id === selectedErrorId.value)
-    if (!options.keepSelection || !selectedStillVisible) {
+    if (!options.keepSelection) {
       const nextID = requestErrors.value[0]?.id ?? null
       if (nextID) {
         await selectError(nextID)
@@ -711,13 +713,49 @@ async function fetchRequestErrors(options: { keepSelection?: boolean } = {}) {
   } catch (err: any) {
     if (fetchSeq !== listFetchSeq) return
 
-    console.error('[ErrorAnalysisView] Failed to load request errors', err)
-    appStore.showError(err?.message || t('admin.ops.errorAnalysis.failedToLoadList'))
-    requestErrors.value = []
-    total.value = 0
+    if (!options.silent) {
+      console.error('[ErrorAnalysisView] Failed to load request errors', err)
+      appStore.showError(err?.message || t('admin.ops.errorAnalysis.failedToLoadList'))
+      requestErrors.value = []
+      total.value = 0
+    }
   } finally {
-    if (fetchSeq === listFetchSeq) loadingList.value = false
+    if (!options.silent && fetchSeq === listFetchSeq) loadingList.value = false
   }
+}
+
+async function refreshRequestErrorsSilently() {
+  if (document.hidden || isAutoRefreshInFlight || loadingList.value) return
+
+  isAutoRefreshInFlight = true
+  try {
+    await fetchRequestErrors({ keepSelection: true, silent: true })
+  } finally {
+    isAutoRefreshInFlight = false
+  }
+}
+
+function stopAutoRefresh() {
+  if (autoRefreshTimer === undefined) return
+  window.clearInterval(autoRefreshTimer)
+  autoRefreshTimer = undefined
+}
+
+function startAutoRefresh() {
+  if (document.hidden || autoRefreshTimer !== undefined) return
+  autoRefreshTimer = window.setInterval(() => {
+    void refreshRequestErrorsSilently()
+  }, autoRefreshIntervalMs)
+}
+
+function handleVisibilityChange() {
+  if (document.hidden) {
+    stopAutoRefresh()
+    return
+  }
+
+  startAutoRefresh()
+  void refreshRequestErrorsSilently()
 }
 
 async function selectError(id: number) {
@@ -830,6 +868,13 @@ watch(readStatusFilter, () => {
 
 onMounted(() => {
   fetchRequestErrors({ keepSelection: false })
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  startAutoRefresh()
+})
+
+onUnmounted(() => {
+  stopAutoRefresh()
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 
 function displayModel(item: OpsErrorLog | OpsErrorDetail): string {

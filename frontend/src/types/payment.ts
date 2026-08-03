@@ -2,6 +2,8 @@
  * Payment System Type Definitions
  */
 
+import type { GroupIcon, GroupUpstreamProtocol, UpstreamPlatform } from './index'
+
 // ==================== Enums / Union Types ====================
 
 export type OrderStatus =
@@ -104,13 +106,16 @@ export interface PaymentOrder {
 export interface SubscriptionPlan {
   id: number
   group_id: number
-  group_platform?: string
   group_name?: string
+  group_icon?: GroupIcon | null
+  group_color?: string | null
+  upstream_platforms?: UpstreamPlatform[]
+  upstream_protocols?: GroupUpstreamProtocol[]
+  available_ingress_protocols?: GroupUpstreamProtocol[]
   rate_multiplier?: number
   daily_limit_usd?: number | null
   weekly_limit_usd?: number | null
   monthly_limit_usd?: number | null
-  supported_model_scopes?: string[]
   name: string
   description: string
   price: number

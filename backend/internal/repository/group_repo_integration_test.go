@@ -208,11 +208,11 @@ func (s *GroupRepoSuite) TestList() {
 	s.Require().Equal(basePage.Total+2, page.Total)
 }
 
-func (s *GroupRepoSuite) TestListWithFilters_Platform() {
+func (s *GroupRepoSuite) TestListWithFilters_UpstreamProtocol() {
 	baseGroups, _, err := s.repo.ListWithFilters(
 		s.ctx,
 		pagination.PaginationParams{Page: 1, PageSize: 10},
-		service.PlatformOpenAI,
+		service.CustomProtocolOpenAIResponses,
 		"",
 		"",
 		nil,
@@ -241,7 +241,7 @@ func (s *GroupRepoSuite) TestListWithFilters_Platform() {
 	s.bindCustomAccountToGroup(openAIGroup.ID, "g1-openai", service.CustomProtocolOpenAIResponses)
 	s.bindCustomAccountToGroup(anthropicGroup.ID, "g2-anthropic", service.CustomProtocolAnthropicMessages)
 
-	groups, _, err := s.repo.ListWithFilters(s.ctx, pagination.PaginationParams{Page: 1, PageSize: 10}, service.PlatformOpenAI, "", "", nil)
+	groups, _, err := s.repo.ListWithFilters(s.ctx, pagination.PaginationParams{Page: 1, PageSize: 10}, service.CustomProtocolOpenAIResponses, "", "", nil)
 	s.Require().NoError(err)
 	s.Require().Len(groups, len(baseGroups)+1)
 	// Filtering follows a bound account's upstream protocol, not the legacy group label.
@@ -518,7 +518,7 @@ func (s *GroupRepoSuite) TestListWithFilters_AccountCount() {
 	s.Require().NoError(err)
 
 	isExclusive := true
-	groups, page, err := s.repo.ListWithFilters(s.ctx, pagination.PaginationParams{Page: 1, PageSize: 10}, service.PlatformAnthropic, service.StatusActive, "", &isExclusive)
+	groups, page, err := s.repo.ListWithFilters(s.ctx, pagination.PaginationParams{Page: 1, PageSize: 10}, service.CustomProtocolAnthropicMessages, service.StatusActive, "", &isExclusive)
 	s.Require().NoError(err, "ListWithFilters")
 	s.Require().Equal(int64(1), page.Total)
 	s.Require().Len(groups, 1)
@@ -526,7 +526,7 @@ func (s *GroupRepoSuite) TestListWithFilters_AccountCount() {
 	s.Require().Equal(int64(1), groups[0].AccountCount, "AccountCount mismatch")
 }
 
-// --- ListActive / ListActiveByPlatform ---
+// --- ListActive / ListActiveByUpstreamProtocol ---
 
 func (s *GroupRepoSuite) TestListActive() {
 	baseGroups, err := s.repo.ListActive(s.ctx)
@@ -563,9 +563,9 @@ func (s *GroupRepoSuite) TestListActive() {
 	s.Require().True(found, "active1 group should be in results")
 }
 
-func (s *GroupRepoSuite) TestListActiveByPlatform() {
-	baseGroups, err := s.repo.ListActiveByPlatform(s.ctx, service.PlatformAnthropic)
-	s.Require().NoError(err, "ListActiveByPlatform base")
+func (s *GroupRepoSuite) TestListActiveByUpstreamProtocol() {
+	baseGroups, err := s.repo.ListActiveByUpstreamProtocol(s.ctx, service.CustomProtocolAnthropicMessages)
+	s.Require().NoError(err, "ListActiveByUpstreamProtocol base")
 
 	openAIGroup := &service.Group{
 		Name:             "g1",
@@ -600,8 +600,8 @@ func (s *GroupRepoSuite) TestListActiveByPlatform() {
 	s.bindCustomAccountToGroup(anthropicGroup.ID, "g2-anthropic", service.CustomProtocolAnthropicMessages)
 	s.bindCustomAccountToGroup(disabledAnthropicGroup.ID, "g3-anthropic", service.CustomProtocolAnthropicMessages)
 
-	groups, err := s.repo.ListActiveByPlatform(s.ctx, service.PlatformAnthropic)
-	s.Require().NoError(err, "ListActiveByPlatform")
+	groups, err := s.repo.ListActiveByUpstreamProtocol(s.ctx, service.CustomProtocolAnthropicMessages)
+	s.Require().NoError(err, "ListActiveByUpstreamProtocol")
 	s.Require().Len(groups, len(baseGroups)+1)
 
 	var foundAnthropicGroup bool
@@ -734,7 +734,7 @@ func (s *GroupRepoSuite) TestListWithFilters_ActiveAccountCount_LessThanTotal() 
 	isExclusive := false
 	groups, _, err := s.repo.ListWithFilters(s.ctx,
 		pagination.PaginationParams{Page: 1, PageSize: 100},
-		service.PlatformAnthropic, service.StatusActive, "", &isExclusive)
+		service.CustomProtocolAnthropicMessages, service.StatusActive, "", &isExclusive)
 	s.Require().NoError(err)
 
 	var found *service.Group
@@ -823,7 +823,7 @@ func (s *GroupRepoSuite) TestListWithFilters_RateLimitedAccountCount() {
 	isExclusive := false
 	groups, _, err := s.repo.ListWithFilters(s.ctx,
 		pagination.PaginationParams{Page: 1, PageSize: 100},
-		service.PlatformAnthropic, service.StatusActive, "", &isExclusive)
+		service.CustomProtocolAnthropicMessages, service.StatusActive, "", &isExclusive)
 	s.Require().NoError(err)
 
 	var found *service.Group

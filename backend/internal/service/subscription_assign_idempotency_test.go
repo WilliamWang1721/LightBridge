@@ -34,8 +34,8 @@ func (groupRepoNoop) ListWithFilters(context.Context, pagination.PaginationParam
 func (groupRepoNoop) ListActive(context.Context) ([]Group, error) {
 	panic("unexpected ListActive call")
 }
-func (groupRepoNoop) ListActiveByPlatform(context.Context, string) ([]Group, error) {
-	panic("unexpected ListActiveByPlatform call")
+func (groupRepoNoop) ListActiveByUpstreamProtocol(context.Context, string) ([]Group, error) {
+	panic("unexpected ListActiveByUpstreamProtocol call")
 }
 func (groupRepoNoop) ExistsByName(context.Context, string) (bool, error) {
 	panic("unexpected ExistsByName call")

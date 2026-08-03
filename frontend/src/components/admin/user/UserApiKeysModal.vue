@@ -29,7 +29,10 @@
                 <GroupBadge
                   v-if="key.group_id && key.group"
                   :name="key.group.name"
-                  :platform="key.group.platform"
+                  :icon="key.group.icon"
+                  :color="key.group.color"
+                  :upstream-platforms="key.group.upstream_platforms"
+                  :upstream-protocols="key.group.upstream_protocols"
                   :subscription-type="key.group.subscription_type"
                   :rate-multiplier="key.group.rate_multiplier"
                 />
@@ -85,7 +88,9 @@
         >
           <GroupOptionItem
             :name="group.name"
-            :platform="group.platform"
+            :icon="group.icon"
+            :color="group.color"
+            :upstream-platforms="group.upstream_platforms"
             :upstream-protocols="group.upstream_protocols"
             :subscription-type="group.subscription_type"
             :rate-multiplier="group.rate_multiplier"

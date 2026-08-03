@@ -112,12 +112,7 @@ func buildContentModerationInput(c *gin.Context, apiKey *service.APIKey, subject
 	return input
 }
 
-func contentModerationProvider(apiKey *service.APIKey) string {
-	if apiKey == nil || apiKey.Group == nil {
-		return ""
-	}
-	return strings.TrimSpace(apiKey.Group.Platform)
-}
+func contentModerationProvider(_ *service.APIKey) string { return "" }
 
 func contentModerationRequestID(ctx context.Context) string {
 	if ctx == nil {

@@ -132,10 +132,8 @@ func stringValue(value any) string {
 }
 
 func resolveOpsPlatform(ctx context.Context, apiKey *service.APIKey, fallback string) string {
-	if platform := service.PlatformForRequest(ctx, fallback); platform != "" {
-		return platform
-	}
-	return service.PlatformFromAPIKey(apiKey)
+	_ = apiKey
+	return service.PlatformForRequest(ctx, fallback)
 }
 
 func guessPlatformFromPath(path string) string {

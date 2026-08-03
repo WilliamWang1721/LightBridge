@@ -3256,12 +3256,11 @@
                         <template #selected="{ option }">
                           <GroupBadge
                             v-if="option"
-                            :name="
-                              option.label
-                            "
-                            :platform="
-                              option.platform
-                            "
+                            :name="option.label"
+                            :icon="option.icon"
+                            :color="option.color"
+                            :upstream-platforms="option.upstreamPlatforms"
+                            :upstream-protocols="option.upstreamProtocols"
                             :subscription-type="
                               option.subscriptionType
                             "
@@ -3275,12 +3274,11 @@
                         </template>
                         <template #option="{ option, selected }">
                           <GroupOptionItem
-                            :name="
-                              option.label
-                            "
-                            :platform="
-                              option.platform
-                            "
+                            :name="option.label"
+                            :icon="option.icon"
+                            :color="option.color"
+                            :upstream-platforms="option.upstreamPlatforms"
+                            :upstream-protocols="option.upstreamProtocols"
                             :subscription-type="
                               option.subscriptionType
                             "
@@ -3568,12 +3566,11 @@
                             <template #selected="{ option }">
                               <GroupBadge
                                 v-if="option"
-                                :name="
-                                  option.label
-                                "
-                                :platform="
-                                  option.platform
-                                "
+                                :name="option.label"
+                                :icon="option.icon"
+                                :color="option.color"
+                                :upstream-platforms="option.upstreamPlatforms"
+                                :upstream-protocols="option.upstreamProtocols"
                                 :subscription-type="
                                   option.subscriptionType
                                 "
@@ -3589,12 +3586,11 @@
                             </template>
                             <template #option="{ option, selected }">
                               <GroupOptionItem
-                                :name="
-                                  option.label
-                                "
-                                :platform="
-                                  option.platform
-                                "
+                                :name="option.label"
+                                :icon="option.icon"
+                                :color="option.color"
+                                :upstream-platforms="option.upstreamPlatforms"
+                                :upstream-protocols="option.upstreamProtocols"
                                 :subscription-type="
                                   option.subscriptionType
                                 "

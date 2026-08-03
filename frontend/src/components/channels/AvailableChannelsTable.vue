@@ -66,16 +66,20 @@
                 platformBadgeClass(section.platform),
               ]"
             >
-              <PlatformIcon :platform="section.platform as GroupPlatform" size="xs" />
+              <PlatformIcon :platform="section.platform as UpstreamPlatform" size="xs" />
               {{ section.platform }}
             </span>
           </td>
 
-          <!-- 分组：专属分组在前（紫色 shield 行），公开分组在后（灰色 globe 行）。 -->
-          <td class="align-top px-4 py-3">
+          <!-- 分组属于渠道本身，不再按平台 section 拆分。 -->
+          <td
+            v-if="secIdx === 0"
+            :rowspan="channel.platforms.length"
+            class="align-top px-4 py-3"
+          >
             <div class="flex flex-col gap-1.5">
               <div
-                v-if="exclusiveGroups(section).length > 0"
+                v-if="exclusiveGroups(channel).length > 0"
                 class="flex flex-wrap items-center gap-1.5"
               >
                 <span
@@ -85,19 +89,27 @@
                   <Icon name="shield" size="xs" class="h-3 w-3" />
                   {{ t('availableChannels.exclusive') }}
                 </span>
-                <GroupBadge
-                  v-for="g in exclusiveGroups(section)"
-                  :key="`ex-${g.id}`"
-                  :name="g.name"
-                  :platform="g.platform as GroupPlatform"
-                  :subscription-type="(g.subscription_type || 'standard') as SubscriptionType"
-                  :rate-multiplier="g.rate_multiplier"
-                  :user-rate-multiplier="userGroupRates[g.id] ?? null"
-                  always-show-rate
-                />
+                <div v-for="g in exclusiveGroups(channel)" :key="`ex-${g.id}`" class="flex flex-wrap items-center gap-1">
+                  <GroupBadge
+                    :name="g.name"
+                    :icon="g.icon"
+                    :color="g.color"
+                    :upstream-platforms="g.upstream_platforms"
+                    :upstream-protocols="g.upstream_protocols"
+                    :subscription-type="(g.subscription_type || 'standard') as SubscriptionType"
+                    :rate-multiplier="g.rate_multiplier"
+                    :user-rate-multiplier="userGroupRates[g.id] ?? null"
+                    :title="ingressProtocols(g)"
+                    always-show-rate
+                  />
+                  <GroupUpstreamBadges
+                    :upstream-platforms="g.upstream_platforms"
+                    :upstream-protocols="g.upstream_protocols"
+                  />
+                </div>
               </div>
               <div
-                v-if="publicGroups(section).length > 0"
+                v-if="publicGroups(channel).length > 0"
                 class="flex flex-wrap items-center gap-1.5"
               >
                 <span
@@ -107,18 +119,26 @@
                   <Icon name="globe" size="xs" class="h-3 w-3" />
                   {{ t('availableChannels.public') }}
                 </span>
-                <GroupBadge
-                  v-for="g in publicGroups(section)"
-                  :key="`pub-${g.id}`"
-                  :name="g.name"
-                  :platform="g.platform as GroupPlatform"
-                  :subscription-type="(g.subscription_type || 'standard') as SubscriptionType"
-                  :rate-multiplier="g.rate_multiplier"
-                  :user-rate-multiplier="userGroupRates[g.id] ?? null"
-                  always-show-rate
-                />
+                <div v-for="g in publicGroups(channel)" :key="`pub-${g.id}`" class="flex flex-wrap items-center gap-1">
+                  <GroupBadge
+                    :name="g.name"
+                    :icon="g.icon"
+                    :color="g.color"
+                    :upstream-platforms="g.upstream_platforms"
+                    :upstream-protocols="g.upstream_protocols"
+                    :subscription-type="(g.subscription_type || 'standard') as SubscriptionType"
+                    :rate-multiplier="g.rate_multiplier"
+                    :user-rate-multiplier="userGroupRates[g.id] ?? null"
+                    :title="ingressProtocols(g)"
+                    always-show-rate
+                  />
+                  <GroupUpstreamBadges
+                    :upstream-platforms="g.upstream_platforms"
+                    :upstream-protocols="g.upstream_protocols"
+                  />
+                </div>
               </div>
-              <span v-if="section.groups.length === 0" class="text-xs text-gray-400">-</span>
+              <span v-if="channelGroups(channel).length === 0" class="text-xs text-gray-400">-</span>
             </div>
           </td>
 
@@ -150,9 +170,10 @@ import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import GroupBadge from '@/components/common/GroupBadge.vue'
+import GroupUpstreamBadges from '@/components/common/GroupUpstreamBadges.vue'
 import SupportedModelChip from './SupportedModelChip.vue'
-import type { UserAvailableChannel, UserAvailableGroup, UserChannelPlatformSection } from '@/api/channels'
-import type { GroupPlatform, SubscriptionType } from '@/types'
+import type { UserAvailableChannel, UserAvailableGroup } from '@/api/channels'
+import type { SubscriptionType, UpstreamPlatform } from '@/types'
 import { platformBadgeClass } from '@/utils/platformColors'
 
 const props = defineProps<{
@@ -179,11 +200,23 @@ void props.userGroupRates
 
 const { t } = useI18n()
 
-function exclusiveGroups(section: UserChannelPlatformSection): UserAvailableGroup[] {
-  return section.groups.filter((g) => g.is_exclusive)
+function channelGroups(channel: UserAvailableChannel): UserAvailableGroup[] {
+  const groups = new Map<number, UserAvailableGroup>()
+  for (const section of channel.platforms) {
+    for (const group of section.groups) groups.set(group.id, group)
+  }
+  return [...groups.values()]
 }
 
-function publicGroups(section: UserChannelPlatformSection): UserAvailableGroup[] {
-  return section.groups.filter((g) => !g.is_exclusive)
+function exclusiveGroups(channel: UserAvailableChannel): UserAvailableGroup[] {
+  return channelGroups(channel).filter((group) => group.is_exclusive)
+}
+
+function publicGroups(channel: UserAvailableChannel): UserAvailableGroup[] {
+  return channelGroups(channel).filter((group) => !group.is_exclusive)
+}
+
+function ingressProtocols(group: UserAvailableGroup): string {
+  return group.available_ingress_protocols?.join(', ') || ''
 }
 </script>

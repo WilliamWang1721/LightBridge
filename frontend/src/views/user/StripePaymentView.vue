@@ -260,7 +260,7 @@ async function handleGenericPay() {
   stripeSubmitting.value = true
   stripeError.value = ''
   try {
-    const { error } = await stripeInstance.confirmPayment({
+    const { error, paymentIntent } = await stripeInstance.confirmPayment({
       elements: elementsInstance,
       confirmParams: {
         return_url: window.location.origin + '/payment/result?order_id=' + route.query.order_id + '&status=success',
@@ -269,9 +269,13 @@ async function handleGenericPay() {
     })
     if (error) {
       stripeError.value = error.message || t('payment.result.failed')
-    } else {
+    } else if (paymentIntent?.status === 'succeeded') {
       stripeSuccess.value = true
       scheduleClose()
+    } else if (paymentIntent?.status === 'processing' || paymentIntent?.status === 'requires_action') {
+      startPolling()
+    } else {
+      stripeError.value = t('payment.result.failed')
     }
   } catch (err: unknown) {
     stripeError.value = extractI18nErrorMessage(err, t, 'payment.errors', t('payment.result.failed'))
@@ -293,6 +297,10 @@ function startPolling() {
       stripeSuccess.value = true
       wechatQrUrl.value = ''
       scheduleClose()
+    } else if (o.status === 'FAILED' || o.status === 'CANCELLED' || o.status === 'EXPIRED') {
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
+      stripeError.value = t('payment.result.failed')
+      wechatQrUrl.value = ''
     }
   }, 3000)
 }

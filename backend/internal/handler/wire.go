@@ -86,9 +86,17 @@ func ProvideAdminHandlers(
 	}
 }
 
-// ProvideSystemHandler creates admin.SystemHandler with UpdateService
-func ProvideSystemHandler(updateService *service.UpdateService, lockService *service.SystemOperationLockService) *admin.SystemHandler {
-	return admin.NewSystemHandler(updateService, lockService)
+// ProvideSystemHandler creates admin.SystemHandler with UpdateService and the
+// existing BackupService for opt-in pre-version PostgreSQL snapshots.
+func ProvideSystemHandler(
+	updateService *service.UpdateService,
+	backupService *service.BackupService,
+	settingService *service.SettingService,
+	lockService *service.SystemOperationLockService,
+) *admin.SystemHandler {
+	handler := admin.NewSystemHandler(updateService, lockService)
+	handler.SetVersionBackupDependencies(backupService, settingService)
+	return handler
 }
 
 // ProvideSettingHandler creates SettingHandler with version from BuildInfo

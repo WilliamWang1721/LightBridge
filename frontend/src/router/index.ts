@@ -382,6 +382,19 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/settings/backup',
+    name: 'AdminBackupSettings',
+    component: () => import('@/views/admin/SettingsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Backup Settings',
+      titleKey: 'admin.backup.title',
+      descriptionKey: 'admin.backup.description',
+      defaultTab: 'backup'
+    }
+  },
+  {
     path: '/admin/version-control',
     name: 'AdminVersionControl',
     component: () => import('@/views/admin/VersionControlView.vue'),
@@ -423,6 +436,7 @@ const routes: RouteRecordRaw[] = [
     name: 'NotFound',
     component: () => import('@/views/NotFoundView.vue'),
     meta: {
+      requiresAuth: false,
       title: '404 Not Found'
     }
   }
@@ -498,7 +512,7 @@ const BACKEND_MODE_CALLBACK_PATHS = [
 const BACKEND_MODE_PENDING_AUTH_PATHS = ['/register', '/email-verify']
 
 function isBackendModePublicRouteAllowed(path: string, hasPendingAuthSession: boolean): boolean {
-  if (BACKEND_MODE_ALLOWED_PATHS.some((allowedPath) => path === allowedPath || path.startsWith(allowedPath))) {
+  if (BACKEND_MODE_ALLOWED_PATHS.some((allowedPath) => path === allowedPath || path.startsWith(`${allowedPath}/`))) {
     return true
   }
 
@@ -697,6 +711,7 @@ router.afterEach((to) => {
  * Handles dynamic import failures caused by deployment updates
  */
 router.onError((error) => {
+  navigationLoading.endNavigation()
   console.error('Router error:', error)
 
   // Check if this is a dynamic import failure (chunk loading error)

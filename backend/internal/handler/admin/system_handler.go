@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -19,8 +20,10 @@ import (
 
 // SystemHandler handles system-related operations
 type SystemHandler struct {
-	updateSvc systemUpdateService
-	lockSvc   *service.SystemOperationLockService
+	updateSvc     systemUpdateService
+	backupSvc     systemBackupService
+	featureReader progressiveFeatureReader
+	lockSvc       *service.SystemOperationLockService
 }
 
 type systemUpdateService interface {
@@ -31,12 +34,32 @@ type systemUpdateService interface {
 	Rollback() error
 }
 
+type systemBackupService interface {
+	CreateBackupWithMetadata(ctx context.Context, triggeredBy string, expireDays int, metadata service.BackupRecordMetadata) (*service.BackupRecord, error)
+	RestoreBackup(ctx context.Context, backupID string) error
+	ListBackups(ctx context.Context) ([]service.BackupRecord, error)
+}
+
+type progressiveFeatureReader interface {
+	IsProgressiveFeatureEnabled(ctx context.Context, feature service.ProgressiveFeature) bool
+}
+
+const versionManagerBackupTriggeredBy = "version_manager"
+
 // NewSystemHandler creates a new SystemHandler
 func NewSystemHandler(updateSvc systemUpdateService, lockSvc *service.SystemOperationLockService) *SystemHandler {
 	return &SystemHandler{
 		updateSvc: updateSvc,
 		lockSvc:   lockSvc,
 	}
+}
+
+// SetVersionBackupDependencies configures the mandatory database snapshot and
+// restore dependencies used by version updates and rollbacks. Version actions
+// fail closed when these dependencies are unavailable.
+func (h *SystemHandler) SetVersionBackupDependencies(backupSvc systemBackupService, featureReader progressiveFeatureReader) {
+	h.backupSvc = backupSvc
+	h.featureReader = featureReader
 }
 
 // GetVersion returns the current version
@@ -74,6 +97,7 @@ func (h *SystemHandler) ListVersionReleases(c *gin.Context) {
 		"current_version": info.CurrentVersion,
 		"latest_version":  info.LatestVersion,
 		"build_type":      info.BuildType,
+		"capabilities":    info.Capabilities,
 		"releases":        releases,
 	})
 }
@@ -82,11 +106,20 @@ func (h *SystemHandler) ListVersionReleases(c *gin.Context) {
 // POST /api/v1/admin/system/update
 func (h *SystemHandler) PerformUpdate(c *gin.Context) {
 	operationID := buildSystemOperationID(c, "update")
-	payload := gin.H{"operation_id": operationID}
 	var req struct {
-		Version string `json:"version"`
+		Version       string `json:"version"`
+		BackupCurrent bool   `json:"backup_current"`
 	}
-	_ = c.ShouldBindJSON(&req)
+	if err := bindOptionalVersionActionJSON(c, &req); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	req.Version = normalizeVersionManagerTargetVersion(req.Version)
+	payload := gin.H{
+		"operation_id":   operationID,
+		"version":        req.Version,
+		"backup_current": true,
+	}
 	executeAdminIdempotentJSON(c, "admin.system.update", payload, service.DefaultSystemOperationIdempotencyTTL(), func(ctx context.Context) (any, error) {
 		lock, release, err := h.acquireSystemLock(ctx, operationID)
 		if err != nil {
@@ -98,32 +131,52 @@ func (h *SystemHandler) PerformUpdate(c *gin.Context) {
 			release(releaseReason, succeeded)
 		}()
 
+		backup, err := h.createPreVersionBackup(ctx, c, lock.OperationID(), "update", req.Version)
+		if err != nil {
+			releaseReason = infraerrors.Reason(err)
+			return nil, err
+		}
+
 		if err := h.updateSvc.PerformUpdateToVersion(ctx, req.Version); err != nil {
+			if errors.Is(err, service.ErrInPlaceUpdateUnsupported) {
+				releaseReason = "SYSTEM_UPDATE_UNSUPPORTED"
+				return nil, err
+			}
 			if errors.Is(err, service.ErrNoUpdateAvailable) {
-				info, checkErr := h.updateSvc.CheckUpdate(ctx, false)
-				if checkErr != nil {
-					releaseReason = "SYSTEM_UPDATE_FAILED"
-					return nil, checkErr
-				}
 				succeeded = true
-				return gin.H{
+				result := gin.H{
 					"message":            "Already up to date",
 					"already_up_to_date": true,
-					"current_version":    info.CurrentVersion,
-					"latest_version":     info.LatestVersion,
 					"operation_id":       lock.OperationID(),
-				}, nil
+					"backup":             backup,
+				}
+				if backup.Metadata != nil {
+					result["current_version"] = backup.Metadata.SourceVersion
+					result["latest_version"] = backup.Metadata.TargetVersion
+				}
+				return result, nil
+			}
+			if restoreErr := h.backupSvc.RestoreBackup(ctx, backup.ID); restoreErr != nil {
+				releaseReason = "SYSTEM_UPDATE_DATABASE_RECOVERY_FAILED"
+				return nil, infraerrors.InternalServer(
+					"SYSTEM_UPDATE_DATABASE_RECOVERY_FAILED",
+					"update failed and the pre-update database snapshot could not be restored: "+restoreErr.Error(),
+				).WithCause(errors.Join(err, restoreErr)).WithMetadata(map[string]string{"backup_id": backup.ID})
 			}
 			releaseReason = "SYSTEM_UPDATE_FAILED"
 			return nil, infraerrors.InternalServer("SYSTEM_UPDATE_FAILED", "update failed: "+err.Error()).WithCause(err)
 		}
 		succeeded = true
 
-		return gin.H{
+		result := gin.H{
 			"message":      "Update completed. Please restart the service.",
 			"need_restart": true,
 			"operation_id": lock.OperationID(),
-		}, nil
+		}
+		if backup != nil {
+			result["backup"] = backup
+		}
+		return result, nil
 	})
 }
 
@@ -131,7 +184,17 @@ func (h *SystemHandler) PerformUpdate(c *gin.Context) {
 // POST /api/v1/admin/system/rollback
 func (h *SystemHandler) Rollback(c *gin.Context) {
 	operationID := buildSystemOperationID(c, "rollback")
-	payload := gin.H{"operation_id": operationID}
+	var req struct {
+		BackupCurrent bool `json:"backup_current"`
+	}
+	if err := bindOptionalVersionActionJSON(c, &req); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	payload := gin.H{
+		"operation_id":   operationID,
+		"backup_current": true,
+	}
 	executeAdminIdempotentJSON(c, "admin.system.rollback", payload, service.DefaultSystemOperationIdempotencyTTL(), func(ctx context.Context) (any, error) {
 		lock, release, err := h.acquireSystemLock(ctx, operationID)
 		if err != nil {
@@ -143,18 +206,185 @@ func (h *SystemHandler) Rollback(c *gin.Context) {
 			release(releaseReason, succeeded)
 		}()
 
+		safetyBackup, err := h.createPreVersionBackup(ctx, c, lock.OperationID(), "rollback", "")
+		if err != nil {
+			releaseReason = infraerrors.Reason(err)
+			return nil, err
+		}
+
+		currentVersion := ""
+		if safetyBackup.Metadata != nil {
+			currentVersion = normalizeVersionManagerTargetVersion(safetyBackup.Metadata.SourceVersion)
+		}
+		records, err := h.backupSvc.ListBackups(ctx)
+		if err != nil {
+			releaseReason = "SYSTEM_ROLLBACK_BACKUP_LIST_FAILED"
+			return nil, infraerrors.ServiceUnavailable(
+				"SYSTEM_ROLLBACK_BACKUP_LIST_FAILED",
+				"could not list database snapshots required for a full rollback",
+			).WithCause(err)
+		}
+		preUpgradeBackup := findPreUpgradeBackupForVersion(records, currentVersion)
+		if preUpgradeBackup == nil {
+			releaseReason = "SYSTEM_ROLLBACK_DATABASE_SNAPSHOT_NOT_FOUND"
+			return nil, infraerrors.Conflict(
+				"SYSTEM_ROLLBACK_DATABASE_SNAPSHOT_NOT_FOUND",
+				"no completed pre-upgrade database snapshot matches the current application version",
+			).WithMetadata(map[string]string{"current_version": currentVersion})
+		}
+		if err := h.backupSvc.RestoreBackup(ctx, preUpgradeBackup.ID); err != nil {
+			releaseReason = "SYSTEM_ROLLBACK_DATABASE_RESTORE_FAILED"
+			return nil, infraerrors.InternalServer(
+				"SYSTEM_ROLLBACK_DATABASE_RESTORE_FAILED",
+				"could not restore the database snapshot required for rollback: "+err.Error(),
+			).WithCause(err).WithMetadata(map[string]string{"backup_id": preUpgradeBackup.ID})
+		}
+
 		if err := h.updateSvc.Rollback(); err != nil {
+			recoveryErr := h.backupSvc.RestoreBackup(ctx, safetyBackup.ID)
+			if recoveryErr != nil {
+				releaseReason = "SYSTEM_ROLLBACK_DATABASE_RECOVERY_FAILED"
+				return nil, infraerrors.InternalServer(
+					"SYSTEM_ROLLBACK_DATABASE_RECOVERY_FAILED",
+					"binary rollback failed and the current database snapshot could not be restored: "+recoveryErr.Error(),
+				).WithCause(errors.Join(err, recoveryErr)).WithMetadata(map[string]string{"backup_id": safetyBackup.ID})
+			}
+			if errors.Is(err, service.ErrInPlaceUpdateUnsupported) {
+				releaseReason = "SYSTEM_ROLLBACK_UNSUPPORTED"
+				return nil, err
+			}
 			releaseReason = "SYSTEM_ROLLBACK_FAILED"
 			return nil, infraerrors.InternalServer("SYSTEM_ROLLBACK_FAILED", "rollback failed: "+err.Error()).WithCause(err)
 		}
 		succeeded = true
 
-		return gin.H{
-			"message":      "Rollback completed. Please restart the service.",
-			"need_restart": true,
-			"operation_id": lock.OperationID(),
-		}, nil
+		result := gin.H{
+			"message":         "Rollback completed. Please restart the service.",
+			"need_restart":    true,
+			"operation_id":    lock.OperationID(),
+			"backup":          safetyBackup,
+			"restored_backup": preUpgradeBackup,
+		}
+		return result, nil
 	})
+}
+
+func bindOptionalVersionActionJSON(c *gin.Context, dst any) error {
+	err := c.ShouldBindJSON(dst)
+	if err == nil || errors.Is(err, io.EOF) {
+		return nil
+	}
+	return infraerrors.BadRequest("INVALID_REQUEST_BODY", "invalid JSON request body").WithCause(err)
+}
+
+func findPreUpgradeBackupForVersion(records []service.BackupRecord, currentVersion string) *service.BackupRecord {
+	currentVersion = normalizeVersionManagerTargetVersion(currentVersion)
+	if currentVersion == "" {
+		return nil
+	}
+	for i := range records {
+		record := &records[i]
+		if record.ID == "" || record.Status != "completed" || record.TriggeredBy != versionManagerBackupTriggeredBy || record.Metadata == nil {
+			continue
+		}
+		if record.Metadata.VersionAction != "update" {
+			continue
+		}
+		if normalizeVersionManagerTargetVersion(record.Metadata.TargetVersion) == currentVersion {
+			return record
+		}
+	}
+	return nil
+}
+
+// createPreVersionBackup creates a synchronous PostgreSQL logical snapshot
+// while the system operation lock is held. It deliberately fails closed: a
+// requested snapshot must succeed before an update or rollback can run.
+func (h *SystemHandler) createPreVersionBackup(
+	ctx context.Context,
+	c *gin.Context,
+	operationID string,
+	action string,
+	targetVersion string,
+) (*service.BackupRecord, error) {
+	if h.featureReader == nil {
+		return nil, infraerrors.ServiceUnavailable(
+			"SYSTEM_VERSION_BACKUP_FEATURE_STATE_UNAVAILABLE",
+			"pre-version backup feature state is unavailable; retry after the service is fully initialized",
+		)
+	}
+	if !h.featureReader.IsProgressiveFeatureEnabled(ctx, service.ProgressiveFeatureBackup) {
+		return nil, infraerrors.Conflict(
+			"SYSTEM_VERSION_BACKUP_FEATURE_DISABLED",
+			"pre-version backup is unavailable because the backup feature is disabled; enable it and retry",
+		)
+	}
+	if h.backupSvc == nil {
+		return nil, infraerrors.ServiceUnavailable(
+			"SYSTEM_VERSION_BACKUP_UNAVAILABLE",
+			"pre-version backup service is unavailable; verify backup configuration and retry",
+		)
+	}
+
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok || subject.UserID <= 0 {
+		return nil, infraerrors.Unauthorized(
+			"SYSTEM_VERSION_BACKUP_ADMIN_IDENTITY_REQUIRED",
+			"an authenticated admin identity is required to create a pre-version backup",
+		)
+	}
+
+	info, err := h.updateSvc.CheckUpdate(ctx, false)
+	if err != nil || info == nil || strings.TrimSpace(info.CurrentVersion) == "" {
+		versionContextErr := err
+		if versionContextErr == nil {
+			versionContextErr = errors.New("current version is unavailable")
+		}
+		return nil, infraerrors.ServiceUnavailable(
+			"SYSTEM_VERSION_BACKUP_VERSION_CONTEXT_UNAVAILABLE",
+			"could not determine the current version for the pre-version backup; retry the operation",
+		).WithCause(versionContextErr)
+	}
+
+	if action == "update" && strings.TrimSpace(targetVersion) == "" {
+		targetVersion = info.LatestVersion
+	}
+	metadata := service.BackupRecordMetadata{
+		SourceVersion:     strings.TrimSpace(info.CurrentVersion),
+		VersionAction:     action,
+		TargetVersion:     strings.TrimSpace(targetVersion),
+		SystemOperationID: operationID,
+		InitiatingAdminID: subject.UserID,
+	}
+	record, err := h.backupSvc.CreateBackupWithMetadata(
+		ctx,
+		versionManagerBackupTriggeredBy,
+		service.DefaultPreVersionBackupRetentionDays,
+		metadata,
+	)
+	if err == nil && record != nil && record.Status == "completed" {
+		if record.Metadata == nil {
+			metadataCopy := metadata
+			record.Metadata = &metadataCopy
+		}
+		return record, nil
+	}
+	if err == nil {
+		err = errors.New("backup completed without a completed backup record")
+	}
+
+	metadataForResponse := map[string]string{}
+	if record != nil && record.ID != "" {
+		metadataForResponse["backup_id"] = record.ID
+	}
+	return record, infraerrors.ServiceUnavailable(
+		"SYSTEM_VERSION_BACKUP_FAILED",
+		"pre-version PostgreSQL backup failed; verify S3-compatible backup storage and retry",
+	).WithCause(err).WithMetadata(metadataForResponse)
+}
+
+func normalizeVersionManagerTargetVersion(version string) string {
+	return strings.TrimPrefix(strings.TrimSpace(version), "v")
 }
 
 // RestartService restarts the systemd service

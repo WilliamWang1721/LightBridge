@@ -31,10 +31,63 @@
         </p>
       </div>
 
+      <!-- Relay mode -->
+      <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div class="mb-3 flex items-center justify-between">
+          <div class="flex-1 pr-4">
+            <label
+              id="bulk-edit-relay-mode-label"
+              class="input-label mb-0"
+              for="bulk-edit-relay-mode-enabled"
+            >
+              {{ t('admin.accounts.relayMode.label') }}
+            </label>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.bulkEdit.relayModeUnchangedHint') }}
+            </p>
+          </div>
+          <input
+            v-model="enableRelayMode"
+            id="bulk-edit-relay-mode-enabled"
+            type="checkbox"
+            aria-controls="bulk-edit-relay-mode"
+            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+          />
+        </div>
+        <div
+          id="bulk-edit-relay-mode"
+          :class="!enableRelayMode && 'pointer-events-none opacity-50'"
+          role="group"
+          aria-labelledby="bulk-edit-relay-mode-label"
+        >
+          <Select
+            v-model="relayMode"
+            data-testid="bulk-edit-relay-mode-select"
+            :options="relayModeOptions"
+            aria-labelledby="bulk-edit-relay-mode-label"
+          />
+          <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            {{ t('admin.accounts.bulkEdit.relayModeProtocolHint') }}
+          </p>
+          <p v-if="isMixedPlatform" class="mt-2 text-xs text-amber-700 dark:text-amber-400">
+            {{ t('admin.accounts.bulkEdit.relayModeMixedPlatformWarning') }}
+          </p>
+          <p
+            v-if="enableRelayMode && allOpenAIPassthroughCapable"
+            class="mt-2 text-xs text-blue-700 dark:text-blue-400"
+          >
+            {{ t('admin.accounts.bulkEdit.relayModeOverridesOpenAIPassthrough') }}
+          </p>
+        </div>
+      </div>
+
       <!-- OpenAI full passthrough -->
       <div
         v-if="allOpenAIPassthroughCapable"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+        :class="[
+          'border-t border-gray-200 pt-4 dark:border-dark-600',
+          enableRelayMode && 'opacity-50'
+        ]"
       >
         <div class="mb-3 flex items-center justify-between">
           <div class="flex-1 pr-4">
@@ -53,6 +106,7 @@
             v-model="enableOpenAIPassthrough"
             id="bulk-edit-openai-passthrough-enabled"
             type="checkbox"
+            :disabled="enableRelayMode"
             aria-controls="bulk-edit-openai-passthrough-body"
             class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           />
@@ -70,6 +124,7 @@
               'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
               openaiPassthroughEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
             ]"
+            :disabled="enableRelayMode"
             @click="openaiPassthroughEnabled = !openaiPassthroughEnabled"
           >
             <span
@@ -1179,7 +1234,13 @@ import {
   resolveOpenAIWSModeConcurrencyHintKey
 } from '@/utils/openaiWsMode'
 import type { OpenAIWSMode } from '@/utils/openaiWsMode'
-import { RELAY_MODE_FULL_PASSTHROUGH, RELAY_MODE_ROUTER, writeRelayModeToExtra } from '@/utils/relayMode'
+import {
+  RELAY_MODE_FULL_PASSTHROUGH,
+  RELAY_MODE_PASSTHROUGH,
+  RELAY_MODE_ROUTER,
+  writeRelayModeToExtra,
+  type RelayMode
+} from '@/utils/relayMode'
 interface Props {
   show: boolean
   accountIds: number[]
@@ -1282,6 +1343,7 @@ const enablePriority = ref(false)
 const enableRateMultiplier = ref(false)
 const enableStatus = ref(false)
 const enableGroups = ref(false)
+const enableRelayMode = ref(false)
 const enableOpenAIPassthrough = ref(false)
 const enableOpenAIWSMode = ref(false)
 const enableOpenAIAPIKeyWSMode = ref(false)
@@ -1311,6 +1373,7 @@ const priority = ref(1)
 const rateMultiplier = ref(1)
 const status = ref<'active' | 'inactive'>('active')
 const groupIds = ref<number[]>([])
+const relayMode = ref<RelayMode>(RELAY_MODE_ROUTER)
 const openaiPassthroughEnabled = ref(false)
 const openaiOAuthResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
 const openaiAPIKeyResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
@@ -1343,6 +1406,11 @@ const commonErrorCodes = [
 const statusOptions = computed(() => [
   { value: 'active', label: t('common.active') },
   { value: 'inactive', label: t('common.inactive') }
+])
+const relayModeOptions = computed(() => [
+  { value: RELAY_MODE_ROUTER, label: t('admin.accounts.relayMode.router') },
+  { value: RELAY_MODE_PASSTHROUGH, label: t('admin.accounts.relayMode.passthrough') },
+  { value: RELAY_MODE_FULL_PASSTHROUGH, label: t('admin.accounts.relayMode.fullPassthrough') }
 ])
 const isOpenAIModelRestrictionDisabled = computed(
   () =>
@@ -1517,7 +1585,16 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
     }
   }
 
-  if (enableOpenAIPassthrough.value) {
+  if (enableRelayMode.value) {
+    const extra = ensureExtra()
+    writeRelayModeToExtra(extra, relayMode.value)
+    // The bulk control explicitly writes all three choices, including router.
+    extra.relay_mode = relayMode.value
+    // JSONB merge cannot remove omitted keys, so explicitly clear legacy flags.
+    extra.openai_passthrough = false
+    extra.openai_oauth_passthrough = false
+    extra.anthropic_passthrough = false
+  } else if (enableOpenAIPassthrough.value) {
     const extra = ensureExtra()
     if (openaiPassthroughEnabled.value) {
       writeRelayModeToExtra(extra, RELAY_MODE_FULL_PASSTHROUGH)
@@ -1667,6 +1744,7 @@ const handleSubmit = async () => {
 
   const hasAnyFieldEnabled =
     enableBaseUrl.value ||
+    enableRelayMode.value ||
     enableOpenAIPassthrough.value ||
     enableModelRestriction.value ||
     enableCustomErrorCodes.value ||
@@ -1763,6 +1841,12 @@ const handleMixedChannelCancel = () => {
   pendingUpdatesForConfirm.value = null
 }
 
+watch(enableRelayMode, (enabled) => {
+  if (!enabled) return
+  enableOpenAIPassthrough.value = false
+  openaiPassthroughEnabled.value = false
+})
+
 // Reset form when modal closes
 watch(
   () => props.show,
@@ -1780,6 +1864,7 @@ watch(
       enableRateMultiplier.value = false
       enableStatus.value = false
       enableGroups.value = false
+      enableRelayMode.value = false
       enableOpenAIPassthrough.value = false
       enableOpenAIWSMode.value = false
       enableOpenAIAPIKeyWSMode.value = false
@@ -1806,6 +1891,7 @@ watch(
       rateMultiplier.value = 1
       status.value = 'active'
       groupIds.value = []
+      relayMode.value = RELAY_MODE_ROUTER
       openaiOAuthResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
       openaiAPIKeyResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
       codexCLIOnlyEnabled.value = false

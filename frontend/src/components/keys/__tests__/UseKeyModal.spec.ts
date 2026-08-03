@@ -23,7 +23,7 @@ describe('UseKeyModal', () => {
         show: true,
         apiKey: 'sk-test',
         baseUrl: 'https://example.com/v1',
-        platform: 'openai'
+        availableIngressProtocols: ['openai_responses']
       },
       global: {
         stubs: {
@@ -55,7 +55,7 @@ describe('UseKeyModal', () => {
         show: true,
         apiKey: 'sk-test',
         baseUrl: 'https://example.com/v1',
-        platform: 'openai'
+        availableIngressProtocols: ['openai_responses']
       },
       global: {
         stubs: {
@@ -95,7 +95,7 @@ describe('UseKeyModal', () => {
         show: true,
         apiKey: 'sk-test',
         baseUrl: 'https://example.com/v1',
-        platform: 'openai'
+        availableIngressProtocols: ['openai_responses']
       },
       global: {
         stubs: {
@@ -121,5 +121,30 @@ describe('UseKeyModal', () => {
     expect(codeBlock.exists()).toBe(true)
     expect(codeBlock.text()).toContain('"name": "GPT-5.4 Mini"')
     expect(codeBlock.text()).not.toContain('"name": "GPT-5.4 Nano"')
+  })
+
+  it('keeps an unknown group neutral instead of rendering Claude instructions', () => {
+    const wrapper = mount(UseKeyModal, {
+      props: {
+        show: true,
+        apiKey: 'sk-test',
+        baseUrl: 'https://example.com/v1',
+        availableIngressProtocols: []
+      },
+      global: {
+        stubs: {
+          BaseDialog: {
+            template: '<div><slot /><slot name="footer" /></div>'
+          },
+          Icon: {
+            template: '<span />'
+          }
+        }
+      }
+    })
+
+    expect(wrapper.text()).toContain('keys.useKeyModal.noGroupTitle')
+    expect(wrapper.text()).not.toContain('keys.useKeyModal.cliTabs.claudeCode')
+    expect(wrapper.findAll('pre code')).toHaveLength(0)
   })
 })

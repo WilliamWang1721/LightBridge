@@ -117,12 +117,20 @@ export default {
     ccSwitchNotInstalled:
       'CC-Switch 未安装或协议处理程序未注册。请先安装 CC-Switch 或手动复制 API 密钥。',
     ccsClientSelect: {
-      title: '选择客户端',
-      description: '请选择您要导入到 CC-Switch 的客户端类型：',
+      title: '确认 CC-Switch 导入配置',
+      description: '请选择兼容的客户端，并在导入前确认端点：',
       claudeCode: 'Claude Code',
       claudeCodeDesc: '导入为 Claude Code 配置',
       geminiCli: 'Gemini CLI',
-      geminiCliDesc: '导入为 Gemini CLI 配置'
+      geminiCliDesc: '导入为 Gemini CLI 配置',
+      codex: 'Codex',
+      codexDesc: '导入为 OpenAI Responses 配置',
+      noCompatibleClient: '该分组当前没有 CC-Switch 支持的可用协议。',
+      endpoint: '端点',
+      model: '模型',
+      modelPlaceholder: '可选模型 ID',
+      modelHint: '留空时由 CC-Switch 或客户端使用其已配置模型。',
+      import: '导入'
     },
     // 配额和有效期
     quotaLimit: '额度限制',

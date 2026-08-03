@@ -17,6 +17,15 @@ export interface BackupScheduleConfig {
   retain_count: number
 }
 
+/** Version Manager provenance attached only to its pre-action database snapshots. */
+export interface VersionManagerBackupMetadata {
+  source_version: string
+  version_action: 'update' | 'rollback'
+  target_version?: string
+  system_operation_id: string
+  initiating_admin_id: number
+}
+
 export interface BackupRecord {
   id: string
   status: 'pending' | 'running' | 'completed' | 'failed'
@@ -33,6 +42,8 @@ export interface BackupRecord {
   restore_status?: string
   restore_error?: string
   restored_at?: string
+  /** Present when Version Manager created this snapshot before an update or rollback. */
+  metadata?: VersionManagerBackupMetadata
 }
 
 export interface CreateBackupRequest {

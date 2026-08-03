@@ -2,9 +2,11 @@ package repository
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	dbent "github.com/WilliamWang1721/LightBridge/ent"
+	dbaccount "github.com/WilliamWang1721/LightBridge/ent/account"
 	"github.com/WilliamWang1721/LightBridge/ent/group"
 	"github.com/WilliamWang1721/LightBridge/ent/usersubscription"
 	"github.com/WilliamWang1721/LightBridge/internal/pkg/pagination"
@@ -191,7 +193,7 @@ func (r *userSubscriptionRepository) ListByGroupID(ctx context.Context, groupID 
 	return userSubscriptionEntitiesToService(subs), paginationResultFromTotal(int64(total), params), nil
 }
 
-func (r *userSubscriptionRepository) List(ctx context.Context, params pagination.PaginationParams, userID, groupID *int64, status, platform, sortBy, sortOrder string) ([]service.UserSubscription, *pagination.PaginationResult, error) {
+func (r *userSubscriptionRepository) List(ctx context.Context, params pagination.PaginationParams, userID, groupID *int64, status, upstreamPlatform, sortBy, sortOrder string) ([]service.UserSubscription, *pagination.PaginationResult, error) {
 	client := clientFromContext(ctx, r.client)
 	q := client.UserSubscription.Query()
 	if userID != nil {
@@ -200,8 +202,30 @@ func (r *userSubscriptionRepository) List(ctx context.Context, params pagination
 	if groupID != nil {
 		q = q.Where(usersubscription.GroupIDEQ(*groupID))
 	}
-	if platform != "" {
-		q = q.Where(usersubscription.HasGroupWith(group.PlatformEQ(platform)))
+	if normalizedPlatform := strings.TrimSpace(strings.ToLower(upstreamPlatform)); normalizedPlatform != "" {
+		accountPlatformPredicate := dbaccount.PlatformEqualFold(normalizedPlatform)
+		switch normalizedPlatform {
+		case service.PlatformAntigravity:
+			// Antigravity is stored canonically as gemini + sub_platform.
+			// Keep the legacy raw platform value for rolling-upgrade compatibility.
+			accountPlatformPredicate = dbaccount.Or(
+				dbaccount.SubPlatformEqualFold(service.SubPlatformAntigravity),
+				dbaccount.PlatformEqualFold(service.PlatformAntigravity),
+			)
+		case service.PlatformGemini:
+			// A pure Gemini filter must not also match Antigravity accounts.
+			accountPlatformPredicate = dbaccount.And(
+				dbaccount.PlatformEqualFold(service.PlatformGemini),
+				dbaccount.Not(dbaccount.SubPlatformEqualFold(service.SubPlatformAntigravity)),
+			)
+		}
+		q = q.Where(usersubscription.HasGroupWith(
+			group.DeletedAtIsNil(),
+			group.HasAccountsWith(
+				dbaccount.DeletedAtIsNil(),
+				accountPlatformPredicate,
+			),
+		))
 	}
 
 	// Status filtering with real-time expiration check

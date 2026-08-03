@@ -980,11 +980,9 @@ func buildUsageWhere(filter *service.OpsDashboardFilter, start, end time.Time, s
 		idx++
 	}
 	if platform != "" {
-		// Prefer group.platform when available; fall back to account.platform so we don't
-		// drop rows where group_id is NULL.
-		join = "LEFT JOIN groups g ON g.id = ul.group_id LEFT JOIN accounts a ON a.id = ul.account_id"
+		join = "LEFT JOIN accounts a ON a.id = ul.account_id"
 		args = append(args, platform)
-		clauses = append(clauses, fmt.Sprintf("COALESCE(NULLIF(g.platform,''), a.platform) = $%d", idx))
+		clauses = append(clauses, fmt.Sprintf("%s = $%d", usageLogEffectivePlatformExpr, idx))
 		idx++
 	}
 
@@ -1020,7 +1018,7 @@ func buildErrorWhere(filter *service.OpsDashboardFilter, start, end time.Time, s
 	}
 	if platform != "" {
 		args = append(args, platform)
-		clauses = append(clauses, fmt.Sprintf("platform = $%d", idx))
+		clauses = append(clauses, fmt.Sprintf("%s = $%d", opsErrorEffectivePlatformExpr, idx))
 		idx++
 	}
 

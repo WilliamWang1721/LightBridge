@@ -5,11 +5,16 @@
 
 import { apiClient } from './client'
 import type { BillingMode } from '@/constants/channel'
+import type { GroupIcon, GroupUpstreamProtocol, UpstreamPlatform } from '@/types'
 
 export interface UserAvailableGroup {
   id: number
   name: string
-  platform: string
+  icon?: GroupIcon | null
+  color?: string | null
+  upstream_platforms?: UpstreamPlatform[]
+  upstream_protocols?: GroupUpstreamProtocol[]
+  available_ingress_protocols?: GroupUpstreamProtocol[]
   /** 'standard' | 'subscription' — 订阅分组视觉加深，和 API 密钥页保持一致。 */
   subscription_type: string
   /** 分组默认倍率。用户专属倍率（若有）通过 /groups/rates 获取后在前端 join。 */
@@ -47,7 +52,8 @@ export interface UserSupportedModel {
 }
 
 /**
- * 渠道下单个平台的子视图：用户可访问的分组 + 该平台支持的模型。
+ * 渠道下单个平台的子视图：平台只表示定价/模型命名空间。
+ * 分组是渠道级绑定；后端会在各 section 中返回相同的可见分组集合以兼容现有结构。
  * 后端把一个渠道按平台聚合成 sections，前端可以把渠道名作为 row-group
  * 一次渲染，后面按 sections 顺序用 rowspan 铺开。
  */

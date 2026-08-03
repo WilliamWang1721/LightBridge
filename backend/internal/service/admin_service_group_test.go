@@ -97,8 +97,8 @@ func (s *groupRepoStubForAdmin) ListActive(_ context.Context) ([]Group, error) {
 	panic("unexpected ListActive call")
 }
 
-func (s *groupRepoStubForAdmin) ListActiveByPlatform(_ context.Context, _ string) ([]Group, error) {
-	panic("unexpected ListActiveByPlatform call")
+func (s *groupRepoStubForAdmin) ListActiveByUpstreamProtocol(_ context.Context, _ string) ([]Group, error) {
+	panic("unexpected ListActiveByUpstreamProtocol call")
 }
 
 func (s *groupRepoStubForAdmin) ExistsByName(_ context.Context, _ string) (bool, error) {
@@ -395,7 +395,7 @@ func TestAdminService_UpdateGroup_NormalizesMessagesDispatchModelConfig(t *testi
 	}, repo.updated.MessagesDispatchModelConfig)
 }
 
-func TestAdminService_CreateGroup_ClearsMessagesDispatchFieldsForNonOpenAIPlatform(t *testing.T) {
+func TestAdminService_CreateGroup_PreservesMessagesDispatchForProviderNeutralGroup(t *testing.T) {
 	repo := &groupRepoStubForAdmin{}
 	svc := &adminServiceImpl{groupRepo: repo}
 
@@ -413,12 +413,12 @@ func TestAdminService_CreateGroup_ClearsMessagesDispatchFieldsForNonOpenAIPlatfo
 	require.NoError(t, err)
 	require.NotNil(t, group)
 	require.NotNil(t, repo.created)
-	require.False(t, repo.created.AllowMessagesDispatch)
-	require.Empty(t, repo.created.DefaultMappedModel)
-	require.Equal(t, OpenAIMessagesDispatchModelConfig{}, repo.created.MessagesDispatchModelConfig)
+	require.True(t, repo.created.AllowMessagesDispatch)
+	require.Equal(t, "gpt-5.4", repo.created.DefaultMappedModel)
+	require.Equal(t, OpenAIMessagesDispatchModelConfig{OpusMappedModel: "gpt-5.4"}, repo.created.MessagesDispatchModelConfig)
 }
 
-func TestAdminService_UpdateGroup_ClearsMessagesDispatchFieldsWhenPlatformChangesAwayFromOpenAI(t *testing.T) {
+func TestAdminService_UpdateGroup_IgnoresLegacyPlatformChangeAndPreservesMessagesDispatch(t *testing.T) {
 	existingGroup := &Group{
 		ID:                    1,
 		Name:                  "existing-openai-group",
@@ -439,10 +439,10 @@ func TestAdminService_UpdateGroup_ClearsMessagesDispatchFieldsWhenPlatformChange
 	require.NoError(t, err)
 	require.NotNil(t, group)
 	require.NotNil(t, repo.updated)
-	require.Equal(t, PlatformAnthropic, repo.updated.Platform)
-	require.False(t, repo.updated.AllowMessagesDispatch)
-	require.Empty(t, repo.updated.DefaultMappedModel)
-	require.Equal(t, OpenAIMessagesDispatchModelConfig{}, repo.updated.MessagesDispatchModelConfig)
+	require.Equal(t, PlatformOpenAI, repo.updated.Platform)
+	require.True(t, repo.updated.AllowMessagesDispatch)
+	require.Equal(t, "gpt-5.4", repo.updated.DefaultMappedModel)
+	require.Equal(t, OpenAIMessagesDispatchModelConfig{SonnetMappedModel: "gpt-5.3-codex"}, repo.updated.MessagesDispatchModelConfig)
 }
 
 func TestAdminService_ListGroups_WithSearch(t *testing.T) {
@@ -575,8 +575,8 @@ func (s *groupRepoStubForFallbackCycle) ListActive(_ context.Context) ([]Group, 
 	panic("unexpected ListActive call")
 }
 
-func (s *groupRepoStubForFallbackCycle) ListActiveByPlatform(_ context.Context, _ string) ([]Group, error) {
-	panic("unexpected ListActiveByPlatform call")
+func (s *groupRepoStubForFallbackCycle) ListActiveByUpstreamProtocol(_ context.Context, _ string) ([]Group, error) {
+	panic("unexpected ListActiveByUpstreamProtocol call")
 }
 
 func (s *groupRepoStubForFallbackCycle) ExistsByName(_ context.Context, _ string) (bool, error) {
@@ -650,8 +650,8 @@ func (s *groupRepoStubForInvalidRequestFallback) ListActive(_ context.Context) (
 	panic("unexpected ListActive call")
 }
 
-func (s *groupRepoStubForInvalidRequestFallback) ListActiveByPlatform(_ context.Context, _ string) ([]Group, error) {
-	panic("unexpected ListActiveByPlatform call")
+func (s *groupRepoStubForInvalidRequestFallback) ListActiveByUpstreamProtocol(_ context.Context, _ string) ([]Group, error) {
+	panic("unexpected ListActiveByUpstreamProtocol call")
 }
 
 func (s *groupRepoStubForInvalidRequestFallback) ExistsByName(_ context.Context, _ string) (bool, error) {
@@ -729,7 +729,7 @@ func TestAdminService_CreateGroup_InvalidRequestFallbackRejectsFallbackGroup(t *
 	}{
 		{
 			name:        "subscription_group",
-			fallback:    &Group{ID: 10, Platform: PlatformAnthropic, SubscriptionType: SubscriptionTypeSubscription},
+			fallback:    &Group{ID: 10, SubscriptionType: SubscriptionTypeSubscription},
 			wantMessage: "fallback group cannot be subscription type",
 		},
 		{
@@ -825,7 +825,7 @@ func TestAdminService_CreateGroup_InvalidRequestFallbackClearsOnZero(t *testing.
 	require.Nil(t, repo.created.FallbackGroupIDOnInvalidRequest)
 }
 
-func TestAdminService_UpdateGroup_InvalidRequestFallbackAllowsPlatformChange(t *testing.T) {
+func TestAdminService_UpdateGroup_InvalidRequestFallbackIgnoresLegacyPlatformChange(t *testing.T) {
 	fallbackID := int64(10)
 	existing := &Group{
 		ID:                              1,
@@ -849,7 +849,7 @@ func TestAdminService_UpdateGroup_InvalidRequestFallbackAllowsPlatformChange(t *
 	require.NoError(t, err)
 	require.NotNil(t, group)
 	require.NotNil(t, repo.updated)
-	require.Equal(t, PlatformOpenAI, repo.updated.Platform)
+	require.Equal(t, PlatformAnthropic, repo.updated.Platform)
 	require.Equal(t, fallbackID, *repo.updated.FallbackGroupIDOnInvalidRequest)
 }
 

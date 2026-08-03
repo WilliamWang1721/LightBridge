@@ -58,17 +58,21 @@
                 <!-- 分组信息 -->
                 <div class="min-w-0 flex-1">
                   <div class="flex items-center gap-2">
-                    <span class="text-base font-semibold text-gray-900 dark:text-white">{{ config.groupName }}</span>
+                    <GroupBadge
+                      :name="config.groupName"
+                      :icon="config.icon"
+                      :color="config.color"
+                      :show-rate="false"
+                    />
                     <span class="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
                       {{ t('admin.groups.exclusive') }}
                     </span>
                   </div>
-                  <div class="mt-1.5 flex items-center gap-3 text-sm">
-                    <span class="inline-flex items-center gap-1 text-gray-500 dark:text-gray-400">
-                      <PlatformIcon :platform="config.platform" size="xs" />
-                      <span>{{ config.platform }}</span>
-                    </span>
-                    <span class="text-gray-300 dark:text-dark-500">•</span>
+                  <div class="mt-1.5 flex flex-wrap items-center gap-3 text-sm">
+                    <GroupUpstreamBadges
+                      :upstream-platforms="config.upstreamPlatforms"
+                      :upstream-protocols="config.upstreamProtocols"
+                    />
                     <span class="text-gray-500 dark:text-gray-400">
                       {{ t('admin.users.defaultRate') }}: <span class="font-medium text-gray-700 dark:text-gray-300">{{ config.defaultRate }}x</span>
                     </span>
@@ -119,14 +123,18 @@
                 <!-- 分组信息 -->
                 <div class="min-w-0 flex-1">
                   <div class="flex items-center gap-2">
-                    <span class="text-base font-semibold text-gray-900 dark:text-white">{{ config.groupName }}</span>
+                    <GroupBadge
+                      :name="config.groupName"
+                      :icon="config.icon"
+                      :color="config.color"
+                      :show-rate="false"
+                    />
                   </div>
-                  <div class="mt-1.5 flex items-center gap-3 text-sm">
-                    <span class="inline-flex items-center gap-1 text-gray-500 dark:text-gray-400">
-                      <PlatformIcon :platform="config.platform" size="xs" />
-                      <span>{{ config.platform }}</span>
-                    </span>
-                    <span class="text-gray-300 dark:text-dark-500">•</span>
+                  <div class="mt-1.5 flex flex-wrap items-center gap-3 text-sm">
+                    <GroupUpstreamBadges
+                      :upstream-platforms="config.upstreamPlatforms"
+                      :upstream-protocols="config.upstreamProtocols"
+                    />
                     <span class="text-gray-500 dark:text-gray-400">
                       {{ t('admin.users.defaultRate') }}: <span class="font-medium text-gray-700 dark:text-gray-300">{{ config.defaultRate }}x</span>
                     </span>
@@ -183,14 +191,24 @@ import { ref, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
-import type { AdminUser, Group, GroupPlatform } from '@/types'
+import type {
+  AdminUser,
+  Group,
+  GroupIcon,
+  GroupUpstreamProtocol,
+  UpstreamPlatform,
+} from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
-import PlatformIcon from '@/components/common/PlatformIcon.vue'
+import GroupBadge from '@/components/common/GroupBadge.vue'
+import GroupUpstreamBadges from '@/components/common/GroupUpstreamBadges.vue'
 
 interface GroupRateConfig {
   groupId: number
   groupName: string
-  platform: GroupPlatform
+  icon: GroupIcon | null
+  color: string | null
+  upstreamPlatforms: UpstreamPlatform[]
+  upstreamProtocols: GroupUpstreamProtocol[]
   isExclusive: boolean
   defaultRate: number
   customRate: number | null
@@ -241,7 +259,10 @@ const load = async () => {
     groupConfigs.value = groups.value.map((g) => ({
       groupId: g.id,
       groupName: g.name,
-      platform: g.platform,
+      icon: g.icon || null,
+      color: g.color || null,
+      upstreamPlatforms: g.upstream_platforms || [],
+      upstreamProtocols: g.upstream_protocols || [],
       isExclusive: g.is_exclusive,
       defaultRate: g.rate_multiplier,
       customRate: userGroupRates[g.id] ?? null,

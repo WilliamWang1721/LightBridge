@@ -3,6 +3,7 @@
  */
 
 import { apiClient } from '../client'
+import type { BackupRecord } from './backup'
 
 export interface ReleaseInfo {
   name: string
@@ -24,10 +25,31 @@ export interface VersionRelease {
   latest?: boolean
 }
 
+/**
+ * Safe local lifecycle actions for the current deployment.
+ * Container deployments are upgraded by replacing the image, not by changing
+ * the running binary in place.
+ */
+export interface UpdateCapabilities {
+  deployment_type: 'binary' | 'container' | string
+  can_in_place_update: boolean
+  can_rollback: boolean
+  can_restart: boolean
+}
+
+/** Fail closed until the backend has described the current deployment. */
+export const unavailableUpdateCapabilities: UpdateCapabilities = {
+  deployment_type: 'unknown',
+  can_in_place_update: false,
+  can_rollback: false,
+  can_restart: false
+}
+
 export interface VersionReleasesResult {
   current_version: string
   latest_version: string
   build_type: string
+  capabilities: UpdateCapabilities
   releases: VersionRelease[]
 }
 
@@ -39,6 +61,7 @@ export interface VersionInfo {
   cached: boolean
   warning?: string
   build_type: string // "source" for manual builds, "release" for CI builds
+  capabilities: UpdateCapabilities
 }
 
 /**
@@ -73,10 +96,13 @@ export async function listVersionReleases(force = false): Promise<VersionRelease
 export interface UpdateResult {
   message: string
   need_restart: boolean
+  /** Snapshot created before the requested version action, when selected. */
+  backup?: BackupRecord
 }
 
 export interface UpdateOptions {
   version?: string
+  backup_current?: boolean
 }
 
 /**
@@ -84,16 +110,21 @@ export interface UpdateOptions {
  * Downloads and applies the latest version
  */
 export async function performUpdate(options: UpdateOptions = {}): Promise<UpdateResult> {
-  const payload = options.version ? { version: options.version } : undefined
+  const payload = Object.keys(options).length > 0 ? options : undefined
   const { data } = await apiClient.post<UpdateResult>('/admin/system/update', payload)
   return data
+}
+
+export interface RollbackOptions {
+  backup_current?: boolean
 }
 
 /**
  * Rollback to previous version
  */
-export async function rollback(): Promise<UpdateResult> {
-  const { data } = await apiClient.post<UpdateResult>('/admin/system/rollback')
+export async function rollback(options: RollbackOptions = {}): Promise<UpdateResult> {
+  const payload = Object.keys(options).length > 0 ? options : undefined
+  const { data } = await apiClient.post<UpdateResult>('/admin/system/rollback', payload)
   return data
 }
 

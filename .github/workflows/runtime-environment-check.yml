@@ -1,0 +1,175 @@
+name: Runtime & Environment Check
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 4 * * 2'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: runtime-environment-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  environment-contract:
+    name: Environment and dependency contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate checked-in runtime contract
+        run: python3 tools/ci/check_environment_contract.py
+
+      - name: Validate every Compose deployment variant
+        env:
+          POSTGRES_PASSWORD: LightBridge-ci-postgres-2026
+          DATABASE_HOST: 127.0.0.1
+          DATABASE_PASSWORD: LightBridge-ci-postgres-2026
+          REDIS_HOST: 127.0.0.1
+          ADMIN_PASSWORD: LightBridge-CI-Admin-2026!
+          JWT_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+          TOTP_ENCRYPTION_KEY: abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789
+        run: |
+          set -euo pipefail
+          for compose_file in \
+            deploy/docker-compose.yml \
+            deploy/docker-compose.local.yml \
+            deploy/docker-compose.dev.yml \
+            deploy/docker-compose.standalone.yml; do
+            echo "Validating ${compose_file}"
+            docker compose -f "${compose_file}" config --quiet
+          done
+          docker compose \
+            -f deploy/docker-compose.yml \
+            -f deploy/docker-compose.ci.yml \
+            config --quiet
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          check-latest: false
+          cache: true
+          cache-dependency-path: backend/go.sum
+
+      - name: Verify backend dependency graph
+        working-directory: backend
+        run: |
+          go version | grep -q 'go1.26.5'
+          go mod verify
+          go list -mod=readonly -m all >/dev/null
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.13'
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Verify frontend dependency graph
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm list --depth 0 >/dev/null
+
+  source-build:
+    name: Build every maintained source artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          check-latest: false
+          cache: true
+          cache-dependency-path: backend/go.sum
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.13'
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend and backend
+        run: make build
+
+      - name: Validate data-management deployment assets
+        run: |
+          set -euo pipefail
+          bash -n deploy/install-datamanagementd.sh
+          bash deploy/install-datamanagementd.sh --help >/dev/null
+          test -f deploy/LightBridge-datamanagementd.service
+          grep -q 'ExecStart=/opt/LightBridge/datamanagementd' deploy/LightBridge-datamanagementd.service
+          grep -q 'NoNewPrivileges=true' deploy/LightBridge-datamanagementd.service
+          grep -q '/tmp/LightBridge-datamanagement.sock' deploy/LightBridge-datamanagementd.service
+          grep -q -- '--binary' deploy/DATAMANAGEMENTD_CN.md
+          if grep -q -- '--source' deploy/install-datamanagementd.sh deploy/DATAMANAGEMENTD_CN.md; then
+            echo 'Source installation is advertised even though the source module is absent.' >&2
+            exit 1
+          fi
+
+      - name: Build model synchronization smoke utility
+        run: make test-model-sync-smoke
+
+      - name: Verify build outputs
+        run: |
+          test -x backend/bin/server
+          test -f backend/internal/web/dist/index.html
+
+  full-stack-runtime:
+    name: Build image and run the complete stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    needs:
+      - environment-contract
+      - source-build
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build the production image from this commit
+        run: |
+          docker build \
+            --tag lightbridge:ci \
+            --build-arg VERSION=ci-${GITHUB_SHA::12} \
+            --build-arg COMMIT="$GITHUB_SHA" \
+            --build-arg GOPROXY=https://proxy.golang.org,direct \
+            --build-arg GOSUMDB=sum.golang.org \
+            .
+
+      - name: Run full-stack startup, API, persistence, and restart checks
+        env:
+          COMPOSE_PROJECT_NAME: lightbridge-runtime-${{ github.run_id }}-${{ github.run_attempt }}
+          RUNTIME_ARTIFACT_DIR: artifacts/runtime-check
+        run: bash tools/ci/full_stack_smoke.sh
+
+      - name: Upload runtime diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-environment-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/runtime-check
+          if-no-files-found: warn
+          retention-days: 7

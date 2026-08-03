@@ -3,9 +3,11 @@ package service
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	dbent "github.com/WilliamWang1721/LightBridge/ent"
+	"github.com/WilliamWang1721/LightBridge/ent/account"
 	"github.com/WilliamWang1721/LightBridge/ent/group"
 	"github.com/WilliamWang1721/LightBridge/ent/subscriptionplan"
 	infraerrors "github.com/WilliamWang1721/LightBridge/internal/pkg/errors"
@@ -61,23 +63,16 @@ func validatePlanPatch(req UpdatePlanRequest) error {
 
 // PlanGroupInfo holds the group details needed for subscription plan display.
 type PlanGroupInfo struct {
-	Platform        string   `json:"platform"`
-	Name            string   `json:"name"`
-	RateMultiplier  float64  `json:"rate_multiplier"`
-	DailyLimitUSD   *float64 `json:"daily_limit_usd"`
-	WeeklyLimitUSD  *float64 `json:"weekly_limit_usd"`
-	MonthlyLimitUSD *float64 `json:"monthly_limit_usd"`
-	ModelScopes     []string `json:"supported_model_scopes"`
-}
-
-// GetGroupPlatformMap returns a map of group_id → platform for the given plans.
-func (s *PaymentConfigService) GetGroupPlatformMap(ctx context.Context, plans []*dbent.SubscriptionPlan) map[int64]string {
-	info := s.GetGroupInfoMap(ctx, plans)
-	m := make(map[int64]string, len(info))
-	for id, gi := range info {
-		m[id] = gi.Platform
-	}
-	return m
+	Name                      string   `json:"name"`
+	Icon                      string   `json:"icon"`
+	Color                     string   `json:"color"`
+	UpstreamPlatforms         []string `json:"upstream_platforms"`
+	UpstreamProtocols         []string `json:"upstream_protocols"`
+	AvailableIngressProtocols []string `json:"available_ingress_protocols"`
+	RateMultiplier            float64  `json:"rate_multiplier"`
+	DailyLimitUSD             *float64 `json:"daily_limit_usd"`
+	WeeklyLimitUSD            *float64 `json:"weekly_limit_usd"`
+	MonthlyLimitUSD           *float64 `json:"monthly_limit_usd"`
 }
 
 // GetGroupInfoMap returns a map of group_id → PlanGroupInfo for the given plans.
@@ -93,23 +88,65 @@ func (s *PaymentConfigService) GetGroupInfoMap(ctx context.Context, plans []*dbe
 	if len(ids) == 0 {
 		return nil
 	}
-	groups, err := s.entClient.Group.Query().Where(group.IDIn(ids...)).All(ctx)
+	groups, err := s.entClient.Group.Query().
+		Where(group.IDIn(ids...)).
+		WithAccounts(func(q *dbent.AccountQuery) {
+			q.Select(
+				account.FieldPlatform,
+				account.FieldSubPlatform,
+				account.FieldExtra,
+				account.FieldCredentials,
+			)
+		}).
+		All(ctx)
 	if err != nil {
 		return nil
 	}
 	m := make(map[int64]PlanGroupInfo, len(groups))
 	for _, g := range groups {
+		upstreamPlatforms := make(map[string]struct{})
+		upstreamProtocols := make(map[string]struct{})
+		ingressProtocols := make(map[string]struct{})
+		for _, entity := range g.Edges.Accounts {
+			acc := &Account{
+				Platform:    entity.Platform,
+				SubPlatform: entity.SubPlatform,
+				Extra:       entity.Extra,
+				Credentials: entity.Credentials,
+			}
+			if platform := strings.TrimSpace(acc.EffectivePlatform()); platform != "" {
+				upstreamPlatforms[platform] = struct{}{}
+			}
+			for _, protocol := range AccountUpstreamProtocols(acc) {
+				upstreamProtocols[protocol] = struct{}{}
+			}
+			for _, protocol := range AccountAvailableIngressProtocols(acc) {
+				ingressProtocols[protocol] = struct{}{}
+			}
+		}
 		m[int64(g.ID)] = PlanGroupInfo{
-			Platform:        g.Platform,
-			Name:            g.Name,
-			RateMultiplier:  g.RateMultiplier,
-			DailyLimitUSD:   g.DailyLimitUsd,
-			WeeklyLimitUSD:  g.WeeklyLimitUsd,
-			MonthlyLimitUSD: g.MonthlyLimitUsd,
-			ModelScopes:     g.SupportedModelScopes,
+			Name:                      g.Name,
+			Icon:                      g.Icon,
+			Color:                     g.Color,
+			UpstreamPlatforms:         sortedStringSet(upstreamPlatforms),
+			UpstreamProtocols:         sortedStringSet(upstreamProtocols),
+			AvailableIngressProtocols: sortedStringSet(ingressProtocols),
+			RateMultiplier:            g.RateMultiplier,
+			DailyLimitUSD:             g.DailyLimitUsd,
+			WeeklyLimitUSD:            g.WeeklyLimitUsd,
+			MonthlyLimitUSD:           g.MonthlyLimitUsd,
 		}
 	}
 	return m
+}
+
+func sortedStringSet(values map[string]struct{}) []string {
+	out := make([]string, 0, len(values))
+	for value := range values {
+		out = append(out, value)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func (s *PaymentConfigService) ListPlans(ctx context.Context) ([]*dbent.SubscriptionPlan, error) {

@@ -12,7 +12,7 @@
         {{ scanHint }}
       </p>
       <div v-if="expired" class="text-center">
-        <p class="text-lg font-medium text-red-500">{{ t('payment.qr.expired') }}</p>
+        <p class="text-lg font-medium text-red-500">{{ terminalMessage }}</p>
         <button class="btn btn-primary mt-4" @click="router.push('/purchase')">{{ t('payment.result.backToRecharge') }}</button>
       </div>
       <div v-else class="text-center">
@@ -59,6 +59,7 @@ const remainingSeconds = ref(0)
 const expired = ref(false)
 const cancelling = ref(false)
 const paymentType = ref('')
+const terminalStatus = ref<'expired' | 'cancelled' | 'failed' | 'invalid'>('expired')
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let countdownTimer: ReturnType<typeof setInterval> | null = null
@@ -68,6 +69,8 @@ const countdownDisplay = computed(() => {
   const s = remainingSeconds.value % 60
   return m.toString().padStart(2, '0') + ':' + s.toString().padStart(2, '0')
 })
+
+const terminalMessage = computed(() => t(`payment.qr.${terminalStatus.value}`))
 
 const isAlipay = computed(() => paymentType.value.includes('alipay'))
 const isWxpay = computed(() => paymentType.value.includes('wxpay'))
@@ -140,6 +143,7 @@ async function pollStatus() {
     router.push({ path: '/payment/result', query: { order_id: String(orderId.value), status: 'success' } })
   } else if (order.status === 'EXPIRED' || order.status === 'CANCELLED' || order.status === 'FAILED') {
     cleanup()
+    terminalStatus.value = order.status.toLowerCase() as 'expired' | 'cancelled' | 'failed'
     expired.value = true
   }
 }
@@ -147,12 +151,14 @@ async function pollStatus() {
 function startCountdown(seconds: number) {
   remainingSeconds.value = Math.max(0, seconds)
   if (remainingSeconds.value <= 0) {
+    terminalStatus.value = 'expired'
     expired.value = true
     return
   }
   countdownTimer = setInterval(() => {
     remainingSeconds.value--
     if (remainingSeconds.value <= 0) {
+      terminalStatus.value = 'expired'
       expired.value = true
       cleanup()
     }
@@ -186,16 +192,25 @@ onMounted(() => {
   payUrl.value = String(route.query.pay_url || '')
   paymentType.value = String(route.query.payment_type || '')
 
+  if (!orderId.value || (!qrUrl.value && !payUrl.value)) {
+    terminalStatus.value = 'invalid'
+    expired.value = true
+    return
+  }
+
   // Calculate countdown from expiresAt
   const expiresAtStr = String(route.query.expires_at || '')
-  let seconds = 30 * 60 // fallback: 30 minutes
-  if (expiresAtStr) {
-    const expiresAt = new Date(expiresAtStr)
-    const now = new Date()
-    seconds = Math.floor((expiresAt.getTime() - now.getTime()) / 1000)
+  const expiresAt = new Date(expiresAtStr)
+  if (!expiresAtStr || !Number.isFinite(expiresAt.getTime())) {
+    terminalStatus.value = 'invalid'
+    expired.value = true
+    return
   }
+  const seconds = Math.floor((expiresAt.getTime() - Date.now()) / 1000)
   startCountdown(seconds)
-  pollTimer = setInterval(pollStatus, 3000)
+  if (!expired.value) {
+    pollTimer = setInterval(pollStatus, 3000)
+  }
   renderQR()
 })
 

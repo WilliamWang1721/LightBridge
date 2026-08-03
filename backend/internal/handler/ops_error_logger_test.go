@@ -14,15 +14,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestResolveOpsPlatform_UsesInboundProtocolBeforeGroupPlatform(t *testing.T) {
-	apiKey := &service.APIKey{Group: &service.Group{Platform: service.PlatformAnthropic}}
+func TestResolveOpsPlatform_UsesInboundProtocol(t *testing.T) {
+	apiKey := &service.APIKey{Group: &service.Group{}}
 	ctx := service.WithInboundProtocol(context.Background(), service.CustomProtocolOpenAIResponses)
 
 	require.Equal(t, service.PlatformOpenAI, resolveOpsPlatform(ctx, apiKey, ""))
 }
 
-func TestResolveOpsPlatform_FallsBackToPathBeforeGroupPlatform(t *testing.T) {
-	apiKey := &service.APIKey{Group: &service.Group{Platform: service.PlatformAnthropic}}
+func TestResolveOpsPlatform_FallsBackToPath(t *testing.T) {
+	apiKey := &service.APIKey{Group: &service.Group{}}
 
 	require.Equal(t, service.PlatformOpenAI, resolveOpsPlatform(context.Background(), apiKey, service.PlatformOpenAI))
 }

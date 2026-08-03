@@ -28,23 +28,35 @@
         <div
           v-for="subscription in subscriptions"
           :key="subscription.id"
-          class="overflow-hidden rounded-2xl border bg-white dark:bg-dark-800"
-          :class="platformBorderClass(subscription.group?.platform || '')"
+          class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-dark-600 dark:bg-dark-800"
+          :style="groupBorderStyle(subscription.group?.color)"
         >
           <!-- Header -->
           <div
             class="flex items-center justify-between border-b border-gray-100 p-4 dark:border-dark-700"
           >
             <div class="flex items-center gap-3">
-              <div :class="['h-1.5 w-1.5 shrink-0 rounded-full', platformAccentDotClass(subscription.group?.platform || '')]" />
+              <div class="h-1.5 w-1.5 shrink-0 rounded-full bg-primary-500" :style="groupAccentStyle(subscription.group?.color)" />
               <div>
                 <div class="flex items-center gap-2">
-                  <h3 class="font-semibold text-gray-900 dark:text-white">
-                    {{ subscription.group?.name || `Group #${subscription.group_id}` }}
+                  <GroupBadge
+                    v-if="subscription.group"
+                    :name="subscription.group.name"
+                    :icon="subscription.group.icon"
+                    :color="subscription.group.color"
+                    :upstream-platforms="subscription.group.upstream_platforms"
+                    :upstream-protocols="subscription.group.upstream_protocols"
+                    :show-rate="false"
+                    :title="subscription.group.available_ingress_protocols?.join(', ') || ''"
+                  />
+                  <h3 v-else class="font-semibold text-gray-900 dark:text-white">
+                    Group #{{ subscription.group_id }}
                   </h3>
-                  <span :class="['rounded-md border px-2 py-0.5 text-[11px] font-medium', platformBadgeClass(subscription.group?.platform || '')]">
-                    {{ platformLabel(subscription.group?.platform || '') }}
-                  </span>
+                  <GroupUpstreamBadges
+                    v-if="subscription.group"
+                    :upstream-platforms="subscription.group.upstream_platforms"
+                    :upstream-protocols="subscription.group.upstream_protocols"
+                  />
                 </div>
                 <p v-if="subscription.group?.description" class="mt-0.5 text-xs text-gray-500 dark:text-dark-400">
                   {{ subscription.group.description }}
@@ -66,7 +78,8 @@
               </span>
               <button
                 v-if="subscription.status === 'active'"
-                :class="['rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition-colors', platformButtonClass(subscription.group?.platform || '')]"
+                class="rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-700"
+                :style="groupAccentStyle(subscription.group?.color)"
                 @click="router.push({ path: '/purchase', query: { tab: 'subscription', group: String(subscription.group_id) } })"
               >
                 {{ t('payment.renewNow') }}
@@ -250,18 +263,20 @@ import subscriptionsAPI from '@/api/subscriptions'
 import type { UserSubscription } from '@/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
+import GroupBadge from '@/components/common/GroupBadge.vue'
+import GroupUpstreamBadges from '@/components/common/GroupUpstreamBadges.vue'
 import { formatDateOnly } from '@/utils/format'
-import { platformBorderClass, platformBadgeClass, platformButtonClass, platformLabel } from '@/utils/platformColors'
+import { normalizeGroupColor } from '@/utils/groupUpstreams'
 import { getRemainingDurationParts, isOneTimeDailyQuota, type RemainingDurationParts } from '@/utils/subscriptionQuota'
 
-function platformAccentDotClass(p: string): string {
-  switch (p) {
-    case 'anthropic': return 'bg-orange-500'
-    case 'openai': return 'bg-emerald-500'
-    case 'antigravity': return 'bg-blue-500'
-    case 'gemini': return 'bg-blue-500'
-    default: return 'bg-gray-400'
-  }
+function groupAccentStyle(color: string | null | undefined): Record<string, string> | undefined {
+  const normalized = normalizeGroupColor(color)
+  return normalized ? { backgroundColor: normalized } : undefined
+}
+
+function groupBorderStyle(color: string | null | undefined): Record<string, string> | undefined {
+  const normalized = normalizeGroupColor(color)
+  return normalized ? { borderColor: `${normalized}55` } : undefined
 }
 
 const { t } = useI18n()

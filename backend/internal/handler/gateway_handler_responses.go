@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// Responses handles OpenAI Responses API endpoint for Anthropic platform groups.
+// Responses handles the OpenAI Responses ingress protocol.
 // POST /v1/responses
 // This converts Responses API requests to Anthropic format, forwards to Anthropic
 // upstream, and converts responses back to Responses format.

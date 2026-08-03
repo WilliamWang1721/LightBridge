@@ -1,4 +1,4 @@
-.PHONY: build build-backend build-frontend build-datamanagementd test test-backend test-frontend test-frontend-critical test-datamanagementd test-model-sync-smoke model-sync-smoke secret-scan audit-codebase
+.PHONY: build build-backend build-frontend test test-backend test-frontend test-frontend-critical test-model-sync-smoke model-sync-smoke secret-scan audit-codebase check-runtime-contract runtime-smoke
 
 FRONTEND_CRITICAL_VITEST := \
 	src/views/auth/__tests__/LinuxDoCallbackView.spec.ts \
@@ -22,10 +22,6 @@ build-backend:
 build-frontend:
 	@pnpm --dir frontend run build
 
-# 编译 datamanagementd（宿主机数据管理进程）
-build-datamanagementd:
-	@cd datamanagement && go build -o datamanagementd ./cmd/datamanagementd
-
 # 运行测试（后端 + 前端）
 test: test-backend test-frontend
 
@@ -40,9 +36,6 @@ test-frontend:
 test-frontend-critical:
 	@pnpm --dir frontend exec vitest run $(FRONTEND_CRITICAL_VITEST)
 
-test-datamanagementd:
-	@cd datamanagement && go test ./...
-
 test-model-sync-smoke:
 	@cd backend && go test ./cmd/model-sync-smoke
 
@@ -55,3 +48,11 @@ secret-scan:
 # Verify that the checked-in line-level repository inventory is current.
 audit-codebase:
 	@python3 tools/codebase_inventory.py --check
+
+# Validate the checked-in toolchain, lockfiles, container, and Compose contract.
+check-runtime-contract:
+	@python3 tools/ci/check_environment_contract.py
+
+# Build lightbridge:ci first, then run the same full-stack smoke checks used by GitHub Actions.
+runtime-smoke:
+	@bash tools/ci/full_stack_smoke.sh

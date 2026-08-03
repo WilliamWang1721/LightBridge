@@ -131,7 +131,7 @@ export const progressiveRouteGroups = [
           requiresAuth: false,
           requiresAdmin: false,
           title: 'Payment Result',
-          titleKey: 'payment.result.success',
+          titleKey: 'payment.result.title',
         },
       },
       {

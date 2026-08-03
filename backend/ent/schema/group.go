@@ -42,6 +42,12 @@ func (Group) Fields() []ent.Field {
 			Optional().
 			Nillable().
 			SchemaType(map[string]string{dialect.Postgres: "text"}),
+		field.String("icon").
+			MaxLen(32).
+			Default(""),
+		field.String("color").
+			MaxLen(7).
+			Default(""),
 		field.Float("rate_multiplier").
 			SchemaType(map[string]string{dialect.Postgres: "decimal(10,4)"}).
 			Default(1.0),
@@ -67,10 +73,8 @@ func (Group) Fields() []ent.Field {
 			MaxLen(20).
 			Default(domain.StatusActive),
 
-		// Subscription-related fields (added by migration 003)
-		field.String("platform").
-			MaxLen(50).
-			Default(domain.PlatformAnthropic),
+		// The legacy groups.platform column is intentionally not modeled here.
+		// Group capability/provider identity is derived from bound accounts.
 		field.String("subscription_type").
 			MaxLen(20).
 			Default(domain.SubscriptionTypeStandard),
@@ -142,12 +146,6 @@ func (Group) Fields() []ent.Field {
 			Default(true).
 			Comment("是否注入 MCP XML 调用协议提示词（仅 antigravity 平台）"),
 
-		// 支持的模型系列 (added by migration 046)
-		field.JSON("supported_model_scopes", []string{}).
-			Default([]string{"claude", "gemini_text", "gemini_image"}).
-			SchemaType(map[string]string{dialect.Postgres: "jsonb"}).
-			Comment("支持的模型系列：claude, gemini_text, gemini_image"),
-
 		// 分组排序 (added by migration 052)
 		field.Int("sort_order").
 			Default(0).
@@ -204,7 +202,6 @@ func (Group) Indexes() []ent.Index {
 	return []ent.Index{
 		// name 字段已在 Fields() 中声明 Unique()，无需重复索引
 		index.Fields("status"),
-		index.Fields("platform"),
 		index.Fields("subscription_type"),
 		index.Fields("is_exclusive"),
 		index.Fields("deleted_at"),

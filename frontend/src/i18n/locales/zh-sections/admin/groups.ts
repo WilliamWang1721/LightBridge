@@ -15,7 +15,6 @@ export default {
         "确定要删除订阅分组 '{name}' 吗？此操作会让所有绑定此订阅的用户的 API Key 失效，并删除所有相关的订阅记录。此操作无法撤销。",
       columns: {
         name: '名称',
-        platform: '平台',
         upstreams: '上游',
         rateMultiplier: '费率倍数',
         rpmOverride: 'RPM 覆盖',
@@ -46,7 +45,6 @@ export default {
       form: {
         name: '名称',
         description: '描述',
-        platform: '平台',
         rateMultiplier: '费率倍数',
         status: '状态',
         exclusive: '专属分组',
@@ -61,8 +59,6 @@ export default {
         rpmLimitHint: '每用户在本分组每分钟最大请求数，0 = 不限制；一旦设置即接管该用户的限流（覆盖用户级 rpm_limit）',
         exclusiveLabel: '专属分组',
         exclusiveHint: '专属分组，可以手动指定给用户',
-        platformLabel: '平台限制',
-        platformPlaceholder: '选择平台（留空则不限制）',
         accountsLabel: '指定账号',
         accountsPlaceholder: '选择账号（留空则不限制）',
         priorityLabel: '优先级',
@@ -95,9 +91,52 @@ export default {
       upstreamProtocols: {
         openai_responses: 'OpenAI Responses',
         openai_chat_completions: 'OpenAI Chat',
-        anthropic_messages: 'Claude Messages',
+        openai_embeddings: 'OpenAI Embeddings',
+        anthropic_messages: 'Anthropic Messages',
         gemini: 'Gemini',
         none: '暂无上游'
+      },
+      upstreamPlatforms: {
+        anthropic: 'Anthropic',
+        openai: 'OpenAI',
+        gemini: 'Gemini',
+        grok: 'Grok',
+        antigravity: 'Antigravity',
+        custom: '自定义'
+      },
+      upstreamSummary: {
+        title: '实际上游',
+        createHint: '根据将要复制到此分组的账号自动识别；创建后也会随账号绑定实时更新。',
+        editHint: '根据当前账号和将要复制的账号自动识别；同一分组可包含不同的上游服务商和协议。',
+        providers: '上游服务商',
+        protocols: '上游协议',
+        protocolsHint: '只显示绑定账号实际配置的协议；Router 的转换能力不会被虚构成额外的上游协议。'
+      },
+      availableIngress: {
+        title: '可用入口协议',
+        hint: '根据每个绑定账号的实际上游协议与中继模式计算。Router 账号可接收兼容的消息协议；透传模式要求入口与上游协议一致。',
+        none: '绑定兼容账号后才会出现可用入口协议。'
+      },
+      appearance: {
+        title: '分组外观',
+        hint: '图标和颜色仅用于识别分组，不参与上游选择或请求路由。',
+        icon: '图标',
+        color: '强调色',
+        customColor: '自定义颜色',
+        clearColor: '使用中性色',
+        preview: '预览',
+        previewName: '新分组',
+        icons: {
+          folder: '文件夹',
+          server: '服务器',
+          cloud: '云服务',
+          bolt: '闪电',
+          shield: '盾牌',
+          cube: '立方体',
+          terminal: '终端',
+          sparkles: '星光',
+          users: '用户'
+        }
       },
       saving: '保存中...',
       noGroups: '暂无分组',
@@ -108,7 +147,6 @@ export default {
       failedToLoad: '加载分组列表失败',
       failedToSave: '保存分组失败',
       failedToDelete: '删除分组失败',
-      allPlatforms: '全部平台',
       allUpstreams: '全部上游',
       allStatus: '全部状态',
       allGroups: '全部分组',
@@ -119,8 +157,6 @@ export default {
       accountsCount: '{count} 个账号',
       enterGroupName: '请输入分组名称',
       optionalDescription: '可选描述',
-      platformHint: '选择此分组关联的平台',
-      platformNotEditable: '创建后不可更改平台',
       noGroupsYet: '暂无分组',
       createFirstGroup: '创建您的第一个分组来组织 API 密钥。',
       creating: '创建中...',
@@ -188,7 +224,18 @@ export default {
         title: '自定义 /v1/models 模型列表',
         hint: '仅影响 /v1/models 展示结果，不影响模型请求调用和账号调度。',
         loading: '正在加载模型列表...',
-        empty: '暂无可展示模型'
+        empty: '暂无可展示模型',
+        selectedCount: '已选 {selected} / {total}',
+        selectAll: '全选',
+        invertSelection: '反选'
+      },
+      accountFilters: {
+        title: '账号过滤控制',
+        oauthOnly: '仅允许 OAuth 账号',
+        oauthEnabled: '已启用 - 排除 API Key 类型账号',
+        privacyOnly: '仅允许已设置隐私保护的账号',
+        privacyEnabled: '已启用 - 排除未设置 Privacy 的账号',
+        disabled: '未启用'
       },
       claudeCode: {
         title: 'Claude Code 客户端限制',
@@ -268,13 +315,5 @@ export default {
         peakEnd: '高峰结束',
         peakMultiplier: '高峰倍率',
         multiplierHint: '在高峰窗口内额外叠加的倍率。Token 计费受影响，图片按次计费不受影响。'
-      },
-      supportedScopes: {
-        title: '支持的模型系列',
-        tooltip: '选择此分组支持的模型系列。未勾选的系列将不会被路由到此分组。',
-        claude: 'Claude',
-        geminiText: 'Gemini Text',
-        geminiImage: 'Gemini Image',
-        hint: '至少选择一个模型系列'
       }
     }

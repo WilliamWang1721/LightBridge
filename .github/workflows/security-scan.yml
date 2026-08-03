@@ -2,12 +2,18 @@ name: Security Scan
 
 on:
   push:
+    branches:
+      - main
   pull_request:
   schedule:
     - cron: '0 3 * * 1'
 
 permissions:
   contents: read
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   backend-security:
@@ -37,7 +43,7 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 9.15.9
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:

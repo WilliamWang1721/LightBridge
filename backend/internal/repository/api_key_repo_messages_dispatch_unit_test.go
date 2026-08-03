@@ -13,7 +13,6 @@ func TestGroupEntityToService_PreservesMessagesDispatchModelConfig(t *testing.T)
 	group := &dbent.Group{
 		ID:                    1,
 		Name:                  "openai-dispatch",
-		Platform:              service.PlatformOpenAI,
 		Status:                service.StatusActive,
 		SubscriptionType:      service.SubscriptionTypeStandard,
 		RateMultiplier:        1,
@@ -41,7 +40,6 @@ func TestAPIKeyRepository_GetByKeyForAuth_PreservesMessagesDispatchModelConfig_S
 
 	group, err := client.Group.Create().
 		SetName("g-auth-dispatch-unit").
-		SetPlatform(service.PlatformOpenAI).
 		SetStatus(service.StatusActive).
 		SetSubscriptionType(service.SubscriptionTypeStandard).
 		SetRateMultiplier(1).

@@ -91,12 +91,11 @@ func TestGroup_GetImagePrice_PartialConfig(t *testing.T) {
 	require.Nil(t, group.GetImagePrice("4K"))
 }
 
-func TestAccountUpstreamProtocols_DerivesMessageProtocolsFromAccountCapabilities(t *testing.T) {
+func TestAccountUpstreamProtocols_ReportsActualTargetProtocolsOnly(t *testing.T) {
 	openAI := &Account{Platform: PlatformOpenAI}
 	require.Equal(t, []string{
-		CustomProtocolAnthropicMessages,
-		CustomProtocolGemini,
 		CustomProtocolOpenAIChatCompletions,
+		CustomProtocolOpenAIEmbeddings,
 		CustomProtocolOpenAIResponses,
 	}, AccountUpstreamProtocols(openAI))
 
@@ -104,8 +103,6 @@ func TestAccountUpstreamProtocols_DerivesMessageProtocolsFromAccountCapabilities
 	require.Equal(t, []string{
 		CustomProtocolAnthropicMessages,
 		CustomProtocolGemini,
-		CustomProtocolOpenAIChatCompletions,
-		CustomProtocolOpenAIResponses,
 	}, AccountUpstreamProtocols(antigravity))
 
 	customRouter := &Account{
@@ -115,9 +112,6 @@ func TestAccountUpstreamProtocols_DerivesMessageProtocolsFromAccountCapabilities
 		},
 	}
 	require.Equal(t, []string{
-		CustomProtocolAnthropicMessages,
-		CustomProtocolGemini,
-		CustomProtocolOpenAIChatCompletions,
 		CustomProtocolOpenAIResponses,
 	}, AccountUpstreamProtocols(customRouter))
 
@@ -138,12 +132,48 @@ func TestAccountUpstreamProtocols_DerivesMessageProtocolsFromAccountCapabilities
 			"protocol": CustomProtocolOpenAIEmbeddings,
 		},
 	}
-	require.Empty(t, AccountUpstreamProtocols(customEmbedding))
+	require.Equal(t, []string{CustomProtocolOpenAIEmbeddings}, AccountUpstreamProtocols(customEmbedding))
 }
 
-func TestNormalizeGroupUpstreamProtocolFilter_LegacyAliases(t *testing.T) {
-	require.Equal(t, CustomProtocolOpenAIResponses, NormalizeGroupUpstreamProtocolFilter(PlatformOpenAI))
-	require.Equal(t, CustomProtocolAnthropicMessages, NormalizeGroupUpstreamProtocolFilter("claude"))
-	require.Equal(t, CustomProtocolGemini, NormalizeGroupUpstreamProtocolFilter(PlatformAntigravity))
+func TestAccountAvailableIngressProtocols_RespectsRelayMode(t *testing.T) {
+	router := &Account{
+		Platform: PlatformCustom,
+		Extra: map[string]any{
+			"protocol":   CustomProtocolOpenAIResponses,
+			"relay_mode": RelayModeRouter,
+		},
+	}
+	require.Equal(t, []string{
+		CustomProtocolAnthropicMessages,
+		CustomProtocolGemini,
+		CustomProtocolOpenAIChatCompletions,
+		CustomProtocolOpenAIResponses,
+	}, AccountAvailableIngressProtocols(router))
+
+	for _, mode := range []string{RelayModePassthrough, RelayModeFullPassthrough} {
+		account := &Account{
+			Platform: PlatformCustom,
+			Extra: map[string]any{
+				"protocol":   CustomProtocolOpenAIResponses,
+				"relay_mode": mode,
+			},
+		}
+		require.Equal(t, []string{CustomProtocolOpenAIResponses}, AccountAvailableIngressProtocols(account))
+	}
+
+	embeddings := &Account{
+		Platform: PlatformCustom,
+		Extra: map[string]any{
+			"protocol": CustomProtocolOpenAIEmbeddings,
+		},
+	}
+	require.Equal(t, []string{CustomProtocolOpenAIEmbeddings}, AccountAvailableIngressProtocols(embeddings))
+}
+
+func TestNormalizeGroupUpstreamProtocolFilter_RejectsPlatformAliases(t *testing.T) {
+	require.Empty(t, NormalizeGroupUpstreamProtocolFilter(PlatformOpenAI))
+	require.Empty(t, NormalizeGroupUpstreamProtocolFilter("claude"))
+	require.Empty(t, NormalizeGroupUpstreamProtocolFilter(PlatformAntigravity))
 	require.Equal(t, CustomProtocolOpenAIChatCompletions, NormalizeGroupUpstreamProtocolFilter(CustomProtocolOpenAIChatCompletions))
+	require.Equal(t, CustomProtocolOpenAIEmbeddings, NormalizeGroupUpstreamProtocolFilter(CustomProtocolOpenAIEmbeddings))
 }
