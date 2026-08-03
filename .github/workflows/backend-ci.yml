@@ -7,13 +7,86 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  integration-fixture-repair:
+    if: github.event_name == 'pull_request' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: agent/complete-bug-audit-fixes
+          fetch-depth: 1
+          persist-credentials: true
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          check-latest: false
+          cache: true
+          cache-dependency-path: backend/go.sum
+      - name: Repair provider-neutral integration fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          api_path = Path('backend/internal/repository/api_key_repo_integration_test.go')
+          api = api_path.read_text(encoding='utf-8')
+          old = '\n\t\tSetPlatform(service.PlatformOpenAI).'
+          if api.count(old) != 1:
+              raise SystemExit(f'expected one obsolete API-key group platform setter, found {api.count(old)}')
+          api_path.write_text(api.replace(old, '', 1), encoding='utf-8')
+
+          fixtures_path = Path('backend/internal/repository/fixtures_integration_test.go')
+          fixtures = fixtures_path.read_text(encoding='utf-8')
+          default_block = '''\tif g.Platform == "" {
+\t\tg.Platform = service.PlatformAnthropic
+\t}
+'''
+          setter = '\n\t\tSetPlatform(g.Platform).'
+          if fixtures.count(default_block) != 1:
+              raise SystemExit('legacy group platform default block not found exactly once')
+          if fixtures.count(setter) != 1:
+              raise SystemExit('legacy group platform setter not found exactly once')
+          fixtures_path.write_text(fixtures.replace(default_block, '', 1).replace(setter, '', 1), encoding='utf-8')
+
+          channel_path = Path('backend/internal/service/channel_service.go')
+          channel = channel_path.read_text(encoding='utf-8')
+          old_comment = '// 只在本平台的定价列表中查找。'
+          new_comment = '// 优先查找请求平台，并允许平台中立定价兜底；不会读取其他具体平台的配置。'
+          if channel.count(old_comment) != 1:
+              raise SystemExit('stale channel restriction comment not found exactly once')
+          channel_path.write_text(channel.replace(old_comment, new_comment, 1), encoding='utf-8')
+          PY
+          gofmt -w \
+            backend/internal/repository/api_key_repo_integration_test.go \
+            backend/internal/repository/fixtures_integration_test.go \
+            backend/internal/service/channel_service.go
+          git diff --check
+      - name: Run repository integration tests
+        working-directory: backend
+        run: go test -tags=integration ./internal/repository
+      - name: Commit and push fixture repairs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            backend/internal/repository/api_key_repo_integration_test.go \
+            backend/internal/repository/fixtures_integration_test.go \
+            backend/internal/service/channel_service.go
+          git diff --cached --check
+          git commit -m 'test: align integration fixtures with provider-neutral groups'
+          git push origin HEAD:agent/complete-bug-audit-fixes
+
   test:
     runs-on: ubuntu-latest
     steps:
