@@ -1,0 +1,19 @@
+name: Print Tree SHA
+
+on:
+  push:
+    branches:
+      - agent/complete-bug-audit-fixes
+
+permissions:
+  contents: read
+
+jobs:
+  print-tree:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Print commit and tree
+        run: |
+          echo "commit=$(git rev-parse HEAD)"
+          echo "tree=$(git rev-parse 'HEAD^{tree}')"
