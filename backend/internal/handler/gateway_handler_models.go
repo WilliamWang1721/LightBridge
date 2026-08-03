@@ -30,6 +30,12 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 		}
 	}
 	platform := service.PlatformForRequest(c.Request.Context(), "")
+	if platform == "" && apiKey != nil && apiKey.Group != nil {
+		// Retain the removed group platform only as a rollback-era response-schema
+		// hint. It must never constrain routing, quota attribution, or protocol
+		// conversion.
+		platform = strings.TrimSpace(apiKey.Group.Platform)
+	}
 
 	// Get available models from all schedulable accounts in the selected group.
 	availableModels := h.gatewayService.GetAvailableModels(c.Request.Context(), groupID, platform)

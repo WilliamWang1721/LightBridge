@@ -19,6 +19,7 @@ import (
 // ResponsesWebSocket handles OpenAI Responses API WebSocket ingress endpoint
 // GET /openai/v1/responses (Upgrade: websocket)
 func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
+	setCustomRequiredProtocol(c, service.CustomProtocolOpenAIResponses)
 	if !isOpenAIWSUpgradeRequest(c.Request) {
 		h.errorResponse(c, http.StatusUpgradeRequired, "invalid_request_error", "WebSocket upgrade required (Upgrade: websocket)")
 		return

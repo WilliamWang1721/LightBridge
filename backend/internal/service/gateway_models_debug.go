@@ -71,9 +71,17 @@ func (s *GatewayService) GetAvailableModels(ctx context.Context, groupID *int64,
 		mapping := acc.GetModelMapping()
 		if len(mapping) > 0 {
 			hasAnyMapping = true
-			for model := range mapping {
+			for model, target := range mapping {
 				if !strings.Contains(model, "*") {
 					modelSet[model] = struct{}{}
+					continue
+				}
+				// Wildcard keys cannot be listed literally. When their concrete
+				// target is itself accepted by the wildcard, expose that target so
+				// an enabled group model list does not hide a routable model.
+				target = strings.TrimSpace(target)
+				if target != "" && !strings.Contains(target, "*") && matchWildcard(model, target) {
+					modelSet[target] = struct{}{}
 				}
 			}
 		}

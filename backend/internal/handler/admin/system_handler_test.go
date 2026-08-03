@@ -326,7 +326,7 @@ func TestSystemHandlerDisabledPreVersionBackupFailsClosed(t *testing.T) {
 	require.Equal(t, 1, featureReader.calls)
 	require.Zero(t, backupSvc.createCalls)
 	require.Zero(t, updateSvc.rollbackCall)
-	require.Empty(t, updateSvc.checkForces)
+	require.Equal(t, []bool{false}, updateSvc.checkForces)
 
 	var body systemUpdateErrorEnvelope
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))

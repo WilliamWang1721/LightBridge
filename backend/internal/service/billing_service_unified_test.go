@@ -72,7 +72,6 @@ func TestCalculateCostUnified_PerRequestMode(t *testing.T) {
 		channelByGroupID: map[int64]*Channel{
 			1: {ID: 1, Status: StatusActive},
 		},
-		groupPlatform:           map[int64]string{1: ""},
 		wildcardByGroupPlatform: map[channelGroupPlatformKey][]*wildcardPricingEntry{},
 		mappingByGroupModel:     map[channelModelKey]string{},
 		wildcardMappingByGP:     map[channelGroupPlatformKey][]*wildcardMappingEntry{},
@@ -114,7 +113,6 @@ func TestCalculateCostUnified_ImageMode(t *testing.T) {
 		channelByGroupID: map[int64]*Channel{
 			2: {ID: 2, Status: StatusActive},
 		},
-		groupPlatform:           map[int64]string{2: ""},
 		wildcardByGroupPlatform: map[channelGroupPlatformKey][]*wildcardPricingEntry{},
 		mappingByGroupModel:     map[channelModelKey]string{},
 		wildcardMappingByGP:     map[channelGroupPlatformKey][]*wildcardMappingEntry{},
