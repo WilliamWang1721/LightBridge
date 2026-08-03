@@ -142,8 +142,8 @@ from pathlib import Path
 payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 if payload.get("code") != 0:
     raise SystemExit(f"version endpoint failed: {payload!r}")
-if not payload.get("data", {}).get("current_version"):
-    raise SystemExit(f"version endpoint did not expose current_version: {payload!r}")
+if not payload.get("data", {}).get("version"):
+    raise SystemExit(f"version endpoint did not expose version: {payload!r}")
 PY
 
 "${COMPOSE[@]}" exec -T LightBridge sh -ec '
