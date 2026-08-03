@@ -1,0 +1,54 @@
+name: Snapshot v0.3.5 Release Status
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/release-triggers/v0.3.5-status-snapshot'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Capture latest Release workflow state
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .github/release-status
+          run_json="$(gh api \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/release.yml/runs?event=workflow_dispatch&per_page=20" \
+            --jq '.workflow_runs | map(select(.created_at >= "2026-08-03T12:20:00Z")) | .[0] // {}')"
+
+          if [ "$(jq -r 'has("id")' <<<"$run_json")" != 'true' ]; then
+            {
+              echo 'tag=v0.3.5'
+              echo 'status=no_matching_release_run'
+            } > .github/release-status/v0.3.5-current.txt
+          else
+            {
+              echo 'tag=v0.3.5'
+              jq -r '"run_id=" + (.id|tostring), "workflow=" + .name, "event=" + .event, "status=" + .status, "conclusion=" + (.conclusion // ""), "url=" + .html_url, "head_branch=" + .head_branch, "head_sha=" + .head_sha, "created_at=" + .created_at, "updated_at=" + .updated_at' <<<"$run_json"
+            } > .github/release-status/v0.3.5-current.txt
+          fi
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/release-status/v0.3.5-current.txt
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m 'chore(release): snapshot v0.3.5 release status'
+          git push origin HEAD:main
