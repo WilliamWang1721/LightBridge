@@ -38,14 +38,11 @@ func TestEnsureSimpleModeDefaultGroups_IgnoresSoftDeletedGroups(t *testing.T) {
 	seedCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	// Create and then soft-delete the neutral default group.
-	g, err := client.Group.Create().
-		SetName("default").
-		SetStatus("active").
-		SetSubscriptionType("standard").
-		SetRateMultiplier(1.0).
-		SetIsExclusive(false).
-		Save(seedCtx)
+	// Migration 008 seeds the neutral default group. Soft-delete that row so
+	// this test verifies recreation instead of colliding with the seed data.
+	g, err := client.Group.Query().
+		Where(group.NameEQ("default"), group.DeletedAtIsNil()).
+		Only(seedCtx)
 	require.NoError(t, err)
 
 	_, err = client.Group.Delete().Where(group.IDEQ(g.ID)).Exec(seedCtx)
