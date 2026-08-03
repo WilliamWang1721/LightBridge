@@ -346,7 +346,8 @@ func TestAPIContracts(t *testing.T) {
 						"peak_end": "",
 						"peak_rate_multiplier": 0,
 						"description": "desc",
-						"platform": "anthropic",
+						"icon": "",
+						"color": "",
 						"rate_multiplier": 1.5,
 						"is_exclusive": false,
 						"status": "active",
@@ -369,7 +370,9 @@ func TestAPIContracts(t *testing.T) {
 						"rpm_limit": 0,
 						"created_at": "2025-01-02T03:04:05Z",
 						"updated_at": "2025-01-02T03:04:05Z",
-						"upstream_protocols": null
+						"upstream_platforms": null,
+						"upstream_protocols": null,
+						"available_ingress_protocols": null
 					}
 				]
 			}`,

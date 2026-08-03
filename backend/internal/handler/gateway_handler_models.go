@@ -24,6 +24,10 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 	var groupID *int64
 	if apiKey != nil {
 		groupID = apiKey.GroupID
+		if groupID == nil && apiKey.Group != nil && apiKey.Group.ID > 0 {
+			resolvedGroupID := apiKey.Group.ID
+			groupID = &resolvedGroupID
+		}
 	}
 	platform := service.PlatformForRequest(c.Request.Context(), "")
 

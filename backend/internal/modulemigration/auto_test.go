@@ -5,8 +5,6 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
 )
 
@@ -57,7 +55,7 @@ func TestHasOpenAIProviderModuleAccountsFindsTopLevelProviderMarker(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
+	defer func() { _ = db.Close() }()
 
 	mock.ExpectQuery(regexp.QuoteMeta(`
 SELECT COUNT(*)
@@ -81,7 +79,7 @@ func TestHasOpenAIProviderModuleAccountsIgnoresUnboundAccounts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
+	defer func() { _ = db.Close() }()
 
 	mock.ExpectQuery("SELECT COUNT\\(\\*\\).*FROM accounts").WillReturnRows(
 		sqlmock.NewRows([]string{"count"}).AddRow(0),
