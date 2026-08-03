@@ -4,11 +4,8 @@ set -euo pipefail
 
 # 用法：
 #   sudo ./install-datamanagementd.sh --binary /path/to/datamanagementd
-# 或：
-#   sudo ./install-datamanagementd.sh --source /path/to/LightBridge/repo
 
 BIN_PATH=""
-SOURCE_PATH=""
 INSTALL_DIR="/opt/LightBridge"
 DATA_DIR="/var/lib/LightBridge/datamanagement"
 SERVICE_FILE_NAME="LightBridge-datamanagementd.service"
@@ -16,16 +13,14 @@ SERVICE_FILE_NAME="LightBridge-datamanagementd.service"
 function print_help() {
   cat <<'EOF'
 用法:
-  install-datamanagementd.sh [--binary <datamanagementd二进制路径>] [--source <仓库路径>]
+  install-datamanagementd.sh --binary <datamanagementd二进制路径>
 
 参数:
   --binary  指定已构建的 datamanagementd 二进制路径
-  --source  指定 LightBridge 仓库路径（脚本会执行 go build）
   -h, --help 显示帮助
 
 示例:
-  sudo ./install-datamanagementd.sh --binary ./datamanagement/datamanagementd
-  sudo ./install-datamanagementd.sh --source /opt/LightBridge-src
+  sudo ./install-datamanagementd.sh --binary /path/to/datamanagementd
 EOF
 }
 
@@ -33,10 +28,6 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --binary)
       BIN_PATH="${2:-}"
-      shift 2
-      ;;
-    --source)
-      SOURCE_PATH="${2:-}"
       shift 2
       ;;
     -h|--help)
@@ -51,29 +42,14 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -n "$BIN_PATH" && -n "$SOURCE_PATH" ]]; then
-  echo "错误: --binary 与 --source 只能二选一"
-  exit 1
-fi
-
-if [[ -z "$BIN_PATH" && -z "$SOURCE_PATH" ]]; then
-  echo "错误: 必须提供 --binary 或 --source"
+if [[ -z "$BIN_PATH" ]]; then
+  echo "错误: 必须提供 --binary"
   exit 1
 fi
 
 if [[ "$(id -u)" -ne 0 ]]; then
   echo "错误: 请使用 root 权限执行（例如 sudo）"
   exit 1
-fi
-
-if [[ -n "$SOURCE_PATH" ]]; then
-  if [[ ! -d "$SOURCE_PATH/datamanagement" ]]; then
-    echo "错误: 无效仓库路径，未找到 $SOURCE_PATH/datamanagement"
-    exit 1
-  fi
-  echo "[1/6] 从源码构建 datamanagementd..."
-  (cd "$SOURCE_PATH/datamanagement" && go build -o datamanagementd ./cmd/datamanagementd)
-  BIN_PATH="$SOURCE_PATH/datamanagement/datamanagementd"
 fi
 
 if [[ ! -f "$BIN_PATH" ]]; then

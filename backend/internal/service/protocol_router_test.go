@@ -240,11 +240,11 @@ func TestSchedulingQueryPlatformsForMessageRequestIgnoresGroupPlatform(t *testin
 	ctx := WithInboundProtocol(context.Background(), CustomProtocolGemini)
 
 	require.ElementsMatch(t,
-		[]string{PlatformAnthropic, PlatformOpenAI, PlatformGemini, PlatformCustom},
+		[]string{PlatformAnthropic, PlatformOpenAI, PlatformGemini, PlatformGrok, PlatformCustom},
 		schedulingQueryPlatformsForRequest(ctx, PlatformAnthropic, false),
 	)
 	require.ElementsMatch(t,
-		[]string{PlatformAnthropic, PlatformOpenAI, PlatformGemini, PlatformCustom},
+		[]string{PlatformAnthropic, PlatformOpenAI, PlatformGemini, PlatformGrok, PlatformCustom},
 		schedulingQueryPlatformsForRequest(ctx, PlatformOpenAI, false),
 	)
 }

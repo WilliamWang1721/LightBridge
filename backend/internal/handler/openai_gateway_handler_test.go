@@ -1125,6 +1125,13 @@ func (s *openAIWSUsageHandlerAccountRepoStub) ListSchedulableByGroupIDAndPlatfor
 	return s.ListSchedulableByPlatform(ctx, platform)
 }
 
+func (s *openAIWSUsageHandlerAccountRepoStub) ListSchedulableByGroupID(context.Context, int64) ([]service.Account, error) {
+	if !s.account.IsSchedulable() {
+		return nil, nil
+	}
+	return []service.Account{s.account}, nil
+}
+
 func (s *openAIWSUsageHandlerAccountRepoStub) GetByID(ctx context.Context, id int64) (*service.Account, error) {
 	if s.account.ID != id {
 		return nil, nil
@@ -1151,6 +1158,16 @@ func (s *openAIWSFailoverHandlerAccountRepoStub) ListSchedulableByPlatform(ctx c
 
 func (s *openAIWSFailoverHandlerAccountRepoStub) ListSchedulableByGroupIDAndPlatform(ctx context.Context, groupID int64, platform string) ([]service.Account, error) {
 	return s.ListSchedulableByPlatform(ctx, platform)
+}
+
+func (s *openAIWSFailoverHandlerAccountRepoStub) ListSchedulableByGroupID(context.Context, int64) ([]service.Account, error) {
+	out := make([]service.Account, 0, len(s.accounts))
+	for _, account := range s.accounts {
+		if account.IsSchedulable() {
+			out = append(out, account)
+		}
+	}
+	return out, nil
 }
 
 func (s *openAIWSFailoverHandlerAccountRepoStub) ListSchedulableUngroupedByPlatform(ctx context.Context, platform string) ([]service.Account, error) {

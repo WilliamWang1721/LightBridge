@@ -3274,7 +3274,7 @@ func TestGatewayService_SelectAccountWithLoadAwareness(t *testing.T) {
 			concurrencyService: NewConcurrencyService(concurrencyCache),
 		}
 
-		result, err := svc.SelectAccountWithLoadAwareness(ctx, &groupID, "gemini", "gemini-2.5-pro", nil, "", int64(0))
+		result, err := svc.SelectAccountWithLoadAwareness(WithInboundProtocol(ctx, CustomProtocolGemini), &groupID, "gemini", "gemini-2.5-pro", nil, "", int64(0))
 		require.NoError(t, err)
 		require.NotNil(t, result)
 		require.NotNil(t, result.Account)
@@ -3409,7 +3409,7 @@ func TestGatewayService_SelectAccountWithLoadAwareness(t *testing.T) {
 			concurrencyService: nil,
 		}
 
-		result, err := svc.SelectAccountWithLoadAwareness(ctx, &groupID, "", "gemini-2.5-pro", nil, "", int64(0))
+		result, err := svc.SelectAccountWithLoadAwareness(WithInboundProtocol(ctx, CustomProtocolGemini), &groupID, "", "gemini-2.5-pro", nil, "", int64(0))
 		require.NoError(t, err)
 		require.NotNil(t, result)
 		require.NotNil(t, result.Account)

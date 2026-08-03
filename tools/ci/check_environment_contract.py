@@ -130,6 +130,28 @@ require(entrypoint.is_file(), "deploy/docker-entrypoint.sh is required")
 if entrypoint.is_file():
     require(entrypoint.read_text(encoding="utf-8").startswith("#!/"), "deploy/docker-entrypoint.sh must have a shell shebang")
 
+
+installer = ROOT / "deploy/install-datamanagementd.sh"
+require(installer.is_file(), "deploy/install-datamanagementd.sh is required")
+if installer.is_file():
+    installer_text = installer.read_text(encoding="utf-8")
+    require(installer_text.startswith("#!/"), "datamanagement installer must have a shell shebang")
+    require("--binary" in installer_text, "datamanagement installer must accept a release binary")
+    require("--source" not in installer_text, "datamanagement installer must not advertise missing source builds")
+
+service_unit = ROOT / "deploy/LightBridge-datamanagementd.service"
+require(service_unit.is_file(), "datamanagement systemd unit is required")
+if service_unit.is_file():
+    unit_text = service_unit.read_text(encoding="utf-8")
+    require("ExecStart=/opt/LightBridge/datamanagementd" in unit_text, "datamanagement service must run the installed binary")
+    require("NoNewPrivileges=true" in unit_text, "datamanagement service must enable NoNewPrivileges")
+
+makefile = read("Makefile")
+require("build-datamanagementd" not in makefile, "Makefile must not build a source module that is not present")
+require("test-datamanagementd" not in makefile, "Makefile must not test a source module that is not present")
+datamanagement_docs = read("deploy/DATAMANAGEMENTD_CN.md")
+require("--source" not in datamanagement_docs, "datamanagement documentation must describe binary-only installation")
+
 if ERRORS:
     print("Runtime/environment contract failed:", file=sys.stderr)
     for error in ERRORS:

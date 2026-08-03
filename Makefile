@@ -1,4 +1,4 @@
-.PHONY: build build-backend build-frontend build-datamanagementd test test-backend test-frontend test-frontend-critical test-datamanagementd test-model-sync-smoke model-sync-smoke secret-scan audit-codebase check-runtime-contract runtime-smoke
+.PHONY: build build-backend build-frontend test test-backend test-frontend test-frontend-critical test-model-sync-smoke model-sync-smoke secret-scan audit-codebase check-runtime-contract runtime-smoke
 
 FRONTEND_CRITICAL_VITEST := \
 	src/views/auth/__tests__/LinuxDoCallbackView.spec.ts \
@@ -22,10 +22,6 @@ build-backend:
 build-frontend:
 	@pnpm --dir frontend run build
 
-# 编译 datamanagementd（宿主机数据管理进程）
-build-datamanagementd:
-	@cd datamanagement && go build -o datamanagementd ./cmd/datamanagementd
-
 # 运行测试（后端 + 前端）
 test: test-backend test-frontend
 
@@ -39,9 +35,6 @@ test-frontend:
 
 test-frontend-critical:
 	@pnpm --dir frontend exec vitest run $(FRONTEND_CRITICAL_VITEST)
-
-test-datamanagementd:
-	@cd datamanagement && go test ./...
 
 test-model-sync-smoke:
 	@cd backend && go test ./cmd/model-sync-smoke

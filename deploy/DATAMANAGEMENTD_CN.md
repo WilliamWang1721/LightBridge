@@ -8,11 +8,13 @@
 - 仅当该 Unix Socket 可连通且 `Health` 成功时，后台“数据管理”才会启用
 - `datamanagementd` 使用 SQLite 持久化元数据，不依赖主库
 
-## 2. 宿主机构建与运行
+## 2. 获取并运行发行版二进制
+
+本仓库不包含 `datamanagementd` 的源码模块。请从与当前 LightBridge 版本匹配的可信发行渠道取得二进制，并先核对版本与校验和，再安装到宿主机：
 
 ```bash
-cd /opt/LightBridge-src/datamanagement
-go build -o /opt/LightBridge/datamanagementd ./cmd/datamanagementd
+/path/to/datamanagementd -version
+sha256sum /path/to/datamanagementd
 
 mkdir -p /var/lib/LightBridge/datamanagement
 chown -R LightBridge:LightBridge /var/lib/LightBridge/datamanagement
@@ -21,7 +23,7 @@ chown -R LightBridge:LightBridge /var/lib/LightBridge/datamanagement
 手动启动示例：
 
 ```bash
-/opt/LightBridge/datamanagementd \
+/path/to/datamanagementd \
   -socket-path /tmp/LightBridge-datamanagement.sock \
   -sqlite-path /var/lib/LightBridge/datamanagement/datamanagementd.db \
   -version 1.0.0
@@ -47,11 +49,7 @@ sudo journalctl -u LightBridge-datamanagementd -f
 也可以使用一键安装脚本（自动安装二进制 + 注册 systemd）：
 
 ```bash
-# 方式一：使用现成二进制
 sudo ./deploy/install-datamanagementd.sh --binary /path/to/datamanagementd
-
-# 方式二：从源码构建后安装
-sudo ./deploy/install-datamanagementd.sh --source /path/to/LightBridge
 ```
 
 ## 4. Docker 部署联动

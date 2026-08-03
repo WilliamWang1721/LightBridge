@@ -83,6 +83,7 @@ type channelCache struct {
 	mappingByGroupModel     map[channelModelKey]string                          // (groupID, platform, model) → 映射目标
 	wildcardMappingByGP     map[channelGroupPlatformKey][]*wildcardMappingEntry // (groupID, platform) → 通配符映射（按配置顺序，先匹配先使用）
 	channelByGroupID        map[int64]*Channel                                  // groupID → 渠道
+	platformsByGroupID      map[int64]map[string]struct{}                       // groupID → 渠道中已配置的平台集合
 
 	// 冷路径（CRUD 操作）
 	byID     map[int64]*Channel
@@ -194,8 +195,22 @@ func newEmptyChannelCache() *channelCache {
 		mappingByGroupModel:     make(map[channelModelKey]string),
 		wildcardMappingByGP:     make(map[channelGroupPlatformKey][]*wildcardMappingEntry),
 		channelByGroupID:        make(map[int64]*Channel),
+		platformsByGroupID:      make(map[int64]map[string]struct{}),
 		byID:                    make(map[int64]*Channel),
 	}
+}
+
+func registerChannelPlatform(cache *channelCache, groupID int64, platform string) {
+	platform = strings.TrimSpace(platform)
+	if platform == "" {
+		return
+	}
+	platforms := cache.platformsByGroupID[groupID]
+	if platforms == nil {
+		platforms = make(map[string]struct{})
+		cache.platformsByGroupID[groupID] = platforms
+	}
+	platforms[platform] = struct{}{}
 }
 
 // expandPricingToCache 将渠道的模型定价展开到缓存（按分组+平台维度）。
@@ -204,7 +219,8 @@ func expandPricingToCache(cache *channelCache, ch *Channel, gid int64) {
 	for j := range ch.ModelPricing {
 		pricing := &ch.ModelPricing[j]
 		// 使用定价条目的原始平台作为缓存 key，防止跨平台同名模型冲突
-		pricingPlatform := pricing.Platform
+		pricingPlatform := strings.TrimSpace(pricing.Platform)
+		registerChannelPlatform(cache, gid, pricingPlatform)
 		gpKey := channelGroupPlatformKey{groupID: gid, platform: pricingPlatform}
 		for _, model := range pricing.Models {
 			if strings.HasSuffix(model, "*") {
@@ -225,6 +241,7 @@ func expandPricingToCache(cache *channelCache, ch *Channel, gid int64) {
 // 分组不再限制平台，因此每个分组会装填该渠道下所有平台的映射；查找时再按请求协议平台选择。
 func expandMappingToCache(cache *channelCache, ch *Channel, gid int64) {
 	for mappingPlatform := range ch.ModelMapping {
+		registerChannelPlatform(cache, gid, mappingPlatform)
 		platformMapping, ok := ch.ModelMapping[mappingPlatform]
 		if !ok {
 			continue
@@ -307,9 +324,21 @@ func populateChannelCache(channels []Channel) *channelCache {
 // invalidateCache 使缓存失效，让下次读取时自然重建
 
 // matchingPlatforms 返回请求平台对应的可匹配平台列表。
-// 各平台严格独立，只返回自身。
-func matchingPlatforms(requestPlatform string) []string {
-	return []string{requestPlatform}
+// 显式平台查询先查本平台，再查平台中立（Platform 为空）的定价或映射。
+// 缺少协议上下文时，仅在渠道配置只有一个具体平台时允许回退到该平台；
+// 多平台配置只允许平台中立项，避免同名模型跨平台串价。
+func matchingPlatforms(cache *channelCache, groupID int64, requestPlatform string) []string {
+	requestPlatform = strings.TrimSpace(requestPlatform)
+	if requestPlatform != "" {
+		return []string{requestPlatform, ""}
+	}
+	platforms := cache.platformsByGroupID[groupID]
+	if len(platforms) == 1 {
+		for platform := range platforms {
+			return []string{platform, ""}
+		}
+	}
+	return []string{""}
 }
 func (s *ChannelService) invalidateCache() {
 	s.cache.Store((*channelCache)(nil))
@@ -348,14 +377,14 @@ func (c *channelCache) matchWildcardMapping(groupID int64, platform, modelLower 
 // lookupPricingAcrossPlatforms 在请求平台内查找模型定价。
 // 各平台严格独立，只在本平台内查找（先精确匹配，再通配符）。
 func lookupPricingAcrossPlatforms(cache *channelCache, groupID int64, requestPlatform, modelLower string) *ChannelModelPricing {
-	for _, p := range matchingPlatforms(requestPlatform) {
+	for _, p := range matchingPlatforms(cache, groupID, requestPlatform) {
 		key := channelModelKey{groupID: groupID, platform: p, model: modelLower}
 		if pricing, ok := cache.pricingByGroupModel[key]; ok {
 			return pricing
 		}
 	}
 	// 精确查找全部失败，依次尝试通配符匹配
-	for _, p := range matchingPlatforms(requestPlatform) {
+	for _, p := range matchingPlatforms(cache, groupID, requestPlatform) {
 		if pricing := cache.matchWildcard(groupID, p, modelLower); pricing != nil {
 			return pricing
 		}
@@ -366,13 +395,13 @@ func lookupPricingAcrossPlatforms(cache *channelCache, groupID int64, requestPla
 // lookupMappingAcrossPlatforms 在请求平台内查找模型映射。
 // 逻辑与 lookupPricingAcrossPlatforms 相同：先精确查找，再通配符。
 func lookupMappingAcrossPlatforms(cache *channelCache, groupID int64, requestPlatform, modelLower string) string {
-	for _, p := range matchingPlatforms(requestPlatform) {
+	for _, p := range matchingPlatforms(cache, groupID, requestPlatform) {
 		key := channelModelKey{groupID: groupID, platform: p, model: modelLower}
 		if mapped, ok := cache.mappingByGroupModel[key]; ok {
 			return mapped
 		}
 	}
-	for _, p := range matchingPlatforms(requestPlatform) {
+	for _, p := range matchingPlatforms(cache, groupID, requestPlatform) {
 		if mapped := cache.matchWildcardMapping(groupID, p, modelLower); mapped != "" {
 			return mapped
 		}
