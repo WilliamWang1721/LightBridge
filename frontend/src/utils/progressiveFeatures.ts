@@ -107,7 +107,8 @@ export const ProgressiveFeatures = {
     routeNames: [],
   }),
   backup: defineProgressiveFeature({
-    id: 'backup', backendId: 'backup', label: 'Backup', routeNames: [],
+    id: 'backup', backendId: 'backup', label: 'Backup',
+    routeNames: ['AdminBackupSettings'], exactPaths: ['/admin/settings/backup'],
   }),
   moduleRuntime: defineProgressiveFeature({
     id: 'moduleRuntime', backendId: 'module_runtime', label: 'Module Runtime',

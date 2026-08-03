@@ -382,6 +382,19 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/settings/backup',
+    name: 'AdminBackupSettings',
+    component: () => import('@/views/admin/SettingsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Backup Settings',
+      titleKey: 'admin.backup.title',
+      descriptionKey: 'admin.backup.description',
+      defaultTab: 'backup'
+    }
+  },
+  {
     path: '/admin/version-control',
     name: 'AdminVersionControl',
     component: () => import('@/views/admin/VersionControlView.vue'),

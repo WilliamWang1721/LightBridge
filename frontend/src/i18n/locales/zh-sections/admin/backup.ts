@@ -48,6 +48,7 @@ export default {
       columns: {
         status: '状态',
         fileName: '文件名',
+        origin: '来源',
         size: '大小',
         expiresAt: '过期时间',
         triggeredBy: '触发方式',
@@ -67,7 +68,16 @@ export default {
       },
       trigger: {
         manual: '手动',
-        scheduled: '定时'
+        scheduled: '定时',
+        versionManager: '版本管理器'
+      },
+      versionSnapshot: {
+        label: '版本管理器快照',
+        update: '更新前：{sourceVersion} → {targetVersion}',
+        updateWithoutTarget: '从 {sourceVersion} 更新前',
+        rollback: '从 {sourceVersion} 回滚前',
+        operationId: '操作：{id}',
+        initiatedBy: '发起者：{initiatedBy}'
       },
       neverExpire: '永不过期',
       empty: '暂无备份记录',

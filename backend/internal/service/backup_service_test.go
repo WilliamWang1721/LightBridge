@@ -134,6 +134,33 @@ func (m *mockDumper) Restore(_ context.Context, data io.Reader) error {
 	return nil
 }
 
+// closeErrorDumper simulates a dump stream whose bytes are fully readable but
+// whose terminal Close reports an error after upload has already drained it.
+type closeErrorDumper struct {
+	dumpData []byte
+	closeErr error
+}
+
+func (d *closeErrorDumper) Dump(_ context.Context) (io.ReadCloser, error) {
+	return &closeErrorReadCloser{
+		Reader:   bytes.NewReader(d.dumpData),
+		closeErr: d.closeErr,
+	}, nil
+}
+
+func (d *closeErrorDumper) Restore(_ context.Context, _ io.Reader) error {
+	return nil
+}
+
+type closeErrorReadCloser struct {
+	io.Reader
+	closeErr error
+}
+
+func (r *closeErrorReadCloser) Close() error {
+	return r.closeErr
+}
+
 // blockingDumper 可控延迟的 dumper，用于测试异步行为
 type blockingDumper struct {
 	blockCh chan struct{}
@@ -159,8 +186,9 @@ func (d *blockingDumper) Restore(_ context.Context, data io.Reader) error {
 }
 
 type mockObjectStore struct {
-	objects map[string][]byte
-	mu      sync.Mutex
+	objects               map[string][]byte
+	ignoreUploadReadError bool
+	mu                    sync.Mutex
 }
 
 func newMockObjectStore() *mockObjectStore {
@@ -169,7 +197,7 @@ func newMockObjectStore() *mockObjectStore {
 
 func (m *mockObjectStore) Upload(_ context.Context, key string, body io.Reader, _ string) (int64, error) {
 	data, err := io.ReadAll(body)
-	if err != nil {
+	if err != nil && !m.ignoreUploadReadError {
 		return 0, err
 	}
 	m.mu.Lock()
@@ -351,6 +379,100 @@ func TestBackupService_CreateBackup_Streaming(t *testing.T) {
 	store.mu.Lock()
 	require.Len(t, store.objects, 1)
 	store.mu.Unlock()
+}
+
+func TestBackupService_CreateBackupWithMetadata_PersistsVersionContext(t *testing.T) {
+	repo := newMockSettingRepo()
+	seedS3Config(t, repo)
+	svc := newTestBackupService(repo, &mockDumper{dumpData: []byte("-- PostgreSQL dump")}, newMockObjectStore())
+
+	metadata := BackupRecordMetadata{
+		SourceVersion:     "0.1.132",
+		VersionAction:     "update",
+		TargetVersion:     "0.1.133",
+		SystemOperationID: "sysop-version-backup",
+		InitiatingAdminID: 42,
+	}
+	record, err := svc.CreateBackupWithMetadata(context.Background(), "version_manager", DefaultPreVersionBackupRetentionDays, metadata)
+	require.NoError(t, err)
+	require.Equal(t, "completed", record.Status)
+	require.Equal(t, &metadata, record.Metadata)
+
+	stored, err := svc.GetBackupRecord(context.Background(), record.ID)
+	require.NoError(t, err)
+	require.Equal(t, &metadata, stored.Metadata)
+
+	raw, err := repo.GetValue(context.Background(), settingKeyBackupRecords)
+	require.NoError(t, err)
+	require.Contains(t, raw, `"metadata"`)
+	require.Contains(t, raw, `"system_operation_id":"sysop-version-backup"`)
+}
+
+func TestBackupService_CreateBackupWithMetadata_PersistsFailedVersionContext(t *testing.T) {
+	repo := newMockSettingRepo()
+	seedS3Config(t, repo)
+	svc := newTestBackupService(repo, &mockDumper{dumpErr: fmt.Errorf("pg_dump unavailable")}, newMockObjectStore())
+
+	metadata := BackupRecordMetadata{
+		SourceVersion:     "0.1.133",
+		VersionAction:     "rollback",
+		SystemOperationID: "sysop-failed-version-backup",
+		InitiatingAdminID: 7,
+	}
+	record, err := svc.CreateBackupWithMetadata(context.Background(), "version_manager", DefaultPreVersionBackupRetentionDays, metadata)
+	require.Error(t, err)
+	require.Equal(t, "failed", record.Status)
+	require.Equal(t, &metadata, record.Metadata)
+
+	stored, err := svc.GetBackupRecord(context.Background(), record.ID)
+	require.NoError(t, err)
+	require.Equal(t, "failed", stored.Status)
+	require.Equal(t, &metadata, stored.Metadata)
+}
+
+func TestBackupService_CreateBackupWithMetadata_DumpCloseFailureAfterUploadFailsClosed(t *testing.T) {
+	repo := newMockSettingRepo()
+	seedS3Config(t, repo)
+	store := newMockObjectStore()
+	// Simulate an object store that drains and accepts the stream even when the
+	// producer reports its terminal error afterwards.
+	store.ignoreUploadReadError = true
+	svc := newTestBackupService(repo, &closeErrorDumper{
+		dumpData: []byte("-- PostgreSQL dump"),
+		closeErr: fmt.Errorf("pg_dump stream close failed"),
+	}, store)
+
+	metadata := BackupRecordMetadata{
+		SourceVersion:     "0.1.132",
+		VersionAction:     "update",
+		SystemOperationID: "sysop-close-failure",
+		InitiatingAdminID: 42,
+	}
+	record, err := svc.CreateBackupWithMetadata(context.Background(), "version_manager", DefaultPreVersionBackupRetentionDays, metadata)
+	require.ErrorContains(t, err, "backup gzip/dump")
+	require.Equal(t, "failed", record.Status)
+	require.Contains(t, record.ErrorMsg, "pg_dump stream close failed")
+	require.Equal(t, &metadata, record.Metadata)
+
+	stored, err := svc.GetBackupRecord(context.Background(), record.ID)
+	require.NoError(t, err)
+	require.Equal(t, "failed", stored.Status)
+	require.Equal(t, &metadata, stored.Metadata)
+
+	store.mu.Lock()
+	_, exists := store.objects[record.S3Key]
+	store.mu.Unlock()
+	require.False(t, exists, "an object accepted before the terminal stream error must be deleted")
+}
+
+func TestBackupService_LoadRecords_LegacyRecordWithoutMetadata(t *testing.T) {
+	repo := newMockSettingRepo()
+	require.NoError(t, repo.Set(context.Background(), settingKeyBackupRecords, `[{"id":"legacy","status":"completed","backup_type":"postgres","file_name":"legacy.sql.gz","s3_key":"backups/legacy.sql.gz","triggered_by":"manual","started_at":"2026-08-03T00:00:00Z"}]`))
+	svc := newTestBackupService(repo, &mockDumper{}, newMockObjectStore())
+
+	record, err := svc.GetBackupRecord(context.Background(), "legacy")
+	require.NoError(t, err)
+	require.Nil(t, record.Metadata)
 }
 
 func TestBackupService_CreateBackup_DumpFailure(t *testing.T) {
@@ -575,6 +697,31 @@ func TestStartBackup_ReturnsImmediately(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "completed", final.Status)
 	require.Greater(t, final.SizeBytes, int64(0))
+}
+
+func TestStartBackup_DumpCloseFailureAfterUploadMarksRecordFailed(t *testing.T) {
+	repo := newMockSettingRepo()
+	seedS3Config(t, repo)
+	store := newMockObjectStore()
+	store.ignoreUploadReadError = true
+	svc := newTestBackupService(repo, &closeErrorDumper{
+		dumpData: []byte("-- PostgreSQL dump"),
+		closeErr: fmt.Errorf("pg_dump stream close failed"),
+	}, store)
+
+	record, err := svc.StartBackup(context.Background(), "manual", 14)
+	require.NoError(t, err)
+	svc.wg.Wait()
+
+	stored, err := svc.GetBackupRecord(context.Background(), record.ID)
+	require.NoError(t, err)
+	require.Equal(t, "failed", stored.Status)
+	require.Contains(t, stored.ErrorMsg, "pg_dump stream close failed")
+
+	store.mu.Lock()
+	_, exists := store.objects[record.S3Key]
+	store.mu.Unlock()
+	require.False(t, exists, "async backups must also delete an accepted partial object")
 }
 
 func TestStartBackup_ConcurrentBlocked(t *testing.T) {
