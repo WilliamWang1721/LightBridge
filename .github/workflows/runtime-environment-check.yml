@@ -2,6 +2,8 @@ name: Runtime & Environment Check
 
 on:
   push:
+    branches:
+      - main
   pull_request:
   workflow_dispatch:
   schedule:
