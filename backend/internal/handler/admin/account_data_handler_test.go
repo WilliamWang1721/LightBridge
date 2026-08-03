@@ -356,7 +356,9 @@ func TestImportDataRepairsLegacyModuleOpenAIPlatform(t *testing.T) {
 	require.Equal(t, service.AccountTypeOAuth, created.Type)
 	require.Equal(t, "chatgpt-account", created.Credentials["chatgpt_account_id"])
 	require.Equal(t, service.PlatformOpenAI, created.Extra["provider_id"])
-	require.Equal(t, service.PlatformOpenAI, created.Extra["module_migration"].(map[string]any)["provider_id"])
+	migrationExtra, ok := created.Extra["module_migration"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, service.PlatformOpenAI, migrationExtra["provider_id"])
 }
 
 func TestImportDataAcceptsCLIProxyAPICodexJSON(t *testing.T) {

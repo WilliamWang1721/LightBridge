@@ -108,10 +108,10 @@ func sanitizeChatBridgeToolAlias(value string) string {
 	for _, r := range strings.TrimSpace(value) {
 		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
 			(r >= '0' && r <= '9') || r == '_' || r == '-' {
-			builder.WriteByte(byte(r))
+			_, _ = builder.WriteRune(r)
 			continue
 		}
-		builder.WriteByte('_')
+		_, _ = builder.WriteRune('_')
 	}
 	return builder.String()
 }
