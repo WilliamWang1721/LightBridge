@@ -63,8 +63,12 @@ func (s *systemHandlerUpdateServiceStub) Rollback() error {
 
 type systemHandlerBackupServiceStub struct {
 	createErr   error
+	restoreErr  error
+	listErr     error
 	record      *service.BackupRecord
+	records     []service.BackupRecord
 	createCalls int
+	restoreIDs  []string
 	triggeredBy string
 	expireDays  int
 	metadata    []service.BackupRecordMetadata
@@ -90,6 +94,18 @@ func (s *systemHandlerBackupServiceStub) CreateBackupWithMetadata(
 type systemHandlerFeatureReaderStub struct {
 	enabled bool
 	calls   int
+}
+
+func (s *systemHandlerBackupServiceStub) RestoreBackup(_ context.Context, backupID string) error {
+	s.restoreIDs = append(s.restoreIDs, backupID)
+	if s.events != nil {
+		*s.events = append(*s.events, "restore:"+backupID)
+	}
+	return s.restoreErr
+}
+
+func (s *systemHandlerBackupServiceStub) ListBackups(_ context.Context) ([]service.BackupRecord, error) {
+	return append([]service.BackupRecord(nil), s.records...), s.listErr
 }
 
 func (s *systemHandlerFeatureReaderStub) IsProgressiveFeatureEnabled(_ context.Context, feature service.ProgressiveFeature) bool {
@@ -125,7 +141,17 @@ type systemUpdateErrorEnvelope struct {
 }
 
 func newSystemHandlerTestRouter(t *testing.T, updateSvc *systemHandlerUpdateServiceStub, repo *memoryIdempotencyRepoStub) *gin.Engine {
-	return newSystemHandlerTestRouterWithVersionBackup(t, updateSvc, repo, nil, nil, 0)
+	if updateSvc.updateInfo == nil {
+		updateSvc.updateInfo = &service.UpdateInfo{CurrentVersion: "0.1.133", LatestVersion: "0.1.134"}
+	}
+	backupSvc := &systemHandlerBackupServiceStub{
+		record: &service.BackupRecord{ID: "safety-backup", Status: "completed"},
+		records: []service.BackupRecord{{
+			ID: "pre-upgrade-backup", Status: "completed", TriggeredBy: versionManagerBackupTriggeredBy,
+			Metadata: &service.BackupRecordMetadata{SourceVersion: "0.1.132", TargetVersion: updateSvc.updateInfo.CurrentVersion, VersionAction: "update"},
+		}},
+	}
+	return newSystemHandlerTestRouterWithVersionBackup(t, updateSvc, repo, backupSvc, &systemHandlerFeatureReaderStub{enabled: true}, 1)
 }
 
 func newSystemHandlerTestRouterWithVersionBackup(
@@ -212,6 +238,10 @@ func TestSystemHandlerRollbackWithPreVersionBackupRunsBackupFirst(t *testing.T) 
 	}
 	backupSvc := &systemHandlerBackupServiceStub{
 		record: &service.BackupRecord{ID: "backup-rollback", Status: "completed"},
+		records: []service.BackupRecord{{
+			ID: "pre-upgrade-0.1.133", Status: "completed", TriggeredBy: versionManagerBackupTriggeredBy,
+			Metadata: &service.BackupRecordMetadata{SourceVersion: "0.1.132", TargetVersion: "0.1.133", VersionAction: "update"},
+		}},
 		events: &events,
 	}
 	featureReader := &systemHandlerFeatureReaderStub{enabled: true}
@@ -225,7 +255,7 @@ func TestSystemHandlerRollbackWithPreVersionBackupRunsBackupFirst(t *testing.T) 
 	router.ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusOK, rec.Code)
-	require.Equal(t, []string{"backup", "rollback"}, events)
+	require.Equal(t, []string{"backup", "restore:pre-upgrade-0.1.133", "rollback"}, events)
 	require.Equal(t, 1, backupSvc.createCalls)
 	require.Len(t, backupSvc.metadata, 1)
 	require.Equal(t, "0.1.133", backupSvc.metadata[0].SourceVersion)
@@ -237,6 +267,7 @@ func TestSystemHandlerRollbackWithPreVersionBackupRunsBackupFirst(t *testing.T) 
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 	require.NotNil(t, body.Data.Backup)
 	require.Equal(t, "backup-rollback", body.Data.Backup.ID)
+	require.Equal(t, []string{"pre-upgrade-0.1.133"}, backupSvc.restoreIDs)
 	requireSystemLockStatus(t, repo, service.IdempotencyStatusSucceeded)
 }
 
@@ -303,15 +334,21 @@ func TestSystemHandlerDisabledPreVersionBackupFailsClosed(t *testing.T) {
 	requireSystemLockStatus(t, repo, service.IdempotencyStatusFailedRetryable)
 }
 
-func TestSystemHandlerVersionActionsWithoutBackupPreserveLegacyPaths(t *testing.T) {
-	updateSvc := &systemHandlerUpdateServiceStub{}
-	backupSvc := &systemHandlerBackupServiceStub{record: &service.BackupRecord{ID: "unexpected"}}
-	featureReader := &systemHandlerFeatureReaderStub{enabled: false}
+func TestSystemHandlerVersionActionsForceBackupForLegacyClients(t *testing.T) {
+	updateSvc := &systemHandlerUpdateServiceStub{updateInfo: &service.UpdateInfo{CurrentVersion: "0.1.133", LatestVersion: "0.1.134"}}
+	backupSvc := &systemHandlerBackupServiceStub{
+		record: &service.BackupRecord{ID: "forced-backup", Status: "completed"},
+		records: []service.BackupRecord{{
+			ID: "pre-upgrade-0.1.133", Status: "completed", TriggeredBy: versionManagerBackupTriggeredBy,
+			Metadata: &service.BackupRecordMetadata{SourceVersion: "0.1.132", TargetVersion: "0.1.133", VersionAction: "update"},
+		}},
+	}
+	featureReader := &systemHandlerFeatureReaderStub{enabled: true}
 	repo := newMemoryIdempotencyRepoStub()
 	router := newSystemHandlerTestRouterWithVersionBackup(t, updateSvc, repo, backupSvc, featureReader, 42)
 
 	updateRec := httptest.NewRecorder()
-	updateReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/system/update", strings.NewReader(`{"version":"0.1.133"}`))
+	updateReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/system/update", strings.NewReader(`{"version":"0.1.134"}`))
 	updateReq.Header.Set("Content-Type", "application/json")
 	updateReq.Header.Set("Idempotency-Key", "legacy-update-without-backup")
 	router.ServeHTTP(updateRec, updateReq)
@@ -326,13 +363,20 @@ func TestSystemHandlerVersionActionsWithoutBackupPreserveLegacyPaths(t *testing.
 	require.Equal(t, http.StatusOK, rollbackRec.Code)
 	require.Equal(t, 1, updateSvc.performCall)
 	require.Equal(t, 1, updateSvc.rollbackCall)
-	require.Zero(t, backupSvc.createCalls)
-	require.Zero(t, featureReader.calls)
+	require.Equal(t, 2, backupSvc.createCalls)
+	require.Equal(t, 2, featureReader.calls)
+	require.Equal(t, []string{"pre-upgrade-0.1.133"}, backupSvc.restoreIDs)
 }
 
 func TestSystemHandlerVersionActionIdempotencyPayloadCanonicalizesChoices(t *testing.T) {
-	updateSvc := &systemHandlerUpdateServiceStub{}
-	backupSvc := &systemHandlerBackupServiceStub{record: &service.BackupRecord{ID: "unexpected", Status: "completed"}}
+	updateSvc := &systemHandlerUpdateServiceStub{updateInfo: &service.UpdateInfo{CurrentVersion: "0.1.133", LatestVersion: "0.1.134"}}
+	backupSvc := &systemHandlerBackupServiceStub{
+		record: &service.BackupRecord{ID: "unexpected", Status: "completed"},
+		records: []service.BackupRecord{{
+			ID: "pre-upgrade-0.1.133", Status: "completed", TriggeredBy: versionManagerBackupTriggeredBy,
+			Metadata: &service.BackupRecordMetadata{SourceVersion: "0.1.132", TargetVersion: "0.1.133", VersionAction: "update"},
+		}},
+	}
 	featureReader := &systemHandlerFeatureReaderStub{enabled: true}
 	repo := newMemoryIdempotencyRepoStub()
 	router := newSystemHandlerTestRouterWithVersionBackup(t, updateSvc, repo, backupSvc, featureReader, 42)
@@ -368,23 +412,19 @@ func TestSystemHandlerVersionActionIdempotencyPayloadCanonicalizesChoices(t *tes
 	require.Equal(t, "IDEMPOTENCY_KEY_CONFLICT", targetConflict.Reason)
 	require.Equal(t, 1, updateSvc.performCall)
 
-	backupChoiceConflict := call("/api/v1/admin/system/update", `{"version":"0.1.133","backup_current":true}`, "canonical-version")
-	require.Equal(t, http.StatusConflict, backupChoiceConflict.Code)
-	var updateConflict systemUpdateErrorEnvelope
-	require.NoError(t, json.Unmarshal(backupChoiceConflict.Body.Bytes(), &updateConflict))
-	require.Equal(t, "IDEMPOTENCY_KEY_CONFLICT", updateConflict.Reason)
+	backupChoiceReplay := call("/api/v1/admin/system/update", `{"version":"0.1.133","backup_current":true}`, "canonical-version")
+	require.Equal(t, http.StatusOK, backupChoiceReplay.Code)
+	require.Equal(t, "true", backupChoiceReplay.Header().Get("X-Idempotency-Replayed"))
 	require.Equal(t, 1, updateSvc.performCall)
-	require.Zero(t, backupSvc.createCalls)
+	require.Equal(t, 1, backupSvc.createCalls)
 
 	firstRollback := call("/api/v1/admin/system/rollback", `{}`, "rollback-backup-choice")
 	require.Equal(t, http.StatusOK, firstRollback.Code)
-	rollbackChoiceConflict := call("/api/v1/admin/system/rollback", `{"backup_current":true}`, "rollback-backup-choice")
-	require.Equal(t, http.StatusConflict, rollbackChoiceConflict.Code)
-	var rollbackConflict systemUpdateErrorEnvelope
-	require.NoError(t, json.Unmarshal(rollbackChoiceConflict.Body.Bytes(), &rollbackConflict))
-	require.Equal(t, "IDEMPOTENCY_KEY_CONFLICT", rollbackConflict.Reason)
+	rollbackChoiceReplay := call("/api/v1/admin/system/rollback", `{"backup_current":true}`, "rollback-backup-choice")
+	require.Equal(t, http.StatusOK, rollbackChoiceReplay.Code)
+	require.Equal(t, "true", rollbackChoiceReplay.Header().Get("X-Idempotency-Replayed"))
 	require.Equal(t, 1, updateSvc.rollbackCall)
-	require.Zero(t, backupSvc.createCalls)
+	require.Equal(t, 2, backupSvc.createCalls)
 }
 
 func requireSystemLockStatus(t *testing.T, repo *memoryIdempotencyRepoStub, wantStatus string) {

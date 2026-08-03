@@ -64,6 +64,13 @@ func wrapUsageRecordTaskContext(parent context.Context, task service.UsageRecord
 	}
 }
 
+// allowOpenAIResponsesHTTPContinuation is retained for compatibility with
+// older response-stream tests. Grok is the only upstream whose HTTP response
+// continuation semantics require this path.
+func allowOpenAIResponsesHTTPContinuation(platform string) bool {
+	return strings.EqualFold(strings.TrimSpace(platform), service.PlatformGrok)
+}
+
 func setCustomRequiredProtocol(c *gin.Context, protocol string) {
 	if c == nil || c.Request == nil || strings.TrimSpace(protocol) == "" {
 		return

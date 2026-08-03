@@ -173,28 +173,27 @@ func TestGatewayRoutesExposeAllRouterProtocolsWithoutGroupType(t *testing.T) {
 		})
 	}
 
-	unsupported := []struct {
-		method  string
-		path    string
-		message string
+	capabilityRouted := []struct {
+		method string
+		path   string
 	}{
-		{http.MethodPost, "/v1/embeddings", "not supported for Grok groups"},
-		{http.MethodPost, "/embeddings", "not supported for Grok groups"},
-		{http.MethodPost, "/v1/images/generations", "not supported for Grok groups"},
-		{http.MethodPost, "/images/generations", "not supported for Grok groups"},
-		{http.MethodPost, "/v1/images/edits", "not supported for Grok groups"},
-		{http.MethodPost, "/images/edits", "not supported for Grok groups"},
-		{http.MethodPost, "/v1/messages/count_tokens", "Token counting is not supported for this platform"},
+		{http.MethodPost, "/v1/embeddings"},
+		{http.MethodPost, "/embeddings"},
+		{http.MethodPost, "/v1/images/generations"},
+		{http.MethodPost, "/images/generations"},
+		{http.MethodPost, "/v1/images/edits"},
+		{http.MethodPost, "/images/edits"},
+		{http.MethodPost, "/v1/messages/count_tokens"},
 	}
-	for _, tt := range unsupported {
+	for _, tt := range capabilityRouted {
 		t.Run(tt.method+" "+tt.path, func(t *testing.T) {
 			req := httptest.NewRequest(tt.method, tt.path, strings.NewReader(`{"model":"grok"}`))
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)
-			require.Equal(t, http.StatusNotFound, w.Code)
-			require.Contains(t, w.Body.String(), tt.message)
+			require.NotEqual(t, http.StatusNotFound, w.Code)
+			require.NotContains(t, w.Body.String(), "not supported for Grok groups")
 		})
 	}
 }

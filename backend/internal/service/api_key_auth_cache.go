@@ -55,10 +55,13 @@ type APIKeyAuthUserSnapshot struct {
 
 // APIKeyAuthGroupSnapshot 分组快照
 type APIKeyAuthGroupSnapshot struct {
-	ID                              int64    `json:"id"`
-	Name                            string   `json:"name"`
-	Icon                            string   `json:"icon,omitempty"`
-	Color                           string   `json:"color,omitempty"`
+	ID    int64  `json:"id"`
+	Name  string `json:"name"`
+	Icon  string `json:"icon,omitempty"`
+	Color string `json:"color,omitempty"`
+	// Deprecated compatibility fields. They are never used for routing.
+	Platform                        string   `json:"platform,omitempty"`
+	SupportedModelScopes            []string `json:"supported_model_scopes,omitempty"`
 	Status                          string   `json:"status"`
 	SubscriptionType                string   `json:"subscription_type"`
 	RateMultiplier                  float64  `json:"rate_multiplier"`

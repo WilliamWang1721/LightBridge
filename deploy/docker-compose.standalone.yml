@@ -30,6 +30,7 @@ services:
       # Auto Setup
       # =======================================================================
       - AUTO_SETUP=true
+      - LIGHTBRIDGE_DEPLOYMENT_TYPE=container
 
       # =======================================================================
       # Server Configuration

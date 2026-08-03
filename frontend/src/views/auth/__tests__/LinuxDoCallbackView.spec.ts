@@ -567,6 +567,7 @@ describe('LinuxDoCallbackView', () => {
     await flushPromises()
     await wrapper.get('[data-testid="linuxdo-create-account-email"]').setValue('existing@example.com')
     await wrapper.get('[data-testid="linuxdo-create-account-password"]').setValue('secret-123')
+    await wrapper.get('[data-testid="linuxdo-create-account-verify-code"]').setValue('123456')
     await wrapper.get('[data-testid="linuxdo-create-account-submit"]').trigger('click')
     await flushPromises()
 
@@ -596,6 +597,7 @@ describe('LinuxDoCallbackView', () => {
     await flushPromises()
     await wrapper.get('[data-testid="linuxdo-create-account-email"]').setValue('new@example.com')
     await wrapper.get('[data-testid="linuxdo-create-account-password"]').setValue('secret-123')
+    await wrapper.get('[data-testid="linuxdo-create-account-verify-code"]').setValue('123456')
     await wrapper.get('[data-testid="linuxdo-create-account-submit"]').trigger('click')
     await flushPromises()
 

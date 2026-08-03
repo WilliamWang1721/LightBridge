@@ -16,19 +16,25 @@ type OpenAIMessagesDispatchModelConfig = domain.OpenAIMessagesDispatchModelConfi
 type GroupModelsListConfig = domain.GroupModelsListConfig
 
 type Group struct {
-	ID                 int64
-	Name               string
-	Description        string
-	Icon               string
-	Color              string
-	RateMultiplier     float64
-	PeakRateEnabled    bool
-	PeakStart          string
-	PeakEnd            string
-	PeakRateMultiplier float64
-	IsExclusive        bool
-	Status             string
-	Hydrated           bool // indicates the group was loaded from a trusted repository source
+	ID          int64
+	Name        string
+	Description string
+	Icon        string
+	Color       string
+	// Platform is retained as a deprecated compatibility hint for older API
+	// clients and rollback-era in-memory objects. Routing never reads it.
+	Platform string
+	// SupportedModelScopes is retained only for backward-compatible decoding.
+	// Account capabilities and ModelsListConfig are authoritative.
+	SupportedModelScopes []string
+	RateMultiplier       float64
+	PeakRateEnabled      bool
+	PeakStart            string
+	PeakEnd              string
+	PeakRateMultiplier   float64
+	IsExclusive          bool
+	Status               string
+	Hydrated             bool // indicates the group was loaded from a trusted repository source
 
 	SubscriptionType    string
 	DailyLimitUSD       *float64

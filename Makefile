@@ -1,4 +1,4 @@
-.PHONY: build build-backend build-frontend build-datamanagementd test test-backend test-frontend test-frontend-critical test-datamanagementd test-model-sync-smoke model-sync-smoke secret-scan audit-codebase
+.PHONY: build build-backend build-frontend build-datamanagementd test test-backend test-frontend test-frontend-critical test-datamanagementd test-model-sync-smoke model-sync-smoke secret-scan audit-codebase check-runtime-contract runtime-smoke
 
 FRONTEND_CRITICAL_VITEST := \
 	src/views/auth/__tests__/LinuxDoCallbackView.spec.ts \
@@ -55,3 +55,11 @@ secret-scan:
 # Verify that the checked-in line-level repository inventory is current.
 audit-codebase:
 	@python3 tools/codebase_inventory.py --check
+
+# Validate the checked-in toolchain, lockfiles, container, and Compose contract.
+check-runtime-contract:
+	@python3 tools/ci/check_environment_contract.py
+
+# Build lightbridge:ci first, then run the same full-stack smoke checks used by GitHub Actions.
+runtime-smoke:
+	@bash tools/ci/full_stack_smoke.sh
