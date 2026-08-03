@@ -1,0 +1,78 @@
+name: Diagnose Current Unit Tests
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: diagnose-current-unit-tests-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          check-latest: false
+          cache: true
+          cache-dependency-path: backend/go.sum
+      - name: Run unit tests and create concise failure report
+        working-directory: backend
+        shell: bash
+        run: |
+          set +e
+          go test -tags=unit -json ./... > /tmp/unit-tests.json
+          status=$?
+          set -e
+          python3 - <<'PY'
+          import json
+          from collections import defaultdict, deque
+
+          recent = defaultdict(lambda: deque(maxlen=120))
+          failed_tests = []
+          failed_packages = []
+          with open('/tmp/unit-tests.json', encoding='utf-8') as handle:
+              for raw in handle:
+                  try:
+                      event = json.loads(raw)
+                  except json.JSONDecodeError:
+                      continue
+                  package = event.get('Package', '<unknown>')
+                  output = event.get('Output')
+                  if output:
+                      recent[package].append(output.rstrip())
+                  if event.get('Action') == 'fail':
+                      test = event.get('Test')
+                      if test:
+                          failed_tests.append((package, test))
+                      else:
+                          failed_packages.append(package)
+
+          packages = sorted(set(failed_packages + [p for p, _ in failed_tests]))
+          with open('/tmp/unit-test-failures.txt', 'w', encoding='utf-8') as out:
+              out.write('FAILED TESTS\n')
+              for package, test in failed_tests:
+                  out.write(f'- {package}: {test}\n')
+              out.write('\nFAILED PACKAGES AND RECENT OUTPUT\n')
+              for package in packages:
+                  out.write(f'\n=== {package} ===\n')
+                  for line in recent[package]:
+                      out.write(line + '\n')
+          PY
+          cat /tmp/unit-test-failures.txt
+          exit "$status"
+      - name: Upload concise diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: current-unit-test-failures-${{ github.run_id }}
+          path: |
+            /tmp/unit-test-failures.txt
+            /tmp/unit-tests.json
+          retention-days: 1
