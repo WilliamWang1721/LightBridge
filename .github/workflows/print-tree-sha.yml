@@ -16,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: agent/complete-bug-audit-fixes
       - name: Print commit and tree
         run: |
           echo "commit=$(git rev-parse HEAD)"
