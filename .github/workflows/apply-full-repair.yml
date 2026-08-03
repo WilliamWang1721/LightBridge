@@ -30,8 +30,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cat .github/repair-payload/payload-* > /tmp/lightbridge-repair.patch.gz.b64
-          echo '65e5618c552da9751aba72c1e70daab192a7fd6a62d11dc208de6a2bc720f610  /tmp/lightbridge-repair.patch.gz.b64' | sha256sum --check --strict
+          cat .github/repair-payload/payload-* | tr -d '\r\n' > /tmp/lightbridge-repair.patch.gz.b64
+          sha256sum /tmp/lightbridge-repair.patch.gz.b64
           base64 --decode /tmp/lightbridge-repair.patch.gz.b64 | gzip --decompress > /tmp/lightbridge-repair.patch
           echo 'ebcd874863212b88d5fada344654ac06d66519d51803eca5d228ceefc247b183  /tmp/lightbridge-repair.patch' | sha256sum --check --strict
           git apply --check /tmp/lightbridge-repair.patch
