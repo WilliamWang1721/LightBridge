@@ -375,7 +375,7 @@ func (c *channelCache) matchWildcardMapping(groupID int64, platform, modelLower 
 }
 
 // lookupPricingAcrossPlatforms 在请求平台内查找模型定价。
-// 各平台严格独立，只在本平台内查找（先精确匹配，再通配符）。
+// 先查请求平台，再查平台中立配置；每个平台内部均先精确匹配，再通配符匹配。
 func lookupPricingAcrossPlatforms(cache *channelCache, groupID int64, requestPlatform, modelLower string) *ChannelModelPricing {
 	for _, p := range matchingPlatforms(cache, groupID, requestPlatform) {
 		key := channelModelKey{groupID: groupID, platform: p, model: modelLower}
@@ -558,7 +558,7 @@ func resolveMapping(lk *channelLookup, groupID int64, model string) ChannelMappi
 }
 
 // checkRestricted 基于已查找的渠道信息检查模型是否被限制。
-// 只在本平台的定价列表中查找。
+// 按请求平台查找，并允许平台中立定价作为兜底。
 func checkRestricted(lk *channelLookup, groupID int64, model string) bool {
 	if !lk.channel.RestrictModels {
 		return false
