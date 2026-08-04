@@ -1,0 +1,261 @@
+:root,
+#lightbridge-ui-portal {
+  --ui-font-body: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --ui-font-heading: var(--ui-font-body);
+  --ui-heading-weight: 600;
+  --ui-heading-tracking: -0.015em;
+  --ui-radius: 0.625rem;
+  --ui-density-factor: 1;
+  --ui-motion-factor: 1;
+  --ui-control-height: 2.5rem;
+  --ui-sidebar-width: 16rem;
+  --ui-sidebar-collapsed-width: 4.25rem;
+  --ui-content-max-width: 96rem;
+  --ui-page-gap: 1.5rem;
+  --ui-z-dropdown: 40;
+  --ui-z-dialog: 50;
+  --ui-z-nested-dialog: 60;
+  --ui-z-toast: 80;
+  --ui-z-critical: 100;
+}
+
+[data-ui-mode='modern'],
+[data-ui-mode='package'] {
+  --background: 40 20% 98%;
+  --foreground: 30 12% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 30 12% 12%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 30 12% 12%;
+  --primary: 170 58% 38%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 35 18% 93%;
+  --secondary-foreground: 30 12% 18%;
+  --muted: 35 16% 94%;
+  --muted-foreground: 30 8% 44%;
+  --accent: 165 28% 91%;
+  --accent-foreground: 170 50% 24%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 35 14% 87%;
+  --input: 35 14% 87%;
+  --ring: 170 58% 38%;
+  --chart-1: 170 58% 38%;
+  --chart-2: 198 58% 44%;
+  --chart-3: 42 72% 52%;
+  --chart-4: 18 70% 54%;
+  --chart-5: 274 42% 54%;
+  color-scheme: light;
+  font-family: var(--ui-font-body);
+}
+
+.dark[data-ui-mode='modern'],
+.dark[data-ui-mode='package'],
+.dark [data-ui-mode='modern'],
+.dark [data-ui-mode='package'],
+.dark#lightbridge-ui-portal[data-ui-mode='modern'],
+.dark#lightbridge-ui-portal[data-ui-mode='package'] {
+  --background: 30 12% 8%;
+  --foreground: 35 18% 93%;
+  --card: 30 10% 11%;
+  --card-foreground: 35 18% 93%;
+  --popover: 30 10% 11%;
+  --popover-foreground: 35 18% 93%;
+  --primary: 168 58% 48%;
+  --primary-foreground: 170 55% 10%;
+  --secondary: 30 9% 16%;
+  --secondary-foreground: 35 18% 90%;
+  --muted: 30 8% 15%;
+  --muted-foreground: 35 9% 62%;
+  --accent: 168 20% 18%;
+  --accent-foreground: 168 52% 76%;
+  --destructive: 0 62% 42%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 30 8% 20%;
+  --input: 30 8% 20%;
+  --ring: 168 58% 48%;
+  --chart-1: 168 58% 48%;
+  --chart-2: 198 66% 57%;
+  --chart-3: 42 78% 59%;
+  --chart-4: 18 76% 61%;
+  --chart-5: 274 54% 68%;
+  color-scheme: dark;
+}
+
+[data-ui-base-color='neutral'] {
+  --background: 0 0% 98%;
+  --foreground: 0 0% 9%;
+  --muted: 0 0% 94%;
+  --muted-foreground: 0 0% 42%;
+  --border: 0 0% 87%;
+  --input: 0 0% 87%;
+}
+
+[data-ui-base-color='stone'] {
+  --background: 30 12% 98%;
+  --foreground: 24 10% 10%;
+  --muted: 30 8% 94%;
+  --muted-foreground: 25 5% 42%;
+  --border: 25 7% 86%;
+  --input: 25 7% 86%;
+}
+
+[data-ui-base-color='zinc'] {
+  --background: 0 0% 98%;
+  --foreground: 240 10% 10%;
+  --muted: 240 5% 94%;
+  --muted-foreground: 240 4% 42%;
+  --border: 240 6% 86%;
+  --input: 240 6% 86%;
+}
+
+[data-ui-chart-color='vivid'] {
+  --chart-1: 221 83% 53%;
+  --chart-2: 160 84% 39%;
+  --chart-3: 38 92% 50%;
+  --chart-4: 0 84% 60%;
+  --chart-5: 271 81% 56%;
+}
+
+[data-ui-chart-color='muted'] {
+  --chart-1: 170 32% 45%;
+  --chart-2: 205 30% 50%;
+  --chart-3: 42 38% 52%;
+  --chart-4: 18 36% 54%;
+  --chart-5: 274 24% 56%;
+}
+
+[data-ui-radius='none'] { --ui-radius: 0; }
+[data-ui-radius='small'] { --ui-radius: 0.375rem; }
+[data-ui-radius='default'] { --ui-radius: 0.625rem; }
+[data-ui-radius='large'] { --ui-radius: 0.875rem; }
+
+[data-ui-density='compact'] {
+  --ui-density-factor: 0.875;
+  --ui-control-height: 2.125rem;
+  --ui-page-gap: 1rem;
+}
+[data-ui-density='default'] {
+  --ui-density-factor: 1;
+  --ui-control-height: 2.5rem;
+  --ui-page-gap: 1.5rem;
+}
+[data-ui-density='comfortable'] {
+  --ui-density-factor: 1.125;
+  --ui-control-height: 2.75rem;
+  --ui-page-gap: 2rem;
+}
+
+[data-ui-layout='compact'] { --ui-content-max-width: 82rem; }
+[data-ui-layout='default'] { --ui-content-max-width: 96rem; }
+[data-ui-layout='spacious'] { --ui-content-max-width: 112rem; }
+
+[data-ui-motion='reduced'] { --ui-motion-factor: 0; }
+[data-ui-motion='default'] { --ui-motion-factor: 1; }
+[data-ui-motion='expressive'] { --ui-motion-factor: 1.2; }
+
+[data-ui-menu-size='compact'] { --ui-sidebar-width: 13.5rem; }
+[data-ui-menu-size='comfortable'] { --ui-sidebar-width: 17.5rem; }
+[data-ui-menu-size='wide'] { --ui-sidebar-width: 20rem; }
+
+@media (max-width: 1279px) {
+  [data-ui-menu-size='suitable'] { --ui-sidebar-width: 13.5rem; }
+}
+
+@media (min-width: 1280px) and (max-width: 1679px) {
+  [data-ui-menu-size='suitable'] { --ui-sidebar-width: 17.5rem; }
+}
+
+@media (min-width: 1680px) {
+  [data-ui-menu-size='suitable'] { --ui-sidebar-width: 20rem; }
+}
+
+[data-ui-heading='natural'] {
+  --ui-font-heading: var(--ui-font-body);
+  --ui-heading-weight: 600;
+  --ui-heading-tracking: -0.015em;
+}
+[data-ui-heading='compact'] {
+  --ui-font-heading: var(--ui-font-body);
+  --ui-heading-weight: 600;
+  --ui-heading-tracking: -0.025em;
+}
+[data-ui-heading='editorial'] {
+  --ui-font-heading: Georgia, Cambria, "Times New Roman", serif;
+  --ui-heading-weight: 600;
+  --ui-heading-tracking: -0.02em;
+}
+[data-ui-heading='strong'] {
+  --ui-font-heading: var(--ui-font-body);
+  --ui-heading-weight: 700;
+  --ui-heading-tracking: -0.025em;
+}
+
+[data-ui-font='inter'] {
+  --ui-font-body: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+[data-ui-font='system'] {
+  --ui-font-body: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+[data-ui-mode='modern'] h1,
+[data-ui-mode='modern'] h2,
+[data-ui-mode='modern'] h3,
+[data-ui-mode='modern'] h4,
+[data-ui-mode='modern'] h5,
+[data-ui-mode='modern'] h6,
+[data-ui-mode='package'] h1,
+[data-ui-mode='package'] h2,
+[data-ui-mode='package'] h3,
+[data-ui-mode='package'] h4,
+[data-ui-mode='package'] h5,
+[data-ui-mode='package'] h6 {
+  font-family: var(--ui-font-heading);
+  font-weight: var(--ui-heading-weight);
+  letter-spacing: var(--ui-heading-tracking);
+}
+
+[data-ui-mode='modern'] .app-main,
+[data-ui-mode='package'] .app-main {
+  max-width: var(--ui-content-max-width);
+}
+
+[data-ui-mode='modern'] .sidebar,
+[data-ui-mode='package'] .sidebar {
+  width: var(--ui-sidebar-width);
+}
+
+[data-ui-menu='outlined'] .sidebar {
+  border-right-width: 1px;
+  box-shadow: none;
+}
+[data-ui-menu='subtle'] .sidebar {
+  box-shadow: none;
+}
+[data-ui-menu='translucent'] .sidebar {
+  backdrop-filter: blur(18px);
+  background-color: hsl(var(--card) / 0.82);
+}
+
+[data-ui-table='compact'] .table th,
+[data-ui-table='compact'] .table td {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+[data-ui-table='comfortable'] .table th,
+[data-ui-table='comfortable'] .table td {
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+
+#lightbridge-ui-portal {
+  position: relative;
+  z-index: var(--ui-z-dialog);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root,
+  #lightbridge-ui-portal {
+    --ui-motion-factor: 0;
+  }
+}

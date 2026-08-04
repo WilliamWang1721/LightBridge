@@ -1,0 +1,45 @@
+html[data-ui-mode='modern'] body,
+html[data-ui-mode='package'] body {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+html[data-ui-mode='modern'] .ui-main-shell,
+html[data-ui-mode='package'] .ui-main-shell {
+  background: hsl(var(--background));
+}
+
+html[data-ui-mode='modern'] .app-main,
+html[data-ui-mode='package'] .app-main {
+  max-width: var(--ui-content-max-width);
+  padding: var(--ui-page-gap);
+}
+
+html[data-ui-mode='modern'] .sidebar.w-64,
+html[data-ui-mode='package'] .sidebar.w-64 {
+  width: var(--ui-sidebar-width);
+}
+
+html[data-ui-mode='modern'] .sidebar.w-\[72px\],
+html[data-ui-mode='package'] .sidebar.w-\[72px\] {
+  width: var(--ui-sidebar-collapsed-width);
+}
+
+@media (min-width: 1024px) {
+  html[data-ui-mode='modern'] .ui-main-shell,
+  html[data-ui-mode='package'] .ui-main-shell {
+    margin-left: var(--ui-sidebar-width);
+  }
+
+  html[data-ui-mode='modern'] .ui-main-shell[data-sidebar-collapsed='true'],
+  html[data-ui-mode='package'] .ui-main-shell[data-sidebar-collapsed='true'] {
+    margin-left: var(--ui-sidebar-collapsed-width);
+  }
+}
+
+@media (max-width: 639px) {
+  html[data-ui-mode='modern'] .app-main,
+  html[data-ui-mode='package'] .app-main {
+    padding: 1rem;
+  }
+}

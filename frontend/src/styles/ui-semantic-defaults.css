@@ -1,0 +1,50 @@
+:root,
+#lightbridge-ui-portal {
+  --background: 210 20% 98%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --primary: 173 80% 40%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 20% 96%;
+  --secondary-foreground: 222 33% 18%;
+  --muted: 210 20% 96%;
+  --muted-foreground: 215 16% 47%;
+  --accent: 166 42% 92%;
+  --accent-foreground: 173 70% 25%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --ring: 173 80% 40%;
+  --chart-1: 173 80% 40%;
+  --chart-2: 198 78% 46%;
+  --chart-3: 42 82% 54%;
+  --chart-4: 18 76% 56%;
+  --chart-5: 274 52% 58%;
+}
+
+.dark,
+.dark #lightbridge-ui-portal {
+  --background: 222 47% 5%;
+  --foreground: 210 40% 98%;
+  --card: 217 33% 10%;
+  --card-foreground: 210 40% 98%;
+  --popover: 217 33% 10%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 172 66% 50%;
+  --primary-foreground: 173 76% 10%;
+  --secondary: 217 25% 17%;
+  --secondary-foreground: 210 40% 96%;
+  --muted: 217 25% 17%;
+  --muted-foreground: 215 20% 65%;
+  --accent: 173 28% 18%;
+  --accent-foreground: 170 64% 78%;
+  --destructive: 0 62% 42%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 217 20% 22%;
+  --input: 217 20% 22%;
+  --ring: 172 66% 50%;
+}
