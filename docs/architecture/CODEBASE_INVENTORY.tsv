@@ -10,6 +10,7 @@ path	category	ownership	lines	bytes	sha256
 .github/workflows/release.yml	workflow	maintained	653	24362	db898a149f708f4f32ad338000560556f973b13cb227ce6f6f12cc3b1496509e
 .github/workflows/runtime-environment-check.yml	workflow	maintained	175	5610	ac98e826fc6f93ab2ca92fb6560a3f38962d604a65a9c49b9cc8d282127050c6
 .github/workflows/security-scan.yml	workflow	maintained	64	1678	94e560f9f9ad5beabc9c623be4073bac44a369e5ad8d3e9edd9f1ef8f19bd466
+.github/workflows/sync-ui-pr-with-main.yml	workflow	maintained	85	2740	d737b16030eab8ebfe7dbe4b539177145eb40fe07e982347c316fd9309f106f4
 .gitignore	other-text	maintained	180	2954	54a0603781861a946913f890217e90634dc4ff0d5e5f22e0e5dfb9d8c873d114
 .goreleaser.simple.yaml	configuration	maintained	84	2087	560ea0802eabc91650749350b949cc272e37768cfc39a1a381a362a0b17cd34e
 .goreleaser.yaml	configuration	maintained	204	7162	a72c001f6e7aa11fda9579cfae27a0df233e6e7482bd5f022f4ff6297772ffca
