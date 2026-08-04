@@ -30,7 +30,20 @@ jobs:
       - name: Reconstruct and verify reviewed patch
         run: |
           set -euo pipefail
-          cat .github/review-loop-final-payload/part-* \
+          cat \
+            .github/review-loop-final-payload/part-00 \
+            .github/review-loop-final-payload/part-01 \
+            .github/review-loop-final-payload/part-02 \
+            .github/review-loop-final-payload/part-03 \
+            .github/review-loop-final-payload/part-04-00 \
+            .github/review-loop-final-payload/part-04-01 \
+            .github/review-loop-final-payload/part-04-02 \
+            .github/review-loop-final-payload/part-04-03 \
+            .github/review-loop-final-payload/part-04-04 \
+            .github/review-loop-final-payload/part-04-05 \
+            .github/review-loop-final-payload/part-04-06 \
+            .github/review-loop-final-payload/part-04-07 \
+            .github/review-loop-final-payload/part-05 \
             | base64 --decode \
             > /tmp/final-review.patch.gz
           echo 'a8e5cf50ca93cc6c1149951044b37ba016c351625f250deb4c293b83d9589b4c  /tmp/final-review.patch.gz' \
