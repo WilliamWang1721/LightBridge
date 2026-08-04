@@ -8,10 +8,10 @@ import (
 
 func TestNormalizeUserActivityFilter(t *testing.T) {
 	tests := []struct {
-		name       string
-		input      string
-		want       string
-		wantValid  bool
+		name      string
+		input     string
+		want      string
+		wantValid bool
 	}{
 		{name: "empty", input: "", want: "", wantValid: true},
 		{name: "any", input: "any", want: UserActivityFilterAny, wantValid: true},
