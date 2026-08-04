@@ -1,0 +1,290 @@
+name: Apply advanced user filter UI wiring
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - synchronize
+      - reopened
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/advanced-user-filter
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Wire activity filter into the admin UI
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          api_path = Path('frontend/src/api/admin/users.ts')
+          api_text = api_path.read_text()
+          old = "import type { AdminUser, UpdateUserRequest, PaginatedResponse, ApiKey } from '@/types'\n"
+          new = old + "\nexport type UserActivityFilter = 'any' | 'usage' | 'balance_change' | 'none'\n"
+          if api_text.count(old) != 1:
+              raise SystemExit('admin users API import did not match exactly once')
+          api_text = api_text.replace(old, new, 1)
+
+          old = "    search?: string\n    group_name?: string         // fuzzy filter by allowed group name\n"
+          new = "    search?: string\n    activity?: UserActivityFilter\n    group_name?: string         // fuzzy filter by allowed group name\n"
+          if api_text.count(old) != 1:
+              raise SystemExit('admin users API filter type did not match exactly once')
+          api_text = api_text.replace(old, new, 1)
+
+          old = "    search: filters?.search,\n    group_name: filters?.group_name,\n"
+          new = "    search: filters?.search,\n    activity: filters?.activity,\n    group_name: filters?.group_name,\n"
+          if api_text.count(old) != 1:
+              raise SystemExit('admin users API params did not match exactly once')
+          api_path.write_text(api_text.replace(old, new, 1))
+
+          view_path = Path('frontend/src/views/admin/UsersView.vue')
+          view_text = view_path.read_text()
+          old = '''            <!-- Group Filter (visible when enabled) -->
+          '''
+          activity_block = '''            <!-- Activity Filter (visible when enabled) -->
+            <div v-if="visibleFilters.has('activity')" class="w-full sm:w-52">
+              <Select
+                v-model="filters.activity"
+                :options="[
+                  { value: '', label: t('admin.users.allActivity') },
+                  { value: 'any', label: t('admin.users.activityAny') },
+                  { value: 'usage', label: t('admin.users.activityUsage') },
+                  { value: 'balance_change', label: t('admin.users.activityBalanceChange') },
+                  { value: 'none', label: t('admin.users.activityNone') }
+                ]"
+                @change="applyFilter"
+              />
+            </div>
+
+            <!-- Group Filter (visible when enabled) -->
+          '''
+          if view_text.count(old) != 1:
+              raise SystemExit('UsersView group filter anchor did not match exactly once')
+          view_text = view_text.replace(old, activity_block, 1)
+
+          old = "import type { PlatformQuotaItem } from '@/api/admin/users'\n"
+          new = "import type { PlatformQuotaItem, UserActivityFilter } from '@/api/admin/users'\n"
+          if view_text.count(old) != 1:
+              raise SystemExit('UsersView user API type import did not match exactly once')
+          view_text = view_text.replace(old, new, 1)
+
+          old = '''const filters = reactive({
+            role: '',
+            status: '',
+            group: ''  // group name for fuzzy match, '' = all
+          })
+          '''
+          new = '''const filters = reactive({
+            role: '',
+            status: '',
+            activity: '' as '' | UserActivityFilter,
+            group: ''  // group name for fuzzy match, '' = all
+          })
+          '''
+          if view_text.count(old) != 1:
+              raise SystemExit('UsersView filter state did not match exactly once')
+          view_text = view_text.replace(old, new, 1)
+
+          old = "// Keys: 'role', 'status', 'attr_${id}'\n"
+          new = "// Keys: 'role', 'status', 'activity', 'group', 'attr_${id}'\n"
+          if view_text.count(old) != 1:
+              raise SystemExit('UsersView visible filter comment did not match exactly once')
+          view_text = view_text.replace(old, new, 1)
+
+          old = '''const builtInFilters = computed(() => [
+            { key: 'role', name: t('admin.users.columns.role'), type: 'select' as const },
+            { key: 'status', name: t('admin.users.columns.status'), type: 'select' as const },
+            { key: 'group', name: t('admin.users.columns.groups'), type: 'select' as const }
+          ])
+          '''
+          new = '''const builtInFilters = computed(() => [
+            { key: 'role', name: t('admin.users.columns.role'), type: 'select' as const },
+            { key: 'status', name: t('admin.users.columns.status'), type: 'select' as const },
+            { key: 'activity', name: t('admin.users.activityFilter'), type: 'select' as const },
+            { key: 'group', name: t('admin.users.columns.groups'), type: 'select' as const }
+          ])
+          '''
+          if view_text.count(old) != 1:
+              raise SystemExit('UsersView built-in filters did not match exactly once')
+          view_text = view_text.replace(old, new, 1)
+
+          old = '''    if (savedVisible) {
+                const parsed = JSON.parse(savedVisible) as string[]
+                parsed.forEach(key => visibleFilters.add(key))
+              }
+          '''
+          new = '''    if (savedVisible) {
+                const parsed = JSON.parse(savedVisible) as string[]
+                parsed.forEach(key => visibleFilters.add(key))
+              } else {
+                visibleFilters.add('activity')
+              }
+          '''
+          if view_text.count(old) != 1:
+              raise SystemExit('UsersView visible filters storage did not match exactly once')
+          view_text = view_text.replace(old, new, 1)
+
+          old = '''      if (parsed.role) filters.role = parsed.role
+                if (parsed.status) filters.status = parsed.status
+                if (parsed.group) filters.group = parsed.group
+          '''
+          new = '''      if (parsed.role) filters.role = parsed.role
+                if (parsed.status) filters.status = parsed.status
+                if (['any', 'usage', 'balance_change', 'none'].includes(parsed.activity)) {
+                  filters.activity = parsed.activity
+                }
+                if (parsed.group) filters.group = parsed.group
+          '''
+          if view_text.count(old) != 1:
+              raise SystemExit('UsersView saved filter values did not match exactly once')
+          view_text = view_text.replace(old, new, 1)
+
+          old = '''      role: filters.role,
+                status: filters.status,
+                group: filters.group,
+          '''
+          new = '''      role: filters.role,
+                status: filters.status,
+                activity: filters.activity,
+                group: filters.group,
+          '''
+          if view_text.count(old) != 1:
+              raise SystemExit('UsersView saved filter payload did not match exactly once')
+          view_text = view_text.replace(old, new, 1)
+
+          old = '''        role: filters.role as any,
+                  status: filters.status as any,
+                  search: searchQuery.value || undefined,
+          '''
+          new = '''        role: filters.role as any,
+                  status: filters.status as any,
+                  activity: filters.activity || undefined,
+                  search: searchQuery.value || undefined,
+          '''
+          if view_text.count(old) != 1:
+              raise SystemExit('UsersView list request filters did not match exactly once')
+          view_text = view_text.replace(old, new, 1)
+
+          old = '''    if (key === 'role') filters.role = ''
+              if (key === 'status') filters.status = ''
+              if (key === 'group') filters.group = ''
+          '''
+          new = '''    if (key === 'role') filters.role = ''
+              if (key === 'status') filters.status = ''
+              if (key === 'activity') filters.activity = ''
+              if (key === 'group') filters.group = ''
+          '''
+          if view_text.count(old) != 1:
+              raise SystemExit('UsersView toggle filter cleanup did not match exactly once')
+          view_path.write_text(view_text.replace(old, new, 1))
+
+          en_path = Path('frontend/src/i18n/locales/en-sections/admin/users.ts')
+          en_text = en_path.read_text()
+          old = "      allGroups: 'All Groups',\n"
+          new = old + "      activityFilter: 'Activity Records',\n      allActivity: 'All Activity',\n      activityAny: 'Used or Balance Changed',\n      activityUsage: 'Has Usage',\n      activityBalanceChange: 'Balance Changed',\n      activityNone: 'No Usage or Balance Changes',\n"
+          if en_text.count(old) != 1:
+              raise SystemExit('English users locale anchor did not match exactly once')
+          en_path.write_text(en_text.replace(old, new, 1))
+
+          zh_path = Path('frontend/src/i18n/locales/zh-sections/admin/users.ts')
+          zh_text = zh_path.read_text()
+          old = "      allGroups: '全部分组',\n"
+          new = old + "      activityFilter: '活动记录',\n      allActivity: '全部活动状态',\n      activityAny: '有使用或余额变动',\n      activityUsage: '有使用记录',\n      activityBalanceChange: '有余额变动',\n      activityNone: '无使用及余额变动',\n"
+          if zh_text.count(old) != 1:
+              raise SystemExit('Chinese users locale anchor did not match exactly once')
+          zh_path.write_text(zh_text.replace(old, new, 1))
+
+          spec_path = Path('frontend/src/views/admin/__tests__/UsersView.spec.ts')
+          spec_text = spec_path.read_text()
+          insert = r'''
+
+            it('forwards a saved activity filter to the users API', async () => {
+              localStorage.setItem('user-filter-values', JSON.stringify({ activity: 'none' }))
+
+              mount(UsersView, {
+                global: {
+                  stubs: {
+                    AppLayout: { template: '<div><slot /></div>' },
+                    TablePageLayout: {
+                      template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
+                    },
+                    DataTable: DataTableStub,
+                    Pagination: true,
+                    ConfirmDialog: true,
+                    EmptyState: true,
+                    GroupBadge: true,
+                    Select: true,
+                    UserAttributesConfigModal: true,
+                    UserConcurrencyCell: true,
+                    UserCreateModal: true,
+                    UserEditModal: true,
+                    UserApiKeysModal: true,
+                    UserAllowedGroupsModal: true,
+                    UserBalanceModal: true,
+                    UserBalanceHistoryModal: true,
+                    GroupReplaceModal: true,
+                    Icon: true,
+                    Teleport: true
+                  }
+                }
+              })
+
+              await flushPromises()
+
+              expect(listUsers).toHaveBeenCalledWith(
+                1,
+                20,
+                expect.objectContaining({ activity: 'none' }),
+                expect.any(Object)
+              )
+            })
+          '''
+          marker = '\n})\n'
+          index = spec_text.rfind(marker)
+          if index < 0:
+              raise SystemExit('UsersView spec closing marker was not found')
+          spec_path.write_text(spec_text[:index] + insert + spec_text[index:])
+          PY
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify frontend
+        working-directory: frontend
+        run: |
+          pnpm typecheck
+          pnpm test:run src/views/admin/__tests__/UsersView.spec.ts
+
+      - name: Commit verified UI changes and remove temporary workflow
+        shell: bash
+        run: |
+          rm -f .github/workflows/agent-advanced-user-filter-ui.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "feat(admin): add activity filter controls"
+          git push origin HEAD:agent/advanced-user-filter
