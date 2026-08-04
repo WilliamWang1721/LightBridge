@@ -3,6 +3,7 @@ path	category	ownership	lines	bytes	sha256
 .gitattributes	other-text	maintained	22	373	1e7e4dd88806c211173003844b25304bac2ba04d0c2dc4afbb7a5e181fd3bf7c
 .github/audit-exceptions.yml	configuration	maintained	37	1663	34747d9cfc6e33b54ebfbba2563c5389a24a4fee19ec0fec0d3522b8745ea0f7
 .github/workflows/backend-ci.yml	workflow	maintained	75	1880	9be63bda7213a3e7d58b55cc1636b795beb689e9aa3bf9da9c93aa2cdd272a24
+.github/workflows/bootstrap-content-distribution-target.yml	workflow	maintained	150	8421	228a9c5288d78f5144e7557ec24ac292e1e18fdee63b45f23aff99c03abcf4d9
 .github/workflows/cla.yml	workflow	maintained	66	2476	b4d893c606d634541297efa8da2eb0d6da90f4cbd0517a83c8e91d5915728ce3
 .github/workflows/codebase-inventory.yml	workflow	maintained	62	1669	344c69237217bb5e419a38d3efd7873cf4dd793172561a862470439c18b85e5b
 .github/workflows/lightsail-deploy.yml	workflow	maintained	182	6792	a17e6ab95266fee8776570ca001444a680384fbd510a7deed6fdb86979243079
