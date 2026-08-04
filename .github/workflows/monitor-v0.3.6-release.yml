@@ -1,22 +1,20 @@
-name: Monitor v0.3.6 release
+name: Dispatch and monitor v0.3.6 release
 
 on:
   pull_request:
     branches:
       - main
     types:
-      - opened
       - synchronize
-      - reopened
 
 permissions:
-  actions: read
+  actions: write
   contents: read
   issues: write
   pull-requests: write
 
 jobs:
-  monitor-release:
+  dispatch-and-monitor:
     if: github.event.pull_request.head.ref == 'release/v0.3.6-trigger'
     runs-on: ubuntu-latest
     env:
@@ -24,17 +22,32 @@ jobs:
       RELEASE_SHA: 2e830edb2ae28fe147c659f28141e4149fd0e925
       PR_NUMBER: ${{ github.event.pull_request.number }}
     steps:
-      - name: Wait for definitive Release result
+      - name: Dispatch Release workflow for existing immutable tag
+        id: dispatch
         run: |
           set -euo pipefail
-          for attempt in $(seq 1 80); do
-            RUN_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/release.yml/runs?per_page=30" --jq ".workflow_runs | map(select((.head_branch == \"v0.3.6\") or (.head_sha == \"${RELEASE_SHA}\" and .event == \"push\"))) | first | .id // empty")"
-            if [ -z "$RUN_ID" ]; then
-              echo "Release run not visible yet (${attempt}/80)"
-              sleep 15
-              continue
-            fi
+          BEFORE_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/release.yml/runs?event=workflow_dispatch&per_page=1" --jq '.workflow_runs[0].id // empty')"
+          gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref main -f tag=v0.3.6 -f simple_release=false
 
+          RUN_ID=''
+          for attempt in $(seq 1 30); do
+            CANDIDATE="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/release.yml/runs?event=workflow_dispatch&per_page=1" --jq '.workflow_runs[0].id // empty')"
+            if [ -n "$CANDIDATE" ] && [ "$CANDIDATE" != "$BEFORE_ID" ]; then
+              RUN_ID="$CANDIDATE"
+              break
+            fi
+            sleep 2
+          done
+          test -n "$RUN_ID"
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" -f body="Dispatched the official Release workflow for existing tag v0.3.6. Run ID: ${RUN_ID}. Immutable source: ${RELEASE_SHA}." >/dev/null
+
+      - name: Wait for definitive Release result
+        env:
+          RUN_ID: ${{ steps.dispatch.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 120); do
             STATUS="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" --jq .status)"
             CONCLUSION="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" --jq '.conclusion // "pending"')"
             echo "Release run ${RUN_ID}: ${STATUS}/${CONCLUSION}"
@@ -44,15 +57,13 @@ jobs:
               continue
             fi
 
-            BODY="v0.3.6 Release workflow completed. Run ID: ${RUN_ID}. Conclusion: ${CONCLUSION}. Immutable source: ${RELEASE_SHA}."
+            JOBS="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/jobs?per_page=100" --jq '.jobs[] | "- " + .name + ": " + .status + "/" + (.conclusion // "pending")')"
+            BODY="v0.3.6 Release workflow completed. Run ID: ${RUN_ID}. Conclusion: ${CONCLUSION}. Immutable source: ${RELEASE_SHA}.\n\n${JOBS}"
             gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" -f body="$BODY" >/dev/null
 
-            if [ "$CONCLUSION" != "success" ]; then
-              gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/jobs?per_page=100" --jq '.jobs[] | [.name, .conclusion] | @tsv'
-              exit 1
-            fi
+            test "$CONCLUSION" = 'success'
             exit 0
           done
 
-          gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" -f body="Timed out waiting for the v0.3.6 Release workflow for ${RELEASE_SHA}." >/dev/null
+          gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" -f body="Timed out waiting for official v0.3.6 Release run ${RUN_ID}." >/dev/null
           exit 1
