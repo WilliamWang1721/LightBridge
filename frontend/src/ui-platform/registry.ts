@@ -16,7 +16,7 @@ export const DEFAULT_UI_CAPABILITIES: UICapabilities = {
 }
 
 export const DEFAULT_UI_PROFILE: UIProfile = {
-  mode: 'legacy',
+  mode: 'modern',
   componentStyle: 'luma',
   layout: 'default',
   baseColor: 'natural',
