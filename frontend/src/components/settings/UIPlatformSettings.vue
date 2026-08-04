@@ -13,7 +13,7 @@
             {{ copy.description }}
           </p>
         </div>
-        <Button variant="outline" size="sm" @click="resetPreferences">
+        <Button variant="outline" size="sm" :disabled="accountSyncing" @click="resetPreferences">
           {{ copy.reset }}
         </Button>
       </div>
@@ -70,8 +70,17 @@
         </div>
       </div>
 
-      <div class="rounded-[var(--ui-radius)] border border-[hsl(var(--primary)/0.18)] bg-[hsl(var(--primary)/0.08)] px-4 py-3 text-sm text-[hsl(var(--foreground))]">
-        {{ copy.savedLocally }}
+      <div
+        class="rounded-[var(--ui-radius)] border px-4 py-3 text-sm"
+        :class="accountSyncError
+          ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300'
+          : 'border-[hsl(var(--primary)/0.18)] bg-[hsl(var(--primary)/0.08)] text-[hsl(var(--foreground))]'"
+        role="status"
+        aria-live="polite"
+      >
+        <span v-if="accountSyncing">{{ copy.syncing }}</span>
+        <span v-else-if="accountSyncError">{{ copy.syncFailed }}</span>
+        <span v-else>{{ copy.synced }}</span>
       </div>
     </div>
   </section>
@@ -98,7 +107,14 @@ const props = withDefaults(defineProps<{
 })
 
 const { locale } = useI18n()
-const { profile, options, updatePreferences, resetPreferences } = useUIPlatform()
+const {
+  profile,
+  options,
+  accountSyncing,
+  accountSyncError,
+  updatePreferences,
+  resetPreferences,
+} = useUIPlatform()
 
 const injectedPackageId = typeof document === 'undefined'
   ? ''
@@ -128,7 +144,9 @@ const copy = computed(() => {
         selectPackage: '选择已安装的 UI 包',
         style: '组件风格',
         styleHint: '风格固定为 Luma，不能被用户或 UI 包覆盖。',
-        savedLocally: '更改会立即预览并保存在当前浏览器。账户级同步将在后续服务端偏好接口中接入。',
+        syncing: '正在同步 UI 设置到你的账户……',
+        synced: '更改已立即应用，并同步到你的账户；当前浏览器保留本地回退。',
+        syncFailed: '账户同步失败，但当前浏览器中的设置仍然有效。稍后重新修改任意选项即可重试。',
       }
     : {
         title: 'UI settings',
@@ -143,7 +161,9 @@ const copy = computed(() => {
         selectPackage: 'Select an installed UI package',
         style: 'Component style',
         styleHint: 'The component style is fixed to Luma and cannot be overridden by users or packages.',
-        savedLocally: 'Changes are applied immediately and saved in this browser. Account synchronization will use the future server-side preference endpoint.',
+        syncing: 'Synchronizing UI settings with your account…',
+        synced: 'Changes are applied immediately and synchronized with your account, with a local browser fallback.',
+        syncFailed: 'Account synchronization failed, but the settings remain active in this browser. Change any option later to retry.',
       }
 })
 
@@ -196,23 +216,23 @@ const fields = computed(() => [
 ])
 
 function setPreference(key: UIAxis, value: string) {
-  updatePreferences({ [key]: value } as UIProfileOverrides)
+  void updatePreferences({ [key]: value } as UIProfileOverrides)
 }
 
 function setMode(value: string) {
   if (value === 'legacy' || value === 'modern') {
-    updatePreferences({ mode: value })
+    void updatePreferences({ mode: value })
     return
   }
 
   if (value === 'package') {
     const selected = profile.value.activePackageId || availablePackages.value[0]?.id
-    if (selected) updatePreferences({ mode: 'package', activePackageId: selected })
+    if (selected) void updatePreferences({ mode: 'package', activePackageId: selected })
   }
 }
 
 function setPackage(id: string) {
   if (!id) return
-  updatePreferences({ mode: 'package', activePackageId: id })
+  void updatePreferences({ mode: 'package', activePackageId: id })
 }
 </script>
