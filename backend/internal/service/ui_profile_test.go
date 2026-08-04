@@ -86,6 +86,16 @@ func TestParseUserUIProfileAcceptsIndependentAxes(t *testing.T) {
 	}
 }
 
+func TestParseUserUIProfileAcceptsClassicIconLibrary(t *testing.T) {
+	profile, err := ParseUserUIProfile(json.RawMessage(`{"iconLibrary":"classic"}`))
+	if err != nil {
+		t.Fatalf("ParseUserUIProfile returned error: %v", err)
+	}
+	if profile.IconLibrary != "classic" {
+		t.Fatalf("unexpected icon library: %q", profile.IconLibrary)
+	}
+}
+
 func TestParseUserUIProfileRejectsStyleOverride(t *testing.T) {
 	if _, err := ParseUserUIProfile(json.RawMessage(`{"componentStyle":"other"}`)); err == nil {
 		t.Fatal("expected component style override to be rejected")
@@ -128,5 +138,24 @@ func TestUserUIProfilePersistsAndResets(t *testing.T) {
 	}
 	if loaded != (UserUIProfile{}) {
 		t.Fatalf("expected empty profile after reset, got %#v", loaded)
+	}
+}
+
+func TestParseUserUIProfileRejectsNull(t *testing.T) {
+	if _, err := ParseUserUIProfile(json.RawMessage(`null`)); err == nil {
+		t.Fatal("expected null UI profile to be rejected")
+	}
+}
+
+func TestParseUserUIProfileNormalizesAndClearsInactivePackage(t *testing.T) {
+	profile, err := ParseUserUIProfile(json.RawMessage(`{"mode":" modern ","radius":" large ","activePackageId":"old-package"}`))
+	if err != nil {
+		t.Fatalf("ParseUserUIProfile returned error: %v", err)
+	}
+	if profile.Mode != "modern" || profile.Radius != "large" {
+		t.Fatalf("profile was not normalized: %#v", profile)
+	}
+	if profile.ActivePackageID != "" {
+		t.Fatalf("inactive package id was not cleared: %#v", profile)
 	}
 }

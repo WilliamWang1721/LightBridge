@@ -13,7 +13,7 @@
     >
       <SelectValue :placeholder="placeholder" />
       <SelectIcon as-child>
-        <ChevronDown class="h-4 w-4 shrink-0 opacity-60" aria-hidden="true" />
+        <AppIcon name="chevron-down" size="sm" class="shrink-0 opacity-60" />
       </SelectIcon>
     </SelectTrigger>
 
@@ -24,13 +24,13 @@
         class="z-[var(--ui-z-dropdown)] max-h-[var(--reka-select-content-available-height)] min-w-[var(--reka-select-trigger-width)] overflow-hidden rounded-[var(--ui-radius)] border border-[hsl(var(--border))] bg-[hsl(var(--popover))] text-[hsl(var(--popover-foreground))] shadow-xl data-[state=open]:animate-scale-in"
       >
         <SelectScrollUpButton class="flex h-7 cursor-default items-center justify-center">
-          <ChevronUp class="h-4 w-4" aria-hidden="true" />
+          <AppIcon name="chevron-up" size="sm" />
         </SelectScrollUpButton>
         <SelectViewport class="p-1">
           <slot />
         </SelectViewport>
         <SelectScrollDownButton class="flex h-7 cursor-default items-center justify-center">
-          <ChevronDown class="h-4 w-4" aria-hidden="true" />
+          <AppIcon name="chevron-down" size="sm" />
         </SelectScrollDownButton>
       </SelectContent>
     </SelectPortal>
@@ -39,7 +39,7 @@
 
 <script setup lang="ts">
 import { computed, type HTMLAttributes } from 'vue'
-import { ChevronDown, ChevronUp } from '@lucide/vue'
+import { AppIcon } from '@/components/ui/icon'
 import {
   SelectContent,
   SelectIcon,

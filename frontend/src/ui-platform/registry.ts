@@ -16,7 +16,7 @@ export const DEFAULT_UI_CAPABILITIES: UICapabilities = {
 }
 
 export const DEFAULT_UI_PROFILE: UIProfile = {
-  mode: 'legacy',
+  mode: 'modern',
   componentStyle: 'luma',
   layout: 'default',
   baseColor: 'natural',
@@ -61,6 +61,7 @@ export const UI_REGISTRY: UIRegistry = {
   },
   iconLibraries: {
     lucide: { id: 'lucide', label: 'Lucide' },
+    classic: { id: 'classic', label: 'LightBridge Outline' },
   },
   radii: {
     none: { id: 'none', label: 'None' },

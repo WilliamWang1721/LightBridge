@@ -11,7 +11,7 @@
   >
     <span class="absolute left-2 flex h-4 w-4 items-center justify-center">
       <SelectItemIndicator>
-        <Check class="h-4 w-4" aria-hidden="true" />
+        <AppIcon name="check" size="sm" />
       </SelectItemIndicator>
     </span>
     <SelectItemText>
@@ -22,7 +22,7 @@
 
 <script setup lang="ts">
 import { computed, type HTMLAttributes } from 'vue'
-import { Check } from '@lucide/vue'
+import { AppIcon } from '@/components/ui/icon'
 import {
   SelectItem as RekaSelectItem,
   SelectItemIndicator,
