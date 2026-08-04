@@ -5,7 +5,9 @@ import router, { syncProgressiveRoutes } from './router'
 import i18n, { initI18n } from './i18n'
 import { useAppStore } from '@/stores/app'
 import { hydrateProgressiveFeatureManifest } from '@/utils/progressiveFeatures'
+import { initializeUIPlatform } from '@/ui-platform/runtime'
 import './style.css'
+import './styles/ui-platform.css'
 
 function initThemeClass() {
   const savedTheme = localStorage.getItem('theme')
@@ -16,8 +18,9 @@ function initThemeClass() {
 }
 
 async function bootstrap() {
-  // Apply theme class globally before app mount to keep all routes consistent.
+  // Apply theme and UI profile before app mount to prevent visual flashing.
   initThemeClass()
+  initializeUIPlatform()
 
   const app = createApp(App)
   const pinia = createPinia()
