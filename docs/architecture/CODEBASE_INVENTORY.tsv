@@ -4,7 +4,7 @@ path	category	ownership	lines	bytes	sha256
 .github/audit-exceptions.yml	configuration	maintained	37	1663	34747d9cfc6e33b54ebfbba2563c5389a24a4fee19ec0fec0d3522b8745ea0f7
 .github/repair-status/apply-ui-regressions-v035.txt	other-text	maintained	9	283	4d8e52b09493470871269f85bf60f930c9b115d602535589f880ae73b6bb8b1f
 .github/repair-status/ui-regressions-v0.3.5-r2.txt	other-text	maintained	9	319	7a08c8d796656f7c1439dcaa56cd7b35c787b9d410dac66623f658881265ebe5
-.github/repair-triggers/apply-ui-regressions-v035	other-text	maintained	1	91	0d39d4d924380157b85a2d984c4a55d32ef4c47327b3520ca25233ecc2e70daf
+.github/repair-triggers/apply-ui-regressions-v035	other-text	maintained	1	72	421b6bf31f318a2235b607534e47f09005504adf836dee834600b63603751246
 .github/repair-triggers/ui-regressions-v0.3.5	other-text	maintained	1	92	c4eeb82127bcdc7b5ba5d80778a2fbeec004c2e566d2408043a698ecb7369b2a
 .github/repair-triggers/ui-regressions-v0.3.5-r2	other-text	maintained	1	94	965a975e8994aea7242f475d4a907e62290102c006960904c501106ad58e8fe3
 .github/repair-triggers/ui-repair-status	other-text	maintained	1	107	4664a65d3bebbf368d4228b71524f77069baab0dd483d9251e278d1ff824410e
