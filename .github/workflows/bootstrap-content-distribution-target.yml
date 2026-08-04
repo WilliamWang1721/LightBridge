@@ -1,6 +1,9 @@
 name: Bootstrap content distribution target
 
 on:
+  push:
+    branches:
+      - main
   pull_request_target:
     branches:
       - agent/advanced-user-filter
@@ -18,7 +21,7 @@ concurrency:
 
 jobs:
   apply:
-    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'agent/content-distribution'
+    if: github.event_name == 'push' || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'agent/content-distribution')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
