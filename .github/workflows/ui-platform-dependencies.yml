@@ -38,9 +38,7 @@ jobs:
 
       - name: Install trusted UI dependencies
         working-directory: frontend
-        run: |
-          pnpm remove lucide-vue-next
-          pnpm add @fontsource-variable/inter @lucide/vue reka-ui class-variance-authority clsx tailwind-merge
+        run: pnpm add @fontsource-variable/inter @lucide/vue reka-ui class-variance-authority clsx tailwind-merge
 
       - name: Commit dependency lock
         run: |
