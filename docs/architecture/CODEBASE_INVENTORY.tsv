@@ -8,7 +8,7 @@ path	category	ownership	lines	bytes	sha256
 .github/repair-triggers/ui-regressions-v0.3.5	other-text	maintained	1	92	c4eeb82127bcdc7b5ba5d80778a2fbeec004c2e566d2408043a698ecb7369b2a
 .github/repair-triggers/ui-regressions-v0.3.5-r2	other-text	maintained	1	94	965a975e8994aea7242f475d4a907e62290102c006960904c501106ad58e8fe3
 .github/repair-triggers/ui-repair-status	other-text	maintained	1	78	bccfe75a0631cb53912b7b51bdedb6179585771becc26e8d31f67cc9bf455329
-.github/workflows/apply-ui-regressions-v035.yml	workflow	maintained	65	2287	95a7d165099d7e94bfa0e753a19bbfdedf9a4ca9e7a619c3aed089f2fa20d353
+.github/workflows/apply-ui-regressions-v035.yml	workflow	maintained	59	1825	8406cfcf50d53500086547e77468f994ac0d13f4a248b26af2a6a8367ff62a6e
 .github/workflows/backend-ci.yml	workflow	maintained	75	1880	9be63bda7213a3e7d58b55cc1636b795beb689e9aa3bf9da9c93aa2cdd272a24
 .github/workflows/cla.yml	workflow	maintained	66	2476	b4d893c606d634541297efa8da2eb0d6da90f4cbd0517a83c8e91d5915728ce3
 .github/workflows/codebase-inventory.yml	workflow	maintained	62	1669	344c69237217bb5e419a38d3efd7873cf4dd793172561a862470439c18b85e5b
