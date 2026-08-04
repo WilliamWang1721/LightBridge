@@ -1,9 +1,0 @@
-run_id=30873861290
-workflow=.github/workflows/repair-ui-regressions-v0.3.5-r2.yml
-event=push
-status=completed
-conclusion=failure
-url=https://github.com/WilliamWang1721/LightBridge/actions/runs/30873861290
-head_sha=4fde64541d3cd492d489b594c3fa901f18ff3d82
-created_at=2026-08-04T03:08:02Z
-updated_at=2026-08-04T03:08:02Z
