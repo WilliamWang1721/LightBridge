@@ -9,7 +9,9 @@ FRONTEND_CRITICAL_VITEST := \
 	src/views/admin/__tests__/SettingsView.spec.ts \
 	src/api/__tests__/admin.features.spec.ts \
 	src/views/admin/__tests__/FeatureRegistryView.spec.ts \
-	src/router/__tests__/progressive-routes.spec.ts
+	src/router/__tests__/progressive-routes.spec.ts \
+	src/ui-platform/resolver.test.ts \
+	src/ui-platform/themePackages.test.ts
 
 # 一键编译前后端
 build: build-backend build-frontend
