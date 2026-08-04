@@ -1,1 +1,1 @@
-Run 2: apply the Custom form, model action button, and upgrade dialog fixes with repository-native validation.
+Run 3: validate the UI repair with targeted ESLint, Vitest, vue-tsc, and production build.
