@@ -23,10 +23,11 @@ describe('ModelWhitelistSelector action buttons', () => {
     expect(source.match(/min-h-10 w-full min-w-0 whitespace-nowrap/g)).toHaveLength(3)
   })
 
-  it('uses the shared button system instead of three unrelated button styles', () => {
-    expect(source).toContain('class="btn btn-secondary min-h-10')
-    expect(source).toContain('class="btn btn-primary min-h-10')
+  it('uses the same outlined button system with semantic color accents only', () => {
+    expect(source.match(/class="btn btn-secondary min-h-10/g)).toHaveLength(3)
+    expect(source).toContain('border-blue-200 text-blue-700')
     expect(source).toContain('border-red-200 text-red-600')
+    expect(source).not.toContain('class="btn btn-primary min-h-10')
     expect(source).not.toContain('sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]')
   })
 })
