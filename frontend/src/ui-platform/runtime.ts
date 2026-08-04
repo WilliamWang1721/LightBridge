@@ -47,6 +47,8 @@ export function applyUIProfile(profile: UIProfile, notify = true) {
     }
   }
 
+  syncInjectedPackageStyles(profile)
+
   if (notify) {
     window.dispatchEvent(new CustomEvent<UIProfile>(UI_PLATFORM_EVENT, { detail: { ...profile } }))
   }
@@ -101,6 +103,21 @@ export function initializeUIPlatform(): UIProfile {
   applyUIProfile(profile, false)
   reportWarnings(warnings)
   return profile
+}
+
+function syncInjectedPackageStyles(profile: UIProfile) {
+  const shouldEnable = (themeId: string | undefined) =>
+    profile.mode === 'package' && Boolean(themeId) && themeId === profile.activePackageId
+
+  document.querySelectorAll<HTMLLinkElement>('link[data-lightbridge-ui-theme]').forEach((link) => {
+    link.disabled = !shouldEnable(link.dataset.lightbridgeUiTheme)
+  })
+
+  document.querySelectorAll<HTMLStyleElement>('style[data-lightbridge-ui-theme-vars]').forEach((style) => {
+    const enabled = shouldEnable(style.dataset.lightbridgeUiThemeVars)
+    if (style.sheet) style.sheet.disabled = !enabled
+    style.media = enabled ? 'all' : 'not all'
+  })
 }
 
 function reportWarnings(warnings: string[]) {
