@@ -1,1 +1,1 @@
-Capture the second apply-ui-regressions-v035.yml run after repository-native validation was enabled.
+Capture the final apply-ui-regressions-v035.yml run with corrected typecheck and targeted ESLint commands.
