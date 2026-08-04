@@ -6,6 +6,7 @@ path	category	ownership	lines	bytes	sha256
 .github/workflows/bootstrap-content-distribution-target.yml	workflow	maintained	153	8489	03d635a78e2f90f9009690dd5bdd424f03e1060ab27a501e443564cb41213578
 .github/workflows/cla.yml	workflow	maintained	66	2476	b4d893c606d634541297efa8da2eb0d6da90f4cbd0517a83c8e91d5915728ce3
 .github/workflows/codebase-inventory.yml	workflow	maintained	62	1669	344c69237217bb5e419a38d3efd7873cf4dd793172561a862470439c18b85e5b
+.github/workflows/issue-bootstrap-content-distribution.yml	workflow	maintained	54	1645	64363038ce3c0c0661f0e4b61c44e4a743a75c81138e88c5be40f4088a3a7f86
 .github/workflows/lightsail-deploy.yml	workflow	maintained	182	6792	a17e6ab95266fee8776570ca001444a680384fbd510a7deed6fdb86979243079
 .github/workflows/module-release.yml	workflow	maintained	74	3023	dc931dc16be5b4edf83303f658882af95838093819074a6f70afd22ab6d194e5
 .github/workflows/release.yml	workflow	maintained	653	24362	db898a149f708f4f32ad338000560556f973b13cb227ce6f6f12cc3b1496509e
