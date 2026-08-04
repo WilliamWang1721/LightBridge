@@ -5,7 +5,9 @@ import router, { syncProgressiveRoutes } from './router'
 import i18n, { initI18n } from './i18n'
 import { useAppStore } from '@/stores/app'
 import { hydrateProgressiveFeatureManifest } from '@/utils/progressiveFeatures'
+import { initializeUIPlatform } from '@/ui-platform/runtime'
 import './style.css'
+import './styles/ui-platform.css'
 
 function initThemeClass() {
   const savedTheme = localStorage.getItem('theme')
@@ -18,6 +20,10 @@ function initThemeClass() {
 async function bootstrap() {
   // Apply theme class globally before app mount to keep all routes consistent.
   initThemeClass()
+
+  // Resolve the independent UI axes before Vue mounts so legacy, modern, and
+  // package modes can share one startup path without a visual configuration flash.
+  initializeUIPlatform()
 
   const app = createApp(App)
   const pinia = createPinia()
