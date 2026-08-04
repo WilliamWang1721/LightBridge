@@ -10,6 +10,7 @@ import './style.css'
 import './styles/ui-semantic-defaults.css'
 import './styles/ui-platform.css'
 import './styles/ui-layout.css'
+import './styles/ui-modern-compat.css'
 
 function initThemeClass() {
   const savedTheme = localStorage.getItem('theme')
