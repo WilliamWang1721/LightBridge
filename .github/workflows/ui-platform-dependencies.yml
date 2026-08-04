@@ -38,7 +38,9 @@ jobs:
 
       - name: Install trusted UI dependencies
         working-directory: frontend
-        run: pnpm add reka-ui lucide-vue-next class-variance-authority clsx tailwind-merge
+        run: |
+          pnpm remove lucide-vue-next
+          pnpm add @lucide/vue reka-ui class-variance-authority clsx tailwind-merge
 
       - name: Commit dependency lock
         run: |
@@ -48,5 +50,5 @@ jobs:
           if git diff --cached --quiet; then
             exit 0
           fi
-          git commit -m "feat(ui): add trusted Luma primitive dependencies [skip ci]"
+          git commit -m "fix(ui): use maintained Lucide Vue package [skip ci]"
           git push origin HEAD:agent/ui-platform-execution
