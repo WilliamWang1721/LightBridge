@@ -34,25 +34,25 @@ var (
 )
 
 type Distribution struct {
-	ID              int64          `json:"id"`
-	Title           string         `json:"title"`
-	Kind            string         `json:"kind"`
-	Content         string         `json:"content"`
-	FileName        string         `json:"file_name,omitempty"`
-	ContentType     string         `json:"content_type,omitempty"`
-	FileSize        int64          `json:"file_size"`
-	HasAttachment   bool           `json:"has_attachment"`
-	Metadata        map[string]any `json:"metadata,omitempty"`
-	Audience        map[string]any `json:"audience,omitempty"`
-	CreatedBy       *int64         `json:"created_by,omitempty"`
-	CreatedAt       time.Time      `json:"created_at"`
-	RecipientCount  int64          `json:"recipient_count"`
-	ReadCount       int64          `json:"read_count"`
-	DownloadCount   int64          `json:"download_count"`
-	ReadAt          *time.Time     `json:"read_at,omitempty"`
-	DownloadedAt    *time.Time     `json:"downloaded_at,omitempty"`
-	RecipientTitle  string         `json:"recipient_title,omitempty"`
-	RecipientContent string        `json:"recipient_content,omitempty"`
+	ID               int64          `json:"id"`
+	Title            string         `json:"title"`
+	Kind             string         `json:"kind"`
+	Content          string         `json:"content"`
+	FileName         string         `json:"file_name,omitempty"`
+	ContentType      string         `json:"content_type,omitempty"`
+	FileSize         int64          `json:"file_size"`
+	HasAttachment    bool           `json:"has_attachment"`
+	Metadata         map[string]any `json:"metadata,omitempty"`
+	Audience         map[string]any `json:"audience,omitempty"`
+	CreatedBy        *int64         `json:"created_by,omitempty"`
+	CreatedAt        time.Time      `json:"created_at"`
+	RecipientCount   int64          `json:"recipient_count"`
+	ReadCount        int64          `json:"read_count"`
+	DownloadCount    int64          `json:"download_count"`
+	ReadAt           *time.Time     `json:"read_at,omitempty"`
+	DownloadedAt     *time.Time     `json:"downloaded_at,omitempty"`
+	RecipientTitle   string         `json:"recipient_title,omitempty"`
+	RecipientContent string         `json:"recipient_content,omitempty"`
 }
 
 type DistributionRecipient struct {
@@ -183,7 +183,7 @@ func (s *DistributionService) Create(ctx context.Context, input CreateDistributi
 	}
 
 	audienceSnapshot := map[string]any{
-		"requested":        input.Audience,
+		"requested":       input.Audience,
 		"recipient_count": len(recipients),
 	}
 	preview := make([]DistributionAudienceUser, 0, min(len(users), 20))
@@ -196,16 +196,16 @@ func (s *DistributionService) Create(ctx context.Context, input CreateDistributi
 	audienceSnapshot["preview"] = preview
 
 	distribution := &Distribution{
-		Title:         input.Title,
-		Kind:          input.Kind,
-		Content:       input.Content,
-		FileName:      input.FileName,
-		ContentType:   input.ContentType,
-		FileSize:      int64(len(input.FileData)),
-		HasAttachment: len(input.FileData) > 0,
-		Metadata:      cloneDistributionMap(input.Metadata),
-		Audience:      audienceSnapshot,
-		CreatedBy:     input.ActorID,
+		Title:          input.Title,
+		Kind:           input.Kind,
+		Content:        input.Content,
+		FileName:       input.FileName,
+		ContentType:    input.ContentType,
+		FileSize:       int64(len(input.FileData)),
+		HasAttachment:  len(input.FileData) > 0,
+		Metadata:       cloneDistributionMap(input.Metadata),
+		Audience:       audienceSnapshot,
+		CreatedBy:      input.ActorID,
 		RecipientCount: int64(len(recipients)),
 	}
 
