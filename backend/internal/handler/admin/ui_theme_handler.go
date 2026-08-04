@@ -105,12 +105,25 @@ func (h *UIThemeHandler) UpdateConfig(c *gin.Context) {
 		response.BadRequest(c, "invalid request: "+err.Error())
 		return
 	}
-	theme, err := h.service.UpdateConfig(c.Request.Context(), c.Param("id"), req.Config)
+
+	ctx := c.Request.Context()
+	theme, err := h.service.Get(ctx, c.Param("id"))
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, theme)
+	normalized, err := service.ValidateUIThemeConfig(theme, req.Config)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	updated, err := h.service.UpdateConfig(ctx, c.Param("id"), normalized)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, updated)
 }
 
 func (h *UIThemeHandler) Delete(c *gin.Context) {
