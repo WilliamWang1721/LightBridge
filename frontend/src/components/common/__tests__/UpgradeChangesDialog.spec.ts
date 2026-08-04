@@ -28,7 +28,10 @@ describe('UpgradeChangesDialog', () => {
     const restartButton = wrapper.get('[data-testid="restart-after-upgrade-button"]')
 
     expect(closeButton.classes()).toEqual(expect.arrayContaining(['btn', 'btn-secondary', 'min-h-10']))
-    expect(restartButton.classes()).toEqual(expect.arrayContaining(['btn', 'btn-primary', 'min-h-10']))
+    expect(restartButton.classes()).toEqual(
+      expect.arrayContaining(['btn', 'btn-secondary', 'min-h-10', 'border-blue-200', 'text-blue-700'])
+    )
+    expect(restartButton.classes()).not.toContain('btn-primary')
     expect(restartButton.element.closest('.modal-footer')).not.toBeNull()
 
     await restartButton.trigger('click')
