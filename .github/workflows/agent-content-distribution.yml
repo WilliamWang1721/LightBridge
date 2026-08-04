@@ -1,0 +1,289 @@
+name: Wire and verify content distribution
+
+on:
+  push:
+    branches:
+      - agent/content-distribution
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: agent-content-distribution
+  cancel-in-progress: true
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: agent/content-distribution
+          fetch-depth: 0
+
+      - name: Wire distribution backend and frontend
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              file = Path(path)
+              text = file.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one match, found {count}: {old[:100]!r}")
+              file.write_text(text.replace(old, new, 1))
+
+          def insert_before(path, marker, content):
+              replace_once(path, marker, content + marker)
+
+          # Fix and register backend dependencies.
+          replace_once(
+              'backend/internal/handler/admin/distribution_handler.go',
+              '"github.com/WilliamWang1721/LightBridge/internal/pkg/response"\n',
+              '"github.com/WilliamWang1721/LightBridge/internal/pkg/pagination"\n\t"github.com/WilliamWang1721/LightBridge/internal/pkg/response"\n',
+          )
+          replace_once(
+              'backend/internal/handler/admin/distribution_handler.go',
+              'h.service.ListAdmin(c.Request.Context(), paginationParams(page, pageSize))',
+              'h.service.ListAdmin(c.Request.Context(), pagination.PaginationParams{Page: page, PageSize: pageSize})',
+          )
+          replace_once(
+              'backend/internal/handler/admin/distribution_handler.go',
+              'func (h *DistributionHandler) BatchCreate(c *gin.Context) {\n\tvar request struct {',
+              'func (h *DistributionHandler) BatchCreate(c *gin.Context) {\n\tc.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 20<<20)\n\tvar request struct {',
+          )
+          replace_once(
+              'backend/internal/handler/admin/distribution_handler.go',
+              'if !strings.HasPrefix(strings.ToLower(contentType), "multipart/form-data") {\n\t\tvar input service.CreateDistributionInput',
+              'if !strings.HasPrefix(strings.ToLower(contentType), "multipart/form-data") {\n\t\tc.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, service.MaxDistributionAttachmentBytes+(2<<20))\n\t\tvar input service.CreateDistributionInput',
+          )
+
+          replace_once(
+              'backend/internal/repository/wire.go',
+              '\tNewAnnouncementReadRepository,\n',
+              '\tNewAnnouncementReadRepository,\n\tNewDistributionRepository,\n',
+          )
+          replace_once(
+              'backend/internal/service/wire.go',
+              '\tNewAnnouncementService,\n',
+              '\tNewAnnouncementService,\n\tNewDistributionService,\n',
+          )
+
+          replace_once(
+              'backend/internal/handler/handler.go',
+              '\tAnnouncement           *admin.AnnouncementHandler\n\tDataManagement',
+              '\tAnnouncement           *admin.AnnouncementHandler\n\tDistribution           *admin.DistributionHandler\n\tDataManagement',
+          )
+          replace_once(
+              'backend/internal/handler/handler.go',
+              '\tAnnouncement     *AnnouncementHandler\n\tChannelMonitor',
+              '\tAnnouncement     *AnnouncementHandler\n\tDistribution     *DistributionHandler\n\tChannelMonitor',
+          )
+
+          replace_once(
+              'backend/internal/handler/wire.go',
+              '\tannouncementHandler *admin.AnnouncementHandler,\n\tdataManagementHandler',
+              '\tannouncementHandler *admin.AnnouncementHandler,\n\tdistributionHandler *admin.DistributionHandler,\n\tdataManagementHandler',
+          )
+          replace_once(
+              'backend/internal/handler/wire.go',
+              '\t\tAnnouncement:           announcementHandler,\n\t\tDataManagement:',
+              '\t\tAnnouncement:           announcementHandler,\n\t\tDistribution:           distributionHandler,\n\t\tDataManagement:',
+          )
+          replace_once(
+              'backend/internal/handler/wire.go',
+              '\tannouncementHandler *AnnouncementHandler,\n\tchannelMonitorUserHandler',
+              '\tannouncementHandler *AnnouncementHandler,\n\tdistributionHandler *DistributionHandler,\n\tchannelMonitorUserHandler',
+          )
+          replace_once(
+              'backend/internal/handler/wire.go',
+              '\t\tAnnouncement:     announcementHandler,\n\t\tChannelMonitor:',
+              '\t\tAnnouncement:     announcementHandler,\n\t\tDistribution:     distributionHandler,\n\t\tChannelMonitor:',
+          )
+          replace_once(
+              'backend/internal/handler/wire.go',
+              '\tNewAnnouncementHandler,\n\tNewChannelMonitorUserHandler,',
+              '\tNewAnnouncementHandler,\n\tNewDistributionHandler,\n\tNewChannelMonitorUserHandler,',
+          )
+          replace_once(
+              'backend/internal/handler/wire.go',
+              '\tadmin.NewAnnouncementHandler,\n\tadmin.NewDataManagementHandler,',
+              '\tadmin.NewAnnouncementHandler,\n\tadmin.NewDistributionHandler,\n\tadmin.NewDataManagementHandler,',
+          )
+
+          replace_once(
+              'backend/internal/server/routes/admin.go',
+              '\t\tregisterUserManagementRoutes(admin, h)\n',
+              '\t\tregisterUserManagementRoutes(admin, h)\n\t\tregisterDistributionRoutes(admin, h)\n',
+          )
+          insert_before(
+              'backend/internal/server/routes/admin.go',
+              'func registerGroupRoutes(admin *gin.RouterGroup, h *handler.Handlers) {',
+              '''func registerDistributionRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+\tdistributions := admin.Group("/distributions")
+\t{
+\t\tdistributions.GET("", h.Admin.Distribution.List)
+\t\tdistributions.POST("", h.Admin.Distribution.Create)
+\t\tdistributions.POST("/batch", h.Admin.Distribution.BatchCreate)
+\t\tdistributions.POST("/audience-preview", h.Admin.Distribution.PreviewAudience)
+\t\tdistributions.GET("/:id", h.Admin.Distribution.Get)
+\t\tdistributions.GET("/:id/download", h.Admin.Distribution.Download)
+\t\tdistributions.DELETE("/:id", h.Admin.Distribution.Delete)
+\t}
+}
+
+''',
+          )
+          insert_before(
+              'backend/internal/server/routes/user.go',
+              '\t\t// 公告（用户可见）\n',
+              '''\t\t// 内容分发（用户收件箱）
+\t\tdistributions := authenticated.Group("/distributions")
+\t\t{
+\t\t\tdistributions.GET("", h.Distribution.List)
+\t\t\tdistributions.GET("/:id", h.Distribution.Get)
+\t\t\tdistributions.POST("/:id/read", h.Distribution.MarkRead)
+\t\t\tdistributions.GET("/:id/download", h.Distribution.Download)
+\t\t}
+
+''',
+          )
+
+          # Register translations.
+          for locale in ('en', 'zh'):
+              path = f'frontend/src/i18n/locales/{locale}-sections/index.ts'
+              replace_once(path, "import announcements from './announcements'\n", "import announcements from './announcements'\nimport distributions from './distributions'\n")
+              replace_once(path, '  announcements,\n', '  announcements,\n  distributions,\n')
+          replace_once(
+              'frontend/src/i18n/locales/en-sections/nav.ts',
+              "    announcements: 'Announcements',\n",
+              "    announcements: 'Announcements',\n    distributions: 'Distribution Center',\n",
+          )
+          replace_once(
+              'frontend/src/i18n/locales/zh-sections/nav.ts',
+              "    announcements: '公告',\n",
+              "    announcements: '公告',\n    distributions: '分发中心',\n",
+          )
+
+          # Register routes.
+          insert_before(
+              'frontend/src/router/index.ts',
+              "  {\n    path: '/profile',\n",
+              '''  {
+    path: '/distributions',
+    name: 'Distributions',
+    component: () => import('@/views/user/DistributionsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Distribution Center',
+      titleKey: 'distributions.userTitle',
+      descriptionKey: 'distributions.userDescription'
+    }
+  },
+''',
+          )
+          insert_before(
+              'frontend/src/router/index.ts',
+              "  {\n    path: '/admin/groups',\n",
+              '''  {
+    path: '/admin/distributions',
+    name: 'AdminDistributions',
+    component: () => import('@/views/admin/DistributionsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Content Distribution',
+      titleKey: 'distributions.adminTitle',
+      descriptionKey: 'distributions.adminDescription'
+    }
+  },
+''',
+          )
+
+          # Add sidebar entries for both user and administrator.
+          replace_once(
+              'frontend/src/components/layout/AppSidebar.vue',
+              "  if (withDashboard) {\n    items.push({ path: '/dashboard', label: t('nav.dashboard'), icon: DashboardIcon })\n  }\n\n  // API 与监控",
+              "  if (withDashboard) {\n    items.push({ path: '/dashboard', label: t('nav.dashboard'), icon: DashboardIcon })\n  }\n\n  items.push({ path: '/distributions', label: t('nav.distributions'), icon: BellIcon })\n\n  // API 与监控",
+          )
+          replace_once(
+              'frontend/src/components/layout/AppSidebar.vue',
+              '      featureFlag: anyFlags(flagAffiliate, flagAnnouncements, flagRedeem, flagPromo),\n      children: [\n        { path: \'/admin/announcements\', label: t(\'nav.announcements\'), icon: BellIcon, featureFlag: flagAnnouncements },',
+              '      children: [\n        { path: \'/admin/distributions\', label: t(\'nav.distributions\'), icon: BellIcon },\n        { path: \'/admin/announcements\', label: t(\'nav.announcements\'), icon: BellIcon, featureFlag: flagAnnouncements },',
+          )
+
+          # Correct the batch example to use the filter object.
+          replace_once(
+              'docs/CONTENT_DISTRIBUTION_API.md',
+              '      "audience": { "activity": "none" }\n',
+              '      "audience": { "filters": { "activity": "none" } }\n',
+          )
+          PY
+
+          gofmt -w \
+            backend/internal/service/distribution.go \
+            backend/internal/service/distribution_test.go \
+            backend/internal/repository/distribution_repo.go \
+            backend/internal/repository/wire.go \
+            backend/internal/service/wire.go \
+            backend/internal/handler/distribution_handler.go \
+            backend/internal/handler/admin/distribution_handler.go \
+            backend/internal/handler/handler.go \
+            backend/internal/handler/wire.go \
+            backend/internal/server/routes/admin.go \
+            backend/internal/server/routes/user.go
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          check-latest: false
+          cache: true
+          cache-dependency-path: backend/go.sum
+
+      - name: Generate Wire dependency graph
+        working-directory: backend
+        run: go generate ./cmd/server
+
+      - name: Run backend validation
+        working-directory: backend
+        run: |
+          go test ./internal/service ./internal/repository ./internal/handler ./internal/handler/admin ./internal/server/routes
+          go test -tags=unit ./internal/handler ./internal/handler/admin
+          go vet ./internal/service ./internal/repository ./internal/handler/... ./internal/server/routes
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.13'
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Validate frontend
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm typecheck
+          pnpm build
+
+      - name: Commit verified implementation
+        shell: bash
+        run: |
+          rm -f .github/workflows/agent-content-distribution.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "feat(distribution): add user content distribution center"
+          git push origin HEAD:agent/content-distribution
