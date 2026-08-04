@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/WilliamWang1721/LightBridge/internal/pkg/pagination"
 	"github.com/WilliamWang1721/LightBridge/internal/pkg/response"
 	"github.com/WilliamWang1721/LightBridge/internal/service"
 	"github.com/gin-gonic/gin"
@@ -40,6 +41,7 @@ func (h *DistributionHandler) Create(c *gin.Context) {
 }
 
 func (h *DistributionHandler) BatchCreate(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 20<<20)
 	var request struct {
 		Items []service.CreateDistributionInput `json:"items"`
 	}
@@ -76,7 +78,7 @@ func (h *DistributionHandler) PreviewAudience(c *gin.Context) {
 
 func (h *DistributionHandler) List(c *gin.Context) {
 	page, pageSize := response.ParsePagination(c)
-	items, paginationResult, err := h.service.ListAdmin(c.Request.Context(), paginationParams(page, pageSize))
+	items, paginationResult, err := h.service.ListAdmin(c.Request.Context(), pagination.PaginationParams{Page: page, PageSize: pageSize})
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
@@ -125,6 +127,7 @@ func (h *DistributionHandler) Delete(c *gin.Context) {
 func parseCreateDistributionInput(c *gin.Context) (service.CreateDistributionInput, error) {
 	contentType := c.GetHeader("Content-Type")
 	if !strings.HasPrefix(strings.ToLower(contentType), "multipart/form-data") {
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, service.MaxDistributionAttachmentBytes+(2<<20))
 		var input service.CreateDistributionInput
 		if err := c.ShouldBindJSON(&input); err != nil {
 			return input, err
