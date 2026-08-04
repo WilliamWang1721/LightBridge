@@ -6,6 +6,10 @@ import i18n, { initI18n } from './i18n'
 import { useAppStore } from '@/stores/app'
 import { hydrateProgressiveFeatureManifest } from '@/utils/progressiveFeatures'
 import { initializeUIPlatform } from '@/ui-platform/runtime'
+import {
+  installDistributionNavigation,
+  installDistributionRoutes
+} from '@/distribution/runtime'
 import './style.css'
 import './styles/ui-semantic-defaults.css'
 import './styles/ui-platform.css'
@@ -23,6 +27,7 @@ async function bootstrap() {
   // Apply theme and UI profile before app mount to prevent visual flashing.
   initThemeClass()
   initializeUIPlatform()
+  installDistributionRoutes(router)
 
   const app = createApp(App)
   const pinia = createPinia()
@@ -51,6 +56,7 @@ async function bootstrap() {
   // 等待路由器完成初始导航后再挂载，避免竞态条件导致的空白渲染
   await router.isReady()
   app.mount('#app')
+  installDistributionNavigation(router)
 }
 
 bootstrap().catch((error: unknown) => {
