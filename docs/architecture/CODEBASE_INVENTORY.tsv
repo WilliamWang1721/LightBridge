@@ -2,6 +2,7 @@ path	category	ownership	lines	bytes	sha256
 .dockerignore	other-text	maintained	77	995	bed35b2501d8c70f8d94077807669892b843b55487f297dde210b8e2872ba533
 .gitattributes	other-text	maintained	22	373	1e7e4dd88806c211173003844b25304bac2ba04d0c2dc4afbb7a5e181fd3bf7c
 .github/audit-exceptions.yml	configuration	maintained	37	1663	34747d9cfc6e33b54ebfbba2563c5389a24a4fee19ec0fec0d3522b8745ea0f7
+.github/repair-status/publish-ui-fix-clean.txt	other-text	maintained	9	297	07e33ab63c23a6cbd3595595d0b0d260a394a722c3f9a31c4e02dce95ec7cb25
 .github/repair-triggers/publish-ui-fix-clean	other-text	maintained	1	99	6e6dc7f17069d53461ce38b991f7f0ccddd101d39914e6e78d742d5f035b1508
 .github/repair-triggers/snapshot-publish-ui-fix	other-text	maintained	1	58	e68c99e39d33fca3da55d7d8041c55a545547713127404a1cc857e373de04d1f
 .github/workflows/backend-ci.yml	workflow	maintained	75	1880	9be63bda7213a3e7d58b55cc1636b795beb689e9aa3bf9da9c93aa2cdd272a24
