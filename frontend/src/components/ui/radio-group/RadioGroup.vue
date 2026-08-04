@@ -31,7 +31,9 @@ const emit = defineEmits<{
   (event: 'update:modelValue', value: string): void
 }>()
 
-function onUpdate(value: string) {
-  emit('update:modelValue', value)
+function onUpdate(value: unknown) {
+  if (typeof value === 'string') {
+    emit('update:modelValue', value)
+  }
 }
 </script>
