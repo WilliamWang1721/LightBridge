@@ -3,6 +3,7 @@ import { RouterView, useRouter, useRoute } from 'vue-router'
 import { computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import Toast from '@/components/common/Toast.vue'
 import NavigationProgress from '@/components/common/NavigationProgress.vue'
+import UIProfileSync from '@/components/settings/UIProfileSync.vue'
 import { resolveDocumentTitle } from '@/router/title'
 import AnnouncementPopup from '@/components/common/AnnouncementPopup.vue'
 import { useAppStore, useAuthStore, useSubscriptionStore, useAnnouncementStore } from '@/stores'
@@ -168,6 +169,7 @@ onMounted(async () => {
 </script>
 
 <template>
+  <UIProfileSync />
   <NavigationProgress />
   <RouterView />
   <Toast />
