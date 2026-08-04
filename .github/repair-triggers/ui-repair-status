@@ -1,1 +1,1 @@
-Capture apply-ui-regressions-v035.yml status after the latest repair attempt.
+Capture the second apply-ui-regressions-v035.yml run after repository-native validation was enabled.
