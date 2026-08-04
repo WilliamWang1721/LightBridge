@@ -85,7 +85,7 @@ func (s *UserService) GetUserUIProfile(ctx context.Context, userID int64) (UserU
 
 func (s *UserService) UpdateUserUIProfile(ctx context.Context, userID int64, raw json.RawMessage) (UserUIProfile, error) {
 	if s == nil || s.settingRepo == nil {
-		return UserUIProfile{}, infraerrors.Internal("UI_PROFILE_STORAGE_UNAVAILABLE", "UI profile storage is unavailable")
+		return UserUIProfile{}, infraerrors.New(500, "UI_PROFILE_STORAGE_UNAVAILABLE", "UI profile storage is unavailable")
 	}
 	profile, err := ParseUserUIProfile(raw)
 	if err != nil {
