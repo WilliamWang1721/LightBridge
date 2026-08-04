@@ -1,8 +1,6 @@
 from pathlib import Path
 
 TEMPLATE = Path('frontend/src/components/account/templates/CreateAccountModal.template.html')
-TEST = Path('frontend/src/components/account/__tests__/CreateAccountModal.custom-ui.spec.ts')
-
 text = TEMPLATE.read_text(encoding='utf-8')
 
 start_marker = '      <!-- Custom Provider Configuration -->\n'
@@ -97,30 +95,3 @@ if "v-else-if=\"form.platform !== 'custom'\"" not in text:
     raise SystemExit('Custom provider is not excluded from generic API key rendering')
 
 TEMPLATE.write_text(text, encoding='utf-8')
-
-TEST.write_text(
-    '''import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
-
-const template = readFileSync(
-  fileURLToPath(new URL('../templates/CreateAccountModal.template.html', import.meta.url)),
-  'utf-8'
-)
-
-describe('CreateAccountModal custom provider UI', () => {
-  it('renders one required Custom API key and excludes the generic API key branch', () => {
-    expect(template).toContain('data-testid="custom-api-key"')
-    expect(template).toContain("v-else-if=\"form.platform !== 'custom'\"")
-    expect(template.match(/v-model="form\.customApiKey"/g)).toHaveLength(1)
-    expect(template.match(/v-model="apiKeyValue"/g)).toHaveLength(1)
-  })
-
-  it('separates connection and routing parameters into clear sections', () => {
-    expect(template).toContain('data-testid="custom-connection-settings"')
-    expect(template).toContain('data-testid="custom-routing-settings"')
-  })
-})
-''',
-    encoding='utf-8',
-)
