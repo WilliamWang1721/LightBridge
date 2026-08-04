@@ -64,10 +64,13 @@ jobs:
             echo 'Temporary transport artifact remains in final tree' >&2
             exit 1
           fi
+          python3 tools/codebase_inventory.py
+          git add docs/architecture/CODEBASE_INVENTORY.tsv
           python3 tools/codebase_inventory.py --check
           python3 tools/ui_migration_audit.py
           python3 tools/validate_release_configuration.py
           python3 tools/secret_scan.py
+          git diff --cached --check
 
       - name: Commit real product source
         run: |
