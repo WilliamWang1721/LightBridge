@@ -1,0 +1,52 @@
+name: Snapshot UI sync status
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/repair-triggers/snapshot-ui-sync-status'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Capture latest sync run
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .github/repair-status
+          run_json="$(gh api \
+            "repos/${GITHUB_REPOSITORY}/actions/runs?event=push&per_page=100" \
+            --jq '[.workflow_runs[] | select(.name == "Sync UI PR with main")][0] // {}')"
+          if [ "$(jq -r 'has("id")' <<<"$run_json")" != 'true' ]; then
+            echo 'status=no_matching_run' > .github/repair-status/ui-sync-status.txt
+          else
+            jq -r '
+              "run_id=" + (.id|tostring),
+              "workflow=" + .name,
+              "event=" + .event,
+              "status=" + .status,
+              "conclusion=" + (.conclusion // ""),
+              "url=" + .html_url,
+              "head_sha=" + .head_sha,
+              "created_at=" + .created_at,
+              "updated_at=" + .updated_at
+            ' <<<"$run_json" > .github/repair-status/ui-sync-status.txt
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/repair-status/ui-sync-status.txt
+          git commit -m 'chore: snapshot UI sync status [skip ci]'
+          git push origin HEAD:main
