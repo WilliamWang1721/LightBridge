@@ -1,1 +1,1 @@
-Finalize @fontsource-variable/inter and trusted UI platform dependency lock after implementation changes.
+Run the idempotent UI dependency installer and commit the Inter variable font lockfile.
