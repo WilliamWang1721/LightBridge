@@ -1,0 +1,44 @@
+name: Publish v0.3.51 tag
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/release-triggers/v0.3.51'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-v0.3.51-tag
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      RELEASE_TAG: v0.3.51
+      RELEASE_SHA: 865ccd987048568e43d26e15ceadbd0caef24d0e
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Create release tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main --tags
+          git cat-file -e "${RELEASE_SHA}^{commit}"
+          git merge-base --is-ancestor "${RELEASE_SHA}" origin/main
+          if git rev-parse -q --verify "refs/tags/${RELEASE_TAG}" >/dev/null; then
+            echo "Tag ${RELEASE_TAG} already exists." >&2
+            exit 1
+          fi
+          git tag -a "${RELEASE_TAG}" "${RELEASE_SHA}" -m "Release ${RELEASE_TAG}"
+          git push origin "refs/tags/${RELEASE_TAG}"
