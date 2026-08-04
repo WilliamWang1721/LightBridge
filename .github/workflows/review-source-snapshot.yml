@@ -1,9 +1,13 @@
 name: Apply reviewed v0.3.6 source
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/review-loop-v0.3.6
+      - main
+    types:
+      - synchronize
+      - opened
+      - reopened
 
 permissions:
   contents: write
@@ -14,7 +18,7 @@ concurrency:
 
 jobs:
   apply-reviewed-source:
-    if: github.actor != 'github-actions[bot]'
+    if: github.event.pull_request.head.ref == 'agent/review-loop-v0.3.6' && github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout review branch
