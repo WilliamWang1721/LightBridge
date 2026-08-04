@@ -1,0 +1,77 @@
+name: Validate final UI PR repair
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/repair-triggers/validate-ui-pr-final'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: validate-ui-pr-final
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      TARGET_BRANCH: fix/ui-regressions-v0.3.5-clean
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.13'
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Validate final UI repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --dir frontend install --frozen-lockfile
+          pnpm --dir frontend exec vitest run \
+            src/components/account/__tests__/CreateAccountModal.custom-ui.spec.ts \
+            src/components/account/__tests__/ModelWhitelistSelector.layout.spec.ts \
+            src/components/common/__tests__/UpgradeChangesDialog.spec.ts \
+            src/components/common/__tests__/VersionBadge.spec.ts
+          pnpm --dir frontend exec eslint \
+            src/components/account/CreateAccountModal.vue \
+            src/components/account/ModelWhitelistSelector.vue \
+            src/components/common/UpgradeChangesDialog.vue \
+            src/components/account/__tests__/CreateAccountModal.custom-ui.spec.ts \
+            src/components/account/__tests__/ModelWhitelistSelector.layout.spec.ts \
+            src/components/common/__tests__/UpgradeChangesDialog.spec.ts
+          pnpm --dir frontend run typecheck
+          pnpm --dir frontend run build
+          python3 tools/codebase_inventory.py
+          python3 tools/codebase_inventory.py --check
+          git diff --check
+
+      - name: Commit refreshed inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/architecture/CODEBASE_INVENTORY.tsv
+          if git diff --cached --quiet; then
+            echo 'Inventory already current.'
+            exit 0
+          fi
+          git commit -m 'chore: refresh UI fix inventory'
+          git push origin "HEAD:${TARGET_BRANCH}"
