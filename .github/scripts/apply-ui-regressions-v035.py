@@ -6,7 +6,7 @@ TEST = Path('frontend/src/components/account/__tests__/CreateAccountModal.custom
 text = TEMPLATE.read_text(encoding='utf-8')
 
 start_marker = '      <!-- Custom Provider Configuration -->\n'
-relay_marker = '      <!-- Custom relay mode -->\nlightbridge_marker = '      <!-- LightBridge Connect Configuration (for New API and compatible services) -->\n'
+relay_marker = '      <!-- Custom relay mode -->\n'
 
 if 'data-testid="custom-connection-settings"' not in text:
     if text.count(start_marker) != 1 or text.count(relay_marker) != 1:
@@ -99,6 +99,28 @@ if "v-else-if=\"form.platform !== 'custom'\"" not in text:
 TEMPLATE.write_text(text, encoding='utf-8')
 
 TEST.write_text(
-    '''import { readFileSync } from 'node:fs'\nimport { fileURLToPath } from 'node:url'\nimport { describe, expect, it } from 'vitest'\n\nconst template = readFileSync(\n  fileURLToPath(new URL('../templates/CreateAccountModal.template.html', import.meta.url)),\n  'utf-8'\n)\n\ndescribe('CreateAccountModal custom provider UI', () => {\n  it('renders one required Custom API key and excludes the generic API key branch', () => {\n    expect(template).toContain('data-testid="custom-api-key"')\n    expect(template).toContain("v-else-if=\\\"form.platform !== 'custom'\\\"")\n    expect(template.match(/v-model=\\\"form\\.customApiKey\\\"/g)).toHaveLength(1)\n    expect(template.match(/v-model=\\\"apiKeyValue\\\"/g)).toHaveLength(1)\n  })\n\n  it('separates connection and routing parameters into clear sections', () => {\n    expect(template).toContain('data-testid="custom-connection-settings"')\n    expect(template).toContain('data-testid="custom-routing-settings"')\n  })\n})\n''',
+    '''import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { describe, expect, it } from 'vitest'
+
+const template = readFileSync(
+  fileURLToPath(new URL('../templates/CreateAccountModal.template.html', import.meta.url)),
+  'utf-8'
+)
+
+describe('CreateAccountModal custom provider UI', () => {
+  it('renders one required Custom API key and excludes the generic API key branch', () => {
+    expect(template).toContain('data-testid="custom-api-key"')
+    expect(template).toContain("v-else-if=\"form.platform !== 'custom'\"")
+    expect(template.match(/v-model="form\.customApiKey"/g)).toHaveLength(1)
+    expect(template.match(/v-model="apiKeyValue"/g)).toHaveLength(1)
+  })
+
+  it('separates connection and routing parameters into clear sections', () => {
+    expect(template).toContain('data-testid="custom-connection-settings"')
+    expect(template).toContain('data-testid="custom-routing-settings"')
+  })
+})
+''',
     encoding='utf-8',
 )
