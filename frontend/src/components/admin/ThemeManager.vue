@@ -128,7 +128,7 @@
                   type="button"
                   class="btn btn-secondary btn-sm text-red-600 hover:text-red-700 dark:text-red-400"
                   :disabled="busy"
-                  @click="remove(theme.id)"
+                  @click="remove(theme)"
                 >
                   {{ t('common.delete') }}
                 </button>
@@ -244,12 +244,13 @@ function onFileChange(event: Event) {
   selectedFile.value = input.files?.[0] ?? null
 }
 
-async function run(operation: () => Promise<unknown>) {
+async function run(operation: () => Promise<unknown>, reloadAfter = false) {
   busy.value = true
   error.value = ''
   try {
     await operation()
     await loadThemes()
+    if (reloadAfter) window.location.reload()
   } catch (err) {
     error.value = extractApiErrorMessage(err)
   } finally {
@@ -262,29 +263,30 @@ function importFromGitHub() {
 }
 
 function uploadSelected() {
-  if (!selectedFile.value) return
-  return run(() => uiThemesAPI.uploadTheme(selectedFile.value, replaceExisting.value))
+  const file = selectedFile.value
+  if (!file) return
+  return run(() => uiThemesAPI.uploadTheme(file, replaceExisting.value))
 }
 
 function activate(id: string) {
   return run(async () => {
     await uiThemesAPI.activateTheme(id)
     updatePreferences({ mode: 'package', activePackageId: id })
-  })
+  }, true)
 }
 
 function deactivate(id: string) {
   return run(async () => {
     await uiThemesAPI.deactivateTheme(id)
     if (profile.value.activePackageId === id) updatePreferences({ mode: 'modern' })
-  })
+  }, true)
 }
 
 function saveConfig(theme: UITheme) {
   const validation = validateThemeConfig(theme.manifest, configDrafts[theme.id] || {})
   configErrors[theme.id] = validation.errors
   if (Object.keys(validation.errors).length) return
-  return run(() => uiThemesAPI.updateThemeConfig(theme.id, validation.value))
+  return run(() => uiThemesAPI.updateThemeConfig(theme.id, validation.value), theme.active)
 }
 
 function resetConfig(theme: UITheme) {
@@ -292,11 +294,11 @@ function resetConfig(theme: UITheme) {
   configErrors[theme.id] = {}
 }
 
-function remove(id: string) {
+function remove(theme: UITheme) {
   return run(async () => {
-    await uiThemesAPI.deleteTheme(id)
-    if (profile.value.activePackageId === id) updatePreferences({ mode: 'modern' })
-  })
+    await uiThemesAPI.deleteTheme(theme.id)
+    if (profile.value.activePackageId === theme.id) updatePreferences({ mode: 'modern' })
+  }, theme.active)
 }
 
 function themeFields(theme: UITheme) {
