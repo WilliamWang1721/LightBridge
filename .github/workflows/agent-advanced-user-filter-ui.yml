@@ -1,0 +1,78 @@
+name: Apply advanced user filter UI wiring
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - synchronize
+      - reopened
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/advanced-user-filter
+          fetch-depth: 0
+
+      - name: Align activity filter markup
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('frontend/src/views/admin/UsersView.vue')
+          text = path.read_text()
+          current = '''            <!-- Activity Filter (visible when enabled) -->
+  <div v-if="visibleFilters.has('activity')" class="w-full sm:w-52">
+    <Select
+      v-model="filters.activity"
+      :options="[
+        { value: '', label: t('admin.users.allActivity') },
+        { value: 'any', label: t('admin.users.activityAny') },
+        { value: 'usage', label: t('admin.users.activityUsage') },
+        { value: 'balance_change', label: t('admin.users.activityBalanceChange') },
+        { value: 'none', label: t('admin.users.activityNone') }
+      ]"
+      @change="applyFilter"
+    />
+  </div>
+
+  <!-- Group Filter (visible when enabled) -->
+          '''
+          aligned = '''            <!-- Activity Filter (visible when enabled) -->
+            <div v-if="visibleFilters.has('activity')" class="w-full sm:w-52">
+              <Select
+                v-model="filters.activity"
+                :options="[
+                  { value: '', label: t('admin.users.allActivity') },
+                  { value: 'any', label: t('admin.users.activityAny') },
+                  { value: 'usage', label: t('admin.users.activityUsage') },
+                  { value: 'balance_change', label: t('admin.users.activityBalanceChange') },
+                  { value: 'none', label: t('admin.users.activityNone') }
+                ]"
+                @change="applyFilter"
+              />
+            </div>
+
+            <!-- Group Filter (visible when enabled) -->
+          '''
+          if text.count(current) != 1:
+              raise SystemExit('activity filter markup did not match exactly once')
+          path.write_text(text.replace(current, aligned, 1))
+          PY
+
+      - name: Commit and remove temporary workflow
+        shell: bash
+        run: |
+          rm -f .github/workflows/agent-advanced-user-filter-ui.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "style(admin): align activity filter markup"
+          git push origin HEAD:agent/advanced-user-filter
