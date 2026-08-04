@@ -6,6 +6,7 @@ on:
       - main
     types:
       - synchronize
+      - reopened
 
 permissions:
   contents: write
@@ -54,8 +55,6 @@ jobs:
 
             <!-- Group Filter (visible when enabled) -->
           '''
-          # The previous automation preserved semantic whitespace but not the
-          # surrounding template indentation. Match that exact rendered block.
           current = '''            <!-- Activity Filter (visible when enabled) -->
   <div v-if="visibleFilters.has('activity')" class="w-full sm:w-52">
     <Select
