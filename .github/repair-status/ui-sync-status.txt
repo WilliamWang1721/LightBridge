@@ -1,9 +1,0 @@
-run_id=30876258879
-workflow=Sync UI PR with main
-event=push
-status=completed
-conclusion=failure
-url=https://github.com/WilliamWang1721/LightBridge/actions/runs/30876258879
-head_sha=7c198c5c9d6063c32a37bc42044787f05a935d6c
-created_at=2026-08-04T03:58:22Z
-updated_at=2026-08-04T04:00:56Z
