@@ -1,0 +1,33 @@
+name: UI full source snapshot
+
+on:
+  push:
+    branches:
+      - agent/ui-complete-migration
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Package source tree
+        run: |
+          tar \
+            --exclude='.git' \
+            --exclude='frontend/node_modules' \
+            --exclude='backend/vendor' \
+            -czf lightbridge-ui-source.tar.gz .
+
+      - name: Upload source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: lightbridge-ui-source
+          path: lightbridge-ui-source.tar.gz
+          if-no-files-found: error
+          retention-days: 1
