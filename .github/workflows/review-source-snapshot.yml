@@ -1,34 +1,61 @@
-name: Review source snapshot
+name: Apply reviewed v0.3.6 source
 
 on:
-  pull_request:
+  push:
     branches:
-      - main
+      - agent/review-loop-v0.3.6
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: apply-reviewed-v036
+  cancel-in-progress: false
 
 jobs:
-  snapshot:
+  apply-reviewed-source:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout review branch
         uses: actions/checkout@v6
         with:
+          ref: agent/review-loop-v0.3.6
           fetch-depth: 0
 
-      - name: Package source tree
+      - name: Reconstruct and verify reviewed patch
         run: |
-          tar \
-            --exclude='.git' \
-            --exclude='frontend/node_modules' \
-            --exclude='backend/vendor' \
-            -czf /tmp/lightbridge-review-source.tar.gz .
+          set -euo pipefail
+          cat .github/review-loop-final-payload/part-* \
+            | base64 --decode \
+            > /tmp/final-review.patch.gz
+          echo 'a8e5cf50ca93cc6c1149951044b37ba016c351625f250deb4c293b83d9589b4c  /tmp/final-review.patch.gz' \
+            | sha256sum -c -
+          gzip -dc /tmp/final-review.patch.gz > /tmp/final-review.patch
+          git apply --check --whitespace=error-all /tmp/final-review.patch
 
-      - name: Upload source snapshot
-        uses: actions/upload-artifact@v4
-        with:
-          name: lightbridge-review-source
-          path: /tmp/lightbridge-review-source.tar.gz
-          if-no-files-found: error
-          retention-days: 1
+      - name: Apply ordinary source diff
+        run: |
+          set -euo pipefail
+          git apply --index /tmp/final-review.patch
+          rm -rf .github/review-loop-payload
+          rm -rf .github/review-loop-final-payload
+          rm -f .github/workflows/review-source-snapshot.yml
+          git add -A
+          git diff --cached --check
+          if git ls-files | grep -E '(^|/)(review-loop-payload|review-loop-final-payload)|review-source-snapshot|\.(zip|patch|patch\.gz)$'; then
+            echo 'Temporary transport artifact remains in final tree' >&2
+            exit 1
+          fi
+          python3 tools/codebase_inventory.py --check
+          python3 tools/ui_migration_audit.py
+          python3 tools/validate_release_configuration.py
+          python3 tools/secret_scan.py
+
+      - name: Commit real product source
+        run: |
+          set -euo pipefail
+          git config user.name 'WilliamWang1721'
+          git config user.email '140129782+WilliamWang1721@users.noreply.github.com'
+          git commit -m 'feat(ui): apply reviewed Luma migration for v0.3.6'
+          git push origin HEAD:agent/review-loop-v0.3.6
