@@ -23,7 +23,7 @@
           <select class="input" :value="profile.mode" @change="setMode(($event.target as HTMLSelectElement).value)">
             <option value="legacy">{{ copy.legacy }}</option>
             <option value="modern">{{ copy.modern }}</option>
-            <option value="package" :disabled="packages.length === 0">{{ copy.package }}</option>
+            <option value="package" :disabled="availablePackages.length === 0">{{ copy.package }}</option>
           </select>
           <span class="input-hint">{{ copy.interfaceModeHint }}</span>
         </label>
@@ -36,7 +36,7 @@
             @change="setPackage(($event.target as HTMLSelectElement).value)"
           >
             <option disabled value="">{{ copy.selectPackage }}</option>
-            <option v-for="item in packages" :key="item.id" :value="item.id">
+            <option v-for="item in availablePackages" :key="item.id" :value="item.id">
               {{ item.name }}
             </option>
           </select>
@@ -90,6 +90,18 @@ const props = withDefaults(defineProps<{
 
 const { locale } = useI18n()
 const { profile, options, updatePreferences, resetPreferences } = useUIPlatform()
+
+const injectedPackageId = typeof document === 'undefined'
+  ? ''
+  : document.querySelector<HTMLLinkElement>('link[data-lightbridge-ui-theme]')?.dataset.lightbridgeUiTheme || ''
+
+const availablePackages = computed(() => {
+  const packages = new Map(props.packages.map((item) => [item.id, item]))
+  if (injectedPackageId && !packages.has(injectedPackageId)) {
+    packages.set(injectedPackageId, { id: injectedPackageId, name: injectedPackageId })
+  }
+  return Array.from(packages.values())
+})
 
 const copy = computed(() => {
   const zh = locale.value.toLowerCase().startsWith('zh')
@@ -185,7 +197,7 @@ function setMode(value: string) {
   }
 
   if (value === 'package') {
-    const selected = profile.value.activePackageId || props.packages[0]?.id
+    const selected = profile.value.activePackageId || availablePackages.value[0]?.id
     if (selected) updatePreferences({ mode: 'package', activePackageId: selected })
   }
 }
