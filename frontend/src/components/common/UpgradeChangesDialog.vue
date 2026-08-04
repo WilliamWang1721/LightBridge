@@ -33,7 +33,7 @@
         </button>
         <button
           type="button"
-          class="btn btn-primary min-h-10 w-full min-w-32 sm:w-auto"
+          class="btn btn-secondary min-h-10 w-full min-w-32 border-blue-200 text-blue-700 hover:border-blue-300 hover:bg-blue-50 disabled:opacity-60 dark:border-blue-800 dark:text-blue-300 dark:hover:border-blue-700 dark:hover:bg-blue-900/20 sm:w-auto"
           data-testid="restart-after-upgrade-button"
           :disabled="restarting"
           @click="$emit('restart')"
