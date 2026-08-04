@@ -1,3 +1,4 @@
+import type { UIThemeManifest } from '@/ui-platform/themePackages'
 import { apiClient } from '../client'
 
 export interface UITheme {
@@ -7,7 +8,7 @@ export interface UITheme {
   source: string
   entry_css: string
   preview?: string
-  manifest: Record<string, unknown>
+  manifest: UIThemeManifest
   config: Record<string, unknown>
   active: boolean
   created_at: string
