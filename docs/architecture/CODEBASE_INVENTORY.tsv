@@ -7,11 +7,9 @@ path	category	ownership	lines	bytes	sha256
 .github/workflows/codebase-inventory.yml	workflow	maintained	62	1669	344c69237217bb5e419a38d3efd7873cf4dd793172561a862470439c18b85e5b
 .github/workflows/lightsail-deploy.yml	workflow	maintained	182	6792	a17e6ab95266fee8776570ca001444a680384fbd510a7deed6fdb86979243079
 .github/workflows/module-release.yml	workflow	maintained	74	3023	dc931dc16be5b4edf83303f658882af95838093819074a6f70afd22ab6d194e5
-.github/workflows/monitor-v0.3.6-release.yml	workflow	maintained	69	2912	92a65fea9123a61c94c03991881a4f0d99dd30b555e5f92ea5f7c5cdc62210f1
 .github/workflows/release.yml	workflow	maintained	653	24362	db898a149f708f4f32ad338000560556f973b13cb227ce6f6f12cc3b1496509e
 .github/workflows/runtime-environment-check.yml	workflow	maintained	175	5610	ac98e826fc6f93ab2ca92fb6560a3f38962d604a65a9c49b9cc8d282127050c6
 .github/workflows/security-scan.yml	workflow	maintained	64	1678	94e560f9f9ad5beabc9c623be4073bac44a369e5ad8d3e9edd9f1ef8f19bd466
-.github/workflows/snapshot-v0.3.6-release-status.yml	workflow	maintained	33	1385	a4e6c90f138fb6384d0161b82145f2afaf69c45acaed76a825ad18ad814b2f70
 .gitignore	other-text	maintained	180	2954	54a0603781861a946913f890217e90634dc4ff0d5e5f22e0e5dfb9d8c873d114
 .goreleaser.simple.yaml	configuration	maintained	84	2087	560ea0802eabc91650749350b949cc272e37768cfc39a1a381a362a0b17cd34e
 .goreleaser.yaml	configuration	maintained	204	7162	a72c001f6e7aa11fda9579cfae27a0df233e6e7482bd5f022f4ff6297772ffca
@@ -35,7 +33,7 @@ backend/cmd/model-sync-smoke/README.md	documentation	maintained	47	1255	94d26b21
 backend/cmd/model-sync-smoke/main.go	backend-go	maintained	195	6131	30a89fd0dc24c2a0ab7f540d1cf26158936612103e15b227fb4ee151fb789252
 backend/cmd/model-sync-smoke/main_test.go	backend-go	maintained	174	6378	75550b4ce06d0a6540df9acb9793929e33076570f90cf5416b92acd180b4fa1a
 backend/cmd/module-migrate/main.go	backend-go	maintained	47	2079	fc048ad91f01d0c288222e5742a9cdef75b305d890ff7d844236eb0a57143ba1
-backend/cmd/server/VERSION	other-text	maintained	1	6	d5d1d767be9218f02ebda081a83a2b2fede85055e910e5a94a09329966486fcc
+backend/cmd/server/VERSION	other-text	maintained	1	6	6d7ff4be0be7debf12dc50067f10057f5d85815ef89e542bc291bc2c893cbbbb
 backend/cmd/server/cleanup.go	backend-go	maintained	258	6840	d3b6826d0a76cab0d573a6a2ae3091e44980c79378fb1865b1dc768187f4f2e5
 backend/cmd/server/cleanup_test.go	backend-go	maintained	47	1359	941fb150cc7fb912493e8f2d8b30d3a56b782379213310c6dd0c11740bce28bd
 backend/cmd/server/main.go	backend-go	maintained	205	5377	ac0796b43393359f52b48e68d20bba5309421ed87e6b8f0eeba133a44013d344
