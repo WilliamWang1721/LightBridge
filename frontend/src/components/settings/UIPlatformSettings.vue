@@ -1,70 +1,76 @@
 <template>
-  <section class="card overflow-hidden" data-testid="ui-platform-settings">
-    <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+  <section
+    class="overflow-hidden rounded-[calc(var(--ui-radius)+0.25rem)] border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--card-foreground))] shadow-sm"
+    data-testid="ui-platform-settings"
+  >
+    <div class="border-b border-[hsl(var(--border))] px-6 py-4">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+          <h2 class="text-lg font-semibold">
             {{ copy.title }}
           </h2>
-          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          <p class="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
             {{ copy.description }}
           </p>
         </div>
-        <button type="button" class="btn btn-secondary btn-sm" @click="resetPreferences">
+        <Button variant="outline" size="sm" @click="resetPreferences">
           {{ copy.reset }}
-        </button>
+        </Button>
       </div>
     </div>
 
     <div class="space-y-6 p-6">
       <div class="grid gap-4 md:grid-cols-2">
-        <label class="space-y-2">
-          <span class="input-label">{{ copy.interfaceMode }}</span>
-          <select class="input" :value="profile.mode" @change="setMode(($event.target as HTMLSelectElement).value)">
-            <option value="legacy">{{ copy.legacy }}</option>
-            <option value="modern">{{ copy.modern }}</option>
-            <option value="package" :disabled="availablePackages.length === 0">{{ copy.package }}</option>
-          </select>
-          <span class="input-hint">{{ copy.interfaceModeHint }}</span>
-        </label>
-
-        <label v-if="profile.mode === 'package'" class="space-y-2">
-          <span class="input-label">{{ copy.activePackage }}</span>
-          <select
-            class="input"
-            :value="profile.activePackageId || ''"
-            @change="setPackage(($event.target as HTMLSelectElement).value)"
+        <div class="space-y-2">
+          <Label>{{ copy.interfaceMode }}</Label>
+          <Select
+            :model-value="profile.mode"
+            @update:model-value="setMode(String($event))"
           >
-            <option disabled value="">{{ copy.selectPackage }}</option>
-            <option v-for="item in availablePackages" :key="item.id" :value="item.id">
-              {{ item.name }}
-            </option>
-          </select>
-        </label>
+            <SelectItem value="legacy">{{ copy.legacy }}</SelectItem>
+            <SelectItem value="modern">{{ copy.modern }}</SelectItem>
+            <SelectItem value="package" :disabled="availablePackages.length === 0">
+              {{ copy.package }}
+            </SelectItem>
+          </Select>
+          <p class="text-xs text-[hsl(var(--muted-foreground))]">{{ copy.interfaceModeHint }}</p>
+        </div>
 
-        <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-dark-700 dark:bg-dark-900/40">
-          <p class="text-sm font-medium text-gray-800 dark:text-gray-100">{{ copy.style }}</p>
-          <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Luma</p>
-          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ copy.styleHint }}</p>
+        <div v-if="profile.mode === 'package'" class="space-y-2">
+          <Label>{{ copy.activePackage }}</Label>
+          <Select
+            :model-value="profile.activePackageId || undefined"
+            :placeholder="copy.selectPackage"
+            @update:model-value="setPackage(String($event))"
+          >
+            <SelectItem v-for="item in availablePackages" :key="item.id" :value="item.id">
+              {{ item.name }}
+            </SelectItem>
+          </Select>
+        </div>
+
+        <div class="rounded-[var(--ui-radius)] border border-[hsl(var(--border))] bg-[hsl(var(--muted))] px-4 py-3">
+          <p class="text-sm font-medium">{{ copy.style }}</p>
+          <p class="mt-1 text-sm">Luma</p>
+          <p class="mt-1 text-xs text-[hsl(var(--muted-foreground))]">{{ copy.styleHint }}</p>
         </div>
       </div>
 
       <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <label v-for="field in fields" :key="field.key" class="space-y-2">
-          <span class="input-label">{{ field.label }}</span>
-          <select
-            class="input"
-            :value="String(profile[field.key])"
-            @change="setPreference(field.key, ($event.target as HTMLSelectElement).value)"
+        <div v-for="field in fields" :key="field.key" class="space-y-2">
+          <Label>{{ field.label }}</Label>
+          <Select
+            :model-value="String(profile[field.key])"
+            @update:model-value="setPreference(field.key, String($event))"
           >
-            <option v-for="option in field.options" :key="option.id" :value="option.id">
+            <SelectItem v-for="option in field.options" :key="option.id" :value="option.id">
               {{ option.label }}
-            </option>
-          </select>
-        </label>
+            </SelectItem>
+          </Select>
+        </div>
       </div>
 
-      <div class="rounded-xl border border-primary-100 bg-primary-50/70 px-4 py-3 text-sm text-primary-800 dark:border-primary-900/40 dark:bg-primary-950/30 dark:text-primary-200">
+      <div class="rounded-[var(--ui-radius)] border border-[hsl(var(--primary)/0.18)] bg-[hsl(var(--primary)/0.08)] px-4 py-3 text-sm text-[hsl(var(--foreground))]">
         {{ copy.savedLocally }}
       </div>
     </div>
@@ -74,6 +80,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Select, SelectItem } from '@/components/ui/select'
 import { useUIPlatform } from '@/composables/useUIPlatform'
 import type { UIAxis, UIProfileOverrides } from '@/ui-platform/types'
 
