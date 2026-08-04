@@ -22,19 +22,30 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Create immutable annotated tag
+      - name: Create and verify immutable annotated tag
         env:
           RELEASE_SHA: 2e830edb2ae28fe147c659f28141e4149fd0e925
         run: |
           set -euo pipefail
           git fetch --force --tags origin
-          if git show-ref --verify --quiet refs/tags/v0.3.6; then
-            EXISTING_SHA="$(git rev-list -n 1 'v0.3.6^{commit}')"
-            test "$EXISTING_SHA" = "$RELEASE_SHA"
-            echo "v0.3.6 already points to the reviewed release commit"
-            exit 0
+          if ! git show-ref --verify --quiet refs/tags/v0.3.6; then
+            git config user.name 'WilliamWang1721'
+            git config user.email '140129782+WilliamWang1721@users.noreply.github.com'
+            git tag -a v0.3.6 "$RELEASE_SHA" -m 'LightBridge v0.3.6'
+            git push origin refs/tags/v0.3.6
+            git fetch --force --tags origin
           fi
-          git config user.name 'WilliamWang1721'
-          git config user.email '140129782+WilliamWang1721@users.noreply.github.com'
-          git tag -a v0.3.6 "$RELEASE_SHA" -m 'LightBridge v0.3.6'
-          git push origin refs/tags/v0.3.6
+          TAG_SHA="$(git rev-list -n 1 'v0.3.6^{commit}')"
+          test "$TAG_SHA" = "$RELEASE_SHA"
+
+      - name: Record verifiable tag confirmation
+        env:
+          RELEASE_SHA: 2e830edb2ae28fe147c659f28141e4149fd0e925
+        run: |
+          set -euo pipefail
+          printf 'v0.3.6 %s\n' "$RELEASE_SHA" > .release/v0.3.6-tag-confirmed
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .release/v0.3.6-tag-confirmed
+          git commit -m 'chore(release): confirm v0.3.6 tag [skip ci]'
+          git push origin HEAD:main
