@@ -1,0 +1,40 @@
+name: Publish v0.3.6 tag
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-v0.3.6-tag
+  cancel-in-progress: false
+
+jobs:
+  publish-tag:
+    if: github.event.head_commit.message == 'release: trigger v0.3.6'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Create immutable annotated tag
+        env:
+          RELEASE_SHA: 2e830edb2ae28fe147c659f28141e4149fd0e925
+        run: |
+          set -euo pipefail
+          git fetch --force --tags origin
+          if git show-ref --verify --quiet refs/tags/v0.3.6; then
+            EXISTING_SHA="$(git rev-list -n 1 'v0.3.6^{commit}')"
+            test "$EXISTING_SHA" = "$RELEASE_SHA"
+            echo "v0.3.6 already points to the reviewed release commit"
+            exit 0
+          fi
+          git config user.name 'WilliamWang1721'
+          git config user.email '140129782+WilliamWang1721@users.noreply.github.com'
+          git tag -a v0.3.6 "$RELEASE_SHA" -m 'LightBridge v0.3.6'
+          git push origin refs/tags/v0.3.6
