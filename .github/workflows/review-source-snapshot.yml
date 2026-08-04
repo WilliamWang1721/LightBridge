@@ -1,0 +1,34 @@
+name: Review source snapshot
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout review branch
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Package source tree
+        run: |
+          tar \
+            --exclude='.git' \
+            --exclude='frontend/node_modules' \
+            --exclude='backend/vendor' \
+            -czf /tmp/lightbridge-review-source.tar.gz .
+
+      - name: Upload source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: lightbridge-review-source
+          path: /tmp/lightbridge-review-source.tar.gz
+          if-no-files-found: error
+          retention-days: 1
