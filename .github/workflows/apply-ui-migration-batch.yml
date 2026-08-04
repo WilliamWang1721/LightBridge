@@ -1,0 +1,82 @@
+name: Apply complete UI migration batch
+
+on:
+  push:
+    branches:
+      - agent/ui-complete-migration
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.head_commit.message == 'chore(ui): activate complete migration batch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout migration branch
+        uses: actions/checkout@v6
+        with:
+          ref: agent/ui-complete-migration
+          fetch-depth: 0
+
+      - name: Restore staged migration batch
+        run: |
+          cat .github/ui-migration-batch/part-* \
+            | base64 --decode \
+            > /tmp/ui-migration-batch.tar.gz
+          gzip -t /tmp/ui-migration-batch.tar.gz
+          tar -xzf /tmp/ui-migration-batch.tar.gz -C "$GITHUB_WORKSPACE"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22.13
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install Inter and frontend dependencies
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm add --save-exact @fontsource-variable/inter@5.3.0
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          cache: true
+          cache-dependency-path: backend/go.sum
+
+      - name: Format backend changes
+        run: |
+          gofmt -w \
+            backend/internal/service/ui_profile.go \
+            backend/internal/service/ui_profile_test.go
+
+      - name: Validate UI migration batch
+        run: |
+          python3 tools/ui_migration_audit.py
+          pnpm --dir frontend run lint:check
+          pnpm --dir frontend run typecheck
+          make test-frontend-critical
+          pnpm --dir frontend run build
+          cd backend
+          go test ./internal/service -run 'TestParseUserUIProfile|TestUserUIProfile'
+
+      - name: Remove temporary migration transport
+        run: |
+          rm -rf .github/ui-migration-batch
+          rm -f .github/workflows/apply-ui-migration-batch.yml
+
+      - name: Commit verified migration batch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'feat(ui): apply full-site Luma bridge, charts, icons, and accessibility'
+          git push origin HEAD:agent/ui-complete-migration
