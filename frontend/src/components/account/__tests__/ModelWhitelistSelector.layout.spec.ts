@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const source = readFileSync(
-  fileURLToPath(new URL('../ModelWhitelistSelector.vue', import.meta.url)),
+  resolve(process.cwd(), 'src/components/account/ModelWhitelistSelector.vue'),
   'utf-8'
 )
 
