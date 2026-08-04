@@ -5,6 +5,7 @@ import Toast from '@/components/common/Toast.vue'
 import NavigationProgress from '@/components/common/NavigationProgress.vue'
 import UIProfileSync from '@/components/settings/UIProfileSync.vue'
 import { resolveDocumentTitle } from '@/router/title'
+import { resolveUIRouteSurface } from '@/ui-platform/routeSurface'
 import AnnouncementPopup from '@/components/common/AnnouncementPopup.vue'
 import { useAppStore, useAuthStore, useSubscriptionStore, useAnnouncementStore } from '@/stores'
 import { getSetupStatus } from '@/api/setup'
@@ -28,23 +29,7 @@ const subscriptionsFeatureEnabled = computed(() =>
 const announcementsFeatureEnabled = computed(() =>
   isProgressiveFeatureEnabled(ProgressiveFeatures.announcements),
 )
-const routeSurface = computed(() => {
-  if (route.path.startsWith('/admin')) return 'admin'
-  if (route.path.startsWith('/setup')) return 'setup'
-  if (route.path.startsWith('/payment')) return 'payment'
-  if (
-    route.path.startsWith('/login') ||
-    route.path.startsWith('/register') ||
-    route.path.startsWith('/forgot-password') ||
-    route.path.startsWith('/reset-password') ||
-    route.path.startsWith('/email-verify') ||
-    route.path.startsWith('/auth/')
-  ) {
-    return 'auth'
-  }
-  if (route.meta.requiresAuth) return 'user'
-  return 'public'
-})
+const routeSurface = computed(() => resolveUIRouteSurface(route.path, route.meta))
 let visibilityListenerRegistered = false
 
 function redirectDisabledProgressiveRoute() {
