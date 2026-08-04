@@ -39,18 +39,12 @@ jobs:
       - name: Validate frontend repair
         run: |
           pnpm --dir frontend install --frozen-lockfile
-          pnpm --dir frontend exec prettier --write \
-            src/components/account/templates/CreateAccountModal.template.html \
-            src/components/account/ModelWhitelistSelector.vue \
-            src/components/common/UpgradeChangesDialog.vue \
-            src/components/account/__tests__/CreateAccountModal.custom-ui.spec.ts \
-            src/components/account/__tests__/ModelWhitelistSelector.layout.spec.ts \
-            src/components/common/__tests__/UpgradeChangesDialog.spec.ts
           pnpm --dir frontend exec vitest run \
             src/components/account/__tests__/CreateAccountModal.custom-ui.spec.ts \
             src/components/account/__tests__/ModelWhitelistSelector.layout.spec.ts \
             src/components/common/__tests__/UpgradeChangesDialog.spec.ts \
             src/components/common/__tests__/VersionBadge.spec.ts
+          pnpm --dir frontend run lint
           pnpm --dir frontend run type-check
           pnpm --dir frontend run build
           git diff --check
