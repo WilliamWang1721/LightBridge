@@ -2,9 +2,7 @@ path	category	ownership	lines	bytes	sha256
 .dockerignore	other-text	maintained	77	995	bed35b2501d8c70f8d94077807669892b843b55487f297dde210b8e2872ba533
 .gitattributes	other-text	maintained	22	373	1e7e4dd88806c211173003844b25304bac2ba04d0c2dc4afbb7a5e181fd3bf7c
 .github/audit-exceptions.yml	configuration	maintained	37	1663	34747d9cfc6e33b54ebfbba2563c5389a24a4fee19ec0fec0d3522b8745ea0f7
-.github/repair-status/final-ui-pr-validation.txt	other-text	maintained	9	293	8f4776833daa25f3feda447f02d7e0b777e19f124f3cef2befb6f5ecf9d7e4b0
-.github/repair-triggers/snapshot-final-ui-pr-validation	other-text	maintained	1	61	0b7bd29157bea4213f34a817eb36d7d0d72f0fcb9dc1261aea831f683bea9c2c
-.github/repair-triggers/validate-ui-pr-final	other-text	maintained	1	76	4c0a743de5cc5128faf16b9fdc4492311ba8824e4cacce6e94df296a863f5e20
+.github/inventory-refresh-trigger	other-text	maintained	1	75	7182906b58cb0450cb703572ef77bcb484dccb5a3228d189dab0ba7c4e793913
 .github/workflows/backend-ci.yml	workflow	maintained	75	1880	9be63bda7213a3e7d58b55cc1636b795beb689e9aa3bf9da9c93aa2cdd272a24
 .github/workflows/cla.yml	workflow	maintained	66	2476	b4d893c606d634541297efa8da2eb0d6da90f4cbd0517a83c8e91d5915728ce3
 .github/workflows/codebase-inventory.yml	workflow	maintained	62	1669	344c69237217bb5e419a38d3efd7873cf4dd793172561a862470439c18b85e5b
@@ -13,8 +11,6 @@ path	category	ownership	lines	bytes	sha256
 .github/workflows/release.yml	workflow	maintained	653	24362	db898a149f708f4f32ad338000560556f973b13cb227ce6f6f12cc3b1496509e
 .github/workflows/runtime-environment-check.yml	workflow	maintained	175	5610	ac98e826fc6f93ab2ca92fb6560a3f38962d604a65a9c49b9cc8d282127050c6
 .github/workflows/security-scan.yml	workflow	maintained	64	1678	94e560f9f9ad5beabc9c623be4073bac44a369e5ad8d3e9edd9f1ef8f19bd466
-.github/workflows/snapshot-final-ui-pr-validation.yml	workflow	maintained	52	1705	9c5222a46516f1079270621b874dd523f369c213cf71331da52ff7049d04134d
-.github/workflows/validate-ui-pr-final.yml	workflow	maintained	77	2558	a7074232ce004538d6bdb5fccfbcf05da3165df1b415d87916c343906ca36006
 .gitignore	other-text	maintained	180	2954	54a0603781861a946913f890217e90634dc4ff0d5e5f22e0e5dfb9d8c873d114
 .goreleaser.simple.yaml	configuration	maintained	84	2087	560ea0802eabc91650749350b949cc272e37768cfc39a1a381a362a0b17cd34e
 .goreleaser.yaml	configuration	maintained	204	7162	a72c001f6e7aa11fda9579cfae27a0df233e6e7482bd5f022f4ff6297772ffca
