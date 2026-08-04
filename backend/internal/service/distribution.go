@@ -457,9 +457,10 @@ type DistributionImportLine struct {
 }
 
 // ParseDistributionImportLines accepts one recipient per line:
-//   user-id
-//   email@example.com
-//   recipient | personalized title | personalized content
+//
+//	user-id
+//	email@example.com
+//	recipient | personalized title | personalized content
 func ParseDistributionImportLines(raw string) ([]DistributionImportLine, error) {
 	lines := strings.Split(strings.ReplaceAll(raw, "\r\n", "\n"), "\n")
 	out := make([]DistributionImportLine, 0, len(lines))
