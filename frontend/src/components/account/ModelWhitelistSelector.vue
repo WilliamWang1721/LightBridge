@@ -1,30 +1,44 @@
 <template>
   <div>
     <!-- Model actions -->
-    <div class="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+    <div
+      class="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-3"
+      data-testid="model-action-button-group"
+    >
       <button
         type="button"
         @click="fillRelated"
-        class="inline-flex min-h-9 items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-200 dark:hover:bg-dark-700"
+        class="btn btn-secondary min-h-10 w-full min-w-0 whitespace-nowrap"
+        data-testid="fill-related-models-button"
       >
-        {{ t('admin.accounts.fillRelatedModels') }}
+        <Icon name="refresh" size="xs" />
+        <span class="truncate">{{ t('admin.accounts.fillRelatedModels') }}</span>
       </button>
       <button
         v-if="canSyncUpstream"
         type="button"
         @click="syncUpstreamModels"
         :disabled="isSyncingUpstream"
-        class="inline-flex min-h-9 items-center justify-center rounded-lg bg-primary-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
+        class="btn btn-secondary min-h-10 w-full min-w-0 whitespace-nowrap border-blue-200 text-blue-700 hover:border-blue-300 hover:bg-blue-50 disabled:opacity-60 dark:border-blue-800 dark:text-blue-300 dark:hover:border-blue-700 dark:hover:bg-blue-900/20"
+        data-testid="sync-upstream-models-button"
       >
-        {{ isSyncingUpstream ? t('admin.accounts.syncUpstreamModelsLoading') : t('admin.accounts.syncUpstreamModels') }}
+        <Icon name="download" size="xs" />
+        <span class="truncate">
+          {{
+            isSyncingUpstream
+              ? t('admin.accounts.syncUpstreamModelsLoading')
+              : t('admin.accounts.syncUpstreamModels')
+          }}
+        </span>
       </button>
       <button
         type="button"
         @click="clearAll"
-        class="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-900/60 dark:bg-dark-800 dark:text-red-400 dark:hover:bg-red-900/20"
+        class="btn btn-secondary min-h-10 w-full min-w-0 whitespace-nowrap border-red-200 text-red-600 hover:border-red-300 hover:bg-red-50 dark:border-red-900/60 dark:text-red-400 dark:hover:border-red-800 dark:hover:bg-red-900/20"
+        data-testid="clear-all-models-button"
       >
         <Icon name="trash" size="xs" />
-        {{ t('admin.accounts.clearAllModels') }}
+        <span class="truncate">{{ t('admin.accounts.clearAllModels') }}</span>
       </button>
     </div>
 
@@ -120,7 +134,7 @@
         <button
           type="button"
           @click="addCustom"
-          class="rounded-lg bg-primary-50 px-4 py-2 text-sm font-medium text-primary-600 hover:bg-primary-100 dark:bg-primary-900/30 dark:text-primary-400 dark:hover:bg-primary-900/50"
+          class="btn btn-secondary shrink-0"
         >
           {{ t('admin.accounts.addModel') }}
         </button>
@@ -179,7 +193,7 @@ const normalizedPlatforms = computed(() => {
 
 const upstreamSyncPlatforms = new Set(['anthropic', 'openai', 'gemini', 'grok', 'antigravity', 'custom'])
 const canSyncUpstream = computed(() => {
-	if (!props.accountId && !props.discoverModels) return false
+  if (!props.accountId && !props.discoverModels) return false
   if (normalizedPlatforms.value.length === 0) return true
   return normalizedPlatforms.value.some(platform => upstreamSyncPlatforms.has(platform.toLowerCase()))
 })

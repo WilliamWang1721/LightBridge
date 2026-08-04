@@ -8,7 +8,7 @@ vi.mock('vue-i18n', () => ({
 }))
 
 describe('UpgradeChangesDialog', () => {
-  it('keeps the restart action in the dialog footer and emits restart', async () => {
+  it('keeps both footer actions visible, aligned, and emits restart', async () => {
     const wrapper = mount(UpgradeChangesDialog, {
       props: {
         show: true,
@@ -24,14 +24,14 @@ describe('UpgradeChangesDialog', () => {
       }
     })
 
-    const restartButton = wrapper.findAll('button').find((button) =>
-      button.text().includes('version.restartNow')
-    )
+    const closeButton = wrapper.get('[data-testid="upgrade-dialog-close-button"]')
+    const restartButton = wrapper.get('[data-testid="restart-after-upgrade-button"]')
 
-    expect(restartButton).toBeDefined()
-    expect(restartButton!.element.closest('.modal-footer')).not.toBeNull()
+    expect(closeButton.classes()).toEqual(expect.arrayContaining(['btn', 'btn-secondary', 'min-h-10']))
+    expect(restartButton.classes()).toEqual(expect.arrayContaining(['btn', 'btn-primary', 'min-h-10']))
+    expect(restartButton.element.closest('.modal-footer')).not.toBeNull()
 
-    await restartButton!.trigger('click')
+    await restartButton.trigger('click')
     expect(wrapper.emitted('restart')).toHaveLength(1)
   })
 })
