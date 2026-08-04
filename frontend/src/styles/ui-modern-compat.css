@@ -1,0 +1,595 @@
+/*
+ * Modern/Package compatibility layer.
+ *
+ * LightBridge has a large legacy surface that still uses global classes such as
+ * .btn, .input, .card and .modal-content. This file maps those classes to the
+ * semantic UI platform without changing Legacy mode. It is intentionally loaded
+ * after style.css and ui-platform.css so old !important geometry cannot leak into
+ * the Luma experience.
+ */
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) body,
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) #app {
+  min-height: 100%;
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+  font-family: var(--ui-font-body) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) body {
+  line-height: 1.5;
+  text-rendering: optimizeLegibility;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) * {
+  border-color: hsl(var(--border));
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) ::selection {
+  background: hsl(var(--primary) / 0.2);
+  color: hsl(var(--foreground));
+}
+
+/* Route surface and page composition */
+.ui-route-surface {
+  display: contents;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .app-main {
+  width: min(100%, var(--ui-content-max-width));
+  margin-inline: auto;
+  padding: clamp(1rem, 2vw, 2rem);
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .page-header,
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) [data-page-header] {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: var(--ui-page-gap);
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .page-header > :first-child,
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) [data-page-header] > :first-child {
+  min-width: 0;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .page-title {
+  margin: 0 !important;
+  color: hsl(var(--foreground)) !important;
+  font-family: var(--ui-font-heading) !important;
+  font-size: clamp(1.5rem, 2vw, 2.15rem) !important;
+  font-weight: var(--ui-heading-weight) !important;
+  letter-spacing: var(--ui-heading-tracking) !important;
+  line-height: 1.15 !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .page-description {
+  max-width: 72ch;
+  margin-top: 0.4rem !important;
+  color: hsl(var(--muted-foreground)) !important;
+  font-size: 0.875rem !important;
+  line-height: 1.55;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.page-actions, .toolbar, .filter-bar, .search-bar, .bulk-actions-bar) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.toolbar, .filter-bar, .search-bar) {
+  padding: 0.75rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--ui-radius) + 0.125rem) !important;
+  background: hsl(var(--card));
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.035);
+}
+
+/* Buttons */
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.btn, .btn-md, .btn-lg, .btn-sm, .btn-icon) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: var(--ui-control-height);
+  padding: 0.5rem 1rem;
+  border: 1px solid transparent !important;
+  border-radius: var(--ui-radius) !important;
+  background: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  font-family: var(--ui-font-body) !important;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.08) !important;
+  transform: none;
+  transition:
+    color calc(150ms * var(--ui-motion-factor)),
+    background-color calc(150ms * var(--ui-motion-factor)),
+    border-color calc(150ms * var(--ui-motion-factor)),
+    box-shadow calc(150ms * var(--ui-motion-factor)),
+    transform calc(150ms * var(--ui-motion-factor));
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.btn, .btn-md, .btn-lg, .btn-sm, .btn-icon):hover:not(:disabled) {
+  filter: brightness(0.96);
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.btn, .btn-md, .btn-lg, .btn-sm, .btn-icon):active:not(:disabled) {
+  transform: scale(0.98) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.btn, .btn-md, .btn-lg, .btn-sm, .btn-icon):disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.btn-secondary, .btn-outline) {
+  border-color: hsl(var(--border)) !important;
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.btn-secondary, .btn-outline):hover:not(:disabled) {
+  background: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .btn-ghost {
+  border-color: transparent !important;
+  background: transparent !important;
+  color: hsl(var(--foreground)) !important;
+  box-shadow: none !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .btn-ghost:hover:not(:disabled) {
+  background: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.btn-danger, .btn-destructive) {
+  background: hsl(var(--destructive)) !important;
+  color: hsl(var(--destructive-foreground)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .btn-success {
+  background: hsl(152 60% 38%) !important;
+  color: white !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .btn-warning {
+  background: hsl(38 88% 48%) !important;
+  color: hsl(30 30% 10%) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .btn-sm {
+  min-height: 2rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: calc(var(--ui-radius) - 0.125rem) !important;
+  font-size: 0.75rem;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .btn-lg {
+  min-height: 2.75rem;
+  padding-inline: 1.5rem;
+  font-size: 1rem;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .btn-icon {
+  width: var(--ui-control-height);
+  padding: 0;
+}
+
+/* Forms */
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(input, select, textarea, .input, .dialog-input, .hero-kv-input) {
+  border: 1px solid hsl(var(--input)) !important;
+  border-radius: var(--ui-radius) !important;
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+  font-family: var(--ui-font-body) !important;
+  font-size: 0.875rem;
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.025) !important;
+  transition:
+    border-color calc(150ms * var(--ui-motion-factor)),
+    box-shadow calc(150ms * var(--ui-motion-factor));
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(input, select, .input, .dialog-input, .hero-kv-input) {
+  min-height: var(--ui-control-height);
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) textarea {
+  min-height: 6rem;
+  resize: vertical;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(input, select, textarea, .input):focus {
+  border-color: hsl(var(--ring)) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px hsl(var(--ring) / 0.18) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(input, select, textarea, .input):disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  background: hsl(var(--muted)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(input, textarea)::placeholder {
+  color: hsl(var(--muted-foreground));
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.input-label, label) {
+  color: hsl(var(--foreground)) !important;
+  font-family: var(--ui-font-body) !important;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.input-hint, .field-help) {
+  color: hsl(var(--muted-foreground)) !important;
+  font-size: 0.75rem;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.input-error-text, .field-error) {
+  color: hsl(var(--destructive)) !important;
+  font-size: 0.75rem;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.input-error, [aria-invalid='true']) {
+  border-color: hsl(var(--destructive)) !important;
+}
+
+/* Cards and surfaces */
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.card, .glass-card, .card-glass, .glass, .stat-card, .dialog-container) {
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: calc(var(--ui-radius) + 0.25rem) !important;
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+  box-shadow:
+    0 1px 2px hsl(var(--foreground) / 0.04),
+    0 8px 24px hsl(var(--foreground) / 0.035) !important;
+  backdrop-filter: none !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .card-hover:hover {
+  border-color: hsl(var(--ring) / 0.35) !important;
+  box-shadow:
+    0 2px 5px hsl(var(--foreground) / 0.055),
+    0 12px 32px hsl(var(--foreground) / 0.06) !important;
+  transform: translateY(-1px);
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.card-header, .card-footer) {
+  border-color: hsl(var(--border)) !important;
+  background: transparent !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .stat-value {
+  color: hsl(var(--foreground)) !important;
+  font-family: var(--ui-font-heading);
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .stat-label {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* Tables */
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.table-container, .table-wrapper) {
+  overflow: auto;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: calc(var(--ui-radius) + 0.125rem) !important;
+  background: hsl(var(--card));
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: hsl(var(--foreground));
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .table th {
+  position: relative;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid hsl(var(--border)) !important;
+  background: hsl(var(--muted) / 0.72) !important;
+  color: hsl(var(--muted-foreground)) !important;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid hsl(var(--border) / 0.7) !important;
+  color: hsl(var(--foreground)) !important;
+  vertical-align: middle;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .table tbody tr:hover {
+  background: hsl(var(--accent) / 0.55) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .table tbody tr:last-child td {
+  border-bottom: 0 !important;
+}
+
+/* Badges and alerts */
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 999px !important;
+  padding: 0.2rem 0.55rem;
+  background: hsl(var(--secondary));
+  color: hsl(var(--secondary-foreground));
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .badge-primary {
+  border-color: hsl(var(--primary) / 0.25);
+  background: hsl(var(--primary) / 0.12) !important;
+  color: hsl(var(--primary)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .badge-success {
+  border-color: hsl(152 55% 40% / 0.25);
+  background: hsl(152 55% 40% / 0.12) !important;
+  color: hsl(152 55% 34%) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.badge-danger, .badge-error) {
+  border-color: hsl(var(--destructive) / 0.25);
+  background: hsl(var(--destructive) / 0.1) !important;
+  color: hsl(var(--destructive)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .badge-warning {
+  border-color: hsl(38 88% 48% / 0.28);
+  background: hsl(38 88% 48% / 0.12) !important;
+  color: hsl(32 75% 34%) !important;
+}
+
+/* Menus and overlays */
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .dropdown {
+  z-index: var(--ui-z-dropdown) !important;
+  min-width: 10rem;
+  padding: 0.25rem;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: var(--ui-radius) !important;
+  background: hsl(var(--popover)) !important;
+  color: hsl(var(--popover-foreground)) !important;
+  box-shadow: 0 12px 36px hsl(var(--foreground) / 0.14) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .dropdown-item {
+  min-height: 2.25rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: calc(var(--ui-radius) - 0.125rem) !important;
+  color: hsl(var(--popover-foreground)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .dropdown-item:hover {
+  background: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .modal-overlay {
+  z-index: var(--ui-z-dialog) !important;
+  padding: clamp(0.75rem, 3vw, 2rem);
+  background: hsl(30 10% 4% / 0.55) !important;
+  backdrop-filter: blur(4px) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .modal-content {
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: calc(var(--ui-radius) + 0.375rem) !important;
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+  box-shadow: 0 24px 80px hsl(30 10% 4% / 0.3) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.modal-header, .modal-footer) {
+  border-color: hsl(var(--border)) !important;
+  background: hsl(var(--card)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .modal-title {
+  color: hsl(var(--foreground)) !important;
+  font-family: var(--ui-font-heading);
+  font-weight: var(--ui-heading-weight);
+}
+
+/* Navigation */
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .sidebar {
+  border-right: 1px solid hsl(var(--border)) !important;
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground));
+  box-shadow: 1px 0 0 hsl(var(--border) / 0.35);
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .sidebar-header {
+  border-color: hsl(var(--border)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .sidebar-link {
+  min-height: 2.5rem;
+  border-radius: var(--ui-radius) !important;
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .sidebar-link:hover {
+  background: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .sidebar-link-active {
+  background: hsl(var(--primary) / 0.12) !important;
+  color: hsl(var(--primary)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .sidebar-section-title {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .app-topbar {
+  border-bottom: 1px solid hsl(var(--border)) !important;
+  background: hsl(var(--background) / 0.88) !important;
+  box-shadow: none !important;
+  backdrop-filter: blur(14px);
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .app-topbar::after {
+  display: none !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.app-topbar-title, .app-topbar-heading) {
+  color: hsl(var(--foreground)) !important;
+  font-family: var(--ui-font-heading) !important;
+  transform: none !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .app-topbar-description {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* Tabs, progress, loading and empty states */
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .tabs {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--ui-radius) !important;
+  background: hsl(var(--muted)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .tab {
+  border-radius: calc(var(--ui-radius) - 0.125rem) !important;
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .tab:hover {
+  color: hsl(var(--foreground)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .tab-active {
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.08) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .progress {
+  overflow: hidden;
+  border-radius: 999px !important;
+  background: hsl(var(--secondary)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .progress-bar {
+  border-radius: inherit;
+  background: hsl(var(--primary)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .skeleton {
+  border-radius: var(--ui-radius) !important;
+  background: hsl(var(--muted)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .empty-state {
+  min-height: 14rem;
+  border: 1px dashed hsl(var(--border));
+  border-radius: calc(var(--ui-radius) + 0.25rem) !important;
+  background: hsl(var(--muted) / 0.28);
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .empty-state-title {
+  color: hsl(var(--foreground)) !important;
+  font-family: var(--ui-font-heading);
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.empty-state-description, .empty-state-icon) {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* Toasts and code */
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .toast {
+  z-index: var(--ui-z-toast) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: calc(var(--ui-radius) + 0.125rem) !important;
+  background: hsl(var(--popover)) !important;
+  color: hsl(var(--popover-foreground)) !important;
+  box-shadow: 0 14px 42px hsl(var(--foreground) / 0.16) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.code, code:not(pre code)) {
+  border-radius: calc(var(--ui-radius) - 0.25rem) !important;
+  background: hsl(var(--muted)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.code-block, pre) {
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--ui-radius) !important;
+  background: hsl(30 10% 8%) !important;
+  color: hsl(35 18% 93%) !important;
+}
+
+/* Responsive composition */
+@media (max-width: 767px) {
+  :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .app-main {
+    padding: 1rem;
+  }
+
+  :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .page-header,
+  :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) [data-page-header] {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.page-actions, .toolbar, .filter-bar, .search-bar) {
+    width: 100%;
+  }
+
+  :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.page-actions, .toolbar, .filter-bar, .search-bar) > :is(button, a, .btn) {
+    flex: 1 1 auto;
+  }
+
+  :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .modal-content {
+    max-height: calc(100dvh - 1.5rem) !important;
+    border-radius: calc(var(--ui-radius) + 0.125rem) !important;
+  }
+
+  :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .table-container,
+  :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .table-wrapper {
+    border-radius: var(--ui-radius) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) *,
+  :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) *::before,
+  :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
