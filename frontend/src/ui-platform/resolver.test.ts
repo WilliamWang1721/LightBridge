@@ -3,6 +3,18 @@ import { DEFAULT_UI_PROFILE } from './registry'
 import { parseStoredUIProfile, resolveUIProfile } from './resolver'
 
 describe('resolveUIProfile', () => {
+  it('uses LightBridge Luma as the built-in default while preserving Legacy as an explicit mode', () => {
+    const { profile } = resolveUIProfile()
+
+    expect(profile).toEqual(DEFAULT_UI_PROFILE)
+    expect(profile.mode).toBe('modern')
+    expect(profile.componentStyle).toBe('luma')
+
+    const legacy = resolveUIProfile({ userPreferences: { mode: 'legacy' } }).profile
+    expect(legacy.mode).toBe('legacy')
+    expect(legacy.componentStyle).toBe('luma')
+  })
+
   it('keeps Luma fixed while applying independent user preferences', () => {
     const { profile, warnings } = resolveUIProfile({
       userPreferences: {
