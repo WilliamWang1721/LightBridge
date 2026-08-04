@@ -28,6 +28,23 @@ const subscriptionsFeatureEnabled = computed(() =>
 const announcementsFeatureEnabled = computed(() =>
   isProgressiveFeatureEnabled(ProgressiveFeatures.announcements),
 )
+const routeSurface = computed(() => {
+  if (route.path.startsWith('/admin')) return 'admin'
+  if (route.path.startsWith('/setup')) return 'setup'
+  if (route.path.startsWith('/payment')) return 'payment'
+  if (
+    route.path.startsWith('/login') ||
+    route.path.startsWith('/register') ||
+    route.path.startsWith('/forgot-password') ||
+    route.path.startsWith('/reset-password') ||
+    route.path.startsWith('/email-verify') ||
+    route.path.startsWith('/auth/')
+  ) {
+    return 'auth'
+  }
+  if (route.meta.requiresAuth) return 'user'
+  return 'public'
+})
 let visibilityListenerRegistered = false
 
 function redirectDisabledProgressiveRoute() {
@@ -171,7 +188,9 @@ onMounted(async () => {
 <template>
   <UIProfileSync />
   <NavigationProgress />
-  <RouterView />
+  <div class="ui-route-surface" :data-ui-surface="routeSurface">
+    <RouterView />
+  </div>
   <Toast />
   <AnnouncementPopup v-if="announcementsFeatureEnabled" />
 </template>
