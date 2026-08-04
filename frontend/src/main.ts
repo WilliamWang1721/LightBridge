@@ -7,6 +7,7 @@ import { useAppStore } from '@/stores/app'
 import { hydrateProgressiveFeatureManifest } from '@/utils/progressiveFeatures'
 import { initializeUIPlatform } from '@/ui-platform/runtime'
 import './style.css'
+import './styles/ui-semantic-defaults.css'
 import './styles/ui-platform.css'
 import './styles/ui-layout.css'
 
