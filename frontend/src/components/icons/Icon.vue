@@ -1,17 +1,114 @@
 <template>
+  <component
+    :is="lucideIcon"
+    v-if="useLucide && lucideIcon"
+    v-bind="$attrs"
+    :class="[sizeClass, $attrs.class]"
+    :stroke-width="strokeWidth"
+    aria-hidden="true"
+  />
   <svg
-    :class="sizeClass"
+    v-else
+    v-bind="$attrs"
+    :class="[sizeClass, $attrs.class]"
     fill="none"
     viewBox="0 0 24 24"
     stroke="currentColor"
     :stroke-width="strokeWidth"
+    aria-hidden="true"
   >
     <path stroke-linecap="round" stroke-linejoin="round" :d="iconPath" />
   </svg>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+defineOptions({ inheritAttrs: false })
+
+import { computed, type Component } from 'vue'
+import { useUIPlatform } from '@/composables/useUIPlatform'
+import {
+  ArrowDown,
+  ArrowDownUp,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  ArrowUpDown,
+  BadgeCheck,
+  Ban,
+  BarChart3,
+  Bell,
+  BookOpen,
+  Box,
+  Brain,
+  Calculator,
+  CalendarDays,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  CircleAlert,
+  CircleCheck,
+  CircleDollarSign,
+  CircleHelp,
+  Info,
+  CircleUserRound,
+  CircleX,
+  Clipboard,
+  Clock3,
+  Cloud,
+  Copy,
+  Cpu,
+  CreditCard,
+  Database,
+  Download,
+  Ellipsis,
+  ExternalLink,
+  Eye,
+  EyeOff,
+  FileText,
+  Flame,
+  FlaskConical,
+  Folder,
+  Gift,
+  Globe2,
+  House,
+  Inbox,
+  KeyRound,
+  LayoutGrid,
+  Lightbulb,
+  Link2,
+  ListFilter,
+  LockKeyhole,
+  LogIn,
+  Mail,
+  Menu,
+  MessageCircle,
+  MessageSquare,
+  Moon,
+  Pencil,
+  Play,
+  Plus,
+  RefreshCcw,
+  RefreshCw,
+  Repeat2,
+  Search,
+  Server,
+  Settings,
+  ShieldCheck,
+  Sparkles,
+  Sun,
+  TerminalSquare,
+  Trash2,
+  TrendingUp,
+  TriangleAlert,
+  Upload,
+  User,
+  UserPlus,
+  Users,
+  X,
+  Zap,
+} from '@lucide/vue'
 
 const props = withDefaults(defineProps<{
   name: keyof typeof icons
@@ -21,6 +118,8 @@ const props = withDefaults(defineProps<{
   size: 'md',
   strokeWidth: 1.5
 })
+
+const { profile } = useUIPlatform()
 
 const icons = {
   // Actions
@@ -134,6 +233,93 @@ const icons = {
   brain: 'M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m0 0l-2.69 2.689c-1.232 1.232-.65 3.318 1.067 3.611A48.309 48.309 0 0012 21c2.773 0 5.491-.235 8.135-.687 1.718-.293 2.3-2.379 1.067-3.61L19.8 15.3M12 8.25a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 0v3m-3-1.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 0h6m-3 4.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3z'
 } as const
 
+const lucideIcons: Partial<Record<keyof typeof icons, Component>> = {
+  play: Play,
+  refresh: RefreshCw,
+  edit: Pencil,
+  trash: Trash2,
+  plus: Plus,
+  search: Search,
+  more: Ellipsis,
+  chart: BarChart3,
+  clock: Clock3,
+  link: Link2,
+  sync: RefreshCcw,
+  chevronDown: ChevronDown,
+  chevronRight: ChevronRight,
+  chevronLeft: ChevronLeft,
+  check: Check,
+  x: X,
+  eye: Eye,
+  eyeOff: EyeOff,
+  cog: Settings,
+  grid: LayoutGrid,
+  chat: MessageCircle,
+  lightbulb: Lightbulb,
+  arrowRight: ArrowRight,
+  arrowLeft: ArrowLeft,
+  arrowUp: ArrowUp,
+  arrowDown: ArrowDown,
+  arrowsUpDown: ArrowUpDown,
+  chevronUp: ChevronUp,
+  externalLink: ExternalLink,
+  checkCircle: CircleCheck,
+  xCircle: CircleX,
+  exclamationCircle: CircleAlert,
+  exclamationTriangle: TriangleAlert,
+  infoCircle: Info,
+  questionCircle: CircleHelp,
+  user: User,
+  userCircle: CircleUserRound,
+  userPlus: UserPlus,
+  users: Users,
+  folder: Folder,
+  document: FileText,
+  clipboard: Clipboard,
+  copy: Copy,
+  inbox: Inbox,
+  download: Download,
+  upload: Upload,
+  filter: ListFilter,
+  globe: Globe2,
+  sort: ArrowDownUp,
+  key: KeyRound,
+  lock: LockKeyhole,
+  shield: ShieldCheck,
+  menu: Menu,
+  calendar: CalendarDays,
+  home: House,
+  terminal: TerminalSquare,
+  gift: Gift,
+  creditCard: CreditCard,
+  mail: Mail,
+  chartBar: BarChart3,
+  trendingUp: TrendingUp,
+  database: Database,
+  cube: Box,
+  bell: Bell,
+  bolt: Zap,
+  sparkles: Sparkles,
+  cloud: Cloud,
+  server: Server,
+  sun: Sun,
+  moon: Moon,
+  book: BookOpen,
+  dollar: CircleDollarSign,
+  ban: Ban,
+  login: LogIn,
+  swap: Repeat2,
+  beaker: FlaskConical,
+  cpu: Cpu,
+  chatBubble: MessageSquare,
+  calculator: Calculator,
+  fire: Flame,
+  badge: BadgeCheck,
+  brain: Brain,
+}
+
+const useLucide = computed(() => profile.value.iconLibrary === 'lucide')
+const lucideIcon = computed(() => lucideIcons[props.name])
 const iconPath = computed(() => icons[props.name])
 
 const sizeClass = computed(() => ({

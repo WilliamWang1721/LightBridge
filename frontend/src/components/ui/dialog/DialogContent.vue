@@ -18,10 +18,10 @@
       <DialogClose
         v-if="showClose"
         class="absolute right-4 top-4 rounded-[calc(var(--ui-radius)-2px)] p-1.5 text-[hsl(var(--muted-foreground))] transition-colors hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--accent-foreground))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]"
-        aria-label="Close dialog"
+        :aria-label="closeLabel"
       >
-        <X class="h-4 w-4" aria-hidden="true" />
-        <span class="sr-only">Close</span>
+        <AppIcon name="close" size="sm" />
+        <span class="sr-only">{{ closeLabel }}</span>
       </DialogClose>
     </DialogContent>
   </DialogPortal>
@@ -29,7 +29,7 @@
 
 <script setup lang="ts">
 import { computed, type HTMLAttributes } from 'vue'
-import { X } from '@lucide/vue'
+import { AppIcon } from '@/components/ui/icon'
 import {
   DialogClose,
   DialogContent,
@@ -44,13 +44,15 @@ import { cn } from '@/lib/utils'
 const props = withDefaults(defineProps<DialogContentProps & {
   class?: HTMLAttributes['class']
   showClose?: boolean
+  closeLabel?: string
 }>(), {
   showClose: true,
+  closeLabel: 'Close dialog',
 })
 
 const emits = defineEmits<DialogContentEmits>()
 const delegatedProps = computed(() => {
-  const { class: _class, showClose: _showClose, ...delegated } = props
+  const { class: _class, showClose: _showClose, closeLabel: _closeLabel, ...delegated } = props
   return delegated
 })
 const forwarded = useForwardPropsEmits(delegatedProps, emits)

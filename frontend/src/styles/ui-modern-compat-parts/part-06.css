@@ -1,0 +1,114 @@
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .app-topbar-description {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* Tabs, progress, loading and empty states */
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .tabs {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--ui-radius) !important;
+  background: hsl(var(--muted)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .tab {
+  border-radius: calc(var(--ui-radius) - 0.125rem) !important;
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .tab:hover {
+  color: hsl(var(--foreground)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .tab-active {
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.08) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .progress {
+  overflow: hidden;
+  border-radius: 999px !important;
+  background: hsl(var(--secondary)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .progress-bar {
+  border-radius: inherit;
+  background: hsl(var(--primary)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .skeleton {
+  border-radius: var(--ui-radius) !important;
+  background: hsl(var(--muted)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .empty-state {
+  min-height: 14rem;
+  border: 1px dashed hsl(var(--border));
+  border-radius: calc(var(--ui-radius) + 0.25rem) !important;
+  background: hsl(var(--muted) / 0.28);
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .empty-state-title {
+  color: hsl(var(--foreground)) !important;
+  font-family: var(--ui-font-heading);
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.empty-state-description, .empty-state-icon) {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* Toasts and code */
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .toast {
+  z-index: var(--ui-z-toast) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: calc(var(--ui-radius) + 0.125rem) !important;
+  background: hsl(var(--popover)) !important;
+  color: hsl(var(--popover-foreground)) !important;
+  box-shadow: 0 14px 42px hsl(var(--foreground) / 0.16) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.code, code:not(pre code)) {
+  border-radius: calc(var(--ui-radius) - 0.25rem) !important;
+  background: hsl(var(--muted)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.code-block, pre) {
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--ui-radius) !important;
+  background: hsl(30 10% 8%) !important;
+  color: hsl(35 18% 93%) !important;
+}
+
+/* Responsive composition */
+@media (max-width: 767px) {
+  :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .app-main {
+    padding: 1rem;
+  }
+
+  :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .page-header,
+  :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) [data-page-header] {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.page-actions, .toolbar, .filter-bar, .search-bar) {
+    width: 100%;
+  }
+
+  :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.page-actions, .toolbar, .filter-bar, .search-bar) > :is(button, a, .btn) {
+    flex: 1 1 auto;
+  }
+
+  :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .modal-content {
+    max-height: calc(100dvh - 1.5rem) !important;
+    border-radius: calc(var(--ui-radius) + 0.125rem) !important;
+  }
+
+  :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .table-container,
+  :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .table-wrapper {
+    border-radius: var(--ui-radius) !important;
+  }
+}

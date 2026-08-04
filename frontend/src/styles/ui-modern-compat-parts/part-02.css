@@ -1,0 +1,85 @@
+/* Buttons */
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.btn, .btn-primary, .btn-md, .btn-lg, .btn-sm, .btn-icon) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: var(--ui-control-height);
+  padding: 0.5rem 1rem;
+  border: 1px solid transparent !important;
+  border-radius: var(--ui-radius) !important;
+  background: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  font-family: var(--ui-font-body) !important;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.08) !important;
+  transform: none;
+  transition:
+    color calc(150ms * var(--ui-motion-factor)),
+    background-color calc(150ms * var(--ui-motion-factor)),
+    border-color calc(150ms * var(--ui-motion-factor)),
+    box-shadow calc(150ms * var(--ui-motion-factor)),
+    transform calc(150ms * var(--ui-motion-factor));
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.btn, .btn-primary, .btn-md, .btn-lg, .btn-sm, .btn-icon):hover:not(:disabled) {
+  filter: brightness(0.96);
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.btn, .btn-primary, .btn-md, .btn-lg, .btn-sm, .btn-icon):active:not(:disabled) {
+  transform: scale(0.98) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.btn, .btn-primary, .btn-md, .btn-lg, .btn-sm, .btn-icon):disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.btn-secondary, .btn-outline) {
+  border-color: hsl(var(--border)) !important;
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.btn-secondary, .btn-outline):hover:not(:disabled) {
+  background: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .btn-ghost {
+  border-color: transparent !important;
+  background: transparent !important;
+  color: hsl(var(--foreground)) !important;
+  box-shadow: none !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .btn-ghost:hover:not(:disabled) {
+  background: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.btn-danger, .btn-destructive) {
+  background: hsl(var(--destructive)) !important;
+  color: hsl(var(--destructive-foreground)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .btn-success {
+  background: hsl(152 60% 38%) !important;
+  color: white !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .btn-warning {
+  background: hsl(38 88% 48%) !important;
+  color: hsl(30 30% 10%) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .btn-sm {
+  min-height: 2rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: calc(var(--ui-radius) - 0.125rem) !important;
+  font-size: 0.75rem;
+}

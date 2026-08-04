@@ -1,0 +1,29 @@
+/* Surface-specific composition */
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .ui-route-surface[data-ui-surface='auth'] > * {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .ui-route-surface[data-ui-surface='auth'] .card-glass {
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: calc(var(--ui-radius) + 0.375rem) !important;
+  background: hsl(var(--card) / 0.96) !important;
+  box-shadow: 0 24px 72px hsl(var(--foreground) / 0.12) !important;
+  backdrop-filter: blur(18px);
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .ui-route-surface[data-ui-surface='setup'] > *,
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .ui-route-surface[data-ui-surface='payment'] > * {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .ui-route-surface[data-ui-surface='public'] :is(article, .docs-content, .markdown-body) {
+  color: hsl(var(--foreground));
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .bg-mesh-gradient {
+  background-image:
+    radial-gradient(circle at 15% 12%, hsl(var(--primary) / 0.06), transparent 28rem),
+    radial-gradient(circle at 85% 88%, hsl(var(--chart-2) / 0.05), transparent 32rem) !important;
+}

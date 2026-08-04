@@ -1,0 +1,99 @@
+/*
+ * Modern/Package compatibility layer.
+ *
+ * LightBridge has a large legacy surface that still uses global classes such as
+ * .btn, .input, .card and .modal-content. This file maps those classes to the
+ * semantic UI platform without changing Legacy mode. It is intentionally loaded
+ * after style.css and ui-platform.css so old !important geometry cannot leak into
+ * the Luma experience.
+ */
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) body,
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) #app {
+  min-height: 100%;
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+  font-family: var(--ui-font-body) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) body {
+  line-height: 1.5;
+  text-rendering: optimizeLegibility;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) * {
+  border-color: hsl(var(--border));
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) ::selection {
+  background: hsl(var(--primary) / 0.2);
+  color: hsl(var(--foreground));
+}
+
+/* Route surface and page composition */
+.ui-route-surface {
+  display: contents;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .app-main {
+  width: min(100%, var(--ui-content-max-width));
+  margin-inline: auto;
+  padding: clamp(1rem, 2vw, 2rem);
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .page-header,
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) [data-page-header] {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: var(--ui-page-gap);
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .page-header > :first-child,
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) [data-page-header] > :first-child {
+  min-width: 0;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .page-title {
+  margin: 0 !important;
+  color: hsl(var(--foreground)) !important;
+  font-family: var(--ui-font-heading) !important;
+  font-size: clamp(1.5rem, 2vw, 2.15rem) !important;
+  font-weight: var(--ui-heading-weight) !important;
+  letter-spacing: var(--ui-heading-tracking) !important;
+  line-height: 1.15 !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .page-description {
+  max-width: 72ch;
+  margin-top: 0.4rem !important;
+  color: hsl(var(--muted-foreground)) !important;
+  font-size: 0.875rem !important;
+  line-height: 1.55;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.page-actions, .toolbar, .filter-bar, .search-bar, .bulk-actions-bar) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.toolbar, .filter-bar, .search-bar) {
+  padding: 0.75rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--ui-radius) + 0.125rem) !important;
+  background: hsl(var(--card));
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.035);
+}

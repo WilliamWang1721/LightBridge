@@ -1,0 +1,228 @@
+/*
+ * Tailwind utility bridge for the pre-platform LightBridge templates.
+ *
+ * Existing templates intentionally remain intact so Legacy mode stays visually
+ * compatible. In Modern and Package modes, high-frequency legacy utility tokens
+ * are translated to semantic Luma tokens. Attribute selectors avoid depending on
+ * Tailwind's escaped selector output and cover static plus conditional class lists.
+ */
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) {
+  /* foreground hierarchy */
+  [class~='text-gray-950'],
+  [class~='text-gray-900'],
+  [class~='text-gray-800'],
+  [class~='text-gray-700'] {
+    color: hsl(var(--foreground)) !important;
+  }
+
+  [class~='text-gray-600'],
+  [class~='text-gray-500'],
+  [class~='text-gray-400'],
+  [class~='text-gray-300'] {
+    color: hsl(var(--muted-foreground)) !important;
+  }
+
+  [class~='text-primary-900'],
+  [class~='text-primary-800'],
+  [class~='text-primary-700'],
+  [class~='text-primary-600'],
+  [class~='text-primary-500'],
+  [class~='text-primary-400'],
+  [class~='text-primary-300'] {
+    color: hsl(var(--primary)) !important;
+  }
+
+  [class~='placeholder:text-gray-400']::placeholder,
+  [class~='placeholder:text-gray-500']::placeholder {
+    color: hsl(var(--muted-foreground)) !important;
+  }
+
+  /* neutral surfaces */
+  [class~='bg-white'],
+  [class~='bg-white/95'],
+  [class~='bg-white/90'],
+  [class~='bg-white/85'],
+  [class~='bg-white/80'],
+  [class~='bg-white/70'],
+  [class~='bg-white/60'],
+  [class~='bg-white/50'],
+  [class~='bg-white/40'],
+  [class~='bg-white/30'] {
+    background-color: hsl(var(--card)) !important;
+  }
+
+  [class~='bg-gray-50'],
+  [class~='bg-gray-50/80'],
+  [class~='bg-gray-50/70'],
+  [class~='bg-gray-50/50'],
+  [class~='bg-gray-50/40'],
+  [class~='bg-gray-50/20'] {
+    background-color: hsl(var(--muted) / 0.45) !important;
+  }
+
+  [class~='bg-gray-100'],
+  [class~='bg-gray-100/50'],
+  [class~='bg-gray-100/20'],
+  [class~='bg-gray-100/10'],
+  [class~='bg-gray-200'],
+  [class~='bg-gray-200/60'],
+  [class~='bg-gray-300'] {
+    background-color: hsl(var(--muted)) !important;
+  }
+
+  [class~='bg-primary-50'],
+  [class~='bg-primary-50/60'],
+  [class~='bg-primary-50/50'],
+  [class~='bg-primary-100'],
+  [class~='bg-primary-100/50'],
+  [class~='bg-primary-200/50'],
+  [class~='bg-primary-500/5'],
+  [class~='bg-primary-500/10'] {
+    background-color: hsl(var(--primary) / 0.1) !important;
+  }
+
+  [class~='bg-primary-500'],
+  [class~='bg-primary-600'] {
+    background-color: hsl(var(--primary)) !important;
+  }
+
+  /* borders and divides */
+  [class~='border-gray-50'],
+  [class~='border-gray-100'],
+  [class~='border-gray-100/80'],
+  [class~='border-gray-100/50'],
+  [class~='border-gray-200'],
+  [class~='border-gray-200/80'],
+  [class~='border-gray-200/60'],
+  [class~='border-gray-200/50'],
+  [class~='border-gray-200/40'],
+  [class~='border-gray-200/20'],
+  [class~='border-gray-300'],
+  [class~='border-gray-400/70'] {
+    border-color: hsl(var(--border)) !important;
+  }
+
+  [class~='divide-gray-100'] > :not([hidden]) ~ :not([hidden]),
+  [class~='divide-gray-100/50'] > :not([hidden]) ~ :not([hidden]),
+  [class~='divide-gray-200'] > :not([hidden]) ~ :not([hidden]) {
+    border-color: hsl(var(--border)) !important;
+  }
+
+  [class~='border-primary-100'],
+  [class~='border-primary-100/80'],
+  [class~='border-primary-200'],
+  [class~='border-primary-300'],
+  [class~='border-primary-500/30'] {
+    border-color: hsl(var(--primary) / 0.3) !important;
+  }
+
+  [class~='border-primary-500'],
+  [class~='border-primary-600'] {
+    border-color: hsl(var(--primary)) !important;
+  }
+
+  /* geometry */
+  [class~='rounded-none'] {
+    border-radius: 0 !important;
+  }
+
+  [class~='rounded-sm'] {
+    border-radius: max(0px, calc(var(--ui-radius) - 0.25rem)) !important;
+  }
+
+  [class~='rounded'],
+  [class~='rounded-md'] {
+    border-radius: max(0px, calc(var(--ui-radius) - 0.125rem)) !important;
+  }
+
+  [class~='rounded-lg'],
+  [class~='rounded-xl'] {
+    border-radius: var(--ui-radius) !important;
+  }
+
+  [class~='rounded-2xl'],
+  [class~='rounded-3xl'] {
+    border-radius: calc(var(--ui-radius) + 0.25rem) !important;
+  }
+
+  [class~='rounded-b-xl'] {
+    border-bottom-left-radius: var(--ui-radius) !important;
+    border-bottom-right-radius: var(--ui-radius) !important;
+  }
+
+  /* elevation */
+  [class~='shadow'],
+  [class~='shadow-sm'],
+  [class~='shadow-card'] {
+    box-shadow: 0 1px 2px hsl(var(--foreground) / 0.06) !important;
+  }
+
+  [class~='shadow-md'],
+  [class~='shadow-lg'],
+  [class~='shadow-glass'] {
+    box-shadow:
+      0 1px 2px hsl(var(--foreground) / 0.05),
+      0 10px 28px hsl(var(--foreground) / 0.08) !important;
+  }
+
+  [class~='shadow-xl'],
+  [class~='shadow-2xl'] {
+    box-shadow: 0 22px 64px hsl(var(--foreground) / 0.16) !important;
+  }
+
+  /* interaction states */
+  [class~='hover:bg-gray-50']:hover,
+  [class~='hover:bg-gray-50/80']:hover,
+  [class~='hover:bg-gray-50/40']:hover,
+  [class~='hover:bg-gray-50/20']:hover,
+  [class~='hover:bg-gray-100']:hover,
+  [class~='hover:bg-gray-200']:hover {
+    background-color: hsl(var(--accent)) !important;
+    color: hsl(var(--accent-foreground)) !important;
+  }
+
+  [class~='hover:bg-primary-50']:hover,
+  [class~='hover:bg-primary-100']:hover,
+  [class~='hover:bg-primary-200']:hover {
+    background-color: hsl(var(--primary) / 0.12) !important;
+  }
+
+  [class~='hover:bg-primary-600']:hover,
+  [class~='hover:bg-primary-700']:hover {
+    background-color: hsl(var(--primary)) !important;
+    filter: brightness(0.95);
+  }
+
+  [class~='hover:text-gray-900']:hover,
+  [class~='hover:text-gray-700']:hover,
+  [class~='hover:text-gray-600']:hover,
+  [class~='hover:text-gray-500']:hover {
+    color: hsl(var(--foreground)) !important;
+  }
+
+  [class~='hover:text-primary-800']:hover,
+  [class~='hover:text-primary-700']:hover,
+  [class~='hover:text-primary-600']:hover,
+  [class~='hover:text-primary-500']:hover,
+  [class~='hover:text-primary-400']:hover,
+  [class~='hover:text-primary-300']:hover,
+  [class~='hover:text-primary-200']:hover {
+    color: hsl(var(--primary)) !important;
+  }
+
+  [class~='focus:ring-primary-500']:focus,
+  [class~='focus:ring-primary-400']:focus,
+  [class~='focus:ring-primary-300']:focus,
+  [class~='focus:ring-primary-500/20']:focus,
+  [class~='focus-visible:ring-primary-500/50']:focus-visible {
+    --tw-ring-color: hsl(var(--ring) / 0.35) !important;
+  }
+
+  [class~='ring-gray-900/5'],
+  [class~='ring-black/5'],
+  [class~='ring-black/10'],
+  [class~='ring-gray-200'] {
+    --tw-ring-color: hsl(var(--border)) !important;
+  }
+}

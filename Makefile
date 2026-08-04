@@ -1,4 +1,4 @@
-.PHONY: build build-backend build-frontend test test-backend test-frontend test-frontend-critical test-model-sync-smoke model-sync-smoke secret-scan audit-codebase check-runtime-contract runtime-smoke
+.PHONY: build build-backend build-frontend test test-backend test-frontend test-frontend-critical audit-ui test-model-sync-smoke model-sync-smoke secret-scan audit-codebase check-runtime-contract runtime-smoke
 
 FRONTEND_CRITICAL_VITEST := \
 	src/views/auth/__tests__/LinuxDoCallbackView.spec.ts \
@@ -10,7 +10,12 @@ FRONTEND_CRITICAL_VITEST := \
 	src/api/__tests__/admin.features.spec.ts \
 	src/views/admin/__tests__/FeatureRegistryView.spec.ts \
 	src/router/__tests__/progressive-routes.spec.ts \
+	src/components/ui/__tests__/primitives.spec.ts \
+	src/ui-platform/chartTheme.test.ts \
+	src/ui-platform/icons.test.ts \
+	src/ui-platform/inputBridge.test.ts \
 	src/ui-platform/resolver.test.ts \
+	src/ui-platform/routeSurface.test.ts \
 	src/ui-platform/themePackages.test.ts
 
 # 一键编译前后端
@@ -31,12 +36,16 @@ test-backend:
 	@$(MAKE) -C backend test
 
 test-frontend:
+	@$(MAKE) audit-ui
 	@pnpm --dir frontend run lint:check
 	@pnpm --dir frontend run typecheck
 	@$(MAKE) test-frontend-critical
 
 test-frontend-critical:
 	@pnpm --dir frontend exec vitest run $(FRONTEND_CRITICAL_VITEST)
+
+audit-ui:
+	@python3 tools/ui_migration_audit.py
 
 test-model-sync-smoke:
 	@cd backend && go test ./cmd/model-sync-smoke
