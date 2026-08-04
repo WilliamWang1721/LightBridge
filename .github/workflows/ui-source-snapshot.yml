@@ -1,0 +1,33 @@
+name: UI source snapshot
+
+on:
+  push:
+    branches:
+      - agent/luma-ui-foundation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Package source tree
+        run: |
+          tar \
+            --exclude='.git' \
+            --exclude='frontend/node_modules' \
+            --exclude='backend/vendor' \
+            -czf lightbridge-source.tar.gz .
+
+      - name: Upload source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: lightbridge-source
+          path: lightbridge-source.tar.gz
+          if-no-files-found: error
+          retention-days: 1
