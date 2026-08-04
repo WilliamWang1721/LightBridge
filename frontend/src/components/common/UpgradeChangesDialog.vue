@@ -22,17 +22,19 @@
     </div>
 
     <template #footer>
-      <div class="flex items-center gap-2">
+      <div class="grid w-full grid-cols-2 gap-3 sm:flex sm:w-auto sm:items-center">
         <button
           type="button"
-          class="btn btn-secondary"
+          class="btn btn-secondary min-h-10 w-full sm:w-auto"
+          data-testid="upgrade-dialog-close-button"
           @click="$emit('close')"
         >
           {{ t('common.close') }}
         </button>
         <button
           type="button"
-          class="inline-flex items-center gap-2 rounded-lg bg-green-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-50"
+          class="btn btn-primary min-h-10 w-full min-w-32 sm:w-auto"
+          data-testid="restart-after-upgrade-button"
           :disabled="restarting"
           @click="$emit('restart')"
         >
