@@ -129,7 +129,7 @@ Request body is an audience object. The response contains the resolved recipient
       "title": "Message B",
       "kind": "text",
       "content": "Second delivery",
-      "audience": { "activity": "none" }
+      "audience": { "filters": { "activity": "none" } }
     }
   ]
 }
