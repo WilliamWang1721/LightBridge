@@ -32,7 +32,7 @@ const buttonVariants = cva(
         default:
           'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-sm hover:brightness-95 active:scale-[0.98]',
         secondary:
-          'bg-[hsl(var(--secondary))] text-[hsl(var(--secondary-foreground))] hover:brightness-97 active:scale-[0.98]',
+          'bg-[hsl(var(--secondary))] text-[hsl(var(--secondary-foreground))] hover:brightness-[0.97] active:scale-[0.98]',
         outline:
           'border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-[hsl(var(--foreground))] shadow-sm hover:bg-[hsl(var(--accent))]',
         ghost:
