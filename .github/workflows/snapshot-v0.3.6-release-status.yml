@@ -1,0 +1,33 @@
+name: Snapshot v0.3.6 release status
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - synchronize
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  snapshot:
+    if: github.event.pull_request.head.ref == 'release/v0.3.6-trigger'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_SHA: 2e830edb2ae28fe147c659f28141e4149fd0e925
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+    steps:
+      - name: Report current Release jobs
+        run: |
+          set -euo pipefail
+          RUN_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/release.yml/runs?per_page=30" --jq ".workflow_runs | map(select((.head_branch == \"v0.3.6\") or (.head_sha == \"${RELEASE_SHA}\" and .event == \"push\"))) | first | .id // empty")"
+          test -n "$RUN_ID"
+          RUN_STATUS="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" --jq '[.status, (.conclusion // "pending")] | join("/")')"
+          JOBS="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/jobs?per_page=100" --jq '.jobs[] | "- " + .name + ": " + .status + "/" + (.conclusion // "pending")')"
+          BODY="v0.3.6 Release status snapshot. Run ID: ${RUN_ID}. Overall: ${RUN_STATUS}.\n\n${JOBS}"
+          gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" -f body="$BODY" >/dev/null
