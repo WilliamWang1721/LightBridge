@@ -1,1 +1,1 @@
-Add the self-hosted Inter variable font package to the LightBridge UI platform.
+Finalize @fontsource-variable/inter and trusted UI platform dependency lock after implementation changes.
