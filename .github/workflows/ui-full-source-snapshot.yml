@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - agent/ui-complete-migration
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
