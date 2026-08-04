@@ -8,6 +8,7 @@ import { hydrateProgressiveFeatureManifest } from '@/utils/progressiveFeatures'
 import { initializeUIPlatform } from '@/ui-platform/runtime'
 import './style.css'
 import './styles/ui-platform.css'
+import './styles/ui-layout.css'
 
 function initThemeClass() {
   const savedTheme = localStorage.getItem('theme')
