@@ -10,6 +10,7 @@ FRONTEND_CRITICAL_VITEST := \
 	src/api/__tests__/admin.features.spec.ts \
 	src/views/admin/__tests__/FeatureRegistryView.spec.ts \
 	src/router/__tests__/progressive-routes.spec.ts \
+	src/components/ui/__tests__/primitives.spec.ts \
 	src/ui-platform/resolver.test.ts \
 	src/ui-platform/routeSurface.test.ts \
 	src/ui-platform/themePackages.test.ts
