@@ -1,0 +1,126 @@
+name: Apply advanced user filter wiring
+
+on:
+  push:
+    branches:
+      - agent/advanced-user-filter
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/advanced-user-filter
+          fetch-depth: 0
+
+      - name: Wire activity filtering into the existing user list
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          repo_path = Path('backend/internal/repository/user_repo.go')
+          repo_text = repo_path.read_text()
+          old_repo = '''\tif filters.Search != "" {
+          \t\tq = q.Where(
+          \t\t\tdbuser.Or(
+          \t\t\t\tdbuser.EmailContainsFold(filters.Search),
+          \t\t\t\tdbuser.UsernameContainsFold(filters.Search),
+          \t\t\t\tdbuser.NotesContainsFold(filters.Search),
+          \t\t\t\tdbuser.HasAPIKeysWith(apikey.KeyContainsFold(filters.Search)),
+          \t\t\t),
+          \t\t)
+          \t}
+          '''
+          new_repo = '''\tsearchText, activityFilter := splitUserAdvancedSearch(filters.Search)
+          \tif searchText != "" {
+          \t\tq = q.Where(
+          \t\t\tdbuser.Or(
+          \t\t\t\tdbuser.EmailContainsFold(searchText),
+          \t\t\t\tdbuser.UsernameContainsFold(searchText),
+          \t\t\t\tdbuser.NotesContainsFold(searchText),
+          \t\t\t\tdbuser.HasAPIKeysWith(apikey.KeyContainsFold(searchText)),
+          \t\t\t),
+          \t\t)
+          \t}
+          \tif activityFilter != "" {
+          \t\tq = q.Where(userActivityPredicate(activityFilter))
+          \t}
+          '''
+          if repo_text.count(old_repo) != 1:
+              raise SystemExit('user repository search block did not match exactly once')
+          repo_path.write_text(repo_text.replace(old_repo, new_repo, 1))
+
+          handler_path = Path('backend/internal/handler/admin/user_handler.go')
+          handler_text = handler_path.read_text()
+          old_comment = '''//   - group_name: fuzzy filter by allowed group name
+          func (h *UserHandler) List(c *gin.Context) {
+          '''
+          new_comment = '''//   - group_name: fuzzy filter by allowed group name
+          //   - activity: activity filter (any, usage, balance_change, none)
+          func (h *UserHandler) List(c *gin.Context) {
+          '''
+          if handler_text.count(old_comment) != 1:
+              raise SystemExit('user handler query comment did not match exactly once')
+          handler_text = handler_text.replace(old_comment, new_comment, 1)
+
+          old_handler = '''\tif runes := []rune(search); len(runes) > 100 {
+          \t\tsearch = string(runes[:100])
+          \t}
+
+          \tfilters := service.UserListFilters{
+          '''
+          new_handler = '''\tif runes := []rune(search); len(runes) > 100 {
+          \t\tsearch = string(runes[:100])
+          \t}
+          \tif rawActivity, exists := c.GetQuery("activity"); exists {
+          \t\tactivity, valid := service.NormalizeUserActivityFilter(rawActivity)
+          \t\tif !valid {
+          \t\t\tresponse.BadRequest(c, "activity must be one of: any, usage, balance_change, none")
+          \t\t\treturn
+          \t\t}
+          \t\tif token := service.UserActivitySearchToken(activity); token != "" {
+          \t\t\tsearch = strings.TrimSpace(search + " " + token)
+          \t\t}
+          \t}
+
+          \tfilters := service.UserListFilters{
+          '''
+          if handler_text.count(old_handler) != 1:
+              raise SystemExit('user handler search block did not match exactly once')
+          handler_path.write_text(handler_text.replace(old_handler, new_handler, 1))
+          PY
+
+          gofmt -w \
+            backend/internal/service/user_activity_filter.go \
+            backend/internal/service/user_activity_filter_test.go \
+            backend/internal/repository/user_activity_filter.go \
+            backend/internal/repository/user_activity_filter_test.go \
+            backend/internal/repository/user_activity_filter_integration_test.go \
+            backend/internal/repository/user_repo.go \
+            backend/internal/handler/admin/user_handler.go \
+            backend/internal/handler/admin/user_handler_advanced_filter_test.go
+
+      - name: Run targeted backend tests
+        working-directory: backend
+        run: |
+          go test ./internal/service ./internal/repository
+          go test -tags=unit ./internal/handler/admin
+
+      - name: Commit verified changes and remove temporary workflow
+        shell: bash
+        run: |
+          rm -f .github/workflows/agent-advanced-user-filter.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "feat(admin): add advanced user activity filters"
+          git push origin HEAD:agent/advanced-user-filter
