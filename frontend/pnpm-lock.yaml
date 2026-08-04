@@ -18,6 +18,9 @@ importers:
       '@lobehub/icons':
         specifier: ^4.0.2
         version: 4.0.2(@lobehub/ui@4.9.2)(@types/react@19.2.7)(antd@6.1.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@lucide/vue':
+        specifier: ^1.28.0
+        version: 1.28.0(vue@3.5.26(typescript@5.6.3))
       '@stripe/stripe-js':
         specifier: ^9.0.1
         version: 9.0.1
@@ -48,9 +51,6 @@ importers:
       file-saver:
         specifier: ^2.0.5
         version: 2.0.5
-      lucide-vue-next:
-        specifier: ^1.0.0
-        version: 1.0.0(vue@3.5.26(typescript@5.6.3))
       marked:
         specifier: ^17.0.1
         version: 17.0.1
@@ -712,6 +712,11 @@ packages:
       motion: ^12.0.0
       react: ^19.0.0
       react-dom: ^19.0.0
+
+  '@lucide/vue@1.28.0':
+    resolution: {integrity: sha512-cO89UyNM/0i2Srdi04nFWeEOQkqzDZlM2ehtWyBhcMpRTJDKpMZPCGAVlmVBgBgr5HaeL5L6FsU8RHsOdwXtKw==}
+    peerDependencies:
+      vue: '>=3.0.1'
 
   '@mdx-js/mdx@3.1.1':
     resolution: {integrity: sha512-f6ZO2ifpwAQIpzGWaBQT2TXxPv6z3RBzQKpVftEWN78Vl/YweF1uwussDx8ECAXVtr3Rs89fKyG9YlzUs9DyGQ==}
@@ -3072,12 +3077,6 @@ packages:
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
-  lucide-vue-next@1.0.0:
-    resolution: {integrity: sha512-V6SPvx1IHTj/UY+FrIYWV5faISsPSb8BnWSFDxAtezWKvWc9ZZ40PDrdu1/Qb5vg4lHWr1hs1BAMGVGm6V1Xdg==}
-    deprecated: Package deprecated. Please use @lucide/vue instead.
-    peerDependencies:
-      vue: '>=3.0.1'
-
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
 
@@ -5220,6 +5219,10 @@ snapshots:
       - supports-color
       - svelte
       - vue
+
+  '@lucide/vue@1.28.0(vue@3.5.26(typescript@5.6.3))':
+    dependencies:
+      vue: 3.5.26(typescript@5.6.3)
 
   '@mdx-js/mdx@3.1.1':
     dependencies:
@@ -7914,10 +7917,6 @@ snapshots:
   lucide-react@0.562.0(react@19.2.3):
     dependencies:
       react: 19.2.3
-
-  lucide-vue-next@1.0.0(vue@3.5.26(typescript@5.6.3)):
-    dependencies:
-      vue: 3.5.26(typescript@5.6.3)
 
   magic-string@0.30.21:
     dependencies:

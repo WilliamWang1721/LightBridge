@@ -17,6 +17,7 @@
   "dependencies": {
     "@airwallex/components-sdk": "^1.30.2",
     "@lobehub/icons": "^4.0.2",
+    "@lucide/vue": "^1.28.0",
     "@stripe/stripe-js": "^9.0.1",
     "@tanstack/vue-virtual": "^3.13.23",
     "@vueuse/core": "^10.7.0",
@@ -27,7 +28,6 @@
     "dompurify": "^3.3.1",
     "driver.js": "^1.4.0",
     "file-saver": "^2.0.5",
-    "lucide-vue-next": "^1.0.0",
     "marked": "^17.0.1",
     "pinia": "^2.1.7",
     "qrcode": "^1.5.4",
