@@ -1,0 +1,61 @@
+name: Apply content distribution wiring
+
+on:
+  push:
+    branches:
+      - agent/content-distribution
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: agent-content-distribution-apply
+  cancel-in-progress: true
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: agent/content-distribution
+          fetch-depth: 0
+
+      - name: Apply the wiring patch
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          workflow = Path('.github/workflows/agent-content-distribution.yml').read_text()
+          step = workflow.index('      - name: Wire distribution backend and frontend\n')
+          start = workflow.index('        run: |\n', step) + len('        run: |\n')
+          end = workflow.index('\n      - uses: actions/setup-go@v6', start)
+          lines = workflow[start:end].splitlines()
+          script = '\n'.join(line[10:] if line.startswith('          ') else line for line in lines) + '\n'
+          Path('/tmp/apply-distribution-wiring.sh').write_text(script)
+          PY
+          bash /tmp/apply-distribution-wiring.sh
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          check-latest: false
+          cache: true
+          cache-dependency-path: backend/go.sum
+
+      - name: Generate Wire dependency graph
+        working-directory: backend
+        run: go generate ./cmd/server
+
+      - name: Commit the wired implementation
+        shell: bash
+        run: |
+          rm -f .github/workflows/agent-content-distribution.yml
+          rm -f .github/workflows/agent-content-distribution-apply.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(distribution): wire content distribution center"
+          git push origin HEAD:agent/content-distribution
