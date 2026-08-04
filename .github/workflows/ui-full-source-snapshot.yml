@@ -25,12 +25,12 @@ jobs:
             --exclude='.git' \
             --exclude='frontend/node_modules' \
             --exclude='backend/vendor' \
-            -czf lightbridge-ui-source.tar.gz .
+            -czf /tmp/lightbridge-ui-source.tar.gz .
 
       - name: Upload source snapshot
         uses: actions/upload-artifact@v4
         with:
           name: lightbridge-ui-source
-          path: lightbridge-ui-source.tar.gz
+          path: /tmp/lightbridge-ui-source.tar.gz
           if-no-files-found: error
           retention-days: 1
