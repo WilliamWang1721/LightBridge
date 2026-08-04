@@ -25,6 +25,9 @@ func RegisterUserRoutes(
 			user.GET("/profile", h.User.GetProfile)
 			user.PUT("/password", h.User.ChangePassword)
 			user.PUT("", h.User.UpdateProfile)
+			user.GET("/ui-profile", h.User.GetUIProfile)
+			user.PUT("/ui-profile", h.User.UpdateUIProfile)
+			user.DELETE("/ui-profile", h.User.ResetUIProfile)
 			affiliate := user.Group("/aff")
 			affiliate.Use(middleware.RequireProgressiveFeature(settingService, service.ProgressiveFeatureAffiliate))
 			{
