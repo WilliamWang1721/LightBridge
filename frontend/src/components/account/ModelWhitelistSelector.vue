@@ -19,7 +19,7 @@
         type="button"
         @click="syncUpstreamModels"
         :disabled="isSyncingUpstream"
-        class="btn btn-primary min-h-10 w-full min-w-0 whitespace-nowrap disabled:opacity-60"
+        class="btn btn-secondary min-h-10 w-full min-w-0 whitespace-nowrap border-blue-200 text-blue-700 hover:border-blue-300 hover:bg-blue-50 disabled:opacity-60 dark:border-blue-800 dark:text-blue-300 dark:hover:border-blue-700 dark:hover:bg-blue-900/20"
         data-testid="sync-upstream-models-button"
       >
         <Icon name="download" size="xs" />
