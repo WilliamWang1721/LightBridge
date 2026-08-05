@@ -1,0 +1,132 @@
+:where(html.dark[data-ui-mode='modern'], html.dark[data-ui-mode='package']) {
+  [class~='dark:text-white'],
+  [class~='dark:text-gray-100'],
+  [class~='dark:text-gray-200'],
+  [class~='dark:text-gray-300'],
+  [class~='dark:text-dark-200'],
+  [class~='dark:text-dark-300'] {
+    color: hsl(var(--foreground)) !important;
+  }
+
+  [class~='dark:text-gray-400'],
+  [class~='dark:text-gray-500'],
+  [class~='dark:text-gray-600'],
+  [class~='dark:text-dark-400'],
+  [class~='dark:text-dark-500'],
+  [class~='dark:text-dark-600'] {
+    color: hsl(var(--muted-foreground)) !important;
+  }
+
+  [class~='dark:text-primary-100'],
+  [class~='dark:text-primary-200'],
+  [class~='dark:text-primary-300'],
+  [class~='dark:text-primary-400'] {
+    color: hsl(var(--primary)) !important;
+  }
+
+  [class~='dark:bg-dark-950'],
+  [class~='dark:bg-dark-950/95'],
+  [class~='dark:bg-dark-950/90'],
+  [class~='dark:bg-dark-950/80'],
+  [class~='dark:bg-dark-950/60'],
+  [class~='dark:bg-dark-950/50'],
+  [class~='dark:bg-dark-950/40'],
+  [class~='dark:bg-dark-950/20'],
+  [class~='dark:bg-dark-950/10'],
+  [class~='dark:bg-dark-950/5'] {
+    background-color: hsl(var(--background)) !important;
+  }
+
+  [class~='dark:bg-dark-900'],
+  [class~='dark:bg-dark-900/95'],
+  [class~='dark:bg-dark-900/70'],
+  [class~='dark:bg-dark-900/60'],
+  [class~='dark:bg-dark-900/50'],
+  [class~='dark:bg-dark-900/40'],
+  [class~='dark:bg-dark-900/30'],
+  [class~='dark:bg-dark-800'],
+  [class~='dark:bg-dark-800/80'],
+  [class~='dark:bg-dark-800/70'],
+  [class~='dark:bg-dark-800/60'],
+  [class~='dark:bg-dark-800/50'],
+  [class~='dark:bg-dark-700'],
+  [class~='dark:bg-dark-700/70'],
+  [class~='dark:bg-dark-700/60'],
+  [class~='dark:bg-dark-700/50'],
+  [class~='dark:bg-dark-700/40'],
+  [class~='dark:bg-dark-700/30'],
+  [class~='dark:bg-gray-900'],
+  [class~='dark:bg-gray-800'],
+  [class~='dark:bg-gray-800/80'],
+  [class~='dark:bg-gray-700'] {
+    background-color: hsl(var(--card)) !important;
+  }
+
+  [class~='dark:bg-dark-600'],
+  [class~='dark:bg-gray-600'] {
+    background-color: hsl(var(--muted)) !important;
+  }
+
+  [class~='dark:bg-primary-900/40'],
+  [class~='dark:bg-primary-900/30'],
+  [class~='dark:bg-primary-900/20'],
+  [class~='dark:bg-primary-900/10'],
+  [class~='dark:bg-primary-500/20'],
+  [class~='dark:bg-primary-500/10'] {
+    background-color: hsl(var(--primary) / 0.12) !important;
+  }
+
+  [class~='dark:border-dark-800'],
+  [class~='dark:border-dark-800/80'],
+  [class~='dark:border-dark-800/50'],
+  [class~='dark:border-dark-800/40'],
+  [class~='dark:border-dark-700'],
+  [class~='dark:border-dark-700/80'],
+  [class~='dark:border-dark-700/70'],
+  [class~='dark:border-dark-700/60'],
+  [class~='dark:border-dark-700/50'],
+  [class~='dark:border-dark-600'],
+  [class~='dark:border-dark-600/60'],
+  [class~='dark:border-dark-500'],
+  [class~='dark:border-gray-700'],
+  [class~='dark:border-gray-700/50'],
+  [class~='dark:border-gray-600'],
+  [class~='dark:border-gray-500'] {
+    border-color: hsl(var(--border)) !important;
+  }
+
+  [class~='dark:divide-dark-800'] > :not([hidden]) ~ :not([hidden]),
+  [class~='dark:divide-dark-700'] > :not([hidden]) ~ :not([hidden]),
+  [class~='dark:divide-dark-600'] > :not([hidden]) ~ :not([hidden]) {
+    border-color: hsl(var(--border)) !important;
+  }
+
+  [class~='dark:hover:bg-dark-950/10']:hover,
+  [class~='dark:hover:bg-dark-800']:hover,
+  [class~='dark:hover:bg-dark-700']:hover,
+  [class~='dark:hover:bg-dark-700/60']:hover,
+  [class~='dark:hover:bg-dark-700/50']:hover,
+  [class~='dark:hover:bg-dark-700/40']:hover,
+  [class~='dark:hover:bg-dark-700/30']:hover,
+  [class~='dark:hover:bg-dark-600']:hover,
+  [class~='dark:hover:bg-dark-500']:hover,
+  [class~='dark:hover:bg-gray-800/50']:hover,
+  [class~='dark:hover:bg-gray-700']:hover {
+    background-color: hsl(var(--accent)) !important;
+    color: hsl(var(--accent-foreground)) !important;
+  }
+
+  [class~='dark:hover:text-white']:hover,
+  [class~='dark:hover:text-gray-200']:hover,
+  [class~='dark:hover:text-gray-300']:hover,
+  [class~='dark:hover:text-dark-200']:hover,
+  [class~='dark:hover:text-dark-300']:hover {
+    color: hsl(var(--foreground)) !important;
+  }
+
+  [class~='dark:hover:text-primary-400']:hover,
+  [class~='dark:hover:text-primary-300']:hover,
+  [class~='dark:hover:text-primary-200']:hover {
+    color: hsl(var(--primary)) !important;
+  }
+}

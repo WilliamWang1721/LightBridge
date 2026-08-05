@@ -120,7 +120,7 @@ func ParseUserUIProfile(raw json.RawMessage) (UserUIProfile, error) {
 	}
 
 	var object map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &object); err != nil {
+	if err := json.Unmarshal(raw, &object); err != nil || object == nil {
 		return UserUIProfile{}, infraerrors.BadRequest("UI_PROFILE_INVALID", "UI profile must be a JSON object")
 	}
 	for key := range object {
@@ -136,10 +136,31 @@ func ParseUserUIProfile(raw json.RawMessage) (UserUIProfile, error) {
 	if err := json.Unmarshal(raw, &profile); err != nil {
 		return UserUIProfile{}, infraerrors.BadRequest("UI_PROFILE_INVALID", "UI profile contains invalid values")
 	}
+	normalizeUserUIProfile(&profile)
 	if err := validateUserUIProfile(profile); err != nil {
 		return UserUIProfile{}, err
 	}
 	return profile, nil
+}
+
+func normalizeUserUIProfile(profile *UserUIProfile) {
+	profile.Mode = strings.TrimSpace(profile.Mode)
+	profile.Layout = strings.TrimSpace(profile.Layout)
+	profile.BaseColor = strings.TrimSpace(profile.BaseColor)
+	profile.ChartColor = strings.TrimSpace(profile.ChartColor)
+	profile.Heading = strings.TrimSpace(profile.Heading)
+	profile.Font = strings.TrimSpace(profile.Font)
+	profile.IconLibrary = strings.TrimSpace(profile.IconLibrary)
+	profile.Radius = strings.TrimSpace(profile.Radius)
+	profile.Density = strings.TrimSpace(profile.Density)
+	profile.Menu = strings.TrimSpace(profile.Menu)
+	profile.MenuSize = strings.TrimSpace(profile.MenuSize)
+	profile.Motion = strings.TrimSpace(profile.Motion)
+	profile.TableStyle = strings.TrimSpace(profile.TableStyle)
+	profile.ActivePackageID = strings.TrimSpace(profile.ActivePackageID)
+	if profile.Mode != "package" {
+		profile.ActivePackageID = ""
+	}
 }
 
 func validateUserUIProfile(profile UserUIProfile) error {
@@ -161,7 +182,7 @@ func validateUserUIProfile(profile UserUIProfile) error {
 	if err := validateUIProfileChoice("font", profile.Font, "inter", "system"); err != nil {
 		return err
 	}
-	if err := validateUIProfileChoice("iconLibrary", profile.IconLibrary, "lucide"); err != nil {
+	if err := validateUIProfileChoice("iconLibrary", profile.IconLibrary, "lucide", "classic"); err != nil {
 		return err
 	}
 	if err := validateUIProfileChoice("radius", profile.Radius, "none", "small", "default", "large"); err != nil {

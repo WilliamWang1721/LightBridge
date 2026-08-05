@@ -17,10 +17,29 @@ const registryByAxis: Record<UIAxis, Record<string, { id: string }>> = {
 }
 
 const axes = Object.keys(registryByAxis) as UIAxis[]
+const overrideKeys = new Set<string>(['mode', ...axes, 'activePackageId'])
+const packageIdPattern = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/
+
+export function sanitizeUIProfileOverrides(value: unknown): UIProfileOverrides | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+
+  const result: Record<string, string> = Object.create(null)
+  for (const [key, raw] of Object.entries(value)) {
+    if (!overrideKeys.has(key) || typeof raw !== 'string') continue
+    const normalized = raw.trim()
+    if (!normalized) continue
+    if (key === 'activePackageId' && !packageIdPattern.test(normalized)) continue
+    result[key] = normalized
+  }
+  return result as UIProfileOverrides
+}
 
 function applyLayer(target: UIProfile, layer: UIProfileOverrides | undefined) {
-  if (!layer) return
-  Object.assign(target, layer)
+  const safe = sanitizeUIProfileOverrides(layer)
+  if (!safe) return
+  for (const [key, value] of Object.entries(safe)) {
+    Object.defineProperty(target, key, { value, writable: true, enumerable: true, configurable: true })
+  }
 }
 
 export function resolveUIProfile(input: UIResolutionInput = {}): UIResolutionResult {
@@ -61,10 +80,7 @@ export function resolveUIProfile(input: UIResolutionInput = {}): UIResolutionRes
 export function parseStoredUIProfile(raw: string | null): UIProfileOverrides | undefined {
   if (!raw) return undefined
   try {
-    const value = JSON.parse(raw)
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
-    const { componentStyle: _ignored, ...safe } = value as Record<string, unknown>
-    return safe as UIProfileOverrides
+    return sanitizeUIProfileOverrides(JSON.parse(raw))
   } catch {
     return undefined
   }

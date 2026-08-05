@@ -341,11 +341,12 @@ func (s *DistributionService) resolveAudience(ctx context.Context, audience Dist
 		if user == nil || user.ID <= 0 {
 			return ErrUserNotFound
 		}
-		recipients[user.ID] = DistributionRecipient{
-			UserID:          user.ID,
-			TitleOverride:   strings.TrimSpace(titleOverride),
-			ContentOverride: strings.TrimSpace(contentOverride),
-		}
+		recipients[user.ID] = mergeDistributionRecipient(
+			recipients[user.ID],
+			user.ID,
+			titleOverride,
+			contentOverride,
+		)
 		users[user.ID] = *user
 		if len(recipients) > MaxDistributionRecipients {
 			return ErrDistributionTooMany
@@ -447,6 +448,22 @@ func (s *DistributionService) resolveAudience(ctx context.Context, audience Dist
 		outUsers = append(outUsers, users[id])
 	}
 	return outRecipients, outUsers, nil
+}
+
+func mergeDistributionRecipient(existing DistributionRecipient, userID int64, titleOverride, contentOverride string) DistributionRecipient {
+	titleOverride = strings.TrimSpace(titleOverride)
+	contentOverride = strings.TrimSpace(contentOverride)
+	if titleOverride == "" {
+		titleOverride = existing.TitleOverride
+	}
+	if contentOverride == "" {
+		contentOverride = existing.ContentOverride
+	}
+	return DistributionRecipient{
+		UserID:          userID,
+		TitleOverride:   titleOverride,
+		ContentOverride: contentOverride,
+	}
 }
 
 type DistributionImportLine struct {

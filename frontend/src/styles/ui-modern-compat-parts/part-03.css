@@ -1,0 +1,90 @@
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .btn-lg {
+  min-height: 2.75rem;
+  padding-inline: 1.5rem;
+  font-size: 1rem;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .btn-icon {
+  width: var(--ui-control-height);
+  padding: 0;
+}
+
+/* Forms */
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(input:not([type]), input:is([type='text'], [type='search'], [type='email'], [type='password'], [type='url'], [type='tel'], [type='number'], [type='date'], [type='datetime-local'], [type='month'], [type='time'], [type='week']), select, textarea, .input, .dialog-input, .hero-kv-input) {
+  border: 1px solid hsl(var(--input)) !important;
+  border-radius: var(--ui-radius) !important;
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+  font-family: var(--ui-font-body) !important;
+  font-size: 0.875rem;
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.025) !important;
+  transition:
+    border-color calc(150ms * var(--ui-motion-factor)),
+    box-shadow calc(150ms * var(--ui-motion-factor));
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(input:not([type]), input:is([type='text'], [type='search'], [type='email'], [type='password'], [type='url'], [type='tel'], [type='number'], [type='date'], [type='datetime-local'], [type='month'], [type='time'], [type='week']), select, .input, .dialog-input, .hero-kv-input) {
+  min-height: var(--ui-control-height);
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) textarea {
+  min-height: 6rem;
+  resize: vertical;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(input:not([type]), input:is([type='text'], [type='search'], [type='email'], [type='password'], [type='url'], [type='tel'], [type='number'], [type='date'], [type='datetime-local'], [type='month'], [type='time'], [type='week']), select, textarea, .input):focus {
+  border-color: hsl(var(--ring)) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px hsl(var(--ring) / 0.18) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(input:not([type]), input:is([type='text'], [type='search'], [type='email'], [type='password'], [type='url'], [type='tel'], [type='number'], [type='date'], [type='datetime-local'], [type='month'], [type='time'], [type='week']), select, textarea, .input):disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  background: hsl(var(--muted)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(input:not([type]), input:is([type='text'], [type='search'], [type='email'], [type='password'], [type='url'], [type='tel'], [type='number'], [type='date'], [type='datetime-local'], [type='month'], [type='time'], [type='week']), textarea)::placeholder {
+  color: hsl(var(--muted-foreground));
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.input-label, label) {
+  color: hsl(var(--foreground)) !important;
+  font-family: var(--ui-font-body) !important;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.input-hint, .field-help) {
+  color: hsl(var(--muted-foreground)) !important;
+  font-size: 0.75rem;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.input-error-text, .field-error) {
+  color: hsl(var(--destructive)) !important;
+  font-size: 0.75rem;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.input-error, [aria-invalid='true']) {
+  border-color: hsl(var(--destructive)) !important;
+}
+
+/* Cards and surfaces */
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.card, .glass-card, .card-glass, .glass, .stat-card, .dialog-container) {
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: calc(var(--ui-radius) + 0.25rem) !important;
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+  box-shadow:
+    0 1px 2px hsl(var(--foreground) / 0.04),
+    0 8px 24px hsl(var(--foreground) / 0.035) !important;
+  backdrop-filter: none !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .card-hover:hover {
+  border-color: hsl(var(--ring) / 0.35) !important;
+  box-shadow:
+    0 2px 5px hsl(var(--foreground) / 0.055),
+    0 12px 32px hsl(var(--foreground) / 0.06) !important;
+  transform: translateY(-1px);
+}

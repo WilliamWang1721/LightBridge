@@ -1,0 +1,105 @@
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.card-header, .card-footer) {
+  border-color: hsl(var(--border)) !important;
+  background: transparent !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .stat-value {
+  color: hsl(var(--foreground)) !important;
+  font-family: var(--ui-font-heading);
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .stat-label {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* Tables */
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.table-container, .table-wrapper) {
+  overflow: auto;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: calc(var(--ui-radius) + 0.125rem) !important;
+  background: hsl(var(--card));
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: hsl(var(--foreground));
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .table th {
+  position: relative;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid hsl(var(--border)) !important;
+  background: hsl(var(--muted) / 0.72) !important;
+  color: hsl(var(--muted-foreground)) !important;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid hsl(var(--border) / 0.7) !important;
+  color: hsl(var(--foreground)) !important;
+  vertical-align: middle;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .table tbody tr:hover {
+  background: hsl(var(--accent) / 0.55) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .table tbody tr:last-child td {
+  border-bottom: 0 !important;
+}
+
+/* Badges and alerts */
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 999px !important;
+  padding: 0.2rem 0.55rem;
+  background: hsl(var(--secondary));
+  color: hsl(var(--secondary-foreground));
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .badge-primary {
+  border-color: hsl(var(--primary) / 0.25);
+  background: hsl(var(--primary) / 0.12) !important;
+  color: hsl(var(--primary)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .badge-success {
+  border-color: hsl(152 55% 40% / 0.25);
+  background: hsl(152 55% 40% / 0.12) !important;
+  color: hsl(152 55% 34%) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.badge-danger, .badge-error) {
+  border-color: hsl(var(--destructive) / 0.25);
+  background: hsl(var(--destructive) / 0.1) !important;
+  color: hsl(var(--destructive)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .badge-warning {
+  border-color: hsl(38 88% 48% / 0.28);
+  background: hsl(38 88% 48% / 0.12) !important;
+  color: hsl(32 75% 34%) !important;
+}
+
+/* Menus and overlays */
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .dropdown {
+  z-index: var(--ui-z-dropdown) !important;
+  min-width: 10rem;
+  padding: 0.25rem;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: var(--ui-radius) !important;
+  background: hsl(var(--popover)) !important;
+  color: hsl(var(--popover-foreground)) !important;
+  box-shadow: 0 12px 36px hsl(var(--foreground) / 0.14) !important;
+}

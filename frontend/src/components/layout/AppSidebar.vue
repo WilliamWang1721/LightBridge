@@ -1,6 +1,8 @@
 <template>
   <aside
+    id="lightbridge-sidebar"
     class="sidebar"
+    :aria-label="t('nav.mainNavigation', 'Main navigation')"
     :class="[
       sidebarCollapsed ? 'w-[72px]' : 'w-64',
       { '-translate-x-full lg:translate-x-0': !mobileOpen }
@@ -25,7 +27,7 @@
     </div>
 
     <!-- Navigation -->
-    <nav class="sidebar-nav scrollbar-hide">
+    <nav class="sidebar-nav scrollbar-hide" :aria-label="t('nav.mainNavigation', 'Main navigation')">
       <!-- Admin View: Admin menu first, then personal menu -->
       <template v-if="isAdmin">
         <!-- Admin Section -->
@@ -41,6 +43,7 @@
                   'sidebar-link-collapsed': sidebarCollapsed
                 }"
                 :title="sidebarCollapsed ? item.label : undefined"
+                :aria-expanded="!sidebarCollapsed && isGroupExpanded(item)"
                 @click="handleGroupClick(item)"
               >
                 <component :is="item.icon" class="h-5 w-5 flex-shrink-0" />
@@ -64,6 +67,7 @@
                   :to="child.path"
                   class="sidebar-link mb-0.5 py-1.5 text-sm"
                   :class="{ 'sidebar-link-active': route.path === child.path }"
+                  :aria-current="route.path === child.path ? 'page' : undefined"
                   @click="handleMenuItemClick(child.path)"
                 >
                   <component :is="child.icon" class="h-4 w-4 flex-shrink-0" />
@@ -78,6 +82,7 @@
               class="sidebar-link mb-1"
               :class="{ 'sidebar-link-active': isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
               :title="sidebarCollapsed ? item.label : undefined"
+              :aria-current="isActive(item.path) ? 'page' : undefined"
               :id="
                 item.path === '/admin/accounts'
                   ? 'sidebar-channel-manage'
@@ -115,6 +120,7 @@
                   'sidebar-link-collapsed': sidebarCollapsed
                 }"
                 :title="sidebarCollapsed ? item.label : undefined"
+                :aria-expanded="!sidebarCollapsed && isGroupExpanded(item)"
                 @click="handleGroupClick(item)"
               >
                 <component :is="item.icon" class="h-5 w-5 flex-shrink-0" />
@@ -138,6 +144,7 @@
                   :to="child.path"
                   class="sidebar-link mb-0.5 py-1.5 text-sm"
                   :class="{ 'sidebar-link-active': route.path === child.path }"
+                  :aria-current="route.path === child.path ? 'page' : undefined"
                   @click="handleMenuItemClick(child.path)"
                 >
                   <component :is="child.icon" class="h-4 w-4 flex-shrink-0" />
@@ -152,6 +159,7 @@
               class="sidebar-link mb-1"
               :class="{ 'sidebar-link-active': isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
               :title="sidebarCollapsed ? item.label : undefined"
+              :aria-current="isActive(item.path) ? 'page' : undefined"
               :data-tour="item.path === '/keys' ? 'sidebar-my-keys' : undefined"
               @click="handleMenuItemClick(item.path)"
             >
@@ -177,6 +185,7 @@
                   'sidebar-link-collapsed': sidebarCollapsed
                 }"
                 :title="sidebarCollapsed ? item.label : undefined"
+                :aria-expanded="!sidebarCollapsed && isGroupExpanded(item)"
                 @click="handleGroupClick(item)"
               >
                 <component :is="item.icon" class="h-5 w-5 flex-shrink-0" />
@@ -200,6 +209,7 @@
                   :to="child.path"
                   class="sidebar-link mb-0.5 py-1.5 text-sm"
                   :class="{ 'sidebar-link-active': route.path === child.path }"
+                  :aria-current="route.path === child.path ? 'page' : undefined"
                   @click="handleMenuItemClick(child.path)"
                 >
                   <component :is="child.icon" class="h-4 w-4 flex-shrink-0" />
@@ -214,6 +224,7 @@
               class="sidebar-link mb-1"
               :class="{ 'sidebar-link-active': isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
               :title="sidebarCollapsed ? item.label : undefined"
+              :aria-current="isActive(item.path) ? 'page' : undefined"
               :data-tour="item.path === '/keys' ? 'sidebar-my-keys' : undefined"
               @click="handleMenuItemClick(item.path)"
             >
@@ -234,10 +245,12 @@
       >
         <div class="relative" ref="themeDropdownRef">
           <button
+            type="button"
             @click="toggleThemeDropdown"
             class="sidebar-link sidebar-footer-action w-full"
             :class="{ 'sidebar-link-collapsed': sidebarCollapsed }"
             :title="sidebarCollapsed ? (isDark ? t('nav.lightMode') : t('nav.darkMode')) : undefined"
+            :aria-expanded="showThemeDropdown"
           >
             <SunIcon v-if="isDark" class="h-5 w-5 flex-shrink-0 text-amber-500" />
             <MoonIcon v-else class="h-5 w-5 flex-shrink-0" />
@@ -276,6 +289,7 @@
 
       <!-- Collapse Button -->
       <button
+        type="button"
         @click="toggleSidebar"
         class="sidebar-link w-full"
         :class="{ 'sidebar-link-collapsed': sidebarCollapsed }"
@@ -290,11 +304,13 @@
 
   <!-- Mobile Overlay -->
   <transition name="fade">
-    <div
+    <button
       v-if="mobileOpen"
-      class="fixed inset-0 z-30 bg-black/50 lg:hidden"
+      type="button"
+      class="fixed inset-0 z-30 border-0 bg-black/50 p-0 lg:hidden"
+      aria-label="Close navigation"
       @click="closeMobile"
-    ></div>
+    />
   </transition>
 </template>
 

@@ -12,7 +12,7 @@ import {
   initializeUIPlatform,
   loadLocalUIProfile,
 } from '@/ui-platform/runtime'
-import { resolveUIProfile } from '@/ui-platform/resolver'
+import { resolveUIProfile, sanitizeUIProfileOverrides } from '@/ui-platform/resolver'
 import type { UIProfile, UIProfileOverrides, UIRegistryEntry } from '@/ui-platform/types'
 
 const profile = ref<UIProfile>({ ...DEFAULT_UI_PROFILE })
@@ -23,6 +23,7 @@ let initialized = false
 let listenerInstalled = false
 let accountProfileLoaded = false
 let hydrationPromise: Promise<void> | null = null
+let accountRequestGeneration = 0
 
 function syncFromRuntime() {
   profile.value = { ...getCurrentUIProfile() }
@@ -44,11 +45,11 @@ function ensureInitialized() {
 
 function toOverrides(value: UIProfile): UIProfileOverrides {
   const { componentStyle: _fixed, ...overrides } = value
-  return overrides
+  return sanitizeUIProfileOverrides(overrides) || {}
 }
 
 function storeLocalPreferences(value: UIProfileOverrides) {
-  localStorage.setItem(UI_PLATFORM_STORAGE_KEY, JSON.stringify(value))
+  localStorage.setItem(UI_PLATFORM_STORAGE_KEY, JSON.stringify(sanitizeUIProfileOverrides(value) || {}))
 }
 
 function applyResolvedProfile(previewOverrides?: UIProfileOverrides) {
@@ -66,80 +67,91 @@ async function hydrateAccountPreferences() {
   ensureInitialized()
   if (hydrationPromise) return hydrationPromise
 
-  hydrationPromise = (async () => {
-    accountSyncing.value = true
-    accountSyncError.value = ''
+  const generation = ++accountRequestGeneration
+  accountSyncing.value = true
+  accountSyncError.value = ''
+  const request = (async () => {
     try {
-      accountPreferences.value = await uiProfileAPI.getUIProfile()
+      const result = sanitizeUIProfileOverrides(await uiProfileAPI.getUIProfile()) || {}
+      if (generation !== accountRequestGeneration) return
+      accountPreferences.value = result
       accountProfileLoaded = true
       profile.value = applyResolvedProfile()
     } catch (error) {
+      if (generation !== accountRequestGeneration) return
       accountSyncError.value = error instanceof Error ? error.message : 'Failed to load UI preferences'
       console.warn('[ui-platform] account preference hydration failed; using local preferences', error)
     } finally {
-      accountSyncing.value = false
-      hydrationPromise = null
+      if (generation === accountRequestGeneration) {
+        accountSyncing.value = false
+        hydrationPromise = null
+      }
     }
   })()
-
-  return hydrationPromise
+  hydrationPromise = request
+  return request
 }
 
 function clearAccountPreferences() {
+  accountRequestGeneration += 1
+  hydrationPromise = null
   accountPreferences.value = undefined
   accountProfileLoaded = false
+  accountSyncing.value = false
   accountSyncError.value = ''
   profile.value = applyResolvedProfile()
 }
 
 async function updatePreferences(patch: UIProfileOverrides) {
   ensureInitialized()
-  const next = {
-    ...toOverrides(profile.value),
-    ...patch,
-  }
+  const next = sanitizeUIProfileOverrides({ ...toOverrides(profile.value), ...patch }) || {}
 
   storeLocalPreferences(next)
   accountPreferences.value = accountProfileLoaded ? next : accountPreferences.value
   profile.value = applyResolvedProfile()
-
   if (!accountProfileLoaded) return profile.value
 
+  const generation = ++accountRequestGeneration
   accountSyncing.value = true
   accountSyncError.value = ''
   try {
-    accountPreferences.value = await uiProfileAPI.updateUIProfile(next)
+    const result = sanitizeUIProfileOverrides(await uiProfileAPI.updateUIProfile(next)) || {}
+    if (generation !== accountRequestGeneration) return profile.value
+    accountPreferences.value = result
     profile.value = applyResolvedProfile()
   } catch (error) {
+    if (generation !== accountRequestGeneration) return profile.value
     accountSyncError.value = error instanceof Error ? error.message : 'Failed to save UI preferences'
     console.warn('[ui-platform] account preference save failed; local preferences remain active', error)
   } finally {
-    accountSyncing.value = false
+    if (generation === accountRequestGeneration) accountSyncing.value = false
   }
   return profile.value
 }
 
 function previewPreferences(patch: UIProfileOverrides) {
   ensureInitialized()
-  profile.value = applyResolvedProfile(patch)
+  profile.value = applyResolvedProfile(sanitizeUIProfileOverrides(patch))
 }
 
 async function resetPreferences() {
   localStorage.removeItem(UI_PLATFORM_STORAGE_KEY)
   accountPreferences.value = accountProfileLoaded ? {} : undefined
   profile.value = applyResolvedProfile()
-
   if (!accountProfileLoaded) return profile.value
 
+  const generation = ++accountRequestGeneration
   accountSyncing.value = true
   accountSyncError.value = ''
   try {
     await uiProfileAPI.resetUIProfile()
+    if (generation === accountRequestGeneration) accountPreferences.value = {}
   } catch (error) {
+    if (generation !== accountRequestGeneration) return profile.value
     accountSyncError.value = error instanceof Error ? error.message : 'Failed to reset UI preferences'
     console.warn('[ui-platform] account preference reset failed', error)
   } finally {
-    accountSyncing.value = false
+    if (generation === accountRequestGeneration) accountSyncing.value = false
   }
   return profile.value
 }
@@ -150,7 +162,6 @@ function entries(record: Record<string, UIRegistryEntry>) {
 
 export function useUIPlatform() {
   ensureInitialized()
-
   return {
     profile: readonly(profile),
     accountSyncing: readonly(accountSyncing),
@@ -172,11 +183,7 @@ export function useUIPlatform() {
       motions: entries(UI_REGISTRY.motions),
       tableStyles: entries(UI_REGISTRY.tableStyles),
     },
-    updatePreferences,
-    previewPreferences,
-    resetPreferences,
-    hydrateAccountPreferences,
-    clearAccountPreferences,
-    syncFromRuntime,
+    updatePreferences, previewPreferences, resetPreferences,
+    hydrateAccountPreferences, clearAccountPreferences, syncFromRuntime,
   }
 }

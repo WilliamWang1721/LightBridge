@@ -1,8 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_UI_PROFILE } from './registry'
-import { parseStoredUIProfile, resolveUIProfile } from './resolver'
+import { parseStoredUIProfile, resolveUIProfile, sanitizeUIProfileOverrides } from './resolver'
 
 describe('resolveUIProfile', () => {
+  it('uses LightBridge Luma as the built-in default while preserving Legacy as an explicit mode', () => {
+    const { profile } = resolveUIProfile()
+
+    expect(profile).toEqual(DEFAULT_UI_PROFILE)
+    expect(profile.mode).toBe('modern')
+    expect(profile.componentStyle).toBe('luma')
+
+    const legacy = resolveUIProfile({ userPreferences: { mode: 'legacy' } }).profile
+    expect(legacy.mode).toBe('legacy')
+    expect(legacy.componentStyle).toBe('luma')
+  })
+
   it('keeps Luma fixed while applying independent user preferences', () => {
     const { profile, warnings } = resolveUIProfile({
       userPreferences: {
@@ -72,5 +84,19 @@ describe('parseStoredUIProfile', () => {
 
   it('returns undefined for invalid JSON', () => {
     expect(parseStoredUIProfile('{')).toBeUndefined()
+  })
+
+  it('keeps only known string fields and rejects dangerous package ids', () => {
+    const value = sanitizeUIProfileOverrides({
+      mode: ' modern ',
+      baseColor: 'stone',
+      activePackageId: '__proto__',
+      unknown: 'value',
+      radius: 42,
+      __proto__: { polluted: true },
+    })
+
+    expect(value).toEqual({ mode: 'modern', baseColor: 'stone' })
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined()
   })
 })

@@ -5,6 +5,7 @@ import Toast from '@/components/common/Toast.vue'
 import NavigationProgress from '@/components/common/NavigationProgress.vue'
 import UIProfileSync from '@/components/settings/UIProfileSync.vue'
 import { resolveDocumentTitle } from '@/router/title'
+import { resolveUIRouteSurface } from '@/ui-platform/routeSurface'
 import AnnouncementPopup from '@/components/common/AnnouncementPopup.vue'
 import { useAppStore, useAuthStore, useSubscriptionStore, useAnnouncementStore } from '@/stores'
 import { getSetupStatus } from '@/api/setup'
@@ -28,6 +29,7 @@ const subscriptionsFeatureEnabled = computed(() =>
 const announcementsFeatureEnabled = computed(() =>
   isProgressiveFeatureEnabled(ProgressiveFeatures.announcements),
 )
+const routeSurface = computed(() => resolveUIRouteSurface(route.path, route.meta))
 let visibilityListenerRegistered = false
 
 function redirectDisabledProgressiveRoute() {
@@ -171,7 +173,9 @@ onMounted(async () => {
 <template>
   <UIProfileSync />
   <NavigationProgress />
-  <RouterView />
+  <div class="ui-route-surface" :data-ui-surface="routeSurface">
+    <RouterView />
+  </div>
   <Toast />
   <AnnouncementPopup v-if="announcementsFeatureEnabled" />
 </template>

@@ -138,7 +138,6 @@ function checkoutInfoWithPlansFixture() {
           available_ingress_protocols: ['openai_responses'],
           sort_order: 1,
           for_sale: true,
-          group_name: 'OpenAI',
         },
       ],
     },

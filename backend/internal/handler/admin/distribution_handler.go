@@ -17,7 +17,7 @@ import (
 const (
 	// Base64 expands binary data to four bytes for every three bytes. Keep enough
 	// JSON headroom so an attachment at the advertised 10 MiB limit is accepted.
-	maxDistributionJSONBodyBytes int64 = ((service.MaxDistributionAttachmentBytes + 2) / 3 * 4) + (2 << 20)
+	maxDistributionJSONBodyBytes  int64 = ((service.MaxDistributionAttachmentBytes + 2) / 3 * 4) + (2 << 20)
 	distributionAudienceModeError       = "audience must use exactly one non-empty mode: explicit recipients, filters, lines, or all"
 )
 

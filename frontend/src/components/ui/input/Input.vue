@@ -1,5 +1,6 @@
 <template>
   <input
+    ref="inputRef"
     v-bind="$attrs"
     :value="modelValue"
     :class="cn(
@@ -18,7 +19,7 @@
 </template>
 
 <script setup lang="ts">
-import type { HTMLAttributes } from 'vue'
+import { ref, type HTMLAttributes } from 'vue'
 import { cn } from '@/lib/utils'
 
 defineOptions({ inheritAttrs: false })
@@ -31,4 +32,12 @@ const props = defineProps<{
 const emit = defineEmits<{
   (event: 'update:modelValue', value: string): void
 }>()
+
+const inputRef = ref<HTMLInputElement | null>(null)
+
+defineExpose({
+  focus: () => inputRef.value?.focus(),
+  select: () => inputRef.value?.select(),
+  element: inputRef,
+})
 </script>

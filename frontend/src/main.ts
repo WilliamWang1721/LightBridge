@@ -6,6 +6,7 @@ import i18n, { initI18n } from './i18n'
 import { useAppStore } from '@/stores/app'
 import { hydrateProgressiveFeatureManifest } from '@/utils/progressiveFeatures'
 import { initializeUIPlatform } from '@/ui-platform/runtime'
+import { initializeChartTheme } from '@/ui-platform/chartTheme'
 import {
   installDistributionNavigation,
   installDistributionRoutes
@@ -14,6 +15,8 @@ import './style.css'
 import './styles/ui-semantic-defaults.css'
 import './styles/ui-platform.css'
 import './styles/ui-layout.css'
+import './styles/ui-modern-compat.css'
+import './styles/ui-modern-tailwind-bridge.css'
 
 function initThemeClass() {
   const savedTheme = localStorage.getItem('theme')
@@ -27,6 +30,7 @@ async function bootstrap() {
   // Apply theme and UI profile before app mount to prevent visual flashing.
   initThemeClass()
   initializeUIPlatform()
+  initializeChartTheme()
   installDistributionRoutes(router)
 
   const app = createApp(App)
