@@ -26,37 +26,14 @@ jobs:
       - name: Repair committed VERSION handling
         env:
           EXPECTED_MAIN: 4645a1e9dc6c03f36efe2e5f8a5bf728a0b4eca5
+          OLD_B64: ICAgICAgICAgIHRlc3QgIiQoZ2l0IHN0YXR1cyAtLXNob3J0IC0tdW50cmFja2VkLWZpbGVzPW5vIC0tIGJhY2tlbmQvY21kL3NlcnZlci9WRVJTSU9OKSIgPSAiIE0gYmFja2VuZC9jbWQvc2VydmVyL1ZFUlNJT04iCg==
+          NEW_B64: ICAgICAgICAgIHZlcnNpb25fc3RhdHVzPSIkKGdpdCBzdGF0dXMgLS1zaG9ydCAtLXVudHJhY2VkLWZpbGVzPW5vIC0tIGJhY2tlbmQvY21kL3NlcnZlci9WRVJTSU9OKiCiAgICAgICAgICBjYXNlICIkdmVyc2lvbl9zdGF0dXMiIGluCiAgICAgICAgICAgICIifCIgTSBiYWNrZW5kL2NtZC9zZXJ2ZXIvVkVSU0lPTiIpIDs7CiAgICAgICAgICAgICopIGVjaG8gIlVuZXhwZWN0ZWQgVkVSU0lPTiB3b3JrdHJlZSBzdGF0ZTogJHZlcnNpb25fc3RhdHVzIiA+JjI7IGV4aXQgMSA7OwogICAgICAgICAgZXNhYwo=
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
-          python3 - <<'PY'
-          from pathlib import Path
-
-          path = Path('.github/workflows/release.yml')
-          text = path.read_text()
-          old = '''          test "$(git status --short --untracked-files=no -- backend/cmd/server/VERSION)" = " M backend/cmd/server/VERSION"
-          test -z "$(git status --short --untracked-files=no -- . ':(exclude)backend/cmd/server/VERSION')"
-          git update-index --assume-unchanged backend/cmd/server/VERSION
-          test -z "$(git status --short --untracked-files=no)"
-'''
-          new = '''          version_status="$(git status --short --untracked-files=no -- backend/cmd/server/VERSION)"
-          case "$version_status" in
-            ""|" M backend/cmd/server/VERSION") ;;
-            *) echo "Unexpected VERSION worktree state: $version_status" >&2; exit 1 ;;
-          esac
-          test -z "$(git status --short --untracked-files=no -- . ':(exclude)backend/cmd/server/VERSION')"
-          if [ -n "$version_status" ]; then
-            git update-index --assume-unchanged backend/cmd/server/VERSION
-          fi
-          test -z "$(git status --short --untracked-files=no)"
-'''
-          count = text.count(old)
-          if count != 1:
-              raise SystemExit(f'expected one VERSION-state block, found {count}')
-          path.write_text(text.replace(old, new))
-          PY
+          python3 -c 'import base64, os; from pathlib import Path; p=Path(".github/workflows/release.yml"); t=p.read_text(); old=base64.b64decode(os.environ["OLD_B64"]).decode(); new=base64.b64decode(os.environ["NEW_B64"]).decode(); count=t.count(old); count == 1 or (_ for _ in ()).throw(SystemExit(f"expected one VERSION assertion, found {count}")); p.write_text(t.replace(old,new))'
           git diff --check
-          git diff -- .github/workflows/release.yml
+          grep -A8 -B2 'version_status=' .github/workflows/release.yml
 
       - name: Commit release workflow repair
         run: |
