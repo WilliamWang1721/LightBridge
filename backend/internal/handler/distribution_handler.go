@@ -84,6 +84,7 @@ func (h *DistributionHandler) Download(c *gin.Context) {
 		contentType = "application/octet-stream"
 	}
 	c.Header("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": attachment.FileName}))
+	c.Header("Cache-Control", "no-store")
 	c.Header("X-Content-Type-Options", "nosniff")
 	c.Data(http.StatusOK, contentType, data)
 }

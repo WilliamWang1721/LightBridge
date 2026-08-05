@@ -14,7 +14,6 @@ import (
 )
 
 func TestProtocolResponseBridgeStreamsGeminiIncrementally(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
 	target, _ := gin.CreateTestContext(recorder)
 	bridge := NewProtocolResponseBridge(target, AnthropicBridgeTargetGemini, true, "gemini-2.5-flash")
@@ -29,7 +28,6 @@ func TestProtocolResponseBridgeStreamsGeminiIncrementally(t *testing.T) {
 }
 
 func TestProtocolBridgeContextPreservesCancellation(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
 	target, _ := gin.CreateTestContext(recorder)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -41,7 +39,6 @@ func TestProtocolBridgeContextPreservesCancellation(t *testing.T) {
 }
 
 func TestProtocolBridgeContextCopiesRequestMetadataWithoutTestContext(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
 	target, _ := gin.CreateTestContext(recorder)
 	target.Set("tenant", "tenant-a")
@@ -60,7 +57,6 @@ func TestProtocolBridgeContextCopiesRequestMetadataWithoutTestContext(t *testing
 }
 
 func TestProtocolResponseBridgePassesThroughEmptyNoContentResponse(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
 	target, _ := gin.CreateTestContext(recorder)
 	bridge := NewProtocolResponseBridge(target, AnthropicBridgeTargetResponses, false, "gpt-test")

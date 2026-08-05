@@ -129,7 +129,6 @@ func TestOpenAIWSInputNamespaceCompatFrameConnRetriesAtMostOnce(t *testing.T) {
 }
 
 func TestOpenAIGatewayForwardRetriesRejectedInputNamespaceOnce(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	body := namespaceCompatibilityRequestBody()
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
@@ -156,7 +155,6 @@ func TestOpenAIGatewayForwardRetriesRejectedInputNamespaceOnce(t *testing.T) {
 }
 
 func TestOpenAIGatewayPassthroughRetriesRejectedInputNamespaceOnce(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	body := namespaceCompatibilityRequestBody()
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
@@ -182,7 +180,6 @@ func TestOpenAIGatewayPassthroughRetriesRejectedInputNamespaceOnce(t *testing.T)
 }
 
 func TestOpenAIGatewayForwardRetriesRejectedInputNamespaceForStreaming(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	body := namespaceCompatibilityStreamingRequestBody()
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
@@ -209,7 +206,6 @@ func TestOpenAIGatewayForwardRetriesRejectedInputNamespaceForStreaming(t *testin
 }
 
 func TestOpenAIGatewayPassthroughRetriesRejectedInputNamespaceForStreaming(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	body := namespaceCompatibilityStreamingRequestBody()
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)

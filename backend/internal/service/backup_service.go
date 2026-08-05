@@ -129,9 +129,10 @@ type BackupService struct {
 	storeFactory BackupObjectStoreFactory
 	dumper       DBDumper
 
-	opMu      sync.Mutex // 保护 backingUp/restoring 标志
-	backingUp bool
-	restoring bool
+	opMu        sync.Mutex // 保护 backingUp/restoring 标志
+	lifecycleMu sync.Mutex // serializes operation admission with shutdown
+	backingUp   bool
+	restoring   bool
 
 	storeMu sync.Mutex // 保护 store/s3Cfg 缓存
 	store   BackupObjectStore
@@ -166,6 +167,18 @@ func NewBackupService(
 		bgCtx:        bgCtx,
 		bgCancel:     bgCancel,
 	}
+}
+
+// beginTrackedOperation admits work atomically with respect to Stop.
+func (s *BackupService) beginTrackedOperation() (func(), error) {
+	s.lifecycleMu.Lock()
+	defer s.lifecycleMu.Unlock()
+	if s.shuttingDown.Load() {
+		return nil, infraerrors.ServiceUnavailable("SERVER_SHUTTING_DOWN", "server is shutting down")
+	}
+	s.wg.Add(1)
+	var once sync.Once
+	return func() { once.Do(s.wg.Done) }, nil
 }
 
 // Start 启动定时备份调度器并清理孤立记录
@@ -220,7 +233,9 @@ func (s *BackupService) recoverStaleRecords() {
 
 // Stop 停止定时备份并等待活跃操作完成
 func (s *BackupService) Stop() {
+	s.lifecycleMu.Lock()
 	s.shuttingDown.Store(true)
+	s.lifecycleMu.Unlock()
 
 	s.cronMu.Lock()
 	if s.cronSched != nil {
@@ -403,8 +418,11 @@ func (s *BackupService) removeCronSchedule() {
 }
 
 func (s *BackupService) runScheduledBackup() {
-	s.wg.Add(1)
-	defer s.wg.Done()
+	finish, err := s.beginTrackedOperation()
+	if err != nil {
+		return
+	}
+	defer finish()
 
 	ctx, cancel := context.WithTimeout(s.bgCtx, 30*time.Minute)
 	defer cancel()
@@ -465,9 +483,11 @@ func (s *BackupService) createBackup(
 	expireDays int,
 	metadata *BackupRecordMetadata,
 ) (*BackupRecord, error) {
-	if s.shuttingDown.Load() {
-		return nil, infraerrors.ServiceUnavailable("SERVER_SHUTTING_DOWN", "server is shutting down")
+	finish, err := s.beginTrackedOperation()
+	if err != nil {
+		return nil, err
 	}
+	defer finish()
 
 	s.opMu.Lock()
 	if s.backingUp {
@@ -608,10 +628,6 @@ func (s *BackupService) deleteUploadedBackupAfterStreamFailure(objectStore Backu
 
 // StartBackup 异步创建备份，立即返回 running 状态的记录
 func (s *BackupService) StartBackup(ctx context.Context, triggeredBy string, expireDays int) (*BackupRecord, error) {
-	if s.shuttingDown.Load() {
-		return nil, infraerrors.ServiceUnavailable("SERVER_SHUTTING_DOWN", "server is shutting down")
-	}
-
 	s.opMu.Lock()
 	if s.backingUp {
 		s.opMu.Unlock()
@@ -620,6 +636,14 @@ func (s *BackupService) StartBackup(ctx context.Context, triggeredBy string, exp
 	s.backingUp = true
 	s.opMu.Unlock()
 
+	finish, err := s.beginTrackedOperation()
+	if err != nil {
+		s.opMu.Lock()
+		s.backingUp = false
+		s.opMu.Unlock()
+		return nil, err
+	}
+
 	// 初始化阶段出错时自动重置标志
 	launched := false
 	defer func() {
@@ -627,6 +651,7 @@ func (s *BackupService) StartBackup(ctx context.Context, triggeredBy string, exp
 			s.opMu.Lock()
 			s.backingUp = false
 			s.opMu.Unlock()
+			finish()
 		}
 	}()
 
@@ -674,9 +699,8 @@ func (s *BackupService) StartBackup(ctx context.Context, triggeredBy string, exp
 	// 在启动 goroutine 前完成拷贝，避免数据竞争
 	result := *record
 
-	s.wg.Add(1)
 	go func() {
-		defer s.wg.Done()
+		defer finish()
 		defer func() {
 			s.opMu.Lock()
 			s.backingUp = false
@@ -784,6 +808,11 @@ func (s *BackupService) executeBackup(record *BackupRecord, objectStore BackupOb
 
 // RestoreBackup 从 S3 下载备份并流式恢复到数据库
 func (s *BackupService) RestoreBackup(ctx context.Context, backupID string) error {
+	finish, err := s.beginTrackedOperation()
+	if err != nil {
+		return err
+	}
+	defer finish()
 	s.opMu.Lock()
 	if s.restoring {
 		s.opMu.Unlock()
@@ -838,10 +867,6 @@ func (s *BackupService) RestoreBackup(ctx context.Context, backupID string) erro
 
 // StartRestore 异步恢复备份，立即返回
 func (s *BackupService) StartRestore(ctx context.Context, backupID string) (*BackupRecord, error) {
-	if s.shuttingDown.Load() {
-		return nil, infraerrors.ServiceUnavailable("SERVER_SHUTTING_DOWN", "server is shutting down")
-	}
-
 	s.opMu.Lock()
 	if s.restoring {
 		s.opMu.Unlock()
@@ -850,6 +875,14 @@ func (s *BackupService) StartRestore(ctx context.Context, backupID string) (*Bac
 	s.restoring = true
 	s.opMu.Unlock()
 
+	finish, err := s.beginTrackedOperation()
+	if err != nil {
+		s.opMu.Lock()
+		s.restoring = false
+		s.opMu.Unlock()
+		return nil, err
+	}
+
 	// 初始化阶段出错时自动重置标志
 	launched := false
 	defer func() {
@@ -857,6 +890,7 @@ func (s *BackupService) StartRestore(ctx context.Context, backupID string) (*Bac
 			s.opMu.Lock()
 			s.restoring = false
 			s.opMu.Unlock()
+			finish()
 		}
 	}()
 
@@ -883,9 +917,8 @@ func (s *BackupService) StartRestore(ctx context.Context, backupID string) (*Bac
 	launched = true
 	result := *record
 
-	s.wg.Add(1)
 	go func() {
-		defer s.wg.Done()
+		defer finish()
 		defer func() {
 			s.opMu.Lock()
 			s.restoring = false

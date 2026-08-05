@@ -118,7 +118,7 @@ func (r *distributionRepository) ListForUser(ctx context.Context, userID int64, 
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT d.id, d.title, d.kind, d.content,
 		       COALESCE(d.file_name, ''), COALESCE(d.content_type, ''), d.file_size,
-		       d.metadata, d.audience, d.created_by, d.created_at,
+		       '{}'::jsonb, '{}'::jsonb, NULL, d.created_at,
 		       0, 0, 0,
 		       r.read_at, r.downloaded_at,
 		       COALESCE(r.title_override, ''), COALESCE(r.content_override, '')
@@ -162,7 +162,7 @@ func (r *distributionRepository) GetForUser(ctx context.Context, id, userID int6
 	row := r.db.QueryRowContext(ctx, `
 		SELECT d.id, d.title, d.kind, d.content,
 		       COALESCE(d.file_name, ''), COALESCE(d.content_type, ''), d.file_size,
-		       d.metadata, d.audience, d.created_by, d.created_at,
+		       '{}'::jsonb, '{}'::jsonb, NULL, d.created_at,
 		       0, 0, 0,
 		       r.read_at, r.downloaded_at,
 		       COALESCE(r.title_override, ''), COALESCE(r.content_override, '')

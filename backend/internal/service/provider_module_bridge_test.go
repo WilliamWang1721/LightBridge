@@ -45,7 +45,6 @@ func (a *fakeProviderAdapter) TestAccount(_ context.Context, req modules.TestAcc
 func (a *fakeProviderAdapter) Close() error { return nil }
 
 func TestGatewayServiceForwardModuleProviderUsesRegisteredAdapter(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	adapter := &fakeProviderAdapter{
 		events: []modules.GatewayEvent{
 			{Type: "headers", StatusCode: http.StatusOK, Headers: map[string][]string{"Content-Type": {"application/json"}}},
@@ -100,7 +99,6 @@ func TestGatewayServiceForwardModuleProviderUsesRegisteredAdapter(t *testing.T) 
 }
 
 func TestAccountTestServiceTestModuleProviderAccountUsesRegisteredAdapter(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	adapter := &fakeProviderAdapter{
 		testResult: &modules.TestAccountResult{OK: true, Message: "usable", Metadata: map[string]any{"provider_id": "openai"}},
 	}

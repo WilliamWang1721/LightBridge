@@ -262,6 +262,7 @@ func writeDistributionAttachment(c *gin.Context, data []byte, attachment *servic
 	}
 	disposition := mime.FormatMediaType("attachment", map[string]string{"filename": attachment.FileName})
 	c.Header("Content-Disposition", disposition)
+	c.Header("Cache-Control", "no-store")
 	c.Header("X-Content-Type-Options", "nosniff")
 	c.Data(http.StatusOK, contentType, data)
 }

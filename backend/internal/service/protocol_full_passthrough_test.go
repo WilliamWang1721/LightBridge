@@ -38,7 +38,6 @@ func (s *fullPassthroughUpstreamStub) DoWithTLS(req *http.Request, _ string, _ i
 }
 
 func TestForwardFullPassthroughPreservesWireRequestAndRewritesAuth(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	upstream := &fullPassthroughUpstreamStub{}
 	svc := &GatewayService{
 		httpUpstream: upstream,

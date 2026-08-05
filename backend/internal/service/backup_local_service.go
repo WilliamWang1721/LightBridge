@@ -46,9 +46,6 @@ func (s *BackupService) LocalBackupFileName() string {
 // touching S3, creating a backup record, or writing a temporary server file.
 // Dump startup errors are returned before HTTP download headers are committed.
 func (s *BackupService) OpenLocalBackup(ctx context.Context) (*LocalBackupDownload, error) {
-	if s.shuttingDown.Load() {
-		return nil, infraerrors.ServiceUnavailable("SERVER_SHUTTING_DOWN", "server is shutting down")
-	}
 	if s.dumper == nil {
 		return nil, infraerrors.ServiceUnavailable("LOCAL_BACKUP_UNAVAILABLE", "local database backup is unavailable")
 	}
@@ -60,13 +57,19 @@ func (s *BackupService) OpenLocalBackup(ctx context.Context) (*LocalBackupDownlo
 	}
 	s.backingUp = true
 	s.opMu.Unlock()
-	s.wg.Add(1)
+	finish, err := s.beginTrackedOperation()
+	if err != nil {
+		s.opMu.Lock()
+		s.backingUp = false
+		s.opMu.Unlock()
+		return nil, err
+	}
 
 	release := func() {
 		s.opMu.Lock()
 		s.backingUp = false
 		s.opMu.Unlock()
-		s.wg.Done()
+		finish()
 	}
 
 	dumpReader, err := s.dumper.Dump(ctx)

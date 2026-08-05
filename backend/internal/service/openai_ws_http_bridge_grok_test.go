@@ -44,7 +44,6 @@ func grokWSBridgeTextCompletedSSE(responseID string) string {
 }
 
 func TestOpenAIWSHTTPBridge_RetriesRejectedInputNamespace(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 
 	payload := []byte(`{
 		"type":"response.create",
@@ -115,7 +114,6 @@ func TestOpenAIWSHTTPBridge_RetriesRejectedInputNamespace(t *testing.T) {
 }
 
 func TestOpenAIWSHTTPBridge_GrokBuildReplaysReasoningAndToolCallAcrossTurns(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 
 	firstPayload := []byte(`{
 		"type":"response.create",
