@@ -61,13 +61,28 @@ jobs:
               text = text.replace(old, new)
           usage.write_text(text)
 
-          compat = Path('backend/internal/service/openai_compat_model_test.go')
-          text = compat.read_text()
           target = '\tgin.SetMode(gin.TestMode)\n'
-          count = text.count(target)
-          if count < 2:
-              raise SystemExit(f'{compat}: expected at least 2 per-test Gin mode writes, found {count}')
-          compat.write_text(text.replace(target, ''))
+          changed = []
+          removed = 0
+          for path in sorted(Path('backend/internal/service').glob('*_test.go')):
+              if path.name == 'gin_test_mode_test.go':
+                  continue
+              text = path.read_text()
+              count = text.count(target)
+              if count == 0:
+                  continue
+              text = text.replace(target, '')
+              if 'gin.' not in text:
+                  text = text.replace('\t"github.com/gin-gonic/gin"\n', '')
+                  text = text.replace('import "github.com/gin-gonic/gin"\n', '')
+                  text = text.replace('import (\n)\n', '')
+              path.write_text(text)
+              removed += count
+              changed.append(str(path))
+          if removed < 3:
+              raise SystemExit(f'expected at least 3 service-test Gin mode writes, found {removed}')
+          Path('/tmp/gin-mode-files.txt').write_text('\n'.join(changed) + '\n')
+          print(f'removed {removed} Gin mode writes from {len(changed)} service test files')
 
           Path('backend/internal/service/gin_test_mode_test.go').write_text('''//go:build unit
 
@@ -81,10 +96,11 @@ jobs:
           ''')
           PY
 
+          mapfile -t gin_mode_files < /tmp/gin-mode-files.txt
           gofmt -w \
             backend/internal/service/usage_cleanup_service_test.go \
-            backend/internal/service/openai_compat_model_test.go \
-            backend/internal/service/gin_test_mode_test.go
+            backend/internal/service/gin_test_mode_test.go \
+            "${gin_mode_files[@]}"
 
           git add -N \
             backend/internal/service/backup_shutdown_test.go \
