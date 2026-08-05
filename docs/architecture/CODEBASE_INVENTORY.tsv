@@ -7,6 +7,7 @@ path	category	ownership	lines	bytes	sha256
 .github/workflows/codebase-inventory.yml	workflow	maintained	62	1669	344c69237217bb5e419a38d3efd7873cf4dd793172561a862470439c18b85e5b
 .github/workflows/lightsail-deploy.yml	workflow	maintained	182	6792	a17e6ab95266fee8776570ca001444a680384fbd510a7deed6fdb86979243079
 .github/workflows/module-release.yml	workflow	maintained	74	3023	dc931dc16be5b4edf83303f658882af95838093819074a6f70afd22ab6d194e5
+.github/workflows/release-v0361-recovery.yml	workflow	maintained	160	5781	992de3e73abc9d9c131dfa5ce118566fab996357c90214c60c05493bd9401c66
 .github/workflows/release.yml	workflow	maintained	653	24362	db898a149f708f4f32ad338000560556f973b13cb227ce6f6f12cc3b1496509e
 .github/workflows/runtime-environment-check.yml	workflow	maintained	175	5610	ac98e826fc6f93ab2ca92fb6560a3f38962d604a65a9c49b9cc8d282127050c6
 .github/workflows/security-scan.yml	workflow	maintained	64	1678	94e560f9f9ad5beabc9c623be4073bac44a369e5ad8d3e9edd9f1ef8f19bd466
