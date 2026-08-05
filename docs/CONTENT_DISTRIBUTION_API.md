@@ -92,7 +92,7 @@ user@example.com
 second@example.com | Account package | Please import this package before Monday
 ```
 
-The first column is a user ID or email. The second and third optional columns override the title and content for that recipient. Do not combine multiline imports with another audience mode, so personalized overrides cannot be replaced by a broader selection.
+The first column is a user ID or email. The second and third optional columns override the title and content for that recipient. Do not combine multiline imports with another audience mode. If the same recipient appears more than once, a later non-empty override replaces that field, while an omitted or empty field preserves the existing personalized value.
 
 ## All users
 
