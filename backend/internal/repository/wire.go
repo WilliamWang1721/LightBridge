@@ -76,6 +76,7 @@ var ProviderSet = wire.NewSet(
 	NewPromoCodeRepository,
 	NewAnnouncementRepository,
 	NewAnnouncementReadRepository,
+	NewDistributionRepository,
 	NewUsageLogRepository,
 	NewUsageBillingRepository,
 	NewIdempotencyRepository,
@@ -161,6 +162,9 @@ var ProviderSet = wire.NewSet(
 // 提供：*ent.Client
 func ProvideEnt(cfg *config.Config) (*ent.Client, error) {
 	client, _, err := InitEnt(cfg)
+	if err == nil {
+		registerDistributionEntClient(client)
+	}
 	return client, err
 }
 
@@ -185,7 +189,9 @@ func ProvideSQLDB(client *ent.Client) (*sql.DB, error) {
 		return nil, errors.New("ent driver does not expose *sql.DB")
 	}
 	// 返回驱动持有的 sql.DB 实例
-	return drv.DB(), nil
+	db := drv.DB()
+	registerDistributionSQLDB(db)
+	return db, nil
 }
 
 // ProvideRedis 为依赖注入提供 Redis 客户端。

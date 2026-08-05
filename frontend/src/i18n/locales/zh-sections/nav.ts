@@ -2,6 +2,7 @@
 export default {
     dashboard: '仪表盘',
     announcements: '公告',
+    distributions: '分发中心',
     apiKeys: 'API 密钥',
     usage: '使用记录',
     redeem: '兑换',

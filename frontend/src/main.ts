@@ -7,6 +7,10 @@ import { useAppStore } from '@/stores/app'
 import { hydrateProgressiveFeatureManifest } from '@/utils/progressiveFeatures'
 import { initializeUIPlatform } from '@/ui-platform/runtime'
 import { initializeChartTheme } from '@/ui-platform/chartTheme'
+import {
+  installDistributionNavigation,
+  installDistributionRoutes
+} from '@/distribution/runtime'
 import './style.css'
 import './styles/ui-semantic-defaults.css'
 import './styles/ui-platform.css'
@@ -27,6 +31,7 @@ async function bootstrap() {
   initThemeClass()
   initializeUIPlatform()
   initializeChartTheme()
+  installDistributionRoutes(router)
 
   const app = createApp(App)
   const pinia = createPinia()
@@ -55,6 +60,7 @@ async function bootstrap() {
   // 等待路由器完成初始导航后再挂载，避免竞态条件导致的空白渲染
   await router.isReady()
   app.mount('#app')
+  installDistributionNavigation(router)
 }
 
 bootstrap().catch((error: unknown) => {

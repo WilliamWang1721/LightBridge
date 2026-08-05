@@ -29,6 +29,7 @@ import featureRegistry from './featureRegistry'
 import purchase from './purchase'
 import customPage from './customPage'
 import announcements from './announcements'
+import distributions from './distributions'
 import userSubscriptions from './userSubscriptions'
 import onboarding from './onboarding'
 import payment from './payment'
@@ -65,6 +66,7 @@ export default {
   purchase,
   customPage,
   announcements,
+  distributions,
   userSubscriptions,
   onboarding,
   payment,

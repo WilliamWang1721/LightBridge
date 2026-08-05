@@ -2,6 +2,7 @@
 export default {
     dashboard: 'Dashboard',
     announcements: 'Announcements',
+    distributions: 'Distribution Center',
     apiKeys: 'API Keys',
     usage: 'Usage',
     redeem: 'Redeem',

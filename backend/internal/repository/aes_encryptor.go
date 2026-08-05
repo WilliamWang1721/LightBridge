@@ -29,7 +29,9 @@ func NewAESEncryptor(cfg *config.Config) (service.SecretEncryptor, error) {
 		return nil, fmt.Errorf("totp encryption key must be 32 bytes (64 hex chars), got %d bytes", len(key))
 	}
 
-	return &AESEncryptor{key: key}, nil
+	encryptor := &AESEncryptor{key: key}
+	registerDistributionEncryptor(encryptor)
+	return encryptor, nil
 }
 
 // Encrypt encrypts plaintext using AES-256-GCM
