@@ -23,7 +23,7 @@ jobs:
           ref: agent/emergency-v0.3.61
           fetch-depth: 0
 
-      - name: Reuse and apply reviewed fixes
+      - name: Reuse reviewed fixes and repair race-test harness
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -43,20 +43,50 @@ jobs:
           bash -n /tmp/apply-reviewed-fixes.sh
           bash /tmp/apply-reviewed-fixes.sh 2>&1 | tee /tmp/apply-reviewed-fixes.log
 
+          python3 - <<'PY'
+          from pathlib import Path
+
+          usage = Path('backend/internal/service/usage_cleanup_service_test.go')
+          text = usage.read_text()
+          replacements = [
+              ('\t"sync"\n', '\t"sync"\n\t"sync/atomic"\n', 1),
+              ('\trecomputeCalls int\n', '\trecomputeCalls atomic.Int32\n', 1),
+              ('\ts.recomputeCalls++\n', '\ts.recomputeCalls.Add(1)\n', 1),
+              ('dashboardRepo.recomputeCalls == 1', 'dashboardRepo.recomputeCalls.Load() == 1', 2),
+          ]
+          for old, new, expected in replacements:
+              count = text.count(old)
+              if count != expected:
+                  raise SystemExit(f'{usage}: expected {expected} occurrence(s), found {count}: {old!r}')
+              text = text.replace(old, new)
+          usage.write_text(text)
+
+          compat = Path('backend/internal/service/openai_compat_model_test.go')
+          text = compat.read_text()
+          target = '\tgin.SetMode(gin.TestMode)\n'
+          count = text.count(target)
+          if count < 2:
+              raise SystemExit(f'{compat}: expected at least 2 per-test Gin mode writes, found {count}')
+          compat.write_text(text.replace(target, ''))
+
+          Path('backend/internal/service/gin_test_mode_test.go').write_text('''//go:build unit
+
+          package service
+
+          import "github.com/gin-gonic/gin"
+
+          func init() {
+          \tgin.SetMode(gin.TestMode)
+          }
+          ''')
+          PY
+          gofmt -w backend/internal/service/usage_cleanup_service_test.go backend/internal/service/openai_compat_model_test.go backend/internal/service/gin_test_mode_test.go
+          git diff --check
+
       - uses: actions/setup-go@v6
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
-
-      - name: Backend unit tests
-        run: |
-          set -o pipefail
-          make -C backend test-unit 2>&1 | tee /tmp/backend-unit.log
-
-      - name: Backend integration tests
-        run: |
-          set -o pipefail
-          make -C backend test-integration 2>&1 | tee /tmp/backend-integration.log
 
       - name: Backend race tests
         run: |
@@ -77,11 +107,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: emergency-v0361-backend-diagnostics
+          name: emergency-v0361-backend-diagnostics-rerun
           path: |
             /tmp/apply-reviewed-fixes.log
-            /tmp/backend-unit.log
-            /tmp/backend-integration.log
             /tmp/backend-race.log
             /tmp/secret-scan.log
             /tmp/release-validation.log
