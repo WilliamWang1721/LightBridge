@@ -31,19 +31,62 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin main
 
-      - name: Merge latest main
+      - name: Merge latest main and resolve reviewed conflict
         run: |
           set +e
           git merge --no-commit --no-ff origin/main
           merge_status=$?
           set -e
+
           if [ "$merge_status" -ne 0 ]; then
-            echo "::error::Merge conflicts require reviewed resolution"
-            echo "Conflicted files:"
+            conflicts="$(git diff --name-only --diff-filter=U)"
+            if [ "$conflicts" != "frontend/src/main.ts" ]; then
+              echo "::error::Unexpected merge conflicts"
+              printf '%s\n' "$conflicts"
+              git diff --cc
+              exit 1
+            fi
+
+            git checkout --theirs -- frontend/src/main.ts
+            python3 <<'PY'
+          from pathlib import Path
+
+          path = Path('frontend/src/main.ts')
+          text = path.read_text()
+
+          import_anchor = "import { initializeChartTheme } from '@/ui-platform/chartTheme'\n"
+          distribution_import = """import {
+            installDistributionNavigation,
+            installDistributionRoutes
+          } from '@/distribution/runtime'
+          """
+          if distribution_import not in text:
+              if text.count(import_anchor) != 1:
+                  raise SystemExit('chart theme import anchor not found exactly once')
+              text = text.replace(import_anchor, import_anchor + distribution_import, 1)
+
+          route_anchor = "  initializeChartTheme()\n"
+          route_install = "  installDistributionRoutes(router)\n"
+          if route_install not in text:
+              if text.count(route_anchor) != 1:
+                  raise SystemExit('chart theme initialization anchor not found exactly once')
+              text = text.replace(route_anchor, route_anchor + route_install, 1)
+
+          mount_anchor = "  app.mount('#app')\n"
+          navigation_install = "  installDistributionNavigation(router)\n"
+          if navigation_install not in text:
+              if text.count(mount_anchor) != 1:
+                  raise SystemExit('app mount anchor not found exactly once')
+              text = text.replace(mount_anchor, mount_anchor + navigation_install, 1)
+
+          path.write_text(text)
+          PY
+            git add frontend/src/main.ts
+          fi
+
+          if git diff --name-only --diff-filter=U | grep -q .; then
+            echo "::error::Unresolved merge conflicts remain"
             git diff --name-only --diff-filter=U
-            echo "Conflict details:"
-            git diff --cc --stat
-            git diff --cc
             exit 1
           fi
 
@@ -94,7 +137,7 @@ jobs:
         run: |
           pnpm install --frozen-lockfile
           pnpm typecheck
-          pnpm test:run -- --passWithNoTests
+          pnpm exec vitest run --passWithNoTests
 
       - name: Commit verified merge
         run: |
