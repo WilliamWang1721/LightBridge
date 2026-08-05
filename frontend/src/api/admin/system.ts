@@ -98,11 +98,14 @@ export interface UpdateResult {
   need_restart: boolean
   /** Snapshot created before the requested version action, when selected. */
   backup?: BackupRecord
+  /** True when the administrator explicitly bypassed the pre-update backup. */
+  forced_without_backup?: boolean
 }
 
 export interface UpdateOptions {
   version?: string
   backup_current?: boolean
+  force_without_backup?: boolean
 }
 
 /**

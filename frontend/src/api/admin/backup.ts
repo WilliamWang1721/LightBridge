@@ -1,5 +1,13 @@
 import { apiClient } from '../client'
 
+// A deterministic empty gzip member appended by the backend only after the
+// database dump and primary gzip stream complete successfully.
+export const LOCAL_BACKUP_COMPLETION_MARKER = new Uint8Array([
+  0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0xff, 0x01, 0x00, 0x00, 0xff, 0xff, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+])
+
 export interface BackupS3Config {
   endpoint: string
   region: string
@@ -48,6 +56,7 @@ export interface BackupRecord {
 
 export interface CreateBackupRequest {
   expire_days?: number
+  destination?: 's3' | 'local'
 }
 
 export interface TestS3Response {
@@ -88,6 +97,111 @@ export async function createBackup(req?: CreateBackupRequest): Promise<BackupRec
   return data
 }
 
+export function readBlobAsArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
+  const modernBlob = blob as Blob & { arrayBuffer?: () => Promise<ArrayBuffer> }
+  if (typeof modernBlob.arrayBuffer === 'function') {
+    return modernBlob.arrayBuffer()
+  }
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (reader.result instanceof ArrayBuffer) {
+        resolve(reader.result)
+        return
+      }
+      reject(new Error('Failed to read backup data'))
+    }
+    reader.onerror = () => reject(reader.error || new Error('Failed to read backup data'))
+    reader.readAsArrayBuffer(blob)
+  })
+}
+
+async function readBlobAsText(blob: Blob): Promise<string> {
+  const modernBlob = blob as Blob & { text?: () => Promise<string> }
+  if (typeof modernBlob.text === 'function') {
+    return modernBlob.text()
+  }
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '')
+    reader.onerror = () => reject(reader.error || new Error('Failed to read error response'))
+    reader.readAsText(blob)
+  })
+}
+
+export async function validateLocalBackupDownload(envelope: Blob): Promise<Blob> {
+  if (envelope.size <= LOCAL_BACKUP_COMPLETION_MARKER.byteLength) {
+    throw new Error('Local backup stream is incomplete; no file was saved')
+  }
+
+  const suffix = new Uint8Array(
+    await readBlobAsArrayBuffer(
+      envelope.slice(envelope.size - LOCAL_BACKUP_COMPLETION_MARKER.byteLength)
+    )
+  )
+  const completed = LOCAL_BACKUP_COMPLETION_MARKER.every((value, index) => suffix[index] === value)
+  if (!completed) {
+    throw new Error('Local backup stream is incomplete; no file was saved')
+  }
+
+  // The completion marker is itself a valid empty gzip member, so preserving it
+  // keeps the downloaded file standards-compliant and independently verifiable.
+  return envelope.slice(0, envelope.size, 'application/gzip')
+}
+
+export async function downloadLocalBackup(): Promise<string> {
+  try {
+    const response = await apiClient.post<Blob>(
+      '/admin/backups',
+      { destination: 'local' },
+      {
+        responseType: 'blob',
+        timeout: 0,
+        headers: { Accept: 'application/gzip' }
+      }
+    )
+
+    const disposition = String(response.headers['content-disposition'] || '')
+    const match = disposition.match(/filename="?([^";]+)"?/i)
+    const fileName = match?.[1] || `lightbridge_${new Date().toISOString().replace(/[:.]/g, '-')}.sql.gz`
+    const backupBlob = await validateLocalBackupDownload(response.data)
+    const url = URL.createObjectURL(backupBlob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = fileName
+    link.style.display = 'none'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+    return fileName
+  } catch (error) {
+    const err = error as {
+      message?: string
+      data?: unknown
+      response?: { data?: unknown }
+    }
+    const responseData = err.response?.data ?? err.data
+    if (responseData instanceof Blob) {
+      try {
+        const text = await readBlobAsText(responseData)
+        const payload = JSON.parse(text) as { message?: string; detail?: string }
+        const message = payload.message || payload.detail
+        if (message) {
+          throw new Error(message)
+        }
+      } catch (parseError) {
+        if (parseError instanceof Error && parseError.name !== 'SyntaxError') {
+          throw parseError
+        }
+      }
+    }
+    throw error
+  }
+}
+
 export async function listBackups(): Promise<{ items: BackupRecord[] }> {
   const { data } = await apiClient.get<{ items: BackupRecord[] }>('/admin/backups')
   return data
@@ -120,6 +234,7 @@ export const backupAPI = {
   getSchedule,
   updateSchedule,
   createBackup,
+  downloadLocalBackup,
   listBackups,
   getBackup,
   deleteBackup,

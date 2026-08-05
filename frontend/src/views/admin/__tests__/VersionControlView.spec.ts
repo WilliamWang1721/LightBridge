@@ -163,16 +163,39 @@ describe('VersionControlView', () => {
     expect(wrapper.find('#version-backup-current').exists()).toBe(false)
   })
 
-  it('hides the backup option when the backup feature is disabled and preserves the legacy update payload', async () => {
+  it('keeps the safe default when the backup feature is disabled', async () => {
     backupFeatureEnabled.value = false
     configureCapabilities({ ...binaryCapabilities, can_rollback: false })
     const wrapper = await openInstallConfirmation()
 
     expect(wrapper.find('#version-backup-current').exists()).toBe(false)
+    expect(wrapper.get<HTMLInputElement>('#version-force-without-backup').element.checked).toBe(false)
     await wrapper.get('[data-test="confirm-action"]').trigger('click')
     await flushPromises()
 
     expect(performUpdate).toHaveBeenCalledWith({ version: '0.1.1' })
+  })
+
+  it('requires an explicit force choice when the backup feature is disabled', async () => {
+    backupFeatureEnabled.value = false
+    configureCapabilities({ ...binaryCapabilities, can_rollback: false })
+    performUpdate.mockResolvedValue({
+      message: 'updated',
+      need_restart: true,
+      forced_without_backup: true
+    })
+    const wrapper = await openInstallConfirmation()
+
+    await wrapper.get<HTMLInputElement>('#version-force-without-backup').setValue(true)
+    expect(wrapper.get('[data-test="force-update-warning"]').text()).toContain('version.forceWithoutBackupWarning')
+    await wrapper.get('[data-test="confirm-action"]').trigger('click')
+    await flushPromises()
+
+    expect(performUpdate).toHaveBeenCalledWith({
+      version: '0.1.1',
+      force_without_backup: true
+    })
+    expect(wrapper.get('[data-test="forced-update-success"]').text()).toContain('version.forceUpdateCompletedWarning')
   })
 
   it('defaults the backup option to selected, reports backup sequencing, and exposes the created snapshot', async () => {
@@ -220,15 +243,20 @@ describe('VersionControlView', () => {
     expect(wrapper.get('a[href="/admin/settings/backup"]').text()).toContain('version.openBackupSettings')
   })
 
-  it('sends backup_current false when the administrator unselects the backup option', async () => {
+  it('sends an explicit force flag when the administrator unselects backup', async () => {
     configureCapabilities(binaryCapabilities)
     const wrapper = await openInstallConfirmation()
 
     await wrapper.get<HTMLInputElement>('#version-backup-current').setValue(false)
+    expect(wrapper.get('[data-test="force-update-warning"]').text()).toContain('version.forceWithoutBackupWarning')
     await wrapper.get('[data-test="confirm-action"]').trigger('click')
     await flushPromises()
 
-    expect(performUpdate).toHaveBeenCalledWith({ version: '0.1.1', backup_current: false })
+    expect(performUpdate).toHaveBeenCalledWith({
+      version: '0.1.1',
+      backup_current: false,
+      force_without_backup: true
+    })
   })
 
   it('routes changelog-triggered installs through the same backup confirmation', async () => {
@@ -257,15 +285,32 @@ describe('VersionControlView', () => {
     expect(performUpdate).not.toHaveBeenCalled()
   })
 
-  it('shows a retryable failure without reporting a successful action', async () => {
+  it('shows an update-not-started message for pre-update backup failures', async () => {
     configureCapabilities(binaryCapabilities)
-    performUpdate.mockRejectedValue(new Error('snapshot upload failed'))
+    performUpdate.mockRejectedValue({
+      message: 'snapshot upload failed',
+      reason: 'SYSTEM_VERSION_BACKUP_FAILED'
+    })
     const wrapper = await openInstallConfirmation()
 
     await wrapper.get('[data-test="confirm-action"]').trigger('click')
     await flushPromises()
 
     expect(wrapper.text()).toContain('snapshot upload failed')
+    expect(wrapper.text()).toContain('version.backupFailedTitle')
+    expect(wrapper.text()).toContain('version.backupFailedHint')
+    expect(wrapper.text()).not.toContain('version.updateComplete')
+  })
+
+  it('shows a retryable generic failure without reporting a successful action', async () => {
+    configureCapabilities(binaryCapabilities)
+    performUpdate.mockRejectedValue(new Error('binary replacement failed'))
+    const wrapper = await openInstallConfirmation()
+
+    await wrapper.get('[data-test="confirm-action"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('binary replacement failed')
     expect(wrapper.text()).toContain('version.actionFailureHint')
     expect(wrapper.text()).not.toContain('version.updateComplete')
     expect(wrapper.find('a[href="/admin/settings/backup"]').exists()).toBe(false)

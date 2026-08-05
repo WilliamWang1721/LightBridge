@@ -147,7 +147,7 @@
           {{ updateError }}
         </p>
         <p class="mt-2 text-sm text-red-700/80 dark:text-red-300/80">
-          {{ t('version.actionFailureHint') }}
+          {{ actionFailureHint }}
         </p>
       </div>
     </div>
@@ -168,6 +168,13 @@
         </p>
         <p class="mt-1 text-sm text-green-700/80 dark:text-green-300/80">
           {{ needRestart ? t('version.restartRequired') : t('version.restartNotRequired') }}
+        </p>
+        <p
+          v-if="forcedWithoutBackup"
+          data-test="forced-update-success"
+          class="mt-2 text-sm font-medium text-amber-700 dark:text-amber-300"
+        >
+          {{ t('version.forceUpdateCompletedWarning') }}
         </p>
         <div
           v-if="backupSnapshot"
@@ -312,7 +319,7 @@
       :message="confirmationMessage"
       :confirm-text="confirmationActionText"
       :cancel-text="t('common.cancel')"
-      :danger="selectedAction === 'rollback'"
+      :danger="selectedAction === 'rollback' || updateWillBypassBackup"
       @confirm="handleConfirmedAction"
       @cancel="confirmDialogOpen = false"
     >
@@ -343,6 +350,32 @@
           </span>
         </span>
       </label>
+      <label
+        v-else-if="selectedAction === 'install'"
+        class="flex cursor-pointer items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm dark:border-red-900/60 dark:bg-red-900/20"
+      >
+        <input
+          id="version-force-without-backup"
+          v-model="forceWithoutBackup"
+          type="checkbox"
+          class="mt-0.5 h-4 w-4 rounded border-red-300 text-red-600 focus:ring-red-500"
+        />
+        <span>
+          <span class="block font-medium text-red-900 dark:text-red-100">
+            {{ t('version.forceWithoutBackup') }}
+          </span>
+          <span class="mt-1 block text-red-800/80 dark:text-red-200/80">
+            {{ t('version.forceWithoutBackupDescription') }}
+          </span>
+        </span>
+      </label>
+      <div
+        v-if="selectedAction === 'install' && updateWillBypassBackup"
+        data-test="force-update-warning"
+        class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900/60 dark:bg-red-900/20 dark:text-red-200"
+      >
+        {{ t('version.forceWithoutBackupWarning') }}
+      </div>
     </ConfirmDialog>
 
     <UpgradeChangesDialog
@@ -398,6 +431,7 @@ const updateCapabilities = ref<UpdateCapabilities>({
 })
 const updating = ref(false)
 const updateError = ref('')
+const updateErrorReason = ref('')
 const updateSuccess = ref(false)
 const needRestart = ref(false)
 const restarting = ref(false)
@@ -409,6 +443,8 @@ const upgradeChangesRelease = ref<VersionRelease | null>(null)
 const upgradeChangesOpen = ref(false)
 const versionType = ref<'production' | 'preview'>('production')
 const backupCurrent = ref(true)
+const forceWithoutBackup = ref(false)
+const forcedWithoutBackup = ref(false)
 const backupSnapshot = ref<BackupRecord | null>(null)
 const actionProgress = ref('')
 const backupSettingsPath = '/admin/settings/backup'
@@ -423,6 +459,14 @@ const canRollback = computed(
   () => canInPlaceUpdate.value && updateCapabilities.value.can_rollback
 )
 const canRestart = computed(() => updateCapabilities.value.can_restart)
+const updateWillBypassBackup = computed(() =>
+  selectedAction.value === 'install' && (
+    backupFeatureEnabled.value ? !backupCurrent.value : forceWithoutBackup.value
+  )
+)
+const backupFailure = computed(() =>
+  selectedAction.value === 'install' && updateErrorReason.value.startsWith('SYSTEM_VERSION_BACKUP_')
+)
 const publishedReleases = computed(() =>
   releases.value.filter((release) => {
     if (release.draft) return false
@@ -443,20 +487,23 @@ const confirmationMessage = computed(() =>
     ? t('version.rollbackConfirmMessage')
     : installConfirmMessage.value
 )
-const confirmationActionText = computed(() =>
-  selectedAction.value === 'rollback'
-    ? t('version.rollback')
-    : t('version.installVersion')
-)
+const confirmationActionText = computed(() => {
+  if (selectedAction.value === 'rollback') return t('version.rollback')
+  return updateWillBypassBackup.value ? t('version.forceUpdate') : t('version.installVersion')
+})
 const actionSuccessTitle = computed(() =>
   selectedAction.value === 'rollback'
     ? t('version.rollbackComplete')
     : t('version.updateComplete')
 )
-const actionFailureTitle = computed(() =>
-  selectedAction.value === 'rollback'
+const actionFailureTitle = computed(() => {
+  if (backupFailure.value) return t('version.backupFailedTitle')
+  return selectedAction.value === 'rollback'
     ? t('version.rollbackFailed')
     : t('version.updateFailed')
+})
+const actionFailureHint = computed(() =>
+  backupFailure.value ? t('version.backupFailedHint') : t('version.actionFailureHint')
 )
 
 function normalizeVersion(version?: string): string {
@@ -491,6 +538,15 @@ function getErrorMessage(error: unknown, fallback: string): string {
     message?: string
   }
   return err.response?.data?.message || err.message || fallback
+}
+
+function getErrorReason(error: unknown): string {
+  const err = error as {
+    reason?: unknown
+    response?: { data?: { reason?: unknown } }
+  }
+  const reason = err.reason ?? err.response?.data?.reason
+  return typeof reason === 'string' ? reason : ''
 }
 
 async function loadReleases(force = false) {
@@ -533,8 +589,11 @@ function confirmRollback() {
 function openActionConfirmation(action: 'install' | 'rollback') {
   selectedAction.value = action
   backupCurrent.value = backupFeatureEnabled.value
+  forceWithoutBackup.value = false
+  forcedWithoutBackup.value = false
   backupSnapshot.value = null
   updateError.value = ''
+  updateErrorReason.value = ''
   updateSuccess.value = false
   needRestart.value = false
   actionProgress.value = ''
@@ -563,13 +622,17 @@ async function handleConfirmedAction() {
   confirmDialogOpen.value = false
   updating.value = true
   updateError.value = ''
+  updateErrorReason.value = ''
   updateSuccess.value = false
   needRestart.value = false
+  forcedWithoutBackup.value = false
   backupSnapshot.value = null
   const actionLabel = action === 'rollback' ? t('version.rollingBack') : t('version.installing')
-  actionProgress.value = backupFeatureEnabled.value && backupCurrent.value
+  actionProgress.value = action === 'install' && !updateWillBypassBackup.value
     ? t('version.backupActionProgress', { action: actionLabel })
-    : t('version.actionProgress', { action: actionLabel })
+    : updateWillBypassBackup.value
+      ? t('version.forceUpdateProgress', { action: actionLabel })
+      : t('version.actionProgress', { action: actionLabel })
 
   try {
     const release = selectedRelease.value
@@ -577,11 +640,20 @@ async function handleConfirmedAction() {
       ? await rollback(backupFeatureEnabled.value ? { backup_current: backupCurrent.value } : {})
       : await performUpdate(
         backupFeatureEnabled.value
-          ? { version: release!.version, backup_current: backupCurrent.value }
-          : { version: release!.version }
+          ? backupCurrent.value
+            ? { version: release!.version, backup_current: true }
+            : {
+              version: release!.version,
+              backup_current: false,
+              force_without_backup: true
+            }
+          : forceWithoutBackup.value
+            ? { version: release!.version, force_without_backup: true }
+            : { version: release!.version }
       )
     updateSuccess.value = true
     needRestart.value = result.need_restart
+    forcedWithoutBackup.value = !!result.forced_without_backup
     backupSnapshot.value = result.backup || null
     if (action === 'install' && release) {
       upgradeChangesRelease.value = release
@@ -595,6 +667,7 @@ async function handleConfirmedAction() {
     }
   } catch (error) {
     updateError.value = getErrorMessage(error, t('version.updateFailed'))
+    updateErrorReason.value = getErrorReason(error)
   } finally {
     actionProgress.value = ''
     updating.value = false
