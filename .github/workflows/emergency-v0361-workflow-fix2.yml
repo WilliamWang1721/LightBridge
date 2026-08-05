@@ -1,0 +1,29 @@
+name: Safely narrow emergency matcher
+
+on:
+  push:
+    branches: [agent/emergency-v0.3.61]
+    paths: [.github/workflows/emergency-v0361-workflow-fix2.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: agent/emergency-v0.3.61
+      - run: |
+          set -euo pipefail
+          sed -i 's/p.write_text(s.replace(old,new))/p.write_text(s.replace(old,new,1 if count == 3 else -1))/' .github/workflows/emergency-v0361-review.yml
+          sed -i "s/') (\\*BackupRecord, error) {\\\\n\\\\tif s.shuttingDown.Load()/') (*BackupRecord, error) {\\\\n\\\\tif s.shuttingDown.Load()/" .github/workflows/emergency-v0361-review.yml
+          sed -i "/s.opMu.Lock()',$/,/count=1)/ s/count=1)/count=3)/" .github/workflows/emergency-v0361-review.yml
+          grep -F '1 if count == 3 else -1' .github/workflows/emergency-v0361-review.yml
+          grep -F "s.opMu.Lock()', count=3)" .github/workflows/emergency-v0361-review.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add .github/workflows/emergency-v0361-review.yml
+          git commit -m 'ci: validate three candidates and patch createBackup first'
+          git push origin HEAD:agent/emergency-v0.3.61
