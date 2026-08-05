@@ -37,6 +37,9 @@ func (h *DistributionHandler) List(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
+	for i := range items {
+		sanitizeDistributionForUser(&items[i])
+	}
 	response.Paginated(c, items, paginationResult.Total, paginationResult.Page, paginationResult.PageSize)
 }
 
@@ -50,6 +53,7 @@ func (h *DistributionHandler) Get(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
+	sanitizeDistributionForUser(item)
 	response.Success(c, item)
 }
 
@@ -82,6 +86,17 @@ func (h *DistributionHandler) Download(c *gin.Context) {
 	c.Header("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": attachment.FileName}))
 	c.Header("X-Content-Type-Options", "nosniff")
 	c.Data(http.StatusOK, contentType, data)
+}
+
+func sanitizeDistributionForUser(item *service.Distribution) {
+	if item == nil {
+		return
+	}
+	// Audience snapshots can contain other users' IDs/emails and internal filter
+	// criteria. Metadata and the creating administrator are management-only too.
+	item.Audience = nil
+	item.Metadata = nil
+	item.CreatedBy = nil
 }
 
 func distributionSubjectAndID(c *gin.Context) (middleware2.AuthSubject, int64, bool) {
