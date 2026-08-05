@@ -64,18 +64,33 @@ func (h *DistributionHandler) BatchCreate(c *gin.Context) {
 		response.BadRequest(c, "items must contain between 1 and 100 entries")
 		return
 	}
-	for i := range request.Items {
-		if !validDistributionAudience(request.Items[i].Audience) {
-			response.BadRequest(c, distributionAudienceModeError)
-			return
-		}
-	}
+
 	actorID := getAdminIDFromContext(c)
-	var actorIDPtr *int64
-	if actorID > 0 {
-		actorIDPtr = &actorID
+	result := service.DistributionBatchResult{
+		Items: make([]service.DistributionBatchItemResult, 0, len(request.Items)),
 	}
-	result := h.service.BatchCreate(c.Request.Context(), request.Items, actorIDPtr)
+	for index, input := range request.Items {
+		item := service.DistributionBatchItemResult{Index: index}
+		if !validDistributionAudience(input.Audience) {
+			result.Failed++
+			item.Error = distributionAudienceModeError
+			result.Items = append(result.Items, item)
+			continue
+		}
+		if actorID > 0 {
+			input.ActorID = &actorID
+		}
+		created, err := h.service.Create(c.Request.Context(), input)
+		if err != nil {
+			result.Failed++
+			item.Error = err.Error()
+		} else {
+			result.Succeeded++
+			item.DistributionID = created.ID
+			item.RecipientCount = created.RecipientCount
+		}
+		result.Items = append(result.Items, item)
+	}
 	response.Success(c, result)
 }
 
