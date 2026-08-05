@@ -1,0 +1,160 @@
+name: Recover v0.3.61 release
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/release-v0361-recovery.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: recover-v0.3.61-release
+  cancel-in-progress: false
+
+env:
+  TAG_NAME: v0.3.61
+  VERSION: 0.3.61
+  TARGET_SHA: 4645a1e9dc6c03f36efe2e5f8a5bf728a0b4eca5
+  GO_VERSION_EXPECTED: 1.26.5
+  NODE_VERSION: 22.13.1
+  COREPACK_VERSION: 0.31.0
+  PNPM_VERSION: 9.15.9
+
+jobs:
+  publish-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout immutable release tag
+        uses: actions/checkout@v6
+        with:
+          ref: v0.3.61
+          fetch-depth: 0
+
+      - name: Verify release source
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-list -n 1 "${TAG_NAME}^{commit}")" = "$TARGET_SHA"
+          test "$(tr -d '\r\n' < backend/cmd/server/VERSION)" = "$VERSION"
+          python3 tools/validate_release_configuration.py
+          python3 tools/codebase_inventory.py --check
+          make secret-scan
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          check-latest: false
+          cache-dependency-path: backend/go.sum
+
+      - name: Verify backend release inputs
+        run: |
+          set -euo pipefail
+          test "$(go env GOVERSION)" = "go${GO_VERSION_EXPECTED}"
+          go -C backend mod download
+          go -C backend mod verify
+          git diff --exit-code -- backend/go.mod backend/go.sum
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Enable pinned pnpm
+        run: |
+          set -euo pipefail
+          npm install --global "corepack@${COREPACK_VERSION}"
+          corepack enable
+          corepack prepare "pnpm@${PNPM_VERSION}" --activate
+          test "$(pnpm --version)" = "$PNPM_VERSION"
+
+      - name: Build verified frontend
+        run: |
+          set -euo pipefail
+          pnpm --dir frontend install --frozen-lockfile
+          make test-frontend
+          pnpm --dir frontend run build
+          test -n "$(find backend/internal/web/dist -type f -print -quit)"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare release metadata
+        id: metadata
+        run: |
+          set -euo pipefail
+          echo "owner_lower=$(printf '%s' "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+          if [ -s docs/RELEASE_NOTES_v0.3.61.md ]; then
+            cp docs/RELEASE_NOTES_v0.3.61.md /tmp/tag-message.txt
+          else
+            git for-each-ref --format='%(contents)' "refs/tags/${TAG_NAME}" > /tmp/tag-message.txt
+          fi
+          delimiter="TAG_MESSAGE_$(openssl rand -hex 16)"
+          {
+            echo "message<<${delimiter}"
+            cat /tmp/tag-message.txt
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish release and container images
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version: '~> v2'
+          args: release --clean --config=.goreleaser.yaml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_MESSAGE: ${{ steps.metadata.outputs.message }}
+          GITHUB_REPO_OWNER: ${{ github.repository_owner }}
+          GITHUB_REPO_OWNER_LOWER: ${{ steps.metadata.outputs.owner_lower }}
+          GITHUB_REPO_NAME: ${{ github.event.repository.name }}
+          DOCKERHUB_USERNAME: skip
+
+      - name: Verify GitHub Release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          release_json="$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/$TAG_NAME")"
+          test "$(jq -r '.draft' <<<"$release_json")" = "false"
+          test "$(jq -r '.prerelease' <<<"$release_json")" = "false"
+          actual="$(jq -r '.assets[].name' <<<"$release_json" | sort)"
+          expected="$(printf '%s\n' \
+            LightBridge_0.3.61_darwin_amd64.tar.gz \
+            LightBridge_0.3.61_darwin_arm64.tar.gz \
+            LightBridge_0.3.61_linux_amd64.tar.gz \
+            LightBridge_0.3.61_linux_arm64.tar.gz \
+            LightBridge_0.3.61_windows_amd64.zip \
+            checksums.txt | sort)"
+          test "$actual" = "$expected"
+          test "$(jq '.assets | length' <<<"$release_json")" -eq 6
+
+      - name: Verify GHCR multi-architecture images
+        env:
+          OWNER_LOWER: ${{ steps.metadata.outputs.owner_lower }}
+        run: |
+          set -euo pipefail
+          image="ghcr.io/${OWNER_LOWER}/lightbridge:${VERSION}"
+          latest="ghcr.io/${OWNER_LOWER}/lightbridge:latest"
+          docker buildx imagetools inspect "$image"
+          docker buildx imagetools inspect "$latest"
+          raw="$(docker buildx imagetools inspect --raw "$image")"
+          test "$(jq '[.manifests[] | select(.platform.os == "linux" and .platform.architecture == "amd64")] | length' <<<"$raw")" -eq 1
+          test "$(jq '[.manifests[] | select(.platform.os == "linux" and .platform.architecture == "arm64")] | length' <<<"$raw")" -eq 1
