@@ -8,9 +8,10 @@ LightBridge's distribution center lets administrators deliver text, messages, re
 - Recipient membership is resolved when a distribution is created and stored as a snapshot.
 - Users can only read or download distributions whose recipient snapshot contains their user ID.
 - Attachments are encrypted before database storage and are returned with `Content-Disposition: attachment` and `X-Content-Type-Options: nosniff`.
-- A single attachment is limited to 10 MiB.
+- A single decoded attachment is limited to 10 MiB. JSON requests using `file_base64` account for Base64 expansion while enforcing the same decoded limit.
 - `account_export` attachments must use a `.json` or `.zip` filename.
 - One distribution can contain at most 50,000 recipients. One batch request can create at most 100 distributions.
+- An audience must use exactly one mode: explicit `user_ids`/`emails`, non-empty `filters`, multiline `lines`, or `all: true`. Empty filters and mixed modes are rejected. Use `all: true` explicitly for a platform-wide distribution.
 
 ## Content kinds
 
@@ -48,7 +49,7 @@ Files can be submitted either as JSON with `file_base64`, or as `multipart/form-
 
 ## Advanced-filter distribution
 
-The `filters` object uses the same user-list semantics as `GET /api/v1/admin/users`.
+The `filters` object uses the same user-list semantics as `GET /api/v1/admin/users`. At least one filter field must be non-empty; use `all: true` when the intended audience is every user.
 
 ```json
 {
@@ -91,7 +92,7 @@ user@example.com
 second@example.com | Account package | Please import this package before Monday
 ```
 
-The first column is a user ID or email. The second and third optional columns override the title and content for that recipient.
+The first column is a user ID or email. The second and third optional columns override the title and content for that recipient. Do not combine multiline imports with another audience mode, so personalized overrides cannot be replaced by a broader selection.
 
 ## All users
 
@@ -110,7 +111,7 @@ The first column is a user ID or email. The second and third optional columns ov
 
 `POST /api/v1/admin/distributions/audience-preview`
 
-Request body is an audience object. The response contains the resolved recipient count and up to 50 preview users.
+Request body is an audience object. The response contains the resolved recipient count and up to 50 preview users. The same single-mode audience validation used by distribution creation applies.
 
 ## Batch distribution
 
@@ -135,7 +136,7 @@ Request body is an audience object. The response contains the resolved recipient
 }
 ```
 
-Each item is processed independently and the response reports successes and failures by input index.
+Each item is processed independently and the response reports successes and failures by input index. Every item must contain one valid audience mode.
 
 ## Administrator endpoints
 
