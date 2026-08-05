@@ -1,0 +1,86 @@
+name: Publish v0.3.61
+
+on:
+  push:
+    branches: [agent/release-v0.3.61]
+    paths: [.github/workflows/publish-v0361.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: publish-v0.3.61
+  cancel-in-progress: false
+
+jobs:
+  tag-and-dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Verify immutable release source
+        env:
+          TARGET_SHA: 9eb2a1b3f40c7fca7ff4e4ddc9fb324243bef130
+        run: |
+          set -euo pipefail
+          git fetch origin main --tags --force
+          test "$(git rev-parse origin/main)" = "$TARGET_SHA"
+          test "$(git show "$TARGET_SHA:backend/cmd/server/VERSION" | tr -d '\r\n')" = "0.3.61"
+          python3 tools/validate_release_configuration.py
+
+      - name: Create immutable release tag
+        env:
+          TARGET_SHA: 9eb2a1b3f40c7fca7ff4e4ddc9fb324243bef130
+          TAG_NAME: v0.3.61
+        run: |
+          set -euo pipefail
+          existing="$(git ls-remote --tags origin "refs/tags/$TAG_NAME" | awk '{print $1}')"
+          if [ -n "$existing" ]; then
+            test "$existing" = "$TARGET_SHA"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG_NAME" "$TARGET_SHA" -m "LightBridge v0.3.61 security and reliability repair"
+          git push origin "refs/tags/$TAG_NAME"
+          remote="$(git ls-remote --tags origin "refs/tags/$TAG_NAME^{}" | awk '{print $1}')"
+          test "$remote" = "$TARGET_SHA"
+
+      - name: Dispatch existing release workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: v0.3.61
+        run: |
+          set -euo pipefail
+          payload="$(jq -nc --arg tag "$TAG_NAME" '{ref:"main",inputs:{tag:$tag,simple_release:"false"}}')"
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/release.yml/dispatches" \
+            --data "$payload"
+
+      - name: Confirm release run was accepted
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 12); do
+            count="$(curl --fail --silent --show-error \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header "Accept: application/vnd.github+json" \
+              --header "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/release.yml/runs?event=workflow_dispatch&branch=main&per_page=20" \
+              | jq '[.workflow_runs[] | select(.status == "queued" or .status == "in_progress") | select(.created_at >= "2026-08-05T16:23:34Z")] | length')"
+            if [ "$count" -gt 0 ]; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Release workflow dispatch was not observable" >&2
+          exit 1
