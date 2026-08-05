@@ -1,6 +1,14 @@
 export default {
       title: '数据库备份',
       description: '全量数据库备份到 S3 兼容存储，支持定时备份与恢复',
+      local: {
+        title: '本地数据库备份',
+        description: '无需配置 S3，直接生成并下载完整 PostgreSQL 逻辑备份（.sql.gz），服务器不会保留临时文件。',
+        download: '一键本地备份',
+        downloading: '正在生成并下载...',
+        success: '本地备份已下载：{fileName}',
+        failed: '本地备份失败'
+      },
       s3: {
         title: 'S3 存储配置',
         description: '配置 S3 兼容存储（支持 Cloudflare R2）',

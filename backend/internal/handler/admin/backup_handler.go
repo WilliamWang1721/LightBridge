@@ -1,6 +1,11 @@
 package admin
 
 import (
+	"errors"
+	"io"
+	"mime"
+	"strings"
+
 	"github.com/WilliamWang1721/LightBridge/internal/pkg/response"
 	"github.com/WilliamWang1721/LightBridge/internal/server/middleware"
 	"github.com/WilliamWang1721/LightBridge/internal/service"
@@ -86,12 +91,44 @@ func (h *BackupHandler) UpdateSchedule(c *gin.Context) {
 // ─── 备份操作 ───
 
 type CreateBackupRequest struct {
-	ExpireDays *int `json:"expire_days"` // nil=使用默认值14，0=永不过期
+	ExpireDays  *int   `json:"expire_days"` // nil=使用默认值14，0=永不过期
+	Destination string `json:"destination"` // s3 (default) or local
 }
 
 func (h *BackupHandler) CreateBackup(c *gin.Context) {
 	var req CreateBackupRequest
-	_ = c.ShouldBindJSON(&req) // 允许空 body
+	if err := c.ShouldBindJSON(&req); err != nil && !errors.Is(err, io.EOF) {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	destination := strings.ToLower(strings.TrimSpace(req.Destination))
+	if destination == "local" {
+		download, err := h.backupService.OpenLocalBackup(c.Request.Context())
+		if err != nil {
+			response.ErrorFrom(c, err)
+			return
+		}
+		defer func() {
+			_ = download.Body.Close()
+		}()
+
+		contentDisposition := mime.FormatMediaType("attachment", map[string]string{
+			"filename": download.FileName,
+		})
+		c.Header("Content-Type", "application/gzip")
+		c.Header("Content-Disposition", contentDisposition)
+		c.Header("Cache-Control", "no-store")
+		c.Header("X-Content-Type-Options", "nosniff")
+		if _, err := io.Copy(c.Writer, download.Body); err != nil {
+			_ = c.Error(err)
+		}
+		return
+	}
+	if destination != "" && destination != "s3" {
+		response.BadRequest(c, "destination must be s3 or local")
+		return
+	}
 
 	expireDays := 14 // 默认14天过期
 	if req.ExpireDays != nil {

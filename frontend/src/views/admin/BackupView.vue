@@ -1,5 +1,28 @@
 <template>
     <div class="space-y-6">
+      <!-- Local Backup -->
+      <div class="card p-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h3 class="text-base font-semibold text-gray-900 dark:text-white">
+              {{ t('admin.backup.local.title') }}
+            </h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {{ t('admin.backup.local.description') }}
+            </p>
+          </div>
+          <button
+            type="button"
+            data-test="local-backup"
+            class="btn btn-primary btn-sm"
+            :disabled="downloadingLocalBackup || creatingBackup"
+            @click="downloadLocalBackup"
+          >
+            {{ downloadingLocalBackup ? t('admin.backup.local.downloading') : t('admin.backup.local.download') }}
+          </button>
+        </div>
+      </div>
+
       <!-- S3 Storage Config -->
       <div class="card p-6">
         <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -334,6 +357,7 @@ const savingSchedule = ref(false)
 const backups = ref<BackupRecord[]>([])
 const loadingBackups = ref(false)
 const creatingBackup = ref(false)
+const downloadingLocalBackup = ref(false)
 const restoringId = ref('')
 const manualExpireDays = ref(14)
 
@@ -536,6 +560,18 @@ async function loadBackups() {
     appStore.showError((error as { message?: string })?.message || t('errors.networkError'))
   } finally {
     loadingBackups.value = false
+  }
+}
+
+async function downloadLocalBackup() {
+  downloadingLocalBackup.value = true
+  try {
+    const fileName = await adminAPI.backup.downloadLocalBackup()
+    appStore.showSuccess(t('admin.backup.local.success', { fileName }))
+  } catch (error) {
+    appStore.showError((error as { message?: string })?.message || t('admin.backup.local.failed'))
+  } finally {
+    downloadingLocalBackup.value = false
   }
 }
 

@@ -54,9 +54,10 @@ func NewSystemHandler(updateSvc systemUpdateService, lockSvc *service.SystemOper
 	}
 }
 
-// SetVersionBackupDependencies configures the mandatory database snapshot and
-// restore dependencies used by version updates and rollbacks. Version actions
-// fail closed when these dependencies are unavailable.
+// SetVersionBackupDependencies configures the database snapshot and restore
+// dependencies used by version updates and rollbacks. Updates fail closed by
+// default, but an administrator may explicitly bypass the pre-update snapshot.
+// Rollbacks always retain the snapshot requirement.
 func (h *SystemHandler) SetVersionBackupDependencies(backupSvc systemBackupService, featureReader progressiveFeatureReader) {
 	h.backupSvc = backupSvc
 	h.featureReader = featureReader
@@ -107,18 +108,25 @@ func (h *SystemHandler) ListVersionReleases(c *gin.Context) {
 func (h *SystemHandler) PerformUpdate(c *gin.Context) {
 	operationID := buildSystemOperationID(c, "update")
 	var req struct {
-		Version       string `json:"version"`
-		BackupCurrent bool   `json:"backup_current"`
+		Version            string `json:"version"`
+		BackupCurrent      *bool  `json:"backup_current"`
+		ForceWithoutBackup bool   `json:"force_without_backup"`
 	}
 	if err := bindOptionalVersionActionJSON(c, &req); err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
 	req.Version = normalizeVersionManagerTargetVersion(req.Version)
+
+	// ForceWithoutBackup is intentionally the only server-side bypass switch.
+	// Legacy clients may send backup_current=false, which historically did not
+	// disable the mandatory snapshot, so that field alone remains fail-closed.
+	forceWithoutBackup := req.ForceWithoutBackup
 	payload := gin.H{
-		"operation_id":   operationID,
-		"version":        req.Version,
-		"backup_current": true,
+		"operation_id":         operationID,
+		"version":              req.Version,
+		"backup_current":       !forceWithoutBackup,
+		"force_without_backup": forceWithoutBackup,
 	}
 	executeAdminIdempotentJSON(c, "admin.system.update", payload, service.DefaultSystemOperationIdempotencyTTL(), func(ctx context.Context) (any, error) {
 		lock, release, err := h.acquireSystemLock(ctx, operationID)
@@ -131,10 +139,13 @@ func (h *SystemHandler) PerformUpdate(c *gin.Context) {
 			release(releaseReason, succeeded)
 		}()
 
-		backup, err := h.createPreVersionBackup(ctx, c, lock.OperationID(), "update", req.Version)
-		if err != nil {
-			releaseReason = infraerrors.Reason(err)
-			return nil, err
+		var backup *service.BackupRecord
+		if !forceWithoutBackup {
+			backup, err = h.createPreVersionBackup(ctx, c, lock.OperationID(), "update", req.Version)
+			if err != nil {
+				releaseReason = infraerrors.Reason(err)
+				return nil, err
+			}
 		}
 
 		if err := h.updateSvc.PerformUpdateToVersion(ctx, req.Version); err != nil {
@@ -145,16 +156,29 @@ func (h *SystemHandler) PerformUpdate(c *gin.Context) {
 			if errors.Is(err, service.ErrNoUpdateAvailable) {
 				succeeded = true
 				result := gin.H{
-					"message":            "Already up to date",
-					"already_up_to_date": true,
-					"operation_id":       lock.OperationID(),
-					"backup":             backup,
+					"message":               "Already up to date",
+					"already_up_to_date":    true,
+					"operation_id":          lock.OperationID(),
+					"forced_without_backup": forceWithoutBackup,
 				}
-				if backup.Metadata != nil {
-					result["current_version"] = backup.Metadata.SourceVersion
-					result["latest_version"] = backup.Metadata.TargetVersion
+				if backup != nil {
+					result["backup"] = backup
+					if backup.Metadata != nil {
+						result["current_version"] = backup.Metadata.SourceVersion
+						result["latest_version"] = backup.Metadata.TargetVersion
+					}
 				}
 				return result, nil
+			}
+			if forceWithoutBackup {
+				releaseReason = "SYSTEM_UPDATE_FAILED_WITHOUT_BACKUP"
+				return nil, infraerrors.InternalServer(
+					"SYSTEM_UPDATE_FAILED_WITHOUT_BACKUP",
+					"update failed after the pre-update backup was explicitly bypassed; automatic database recovery was not attempted: "+err.Error(),
+				).WithCause(err).WithMetadata(map[string]string{
+					"backup_bypassed":             "true",
+					"database_recovery_attempted": "false",
+				})
 			}
 			if restoreErr := h.backupSvc.RestoreBackup(ctx, backup.ID); restoreErr != nil {
 				releaseReason = "SYSTEM_UPDATE_DATABASE_RECOVERY_FAILED"
@@ -169,9 +193,10 @@ func (h *SystemHandler) PerformUpdate(c *gin.Context) {
 		succeeded = true
 
 		result := gin.H{
-			"message":      "Update completed. Please restart the service.",
-			"need_restart": true,
-			"operation_id": lock.OperationID(),
+			"message":               "Update completed. Please restart the service.",
+			"need_restart":          true,
+			"operation_id":          lock.OperationID(),
+			"forced_without_backup": forceWithoutBackup,
 		}
 		if backup != nil {
 			result["backup"] = backup
@@ -374,12 +399,18 @@ func (h *SystemHandler) createPreVersionBackup(
 	}
 
 	metadataForResponse := map[string]string{}
+	message := "pre-version PostgreSQL backup failed; verify S3-compatible backup storage and retry"
+	if action == "update" {
+		metadataForResponse["force_without_backup_allowed"] = "true"
+		metadataForResponse["version_action_started"] = "false"
+		message = "pre-version PostgreSQL backup failed; the update was not started. Fix backup storage and retry, or explicitly force the update without a backup"
+	}
 	if record != nil && record.ID != "" {
 		metadataForResponse["backup_id"] = record.ID
 	}
 	return record, infraerrors.ServiceUnavailable(
 		"SYSTEM_VERSION_BACKUP_FAILED",
-		"pre-version PostgreSQL backup failed; verify S3-compatible backup storage and retry",
+		message,
 	).WithCause(err).WithMetadata(metadataForResponse)
 }
 

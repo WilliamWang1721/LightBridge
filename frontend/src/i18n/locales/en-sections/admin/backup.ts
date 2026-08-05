@@ -1,6 +1,14 @@
 export default {
       title: 'Database Backup',
       description: 'Full database backup to S3-compatible storage with scheduled backup and restore',
+      local: {
+        title: 'Local Database Backup',
+        description: 'Generate and download a complete PostgreSQL logical backup (.sql.gz) without S3. No temporary backup file is retained on the server.',
+        download: 'One-click Local Backup',
+        downloading: 'Generating and downloading...',
+        success: 'Local backup downloaded: {fileName}',
+        failed: 'Local backup failed'
+      },
       s3: {
         title: 'S3 Storage Configuration',
         description: 'Configure S3-compatible storage (supports Cloudflare R2)',
