@@ -58,7 +58,6 @@
             <option value="">{{ t('distributions.filterAnyStatus') }}</option>
             <option value="active">active</option>
             <option value="disabled">disabled</option>
-            <option value="inactive">inactive</option>
           </select>
           <select v-model="filters.role" class="input">
             <option value="">{{ t('distributions.filterAnyRole') }}</option>
