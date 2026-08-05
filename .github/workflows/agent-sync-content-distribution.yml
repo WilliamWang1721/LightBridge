@@ -96,6 +96,80 @@ jobs:
           test ! -e backend/migrations/163_content_distributions.sql
           git mv backend/migrations/140_content_distributions.sql backend/migrations/163_content_distributions.sql
 
+      - name: Preserve personalized audience overrides
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          path = Path('backend/internal/service/distribution.go')
+          text = path.read_text()
+          old = '''\t\trecipients[user.ID] = DistributionRecipient{
+          \t\t\tUserID:          user.ID,
+          \t\t\tTitleOverride:   strings.TrimSpace(titleOverride),
+          \t\t\tContentOverride: strings.TrimSpace(contentOverride),
+          \t\t}
+          '''
+          new = '''\t\trecipients[user.ID] = mergeDistributionRecipient(
+          \t\t\trecipients[user.ID],
+          \t\t\tuser.ID,
+          \t\t\ttitleOverride,
+          \t\t\tcontentOverride,
+          \t\t)
+          '''
+          if text.count(old) != 1:
+              raise SystemExit('recipient merge block not found exactly once')
+          text = text.replace(old, new, 1)
+
+          anchor = 'type DistributionImportLine struct {\n'
+          helper = '''func mergeDistributionRecipient(existing DistributionRecipient, userID int64, titleOverride, contentOverride string) DistributionRecipient {
+          \ttitleOverride = strings.TrimSpace(titleOverride)
+          \tcontentOverride = strings.TrimSpace(contentOverride)
+          \tif titleOverride == "" {
+          \t\ttitleOverride = existing.TitleOverride
+          \t}
+          \tif contentOverride == "" {
+          \t\tcontentOverride = existing.ContentOverride
+          \t}
+          \treturn DistributionRecipient{
+          \t\tUserID:          userID,
+          \t\tTitleOverride:   titleOverride,
+          \t\tContentOverride: contentOverride,
+          \t}
+          }
+
+          '''
+          if text.count(anchor) != 1:
+              raise SystemExit('distribution import line anchor not found exactly once')
+          text = text.replace(anchor, helper + anchor, 1)
+          path.write_text(text)
+          PY
+
+          cat > backend/internal/service/distribution_recipient_merge_test.go <<'EOF'
+          package service
+
+          import (
+          	"testing"
+
+          	"github.com/stretchr/testify/require"
+          )
+
+          func TestMergeDistributionRecipientPreservesPersonalization(t *testing.T) {
+          	personalized := mergeDistributionRecipient(
+          		DistributionRecipient{},
+          		42,
+          		"Personal title",
+          		"Personal content",
+          	)
+
+          	mergedFromBroadAudience := mergeDistributionRecipient(personalized, 42, "", "")
+          	require.Equal(t, personalized, mergedFromBroadAudience)
+
+          	updatedTitle := mergeDistributionRecipient(mergedFromBroadAudience, 42, "Updated title", "")
+          	require.Equal(t, "Updated title", updatedTitle.TitleOverride)
+          	require.Equal(t, "Personal content", updatedTitle.ContentOverride)
+          }
+          EOF
+
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
@@ -116,7 +190,8 @@ jobs:
             backend/internal/server/router.go \
             backend/internal/server/routes/distribution.go \
             backend/internal/service/distribution.go \
-            backend/internal/service/distribution_test.go
+            backend/internal/service/distribution_test.go \
+            backend/internal/service/distribution_recipient_merge_test.go
           cd backend
           go test ./internal/service ./internal/repository ./internal/handler ./internal/handler/admin ./internal/server ./internal/server/routes
 
