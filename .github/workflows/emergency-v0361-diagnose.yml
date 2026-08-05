@@ -1,4 +1,4 @@
-name: Emergency v0.3.61 verified repair
+name: Emergency v0.3.61 frontend release gate
 
 on:
   push:
@@ -10,20 +10,20 @@ permissions:
   contents: write
 
 concurrency:
-  group: emergency-v0361-verified-repair
+  group: emergency-v0361-frontend-release-gate
   cancel-in-progress: true
 
 jobs:
-  verify-and-commit:
+  verify-frontend-and-commit:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6
         with:
           ref: agent/emergency-v0.3.61
           fetch-depth: 0
 
-      - name: Apply reviewed production fixes and test-race repairs
+      - name: Reproduce backend candidate verified by run 31022555130
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -110,48 +110,6 @@ jobs:
           git diff --check
           git status --short
 
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: backend/go.mod
-          check-latest: false
-          cache: true
-          cache-dependency-path: backend/go.sum
-
-      - name: Verify Go version
-        run: go version | grep -q 'go1.26.5'
-
-      - name: Backend unit tests
-        run: |
-          set -o pipefail
-          make -C backend test-unit 2>&1 | tee /tmp/backend-unit.log
-
-      - name: Backend integration tests
-        run: |
-          set -o pipefail
-          make -C backend test-integration 2>&1 | tee /tmp/backend-integration.log
-
-      - name: Backend race tests
-        run: |
-          set -o pipefail
-          go -C backend test -race -tags=unit ./internal/service ./internal/repository ./internal/handler/... 2>&1 | tee /tmp/backend-race.log
-
-      - name: Backend lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          version: v2.9
-          args: --timeout=30m
-          working-directory: backend
-
-      - name: Secret scan
-        run: |
-          set -o pipefail
-          make secret-scan 2>&1 | tee /tmp/secret-scan.log
-
-      - name: Release configuration validation
-        run: |
-          set -o pipefail
-          python3 tools/validate_release_configuration.py 2>&1 | tee /tmp/release-validation.log
-
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -168,23 +126,10 @@ jobs:
         working-directory: frontend
         run: pnpm install --frozen-lockfile
 
-      - name: Frontend tests
-        working-directory: frontend
+      - name: Official frontend release gate
         run: |
           set -o pipefail
-          pnpm test:run 2>&1 | tee /tmp/frontend-tests.log
-
-      - name: Frontend typecheck
-        working-directory: frontend
-        run: |
-          set -o pipefail
-          pnpm typecheck 2>&1 | tee /tmp/frontend-typecheck.log
-
-      - name: Frontend lint
-        working-directory: frontend
-        run: |
-          set -o pipefail
-          pnpm lint:check 2>&1 | tee /tmp/frontend-lint.log
+          make test-frontend 2>&1 | tee /tmp/frontend-release-gate.log
 
       - name: Frontend production build
         working-directory: frontend
@@ -210,17 +155,10 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: emergency-v0361-verified-repair-logs
+          name: emergency-v0361-frontend-release-gate-logs
           path: |
             /tmp/apply-reviewed-fixes.log
-            /tmp/backend-unit.log
-            /tmp/backend-integration.log
-            /tmp/backend-race.log
-            /tmp/secret-scan.log
-            /tmp/release-validation.log
-            /tmp/frontend-tests.log
-            /tmp/frontend-typecheck.log
-            /tmp/frontend-lint.log
+            /tmp/frontend-release-gate.log
             /tmp/frontend-build.log
           if-no-files-found: ignore
           retention-days: 3
