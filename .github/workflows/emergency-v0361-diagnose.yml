@@ -1,4 +1,4 @@
-name: Emergency v0.3.61 backend diagnostics
+name: Emergency v0.3.61 verified repair
 
 on:
   push:
@@ -7,23 +7,23 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: emergency-v0361-diagnostics
+  group: emergency-v0361-verified-repair
   cancel-in-progress: true
 
 jobs:
-  diagnose-backend:
+  verify-and-commit:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v6
         with:
           ref: agent/emergency-v0.3.61
           fetch-depth: 0
 
-      - name: Reuse reviewed fixes and repair race-test harness
+      - name: Apply reviewed production fixes and test-race repairs
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -80,18 +80,51 @@ jobs:
           }
           ''')
           PY
-          gofmt -w backend/internal/service/usage_cleanup_service_test.go backend/internal/service/openai_compat_model_test.go backend/internal/service/gin_test_mode_test.go
+
+          gofmt -w \
+            backend/internal/service/usage_cleanup_service_test.go \
+            backend/internal/service/openai_compat_model_test.go \
+            backend/internal/service/gin_test_mode_test.go
+
+          git add -N \
+            backend/internal/service/backup_shutdown_test.go \
+            backend/internal/service/gin_test_mode_test.go
+          python3 tools/codebase_inventory.py
+          python3 tools/codebase_inventory.py --check
           git diff --check
+          git status --short
 
       - uses: actions/setup-go@v6
         with:
           go-version-file: backend/go.mod
+          check-latest: false
+          cache: true
           cache-dependency-path: backend/go.sum
+
+      - name: Verify Go version
+        run: go version | grep -q 'go1.26.5'
+
+      - name: Backend unit tests
+        run: |
+          set -o pipefail
+          make -C backend test-unit 2>&1 | tee /tmp/backend-unit.log
+
+      - name: Backend integration tests
+        run: |
+          set -o pipefail
+          make -C backend test-integration 2>&1 | tee /tmp/backend-integration.log
 
       - name: Backend race tests
         run: |
           set -o pipefail
           go -C backend test -race -tags=unit ./internal/service ./internal/repository ./internal/handler/... 2>&1 | tee /tmp/backend-race.log
+
+      - name: Backend lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.9
+          args: --timeout=30m
+          working-directory: backend
 
       - name: Secret scan
         run: |
@@ -103,15 +136,75 @@ jobs:
           set -o pipefail
           python3 tools/validate_release_configuration.py 2>&1 | tee /tmp/release-validation.log
 
-      - name: Upload diagnostic logs
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.13'
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Frontend tests
+        working-directory: frontend
+        run: |
+          set -o pipefail
+          pnpm test:run 2>&1 | tee /tmp/frontend-tests.log
+
+      - name: Frontend typecheck
+        working-directory: frontend
+        run: |
+          set -o pipefail
+          pnpm typecheck 2>&1 | tee /tmp/frontend-typecheck.log
+
+      - name: Frontend lint
+        working-directory: frontend
+        run: |
+          set -o pipefail
+          pnpm lint:check 2>&1 | tee /tmp/frontend-lint.log
+
+      - name: Frontend production build
+        working-directory: frontend
+        run: |
+          set -o pipefail
+          pnpm build 2>&1 | tee /tmp/frontend-build.log
+
+      - name: Commit verified repair
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add backend docs
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo 'No verified source changes were produced.' >&2
+            exit 1
+          fi
+          git commit -m 'fix: harden backups distributions and v0.3.61 release'
+          git push origin HEAD:agent/emergency-v0.3.61
+
+      - name: Upload verification logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: emergency-v0361-backend-diagnostics-rerun
+          name: emergency-v0361-verified-repair-logs
           path: |
             /tmp/apply-reviewed-fixes.log
+            /tmp/backend-unit.log
+            /tmp/backend-integration.log
             /tmp/backend-race.log
             /tmp/secret-scan.log
             /tmp/release-validation.log
+            /tmp/frontend-tests.log
+            /tmp/frontend-typecheck.log
+            /tmp/frontend-lint.log
+            /tmp/frontend-build.log
           if-no-files-found: ignore
           retention-days: 3
