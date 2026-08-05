@@ -107,6 +107,7 @@ type BindUserAuthIdentityChannelRequest struct {
 //   - search: search in email, username
 //   - attr[{id}]: filter by custom attribute value, e.g. attr[1]=company
 //   - group_name: fuzzy filter by allowed group name
+//   - activity: activity filter (any, usage, balance_change, none)
 func (h *UserHandler) List(c *gin.Context) {
 	page, pageSize := response.ParsePagination(c)
 
@@ -115,6 +116,16 @@ func (h *UserHandler) List(c *gin.Context) {
 	search = strings.TrimSpace(search)
 	if runes := []rune(search); len(runes) > 100 {
 		search = string(runes[:100])
+	}
+	if rawActivity, exists := c.GetQuery("activity"); exists {
+		activity, valid := service.NormalizeUserActivityFilter(rawActivity)
+		if !valid {
+			response.BadRequest(c, "activity must be one of: any, usage, balance_change, none")
+			return
+		}
+		if token := service.UserActivitySearchToken(activity); token != "" {
+			search = strings.TrimSpace(search + " " + token)
+		}
 	}
 
 	filters := service.UserListFilters{

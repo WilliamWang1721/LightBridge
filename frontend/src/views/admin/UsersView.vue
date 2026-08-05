@@ -48,7 +48,22 @@
               />
             </div>
 
-            <!-- Group Filter (visible when enabled) -->
+            <!-- Activity Filter (visible when enabled) -->
+  <div v-if="visibleFilters.has('activity')" class="w-full sm:w-52">
+    <Select
+      v-model="filters.activity"
+      :options="[
+        { value: '', label: t('admin.users.allActivity') },
+        { value: 'any', label: t('admin.users.activityAny') },
+        { value: 'usage', label: t('admin.users.activityUsage') },
+        { value: 'balance_change', label: t('admin.users.activityBalanceChange') },
+        { value: 'none', label: t('admin.users.activityNone') }
+      ]"
+      @change="applyFilter"
+    />
+  </div>
+
+  <!-- Group Filter (visible when enabled) -->
             <div v-if="visibleFilters.has('group')" class="w-full sm:w-44">
               <Select
                 v-model="filters.group"
@@ -848,7 +863,7 @@ const { t } = useI18n()
 import { adminAPI } from '@/api/admin'
 import type { AdminUser, AdminGroup, UserAttributeDefinition } from '@/types'
 import type { BatchUserUsageStats } from '@/api/admin/dashboard'
-import type { PlatformQuotaItem } from '@/api/admin/users'
+import type { PlatformQuotaItem, UserActivityFilter } from '@/api/admin/users'
 import type { Column } from '@/components/common/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
@@ -1214,12 +1229,13 @@ const groupFilterOptions = computed(() => {
 const filters = reactive({
   role: '',
   status: '',
+  activity: '' as '' | UserActivityFilter,
   group: ''  // group name for fuzzy match, '' = all
 })
 const activeAttributeFilters = reactive<Record<number, string>>({})
 
 // Visible filters tracking (which filters are shown in the UI)
-// Keys: 'role', 'status', 'attr_${id}'
+// Keys: 'role', 'status', 'activity', 'group', 'attr_${id}'
 const visibleFilters = reactive<Set<string>>(new Set())
 
 // Dropdown states
@@ -1243,6 +1259,7 @@ const filterableAttributes = computed(() =>
 const builtInFilters = computed(() => [
   { key: 'role', name: t('admin.users.columns.role'), type: 'select' as const },
   { key: 'status', name: t('admin.users.columns.status'), type: 'select' as const },
+  { key: 'activity', name: t('admin.users.activityFilter'), type: 'select' as const },
   { key: 'group', name: t('admin.users.columns.groups'), type: 'select' as const }
 ])
 
@@ -1254,6 +1271,8 @@ const loadSavedFilters = () => {
     if (savedVisible) {
       const parsed = JSON.parse(savedVisible) as string[]
       parsed.forEach(key => visibleFilters.add(key))
+    } else {
+      visibleFilters.add('activity')
     }
     // Load filter values
     const savedValues = localStorage.getItem(FILTER_VALUES_KEY)
@@ -1261,6 +1280,9 @@ const loadSavedFilters = () => {
       const parsed = JSON.parse(savedValues)
       if (parsed.role) filters.role = parsed.role
       if (parsed.status) filters.status = parsed.status
+      if (['any', 'usage', 'balance_change', 'none'].includes(parsed.activity)) {
+        filters.activity = parsed.activity
+      }
       if (parsed.group) filters.group = parsed.group
       if (parsed.attributes) {
         Object.assign(activeAttributeFilters, parsed.attributes)
@@ -1280,6 +1302,7 @@ const saveFiltersToStorage = () => {
     const values = {
       role: filters.role,
       status: filters.status,
+      activity: filters.activity,
       group: filters.group,
       attributes: activeAttributeFilters
     }
@@ -1660,6 +1683,7 @@ const loadUsers = async () => {
       {
         role: filters.role as any,
         status: filters.status as any,
+        activity: filters.activity || undefined,
         search: searchQuery.value || undefined,
         group_name: filters.group || undefined,
         attributes: Object.keys(attrFilters).length > 0 ? attrFilters : undefined,
@@ -1745,6 +1769,7 @@ const toggleBuiltInFilter = (key: string) => {
     visibleFilters.delete(key)
     if (key === 'role') filters.role = ''
     if (key === 'status') filters.status = ''
+    if (key === 'activity') filters.activity = ''
     if (key === 'group') filters.group = ''
   } else {
     visibleFilters.add(key)

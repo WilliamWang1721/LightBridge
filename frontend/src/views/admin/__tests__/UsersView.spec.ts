@@ -161,4 +161,46 @@ describe('admin UsersView', () => {
       expect.any(Object)
     )
   })
+
+  it('forwards a saved activity filter to the users API', async () => {
+    localStorage.setItem('user-filter-values', JSON.stringify({ activity: 'none' }))
+
+    mount(UsersView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          TablePageLayout: {
+            template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
+          },
+          DataTable: DataTableStub,
+          Pagination: true,
+          ConfirmDialog: true,
+          EmptyState: true,
+          GroupBadge: true,
+          Select: true,
+          UserAttributesConfigModal: true,
+          UserConcurrencyCell: true,
+          UserCreateModal: true,
+          UserEditModal: true,
+          UserApiKeysModal: true,
+          UserAllowedGroupsModal: true,
+          UserBalanceModal: true,
+          UserBalanceHistoryModal: true,
+          GroupReplaceModal: true,
+          Icon: true,
+          Teleport: true
+        }
+      }
+    })
+
+    await flushPromises()
+
+    expect(listUsers).toHaveBeenCalledWith(
+      1,
+      20,
+      expect.objectContaining({ activity: 'none' }),
+      expect.any(Object)
+    )
+  })
+
 })

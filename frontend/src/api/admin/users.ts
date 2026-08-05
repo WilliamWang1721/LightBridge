@@ -6,6 +6,8 @@
 import { apiClient } from '../client'
 import type { AdminUser, UpdateUserRequest, PaginatedResponse, ApiKey } from '@/types'
 
+export type UserActivityFilter = 'any' | 'usage' | 'balance_change' | 'none'
+
 export interface AdminBindAuthIdentityChannelRequest {
   channel: string
   channel_app_id: string
@@ -59,6 +61,7 @@ export async function list(
     status?: 'active' | 'disabled'
     role?: 'admin' | 'user'
     search?: string
+    activity?: UserActivityFilter
     group_name?: string         // fuzzy filter by allowed group name
     attributes?: Record<number, string>  // attributeId -> value
     include_subscriptions?: boolean
@@ -76,6 +79,7 @@ export async function list(
     status: filters?.status,
     role: filters?.role,
     search: filters?.search,
+    activity: filters?.activity,
     group_name: filters?.group_name,
     include_subscriptions: filters?.include_subscriptions,
     sort_by: filters?.sort_by,
