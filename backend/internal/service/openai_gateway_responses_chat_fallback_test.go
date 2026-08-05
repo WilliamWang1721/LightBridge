@@ -18,7 +18,6 @@ import (
 )
 
 func TestForwardResponses_ForceChatCompletionsRoutesNonStreamingToChatCompletions(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 
 	body := []byte(`{"model":"gpt-5.4","input":"hello","stream":false}`)
 	rec := httptest.NewRecorder()
@@ -54,7 +53,6 @@ func TestForwardResponses_ForceChatCompletionsRoutesNonStreamingToChatCompletion
 }
 
 func TestForwardResponses_ForceChatCompletionsRoutesStreamingToChatCompletions(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 
 	body := []byte(`{"model":"gpt-5.4","input":"hello","stream":true}`)
 	rec := httptest.NewRecorder()
@@ -103,7 +101,6 @@ func TestForwardResponses_ForceChatCompletionsRoutesStreamingToChatCompletions(t
 }
 
 func TestForwardResponses_AutoSupportedAccountStillUsesResponsesEndpoint(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 
 	body := []byte(`{"model":"gpt-5.4","input":"hello","stream":false}`)
 	rec := httptest.NewRecorder()
@@ -138,7 +135,6 @@ func TestForwardResponses_AutoSupportedAccountStillUsesResponsesEndpoint(t *test
 }
 
 func TestForwardResponses_GrokBuildUsesStrictChatBridgeForLiteLLMToolCalls(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 
 	body := []byte(`{
 		"model":"grok-4-fast",
@@ -208,7 +204,6 @@ func TestForwardResponses_GrokBuildUsesStrictChatBridgeForLiteLLMToolCalls(t *te
 }
 
 func TestForwardResponses_GrokBuildRestoresNamespaceAndCustomToolCalls(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 
 	body := []byte(`{
 		"model":"grok-4-fast",

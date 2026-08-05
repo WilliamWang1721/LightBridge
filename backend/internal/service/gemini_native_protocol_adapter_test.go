@@ -70,7 +70,6 @@ func TestGeminiGenerateContentToAnthropicMessages(t *testing.T) {
 }
 
 func TestWriteCapturedAnthropicAsGeminiJSON(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
 	body := []byte(`{
@@ -121,7 +120,6 @@ func TestWriteCapturedAnthropicAsGeminiJSON(t *testing.T) {
 }
 
 func TestWriteCapturedAnthropicAsGeminiStream(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
 	stream := strings.Join([]string{

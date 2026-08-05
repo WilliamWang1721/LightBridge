@@ -17,7 +17,6 @@ import (
 )
 
 func TestOpenAIGatewayServiceForward_GrokOAuthUsesBuildProxy(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
@@ -64,7 +63,6 @@ func TestOpenAIGatewayServiceForward_GrokOAuthUsesBuildProxy(t *testing.T) {
 }
 
 func TestBuildGrokResponsesRequestUsingAPIMode(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
 	account := &Account{
@@ -154,7 +152,6 @@ func TestGrokReplayCollectorIncludesReasoningAndToolCall(t *testing.T) {
 }
 
 func TestOpenAIGatewayServiceForward_GrokInvalidReplayRetriesWithoutCache(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	model := "grok-4.5"
 	body := []byte(`{"model":"grok-4.5","stream":false,"previous_response_id":"resp_retry","input":[{"type":"function_call_output","call_id":"call_retry","output":"done"}]}`)
 	c := newGrokReplayTestContext(401, 402, body)

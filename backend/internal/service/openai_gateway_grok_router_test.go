@@ -43,7 +43,6 @@ func grokRouterCompletedSSE(responseID string, output string) string {
 }
 
 func TestForwardAsAnthropic_GrokBuildUsesXAIRequestAndPreservesTools(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
 	body := []byte(`{
@@ -87,7 +86,6 @@ func TestForwardAsAnthropic_GrokBuildUsesXAIRequestAndPreservesTools(t *testing.
 }
 
 func TestForwardAsChatCompletions_GrokBuildUsesXAIRequestAndReturnsToolCall(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
 	body := []byte(`{
@@ -125,7 +123,6 @@ func TestForwardAsChatCompletions_GrokBuildUsesXAIRequestAndReturnsToolCall(t *t
 }
 
 func TestForwardAsChatCompletions_GrokBuildReplaysReasoningForResponsesShapeToolOutput(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
 	body := []byte(`{
