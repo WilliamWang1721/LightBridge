@@ -14,6 +14,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const (
+	// Base64 expands binary data to four bytes for every three bytes. Keep enough
+	// JSON headroom so an attachment at the advertised 10 MiB limit is accepted.
+	maxDistributionJSONBodyBytes int64 = ((service.MaxDistributionAttachmentBytes + 2) / 3 * 4) + (2 << 20)
+	distributionAudienceModeError       = "audience must use exactly one non-empty mode: explicit recipients, filters, lines, or all"
+)
+
 type DistributionHandler struct {
 	service *service.DistributionService
 }
@@ -26,6 +33,10 @@ func (h *DistributionHandler) Create(c *gin.Context) {
 	input, err := parseCreateDistributionInput(c)
 	if err != nil {
 		response.BadRequest(c, err.Error())
+		return
+	}
+	if !validDistributionAudience(input.Audience) {
+		response.BadRequest(c, distributionAudienceModeError)
 		return
 	}
 	actorID := getAdminIDFromContext(c)
@@ -53,6 +64,12 @@ func (h *DistributionHandler) BatchCreate(c *gin.Context) {
 		response.BadRequest(c, "items must contain between 1 and 100 entries")
 		return
 	}
+	for i := range request.Items {
+		if !validDistributionAudience(request.Items[i].Audience) {
+			response.BadRequest(c, distributionAudienceModeError)
+			return
+		}
+	}
 	actorID := getAdminIDFromContext(c)
 	var actorIDPtr *int64
 	if actorID > 0 {
@@ -66,6 +83,10 @@ func (h *DistributionHandler) PreviewAudience(c *gin.Context) {
 	var audience service.DistributionAudienceInput
 	if err := c.ShouldBindJSON(&audience); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	if !validDistributionAudience(audience) {
+		response.BadRequest(c, distributionAudienceModeError)
 		return
 	}
 	users, count, err := h.service.PreviewAudience(c.Request.Context(), audience)
@@ -127,7 +148,7 @@ func (h *DistributionHandler) Delete(c *gin.Context) {
 func parseCreateDistributionInput(c *gin.Context) (service.CreateDistributionInput, error) {
 	contentType := c.GetHeader("Content-Type")
 	if !strings.HasPrefix(strings.ToLower(contentType), "multipart/form-data") {
-		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, service.MaxDistributionAttachmentBytes+(2<<20))
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxDistributionJSONBodyBytes)
 		var input service.CreateDistributionInput
 		if err := c.ShouldBindJSON(&input); err != nil {
 			return input, err
@@ -177,6 +198,37 @@ func parseCreateDistributionInput(c *gin.Context) (service.CreateDistributionInp
 		return input, err
 	}
 	return input, nil
+}
+
+func validDistributionAudience(audience service.DistributionAudienceInput) bool {
+	modes := 0
+	if audience.All {
+		modes++
+	}
+	if len(audience.UserIDs) > 0 || len(audience.Emails) > 0 {
+		modes++
+	}
+	if strings.TrimSpace(audience.Lines) != "" {
+		modes++
+	}
+	if hasNonEmptyDistributionFilters(audience.Filters) {
+		modes++
+	} else if audience.Filters != nil {
+		return false
+	}
+	return modes == 1
+}
+
+func hasNonEmptyDistributionFilters(filters *service.DistributionUserFilters) bool {
+	if filters == nil {
+		return false
+	}
+	return strings.TrimSpace(filters.Status) != "" ||
+		strings.TrimSpace(filters.Role) != "" ||
+		strings.TrimSpace(filters.Search) != "" ||
+		strings.TrimSpace(filters.GroupName) != "" ||
+		strings.TrimSpace(filters.Activity) != "" ||
+		len(filters.Attributes) > 0
 }
 
 func parseDistributionID(c *gin.Context) (int64, bool) {
