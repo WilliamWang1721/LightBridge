@@ -1,0 +1,89 @@
+name: Emergency v0.3.61 backend diagnostics
+
+on:
+  push:
+    branches: [agent/emergency-v0.3.61]
+    paths: [.github/workflows/emergency-v0361-diagnose.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: emergency-v0361-diagnostics
+  cancel-in-progress: true
+
+jobs:
+  diagnose-backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: agent/emergency-v0.3.61
+          fetch-depth: 0
+
+      - name: Reuse and apply reviewed fixes
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          workflow = Path('.github/workflows/emergency-v0361-review.yml').read_text()
+          marker = '      - name: Apply reviewed fixes\n        run: |\n'
+          start = workflow.index(marker) + len(marker)
+          end = workflow.index('\n      - uses:', start)
+          block = workflow[start:end]
+          script = '\n'.join(
+              line[10:] if line.startswith('          ') else line
+              for line in block.splitlines()
+          ) + '\n'
+          Path('/tmp/apply-reviewed-fixes.sh').write_text(script)
+          PY
+          bash -n /tmp/apply-reviewed-fixes.sh
+          bash /tmp/apply-reviewed-fixes.sh 2>&1 | tee /tmp/apply-reviewed-fixes.log
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Backend unit tests
+        run: |
+          set -o pipefail
+          make -C backend test-unit 2>&1 | tee /tmp/backend-unit.log
+
+      - name: Backend integration tests
+        run: |
+          set -o pipefail
+          make -C backend test-integration 2>&1 | tee /tmp/backend-integration.log
+
+      - name: Backend race tests
+        run: |
+          set -o pipefail
+          go -C backend test -race -tags=unit ./internal/service ./internal/repository ./internal/handler/... 2>&1 | tee /tmp/backend-race.log
+
+      - name: Secret scan
+        run: |
+          set -o pipefail
+          make secret-scan 2>&1 | tee /tmp/secret-scan.log
+
+      - name: Release configuration validation
+        run: |
+          set -o pipefail
+          python3 tools/validate_release_configuration.py 2>&1 | tee /tmp/release-validation.log
+
+      - name: Upload diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emergency-v0361-backend-diagnostics
+          path: |
+            /tmp/apply-reviewed-fixes.log
+            /tmp/backend-unit.log
+            /tmp/backend-integration.log
+            /tmp/backend-race.log
+            /tmp/secret-scan.log
+            /tmp/release-validation.log
+          if-no-files-found: ignore
+          retention-days: 3
