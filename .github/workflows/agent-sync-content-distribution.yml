@@ -1,0 +1,105 @@
+name: Sync content distribution with main
+
+on:
+  push:
+    branches:
+      - agent/content-distribution
+    paths:
+      - .github/workflows/agent-sync-content-distribution.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: agent-sync-content-distribution
+  cancel-in-progress: false
+
+jobs:
+  sync-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/content-distribution
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+
+      - name: Merge latest main
+        run: |
+          set +e
+          git merge --no-commit --no-ff origin/main
+          merge_status=$?
+          set -e
+          if [ "$merge_status" -ne 0 ]; then
+            echo "::error::Merge conflicts require reviewed resolution"
+            echo "Conflicted files:"
+            git diff --name-only --diff-filter=U
+            echo "Conflict details:"
+            git diff --cc --stat
+            git diff --cc
+            exit 1
+          fi
+
+      - name: Renumber distribution migration
+        run: |
+          test -f backend/migrations/140_content_distributions.sql
+          test ! -e backend/migrations/163_content_distributions.sql
+          git mv backend/migrations/140_content_distributions.sql backend/migrations/163_content_distributions.sql
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Format and test backend
+        run: |
+          gofmt -w \
+            backend/internal/handler/admin/distribution_handler.go \
+            backend/internal/handler/admin/distribution_handler_test.go \
+            backend/internal/handler/distribution_handler.go \
+            backend/internal/handler/distribution_handler_test.go \
+            backend/internal/repository/aes_encryptor.go \
+            backend/internal/repository/distribution_repo.go \
+            backend/internal/repository/distribution_runtime.go \
+            backend/internal/repository/wire.go \
+            backend/internal/server/router.go \
+            backend/internal/server/routes/distribution.go \
+            backend/internal/service/distribution.go \
+            backend/internal/service/distribution_test.go
+          cd backend
+          go test ./internal/service ./internal/repository ./internal/handler ./internal/handler/admin ./internal/server ./internal/server/routes
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Verify frontend
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm typecheck
+          pnpm test:run -- --passWithNoTests
+
+      - name: Commit verified merge
+        run: |
+          rm .github/workflows/agent-sync-content-distribution.yml
+          git add -A
+          git diff --cached --check
+          git commit -m "Merge main into agent/content-distribution"
+          git push origin HEAD:agent/content-distribution
