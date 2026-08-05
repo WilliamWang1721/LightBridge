@@ -19,7 +19,7 @@ DEV_GUIDE.md	documentation	maintained	346	9185	196d76feb4c5898fed983fb13499f1d11
 Dockerfile	tooling	maintained	137	4947	c5350cef4a5cf82c87267986a8a98fa79d9a82a3357b6891763e1cba8799b439
 Dockerfile.goreleaser	other-text	maintained	62	2116	1709c5f34c1268966ecca43f34891acf2d1d653c018ff823fa95971cf1a3522c
 LICENSE	other-text	maintained	165	7651	a5681bf9b05db14d86776930017c647ad9e6e56ff6bbcfdf21e5848288dfaf1b
-Makefile	tooling	maintained	69	2255	9a49aaa9d433813776f2745813c746b9965e8a5f9713797d07245164d2a9a20f
+Makefile	tooling	maintained	71	2353	4d2c4a15731c2e5f932ecbb6ff93b10e331ba53bdb14292e6aac609539161ce5
 README.md	documentation	generated	217	8731	ffa1b4f7414c2610ac8b2d8176be1d896a301aae39eb9bf6647ad770796eb2bd
 README_CN.md	documentation	maintained	210	8248	786cd59b59efb8c6344b61a12caea265015cabc0b18bb6c36880be54b184c342
 REPAIR_REPORT.md	documentation	maintained	53	3303	3dc924e1e4b67a1d0ba90a40a01ba1b6959548fff9729506ce7b1596f79214f8
@@ -384,7 +384,8 @@ backend/internal/handler/admin/announcement_handler_sort_test.go	backend-go	main
 backend/internal/handler/admin/antigravity_oauth_handler.go	backend-go	maintained	91	2862	2c079452ca2227f2e85fde8037bd5934bd2765ffc333a113510599b14aa55733
 backend/internal/handler/admin/apikey_handler.go	backend-go	maintained	105	3147	a2acb732cd9b836fa3ebbe315473f9ef80df56a6db5aae8b12dfd8e212f2d000
 backend/internal/handler/admin/apikey_handler_test.go	backend-go	maintained	306	10224	877dfcca035cdfa6fb51120617f84c3b9af3882c7f5de46d1a7f8774ecdf586f
-backend/internal/handler/admin/backup_handler.go	backend-go	maintained	205	5190	dd15ea99ceb76241422d6d05cd3e5078caeef23cef98c23585c6d67ee652d8a1
+backend/internal/handler/admin/backup_handler.go	backend-go	maintained	242	6202	0c7d10b8e8a157ccf9dbd36bddc7984fdf1c16b9235fe980436da1e19a885799
+backend/internal/handler/admin/backup_local_handler_test.go	backend-go	maintained	132	4303	e6904a2812d1ce663624e654a92d5156594e833ef4286183013110906267a733
 backend/internal/handler/admin/batch_update_credentials_test.go	backend-go	maintained	208	7130	1906759d467c27ace74eb50f6a613684f186f7527ee369c05ea2bdc72499ef22
 backend/internal/handler/admin/channel_handler.go	backend-go	maintained	534	20693	ac37f1f21b40d3c72d160acb45778502fab7f12ba8118851f5d5d3cbe772d1b7
 backend/internal/handler/admin/channel_handler_test.go	backend-go	maintained	477	14749	ce3291cffbd7f6fdb6cd2d6297a6436f7ca1562ef030ad8ba0afdecf473e35b5
@@ -450,7 +451,8 @@ backend/internal/handler/admin/setting_handler_websearch.go	backend-go	maintaine
 backend/internal/handler/admin/snapshot_cache.go	backend-go	maintained	138	2779	fd50a5de4e1e445c87c70570815f7b880ca334aa4a7e7dfeabf18e6d81c130fe
 backend/internal/handler/admin/snapshot_cache_test.go	backend-go	maintained	185	4551	adf68d7ade89b036208d3ea37f0213287617f58670d442d2e7b3417b1c091161
 backend/internal/handler/admin/subscription_handler.go	backend-go	maintained	323	10290	b3fa730c9c7e2d07a0d51df8f94a2ff2c02914ec3d2bd6710c4c68f982e2e357
-backend/internal/handler/admin/system_handler.go	backend-go	maintained	454	15813	9b41ef4aaa590e4b8d93a0aaa613086e6b34701bd0a05cb7ea9f60b8c31b50f0
+backend/internal/handler/admin/system_force_update_test.go	backend-go	maintained	126	3736	a2affd092c67b97e22923b93fcc10db5e9dbb62223e85c769453d09daa30af1e
+backend/internal/handler/admin/system_handler.go	backend-go	maintained	485	17333	bfbf8e4b525bf1453ce6829ba0c8f1e31d38fdda4179291c839cbe9df1647041
 backend/internal/handler/admin/system_handler_test.go	backend-go	maintained	544	22007	5f3db01e1cd63bd8c52589fe9bc16424cc25cf0bb856905ebfce68ca48dc4753
 backend/internal/handler/admin/tls_fingerprint_profile_handler.go	backend-go	maintained	234	6955	e81d1f4abcd8ca2f110a3e796add7813158c4b4cc81bb2e98d0896c1be8267c8
 backend/internal/handler/admin/ui_theme_handler.go	backend-go	maintained	135	3279	8009459767ecd0ff9a8557ff22f8a17e914b3f2c5b03dcce2cf83e8a31624380
@@ -1193,6 +1195,8 @@ backend/internal/service/auth_service_platform_quota_test.go	backend-go	maintain
 backend/internal/service/auth_service_register_test.go	backend-go	maintained	845	29289	9e05148103db6e912baecf05071f0ed9085477dd9fbd9ff26cf2b39177ab6662
 backend/internal/service/auth_service_test.go	backend-go	maintained	13	364	eaba686a3ff249b24eaa9d5e3ac90089d62a2ae8a3e01fbf61757ae1bfc0e3a2
 backend/internal/service/auth_service_turnstile_register_test.go	backend-go	maintained	100	2918	c0d6e4760bed04a6ec32d6678e6184b2a83f18e217026ad1d479555c5b610c23
+backend/internal/service/backup_local_service.go	backend-go	maintained	127	3941	81c4a57eadbdf5032f6c24e750293df986d34c6c77da6aeb250f2e2e3433716a
+backend/internal/service/backup_local_service_test.go	backend-go	maintained	171	4151	07745a6af52792373e9a639cc40545841505063d913c7ed8b4f70e6d10312a64
 backend/internal/service/backup_service.go	backend-go	maintained	1212	35854	2bb530b64b782b93cb096f36a54a82fac9c2e44cbd9a125c76bbc8d23f458d91
 backend/internal/service/backup_service_test.go	backend-go	maintained	850	24566	69c7b030bad10f7efdbbe76251f2b59b4af2c5a5125ab447a26aae43f3901ed2
 backend/internal/service/balance_notify_async.go	backend-go	maintained	39	924	4beeb7d3ee7499a5f08cc7e954198212fc6ab11e969348e7cea7d5d0a84ac59a
@@ -2152,13 +2156,14 @@ frontend/src/api/__tests__/settings.authSourceDefaults.spec.ts	frontend-script	m
 frontend/src/api/__tests__/settings.paymentVisibleMethods.spec.ts	frontend-script	maintained	63	2203	4bbade004b0688a755303a1e9c263f365384cbc964e688ec1886c39c8de3f5de
 frontend/src/api/__tests__/settings.wechatConnect.spec.ts	frontend-script	maintained	21	849	2bd34edf4c3d80568d21432c6c91e6ff7ef6361823336cddfe7e4e9ba68a8420
 frontend/src/api/__tests__/user.spec.ts	frontend-script	maintained	32	1103	53bef998c2183375ca207516f59ad5437286cd5189e89f7acef4a79304b099e5
+frontend/src/api/admin/__tests__/backup.spec.ts	frontend-script	maintained	34	1382	60bfb5efc3637a4aeb98fa29b0dc9243bcd967734b144b1be7225aed9281f3dc
 frontend/src/api/admin/accounts.ts	frontend-script	maintained	960	26092	6c769ef140d224056f31fab8b699a8e20c9e8b2ab3ddf672ee51c42e9aef35f0
 frontend/src/api/admin/affiliates.ts	frontend-script	maintained	230	5615	846f446ece5a371f9309094bd589ffdd2529f66d34c76d9882f50827b4f5b506
 frontend/src/api/admin/announcements.ts	frontend-script	maintained	86	2200	115b1daebf212883dda0f047ff039b4648204a9dc676202edcc978e97665f618
 frontend/src/api/admin/antigravity.ts	frontend-script	maintained	70	1673	1759c345a4243b0cb7200eebc2dd1cca92275b9c74232456f5983624f69aef62
 frontend/src/api/admin/apiKeys.ts	frontend-script	maintained	49	1288	7414d5611181edfc6e6b08a14ba4a2896408102280e41c97b9ed6d8e6e8b5a75
 frontend/src/api/admin/availability.ts	frontend-script	maintained	26	617	571a3457ace9f5187194ca19743bf36499214090171869931cee5d1ca85f21fa
-frontend/src/api/admin/backup.ts	frontend-script	maintained	130	3580	707a4e5b83a5f40727f65592e15edfd5e23c215ad337cda7ca8b29b13fe7805d
+frontend/src/api/admin/backup.ts	frontend-script	maintained	245	7595	a0942f0c759b0f35ac4c6c3ab97b64c4da47b6f789d0b96137114920a0735a4f
 frontend/src/api/admin/channelMonitor.ts	frontend-script	maintained	205	5128	a8cbc22e8566ffd3130a7f09c42e641858ff16e51e0075d3f75473bf6562d131
 frontend/src/api/admin/channelMonitorTemplate.ts	frontend-script	maintained	137	3635	7ae45f1160ad260669e0caedddbf429cc16ba0f17f25c922f0f57f2dfa9af051
 frontend/src/api/admin/channels.ts	frontend-script	maintained	182	4720	f7cbda369f7da9f198a7de038ec889738c902bff1bdfa67a09a1c1c3af5c4700
@@ -2182,7 +2187,7 @@ frontend/src/api/admin/riskControl.ts	frontend-script	maintained	292	7668	98db33
 frontend/src/api/admin/scheduledTests.ts	frontend-script	maintained	85	2155	a218c67867f54af2e83f86a2997d6772ac61700c43e1f0a32435f87d17df5c77
 frontend/src/api/admin/settings.ts	frontend-script	maintained	1402	44831	1a3c71d807c7f41bf138ca074015aab5a1522398482813ee592beca30de56000
 frontend/src/api/admin/subscriptions.ts	frontend-script	maintained	196	4911	7824d1e2340b3aee2672fb873d5e8256ff598b89ef749578390c738226d8b7cb
-frontend/src/api/admin/system.ts	frontend-script	maintained	148	3687	7c2cf326d75c29e852cb2039facceb3e596991049472c7a9b803f62f85ae9843
+frontend/src/api/admin/system.ts	frontend-script	maintained	151	3834	47e29891cb6737fc48ca8c6eb8edca662336fd48fbb8f993445afa7e39469535
 frontend/src/api/admin/tlsFingerprintProfile.ts	frontend-script	maintained	98	2577	54a1b4fed7326f6afd654a0fc89e1c5f11a3ac11dd334842e35fc32a66ad219f
 frontend/src/api/admin/uiThemes.ts	frontend-script	maintained	74	2123	617b8b33d0e1b6a5510c3e4c96529e281558057ad004abb907aabc8251673587
 frontend/src/api/admin/usage.ts	frontend-script	maintained	209	5395	5119bdd41c4519ec1134deedae54388f1d3ec2f61281119b1b265ff686134bd0
@@ -2611,7 +2616,7 @@ frontend/src/i18n/locales/en-sections/admin/affiliates.ts	frontend-script	mainta
 frontend/src/i18n/locales/en-sections/admin/announcements.ts	frontend-script	maintained	73	2463	fc8f87ac8302a14e26f82fb896e4d142aba200b00df2f6d27e685e9a4bbfed65
 frontend/src/i18n/locales/en-sections/admin/authSettings.ts	frontend-script	maintained	78	3296	6f4e6056272332eed13fc6e8a68ae0a312615fd0c1f2cc26b3dce38a10be6893
 frontend/src/i18n/locales/en-sections/admin/availableChannels.ts	frontend-script	maintained	39	1372	4097db1e80075190aa3f51c5e8cf37c52dd20b6f5f787685a5d53b0e0de4e840
-frontend/src/i18n/locales/en-sections/admin/backup.ts	frontend-script	maintained	124	5257	56bae2a4f893b078be30d2bef66d98a4c1e7ffd4d97c8a051670461a14ab7ac5
+frontend/src/i18n/locales/en-sections/admin/backup.ts	frontend-script	maintained	132	5670	ff830b502cfa56f2aa57377fb47784bed6a46e6fbcda7a4255d27610e4607830
 frontend/src/i18n/locales/en-sections/admin/channelMonitor.ts	frontend-script	maintained	128	6528	af85c81f602fef313977b378e75e1e70e4d4219086c4b92e5796bb1a58826fa3
 frontend/src/i18n/locales/en-sections/admin/channels.ts	frontend-script	maintained	125	6555	4b8f2c040792e43321de34679fe0219e69374f01f20dbaf04fe456346f2e1843
 frontend/src/i18n/locales/en-sections/admin/dashboard.ts	frontend-script	maintained	71	2361	d96f74e7f456d1fc9edb086633e7dfddb6820acfc24eb8af95942337002c7fe9
@@ -2667,14 +2672,14 @@ frontend/src/i18n/locales/en-sections/subscriptionProgress.ts	frontend-script	ma
 frontend/src/i18n/locales/en-sections/table.ts	frontend-script	maintained	5	114	804c2e43951a02637e82344f3e5170797e577df2fb7da0e7baaed1a3c5bed753
 frontend/src/i18n/locales/en-sections/usage.ts	frontend-script	maintained	112	3833	dbeb81267125283cc65000494d8c4082e84ac071648334fb1ae1438c739fc230
 frontend/src/i18n/locales/en-sections/userSubscriptions.ts	frontend-script	maintained	28	917	70630692738c3eebde1b098727f7751b169d475aee172a9758f99729d483295b
-frontend/src/i18n/locales/en-sections/version.ts	frontend-script	maintained	76	4123	5e4174131c2d8d5dfed6d85f2cd24329b4f12eeff5a2037c27a06652b619cc98
+frontend/src/i18n/locales/en-sections/version.ts	frontend-script	maintained	84	4942	2640a4a874475dc9dcb6b81b1321d7222515a7f8dfa1487c897e7ba2d354be96
 frontend/src/i18n/locales/en.ts	frontend-script	maintained	1	40	46c306ba225578e793b8c9843b09b3c865476a56782615ec749943dba0c16658
 frontend/src/i18n/locales/zh-sections/admin/accounts.ts	frontend-script	maintained	1367	75590	b83bf1add7944d88eb718c907923bc38fae7d80930f9dfa67363a1423efe60b9
 frontend/src/i18n/locales/zh-sections/admin/affiliates.ts	frontend-script	maintained	42	1524	02695c710666327bd61ff53b964bdc8ef3b71732932fe7bb74c7dce648258aa2
 frontend/src/i18n/locales/zh-sections/admin/announcements.ts	frontend-script	maintained	73	2368	d9d75a7a68aafbadf739235f5c5f606688a00f582c13b166f6be56958f1105c8
 frontend/src/i18n/locales/zh-sections/admin/authSettings.ts	frontend-script	maintained	78	3239	97ae306ab831c5670128287beb225a7f3b0ad43f0d492af1145c9d91d4fe8687
 frontend/src/i18n/locales/zh-sections/admin/availableChannels.ts	frontend-script	maintained	39	1307	a6cc97de581ac1dbbadc449700ecbdc6ee64e37502bcd5c7e5fcfef8f3d7d775
-frontend/src/i18n/locales/zh-sections/admin/backup.ts	frontend-script	maintained	124	5026	fa41e76e8529b532b92be5318afb4cc7a879eb4d7479aa978521bb62bd988acf
+frontend/src/i18n/locales/zh-sections/admin/backup.ts	frontend-script	maintained	132	5417	c195851322d4b4efadf811c42367dcb628c4e360791e65675fecf190d59bc8bd
 frontend/src/i18n/locales/zh-sections/admin/channelMonitor.ts	frontend-script	maintained	128	6569	6f805c9a4d74fe0a6423e96cfa48bd18625b7ed16e7039f3dc5df2410ebf53bd
 frontend/src/i18n/locales/zh-sections/admin/channels.ts	frontend-script	maintained	125	6327	0567c9d903d73f604de3d02454789d0c4aa9708e8b49295e032a3dbb35cef65e
 frontend/src/i18n/locales/zh-sections/admin/dashboard.ts	frontend-script	maintained	89	3067	4559574bee0c8760cee82e4053136ef8c62ecfb4098e39ef3f049ca6f4e2b68c
@@ -2730,7 +2735,7 @@ frontend/src/i18n/locales/zh-sections/subscriptionProgress.ts	frontend-script	ma
 frontend/src/i18n/locales/zh-sections/table.ts	frontend-script	maintained	5	109	8e37c45af715efa356e68e822e537d4ebc1c8c431f0389ab08e65e0865fa1f1f
 frontend/src/i18n/locales/zh-sections/usage.ts	frontend-script	maintained	112	3774	c2536d082abe0579ca880906b26b2a62d21dfa3b064f4582e7aafccedcc08cb9
 frontend/src/i18n/locales/zh-sections/userSubscriptions.ts	frontend-script	maintained	27	883	0de49f552a245d67b4588902c8a08e1820a3e99e2f3961d00391d9bfe6892eb2
-frontend/src/i18n/locales/zh-sections/version.ts	frontend-script	maintained	76	3967	492d1424efefb10c665cda47a966e7f3b1d7fa653e726b568f44ae84aa696722
+frontend/src/i18n/locales/zh-sections/version.ts	frontend-script	maintained	84	4727	09df2cacef47ac74d288c62979474922c13df926483fc0d256a1497648d5a748
 frontend/src/i18n/locales/zh.ts	frontend-script	maintained	1	40	0e3d3b49db29a9d90d0d3fce56ea510f260df007664704d04f2ed0213fe488a9
 frontend/src/lib/utils.ts	frontend-script	maintained	6	166	746e4d9beb1a5b6f0e047ec19d5f1c542c9f8117f4ea7c80d7b9bd0fe2128e91
 frontend/src/main.ts	frontend-script	maintained	82	3117	5ce343da9dc8640971ac4797ab13835e3372ab96cbf648e3b17cd89ccc514ded
@@ -2854,7 +2859,7 @@ frontend/src/views/__tests__/KeyUsageView.spec.ts	frontend-script	maintained	208
 frontend/src/views/admin/AccountsView.vue	frontend-vue	maintained	1984	82842	ab1c2bdb8758d3e910d0d633b6bb465e0a32498396326fa892219c834325d48f
 frontend/src/views/admin/AnnouncementsView.vue	frontend-vue	maintained	606	20975	ce83b5ba33b0e54e6564518efcf7929cbcfeff6b6bca4fcc349d1ce10ccfab09
 frontend/src/views/admin/AuthSettingsView.vue	frontend-vue	maintained	385	21056	fdfeeeffd4f792cf6ec149cf11a9490e683f3eff83f7fc99df9c329a4edb0b06
-frontend/src/views/admin/BackupView.vue	frontend-vue	maintained	689	28982	3921d8b05daeb9e52781a48d8b528016a9f721216db710d8893968dac7791518
+frontend/src/views/admin/BackupView.vue	frontend-vue	maintained	725	30283	39cc222dfd3460f5e4b371b33fd362e6c984b68c7e79377b8c213374f0354e16
 frontend/src/views/admin/ChannelMonitorView.vue	frontend-vue	maintained	304	10230	cda95462fc2e1ea1fb146f961d99e637a4644b6c70681d82f70518b976828343
 frontend/src/views/admin/ChannelsView.vue	frontend-vue	maintained	1647	67049	39ecf4fe1642585fad32cefb07433b9430bfcb2a6f4b1d4b6508e2b5ffd47433
 frontend/src/views/admin/DashboardView.vue	frontend-vue	maintained	805	27126	202d34f1363bb4fb83b0457b3c82df9982fe4b62643a8eadabf631fb98cc4eb4
@@ -2873,7 +2878,7 @@ frontend/src/views/admin/SettingsView.vue	frontend-vue	maintained	2121	73375	6a7
 frontend/src/views/admin/SubscriptionsView.vue	frontend-vue	maintained	1439	54876	666524eb306ca1bd44556fc3dd871992a57d4935d6b4f4c7251b6a5b69b7a5b4
 frontend/src/views/admin/UsageView.vue	frontend-vue	maintained	619	27043	af64228dd38b80052da9ea342945c260d863e7adf9ff6677edbeddb6651f9314
 frontend/src/views/admin/UsersView.vue	frontend-vue	maintained	1986	80994	c718a97e617d04a1f8fb650a44635376fb3f8474a1e829209b33e911c704e60e
-frontend/src/views/admin/VersionControlView.vue	frontend-vue	maintained	645	25322	4543a171ef8da49e302d862a82a70c3d6a749e9b6c0b51ce6eefc17af5d7367e
+frontend/src/views/admin/VersionControlView.vue	frontend-vue	maintained	718	28338	62078a185a4e024309e6b4a95f70391c5c64cce1e24b7ebcb44ae8994dd16f0e
 frontend/src/views/admin/__tests__/AccountsView.bulkEdit.spec.ts	frontend-script	maintained	233	6795	b88f92c19bf2347f931e7ef03066af9298da5a4c18fb54b5061903af0e785dde
 frontend/src/views/admin/__tests__/BackupView.spec.ts	frontend-script	maintained	117	3283	73f78af6daa66b6c292f1f92ac5193c24b4890ba263041b1515b504bb1f47ca3
 frontend/src/views/admin/__tests__/DashboardView.spec.ts	frontend-script	maintained	146	3483	59738fe7bac4e41a03e6d214b3bfd777a212cae2ce24a8c8e7c7907dc5e885f6
@@ -2883,7 +2888,7 @@ frontend/src/views/admin/__tests__/RiskControlView.spec.ts	frontend-script	maint
 frontend/src/views/admin/__tests__/SettingsView.spec.ts	frontend-script	maintained	1161	40733	2e3057746c200ceaf19eba0e7b29403832e125ce2544910691044ff9c4db8f2e
 frontend/src/views/admin/__tests__/UsageView.spec.ts	frontend-script	maintained	196	5128	c1b63182442b7c0026d4e7e6a2b46248321bf60b27d02c8c5c2966bbbd7e2458
 frontend/src/views/admin/__tests__/UsersView.spec.ts	frontend-script	maintained	206	5429	ad639404c633f1b26e01831e153dbad46ddf874de93603f4a4e259e12e7c26c1
-frontend/src/views/admin/__tests__/VersionControlView.spec.ts	frontend-script	maintained	273	9200	7f10c997d8c43df0777c682633d5eeed61281c6de6b86131f6d6a2ff25e2f702
+frontend/src/views/admin/__tests__/VersionControlView.spec.ts	frontend-script	maintained	318	11046	4abb987a84b4212641c2806beebc5c92f9c346f69c8499fa3df6a7cec52b4ea7
 frontend/src/views/admin/__tests__/groupsMessagesDispatch.spec.ts	frontend-script	maintained	94	2876	6bb499e09ea25b5171bcc8c35bf52734aba366fec4df01dc59d177fca91a6164
 frontend/src/views/admin/__tests__/groupsModelsList.spec.ts	frontend-script	maintained	125	3498	024f24e9663064a4264d8848da9be5b0d7b51cbcf2939ab945c469bc3cb965b4
 frontend/src/views/admin/__tests__/groupsModelsListCandidates.spec.ts	frontend-script	maintained	65	1883	d449879ce8c9b70e3c791c44e4f38facc38c4b49b1cc69772e804dfbcaabdc92
