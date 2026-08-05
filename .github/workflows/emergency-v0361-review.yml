@@ -15,7 +15,7 @@ concurrency:
 jobs:
   repair-review-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v6
         with:
@@ -23,23 +23,22 @@ jobs:
           fetch-depth: 0
 
       - name: Apply reviewed fixes
-        shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
+          import re
           from pathlib import Path
 
-          def sub(path, old, new, count=1):
-              p=Path(path); s=p.read_text(); n=s.count(old)
-              if n != count: raise SystemExit(f'{path}: expected {count}, found {n}')
-              p.write_text(s.replace(old,new))
+          def edit(path, pattern, replacement, expected=1, flags=0):
+              p=Path(path); text=p.read_text()
+              text, n=re.subn(pattern, replacement, text, count=expected, flags=flags)
+              if n != expected: raise SystemExit(f'{path}: expected {expected}, changed {n}: {pattern[:80]}')
+              p.write_text(text)
 
-          p='backend/internal/service/backup_service.go'
-          sub(p, '\twg           sync.WaitGroup     // 追踪活跃的备份/恢复 goroutine\n\tshuttingDown atomic.Bool        // 阻止新备份启动\n',
-                 '\tlifecycleMu  sync.Mutex         // serializes operation admission with shutdown\n\twg           sync.WaitGroup     // 追踪活跃的备份/恢复 goroutine\n\tshuttingDown atomic.Bool        // 阻止新备份启动\n')
-          sub(p, '\n// Start 启动定时备份调度器并清理孤立记录\n', '''
+          b='backend/internal/service/backup_service.go'
+          edit(b, r'(\topMu\s+sync\.Mutex[^\n]*\n)', r'\1\tlifecycleMu  sync.Mutex         // serializes operation admission with shutdown\n')
+          edit(b, r'\n// Start 启动定时备份调度器并清理孤立记录', '''
           // beginTrackedOperation admits work atomically with respect to Stop.
-          // Positive WaitGroup.Add calls cannot race with Wait when the count is zero.
           func (s *BackupService) beginTrackedOperation() (func(), error) {
           \ts.lifecycleMu.Lock()
           \tdefer s.lifecycleMu.Unlock()
@@ -51,105 +50,82 @@ jobs:
           \treturn func() { once.Do(s.wg.Done) }, nil
           }
 
-          // Start 启动定时备份调度器并清理孤立记录
-          ''')
-          sub(p, 'func (s *BackupService) Stop() {\n\ts.shuttingDown.Store(true)\n',
-                 'func (s *BackupService) Stop() {\n\ts.lifecycleMu.Lock()\n\ts.shuttingDown.Store(true)\n\ts.lifecycleMu.Unlock()\n')
-          sub(p, 'func (s *BackupService) runScheduledBackup() {\n\ts.wg.Add(1)\n\tdefer s.wg.Done()\n',
-                 'func (s *BackupService) runScheduledBackup() {\n\tfinish, err := s.beginTrackedOperation()\n\tif err != nil { return }\n\tdefer finish()\n')
-          sub(p, ') (*BackupRecord, error) {\n\tif s.shuttingDown.Load() {\n\t\treturn nil, infraerrors.ServiceUnavailable("SERVER_SHUTTING_DOWN", "server is shutting down")\n\t}\n\n\ts.opMu.Lock()',
-                 ') (*BackupRecord, error) {\n\tfinish, err := s.beginTrackedOperation()\n\tif err != nil { return nil, err }\n\tdefer finish()\n\n\ts.opMu.Lock()', count=1)
-          sub(p, 'func (s *BackupService) StartBackup(ctx context.Context, triggeredBy string, expireDays int) (*BackupRecord, error) {\n\tif s.shuttingDown.Load() {\n\t\treturn nil, infraerrors.ServiceUnavailable("SERVER_SHUTTING_DOWN", "server is shutting down")\n\t}\n\n\ts.opMu.Lock()',
-                 'func (s *BackupService) StartBackup(ctx context.Context, triggeredBy string, expireDays int) (*BackupRecord, error) {\n\ts.opMu.Lock()')
-          sub(p, '\ts.backingUp = true\n\ts.opMu.Unlock()\n\n\t// 初始化阶段出错时自动重置标志',
-                 '\ts.backingUp = true\n\ts.opMu.Unlock()\n\n\tfinish, err := s.beginTrackedOperation()\n\tif err != nil {\n\t\ts.opMu.Lock(); s.backingUp = false; s.opMu.Unlock()\n\t\treturn nil, err\n\t}\n\n\t// 初始化阶段出错时自动重置标志')
-          sub(p, '\t\t\ts.backingUp = false\n\t\t\ts.opMu.Unlock()\n\t\t}\n\t}()\n',
-                 '\t\t\ts.backingUp = false\n\t\t\ts.opMu.Unlock()\n\t\t\tfinish()\n\t\t}\n\t}()\n', count=1)
-          sub(p, '\ts.wg.Add(1)\n\tgo func() {\n\t\tdefer s.wg.Done()\n\t\tdefer func() {\n\t\t\ts.opMu.Lock()\n\t\t\ts.backingUp = false',
-                 '\tgo func() {\n\t\tdefer finish()\n\t\tdefer func() {\n\t\t\ts.opMu.Lock()\n\t\t\ts.backingUp = false')
-          sub(p, 'func (s *BackupService) RestoreBackup(ctx context.Context, backupID string) error {\n\ts.opMu.Lock()',
-                 'func (s *BackupService) RestoreBackup(ctx context.Context, backupID string) error {\n\tfinish, err := s.beginTrackedOperation()\n\tif err != nil { return err }\n\tdefer finish()\n\n\ts.opMu.Lock()')
-          sub(p, 'func (s *BackupService) StartRestore(ctx context.Context, backupID string) (*BackupRecord, error) {\n\tif s.shuttingDown.Load() {\n\t\treturn nil, infraerrors.ServiceUnavailable("SERVER_SHUTTING_DOWN", "server is shutting down")\n\t}\n\n\ts.opMu.Lock()',
-                 'func (s *BackupService) StartRestore(ctx context.Context, backupID string) (*BackupRecord, error) {\n\ts.opMu.Lock()')
-          sub(p, '\ts.restoring = true\n\ts.opMu.Unlock()\n\n\t// 初始化阶段出错时自动重置标志',
-                 '\ts.restoring = true\n\ts.opMu.Unlock()\n\n\tfinish, err := s.beginTrackedOperation()\n\tif err != nil {\n\t\ts.opMu.Lock(); s.restoring = false; s.opMu.Unlock()\n\t\treturn nil, err\n\t}\n\n\t// 初始化阶段出错时自动重置标志')
-          sub(p, '\t\t\ts.restoring = false\n\t\t\ts.opMu.Unlock()\n\t\t}\n\t}()\n',
-                 '\t\t\ts.restoring = false\n\t\t\ts.opMu.Unlock()\n\t\t\tfinish()\n\t\t}\n\t}()\n', count=1)
-          sub(p, '\ts.wg.Add(1)\n\tgo func() {\n\t\tdefer s.wg.Done()\n\t\tdefer func() {\n\t\t\ts.opMu.Lock()\n\t\t\ts.restoring = false',
-                 '\tgo func() {\n\t\tdefer finish()\n\t\tdefer func() {\n\t\t\ts.opMu.Lock()\n\t\t\ts.restoring = false')
+          // Start 启动定时备份调度器并清理孤立记录''')
+          edit(b, r'func \(s \*BackupService\) Stop\(\) \{\n\ts\.shuttingDown\.Store\(true\)', 'func (s *BackupService) Stop() {\n\ts.lifecycleMu.Lock()\n\ts.shuttingDown.Store(true)\n\ts.lifecycleMu.Unlock()')
+          edit(b, r'func \(s \*BackupService\) runScheduledBackup\(\) \{\n\ts\.wg\.Add\(1\)\n\tdefer s\.wg\.Done\(\)', 'func (s *BackupService) runScheduledBackup() {\n\tfinish, err := s.beginTrackedOperation()\n\tif err != nil { return }\n\tdefer finish()')
+          edit(b, r'(func \(s \*BackupService\) createBackup\([\s\S]*?\) \(\*BackupRecord, error\) \{)\n\tif s\.shuttingDown\.Load\(\) \{[\s\S]*?\n\t\}\n', r'\1\n\tfinish, err := s.beginTrackedOperation()\n\tif err != nil { return nil, err }\n\tdefer finish()\n', flags=re.M)
+          edit(b, r'(func \(s \*BackupService\) StartBackup\([^\n]+\) \(\*BackupRecord, error\) \{)\n\tif s\.shuttingDown\.Load\(\) \{[\s\S]*?\n\t\}\n', r'\1', flags=re.M)
+          edit(b, r'(func \(s \*BackupService\) StartBackup[\s\S]*?\ts\.backingUp = true\n\ts\.opMu\.Unlock\(\))', r'\1\n\n\tfinish, err := s.beginTrackedOperation()\n\tif err != nil {\n\t\ts.opMu.Lock(); s.backingUp = false; s.opMu.Unlock()\n\t\treturn nil, err\n\t}', flags=re.M)
+          edit(b, r'(if !launched \{\n\t\t\ts\.opMu\.Lock\(\)\n\t\t\ts\.backingUp = false\n\t\t\ts\.opMu\.Unlock\(\))', r'\1\n\t\t\tfinish()', flags=re.M)
+          edit(b, r'\ts\.wg\.Add\(1\)\n\tgo func\(\) \{\n\t\tdefer s\.wg\.Done\(\)\n(\t\tdefer func\(\) \{\n\t\t\ts\.opMu\.Lock\(\)\n\t\t\ts\.backingUp = false)', r'\tgo func() {\n\t\tdefer finish()\n\1')
+          edit(b, r'(func \(s \*BackupService\) RestoreBackup\([^\n]+\) error \{)', r'\1\n\tfinish, err := s.beginTrackedOperation()\n\tif err != nil { return err }\n\tdefer finish()')
+          edit(b, r'(func \(s \*BackupService\) StartRestore\([^\n]+\) \(\*BackupRecord, error\) \{)\n\tif s\.shuttingDown\.Load\(\) \{[\s\S]*?\n\t\}\n', r'\1', flags=re.M)
+          edit(b, r'(func \(s \*BackupService\) StartRestore[\s\S]*?\ts\.restoring = true\n\ts\.opMu\.Unlock\(\))', r'\1\n\n\tfinish, err := s.beginTrackedOperation()\n\tif err != nil {\n\t\ts.opMu.Lock(); s.restoring = false; s.opMu.Unlock()\n\t\treturn nil, err\n\t}', flags=re.M)
+          edit(b, r'(if !launched \{\n\t\t\ts\.opMu\.Lock\(\)\n\t\t\ts\.restoring = false\n\t\t\ts\.opMu\.Unlock\(\))', r'\1\n\t\t\tfinish()', flags=re.M)
+          edit(b, r'\ts\.wg\.Add\(1\)\n\tgo func\(\) \{\n\t\tdefer s\.wg\.Done\(\)\n(\t\tdefer func\(\) \{\n\t\t\ts\.opMu\.Lock\(\)\n\t\t\ts\.restoring = false)', r'\tgo func() {\n\t\tdefer finish()\n\1')
 
-          p='backend/internal/service/backup_local_service.go'
-          sub(p, 'func (s *BackupService) OpenLocalBackup(ctx context.Context) (*LocalBackupDownload, error) {\n\tif s.shuttingDown.Load() {\n\t\treturn nil, infraerrors.ServiceUnavailable("SERVER_SHUTTING_DOWN", "server is shutting down")\n\t}\n',
-                 'func (s *BackupService) OpenLocalBackup(ctx context.Context) (*LocalBackupDownload, error) {\n')
-          sub(p, '\ts.backingUp = true\n\ts.opMu.Unlock()\n\ts.wg.Add(1)\n',
-                 '\ts.backingUp = true\n\ts.opMu.Unlock()\n\tfinish, err := s.beginTrackedOperation()\n\tif err != nil {\n\t\ts.opMu.Lock(); s.backingUp = false; s.opMu.Unlock()\n\t\treturn nil, err\n\t}\n')
-          sub(p, '\t\ts.wg.Done()\n', '\t\tfinish()\n')
+          l='backend/internal/service/backup_local_service.go'
+          edit(l, r'(func \(s \*BackupService\) OpenLocalBackup\([^\n]+\) \(\*LocalBackupDownload, error\) \{)\n\tif s\.shuttingDown\.Load\(\) \{[\s\S]*?\n\t\}\n', r'\1', flags=re.M)
+          edit(l, r'(\ts\.backingUp = true\n\ts\.opMu\.Unlock\(\))\n\ts\.wg\.Add\(1\)', r'\1\n\tfinish, err := s.beginTrackedOperation()\n\tif err != nil {\n\t\ts.opMu.Lock(); s.backingUp = false; s.opMu.Unlock()\n\t\treturn nil, err\n\t}')
+          edit(l, r'\t\ts\.wg\.Done\(\)', '\t\tfinish()')
 
-          p='backend/internal/repository/distribution_repo.go'
-          sub(p, '\t\t       d.metadata, d.audience, d.created_by, d.created_at,\n\t\t       0, 0, 0,\n',
-                 "\t\t       '{}'::jsonb, '{}'::jsonb, NULL, d.created_at,\n\t\t       0, 0, 0,\n", count=2)
-
-          p='backend/internal/handler/admin/distribution_handler.go'
-          sub(p, '\tc.Header("X-Content-Type-Options", "nosniff")\n\tc.Data(http.StatusOK, contentType, data)\n',
-                 '\tc.Header("Cache-Control", "no-store")\n\tc.Header("X-Content-Type-Options", "nosniff")\n\tc.Data(http.StatusOK, contentType, data)\n')
-          p='backend/internal/handler/distribution_handler.go'
-          sub(p, '\tc.Header("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": attachment.FileName}))\n\tc.Header("X-Content-Type-Options", "nosniff")\n',
-                 '\tc.Header("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": attachment.FileName}))\n\tc.Header("Cache-Control", "no-store")\n\tc.Header("X-Content-Type-Options", "nosniff")\n')
+          d='backend/internal/repository/distribution_repo.go'
+          edit(d, r'\t\t       d\.metadata, d\.audience, d\.created_by, d\.created_at,\n\t\t       0, 0, 0,', "\t\t       '{}'::jsonb, '{}'::jsonb, NULL, d.created_at,\n\t\t       0, 0, 0,", expected=2)
+          edit('backend/internal/handler/admin/distribution_handler.go', r'(\tc\.Header\("Content-Disposition"[^\n]+\)\n)', r'\1\tc.Header("Cache-Control", "no-store")\n')
+          edit('backend/internal/handler/distribution_handler.go', r'(\tc\.Header\("Content-Disposition"[^\n]+\)\n)', r'\1\tc.Header("Cache-Control", "no-store")\n')
 
           Path('backend/cmd/server/VERSION').write_text('0.3.61\n')
-          Path('backend/internal/service/backup_shutdown_test.go').write_text(r'''//go:build unit
+          Path('backend/internal/service/backup_shutdown_test.go').write_text('''//go:build unit
 
           package service
 
           import (
-          	"sync"
-          	"testing"
-          	"time"
-          	"github.com/WilliamWang1721/LightBridge/internal/config"
-          	"github.com/stretchr/testify/require"
+          \t"sync"
+          \t"testing"
+          \t"time"
+          \t"github.com/WilliamWang1721/LightBridge/internal/config"
+          \t"github.com/stretchr/testify/require"
           )
 
           func TestBackupOperationAdmissionDoesNotRaceWithStop(t *testing.T) {
-          	for range 200 {
-          		s := NewBackupService(nil, &config.Config{}, nil, nil, nil)
-          		start := make(chan struct{})
-          		var wg sync.WaitGroup; wg.Add(2)
-          		go func(){ defer wg.Done(); <-start; finish, err := s.beginTrackedOperation(); if err == nil { finish() } }()
-          		go func(){ defer wg.Done(); <-start; s.Stop() }()
-          		close(start); wg.Wait()
-          		require.True(t, s.shuttingDown.Load())
-          		_, err := s.beginTrackedOperation(); require.Error(t, err)
-          	}
+          \tfor range 200 {
+          \t\ts := NewBackupService(nil, &config.Config{}, nil, nil, nil)
+          \t\tstart := make(chan struct{})
+          \t\tvar wg sync.WaitGroup; wg.Add(2)
+          \t\tgo func(){ defer wg.Done(); <-start; finish, err := s.beginTrackedOperation(); if err == nil { finish() } }()
+          \t\tgo func(){ defer wg.Done(); <-start; s.Stop() }()
+          \t\tclose(start); wg.Wait()
+          \t\trequire.True(t, s.shuttingDown.Load())
+          \t\t_, err := s.beginTrackedOperation(); require.Error(t, err)
+          \t}
           }
 
           func TestBackupStopWaitsForAdmittedOperation(t *testing.T) {
-          	s := NewBackupService(nil, &config.Config{}, nil, nil, nil)
-          	finish, err := s.beginTrackedOperation(); require.NoError(t, err)
-          	done := make(chan struct{}); go func(){ s.Stop(); close(done) }()
-          	require.Eventually(t, s.shuttingDown.Load, time.Second, time.Millisecond)
-          	select { case <-done: t.Fatal("Stop returned early"); default: }
-          	finish()
-          	require.Eventually(t, func() bool { select { case <-done: return true; default: return false } }, time.Second, time.Millisecond)
+          \ts := NewBackupService(nil, &config.Config{}, nil, nil, nil)
+          \tfinish, err := s.beginTrackedOperation(); require.NoError(t, err)
+          \tdone := make(chan struct{}); go func(){ s.Stop(); close(done) }()
+          \trequire.Eventually(t, s.shuttingDown.Load, time.Second, time.Millisecond)
+          \tselect { case <-done: t.Fatal("Stop returned early"); default: }
+          \tfinish()
+          \trequire.Eventually(t, func() bool { select { case <-done: return true; default: return false } }, time.Second, time.Millisecond)
           }
           ''')
           Path('docs/RELEASE_NOTES_v0.3.61.md').write_text('''# LightBridge v0.3.61
 
           v0.3.61 replaces the withdrawn v0.3.6 release.
 
-          - Fix backup/restore operation admission racing with shutdown.
+          - Fix backup and restore operation admission racing with shutdown.
           - Avoid loading management-only distribution metadata in user queries.
           - Disable caching for sensitive distribution attachment downloads.
           - Includes reviewed post-v0.3.6 advanced filters, content distribution, forced update, and local backup functionality.
           ''')
           PY
-
           gofmt -w backend/internal/service/backup_service.go backend/internal/service/backup_local_service.go backend/internal/service/backup_shutdown_test.go backend/internal/repository/distribution_repo.go backend/internal/handler/admin/distribution_handler.go backend/internal/handler/distribution_handler.go
           git diff --check
           python3 tools/codebase_inventory.py
           python3 tools/codebase_inventory.py --check
 
-      - name: Setup Go
-        uses: actions/setup-go@v6
+      - uses: actions/setup-go@v6
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
@@ -163,8 +139,7 @@ jobs:
           make secret-scan
           python3 tools/validate_release_configuration.py
 
-      - name: Setup Node
-        uses: actions/setup-node@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: '22.13.1'
 
@@ -183,6 +158,6 @@ jobs:
           set -euo pipefail
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add backend docs CHANGELOG.md
-          git commit -m 'fix: harden post-v0.3.6 release candidate' || true
+          git add backend docs
+          git commit -m 'fix: harden post-v0.3.6 release candidate'
           git push origin HEAD:agent/emergency-v0.3.61
