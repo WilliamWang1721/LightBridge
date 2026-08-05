@@ -62,6 +62,10 @@ function distributionIcon(): string {
     </svg>`
 }
 
+function distributionLabel(): string {
+  return String(i18n.global.t('nav.distributions'))
+}
+
 function createNavigationLink(
   router: Router,
   reference: HTMLAnchorElement,
@@ -71,11 +75,10 @@ function createNavigationLink(
   const link = document.createElement('a')
   link.href = router.resolve(path).href
   link.className = reference.className
+  link.classList.remove('sidebar-link-active', 'router-link-active', 'router-link-exact-active')
   link.dataset.distributionNav = kind
   link.setAttribute('data-router-link', 'true')
-
-  const label = String(i18n.global.t('nav.distributions'))
-  link.innerHTML = `${distributionIcon()}<span>${escapeHTML(label)}</span>`
+  link.innerHTML = `${distributionIcon()}<span>${escapeHTML(distributionLabel())}</span>`
   link.addEventListener('click', (event) => {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
     event.preventDefault()
@@ -103,12 +106,10 @@ function syncDistributionNavigation(router: Router): void {
     }
   }
 
-  const adminReference = findAnchor([
-    '/admin/announcements',
-    '/admin/affiliates',
-    '/admin/redeem-codes',
-    '/admin/users'
-  ])
+  // Keep the administrator entry top-level and independent of optional
+  // marketing feature flags, so it remains visible even when announcements,
+  // affiliate, redeem, and promotion modules are disabled.
+  const adminReference = findAnchor(['/admin/dashboard'])
   if (adminReference) {
     const parent = adminReference.parentElement
     if (parent && !parent.querySelector('[data-distribution-nav="admin"]')) {
@@ -119,7 +120,10 @@ function syncDistributionNavigation(router: Router): void {
   document.querySelectorAll<HTMLAnchorElement>('[data-distribution-nav]').forEach((link) => {
     const isActive = anchorPath(link) === router.currentRoute.value.path
     link.setAttribute('aria-current', isActive ? 'page' : 'false')
+    link.classList.toggle('sidebar-link-active', isActive)
     link.classList.toggle('router-link-active', isActive)
+    const label = link.querySelector('span')
+    if (label) label.textContent = distributionLabel()
   })
 }
 
