@@ -24,21 +24,26 @@ jobs:
 
       - name: Verify immutable release source
         env:
-          TARGET_SHA: 9eb2a1b3f40c7fca7ff4e4ddc9fb324243bef130
+          TARGET_SHA: 4645a1e9dc6c03f36efe2e5f8a5bf728a0b4eca5
         run: |
           set -euo pipefail
           git fetch origin main --tags --force
           test "$(git rev-parse origin/main)" = "$TARGET_SHA"
           test "$(git show "$TARGET_SHA:backend/cmd/server/VERSION" | tr -d '\r\n')" = "0.3.61"
+          git checkout --detach "$TARGET_SHA"
           python3 tools/validate_release_configuration.py
+          python3 tools/codebase_inventory.py --check
 
       - name: Create immutable release tag
         env:
-          TARGET_SHA: 9eb2a1b3f40c7fca7ff4e4ddc9fb324243bef130
+          TARGET_SHA: 4645a1e9dc6c03f36efe2e5f8a5bf728a0b4eca5
           TAG_NAME: v0.3.61
         run: |
           set -euo pipefail
-          existing="$(git ls-remote --tags origin "refs/tags/$TAG_NAME" | awk '{print $1}')"
+          existing="$(git ls-remote --tags origin "refs/tags/$TAG_NAME^{}" | awk '{print $1}')"
+          if [ -z "$existing" ]; then
+            existing="$(git ls-remote --tags origin "refs/tags/$TAG_NAME" | awk '{print $1}')"
+          fi
           if [ -n "$existing" ]; then
             test "$existing" = "$TARGET_SHA"
             exit 0
