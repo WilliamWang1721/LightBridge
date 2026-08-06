@@ -9,6 +9,7 @@ import (
 	"errors"
 	"io"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -164,6 +165,74 @@ func TestOpenLocalBackupReleasesActivityWhenClientCloses(t *testing.T) {
 		t.Fatal("local backup remained active after the client closed the download")
 	}
 
+	svc.opMu.Lock()
+	backingUp := svc.backingUp
+	svc.opMu.Unlock()
+	require.False(t, backingUp)
+}
+
+type shutdownBlockingLocalDumper struct {
+	readStarted chan struct{}
+}
+
+type shutdownBlockingLocalReader struct {
+	ctx     context.Context
+	started chan struct{}
+	once    sync.Once
+}
+
+func (r *shutdownBlockingLocalReader) Read(_ []byte) (int, error) {
+	r.once.Do(func() { close(r.started) })
+	<-r.ctx.Done()
+	return 0, r.ctx.Err()
+}
+
+func (r *shutdownBlockingLocalReader) Close() error { return nil }
+
+func (d shutdownBlockingLocalDumper) Dump(ctx context.Context) (io.ReadCloser, error) {
+	return &shutdownBlockingLocalReader{ctx: ctx, started: d.readStarted}, nil
+}
+
+func (d shutdownBlockingLocalDumper) Restore(context.Context, io.Reader) error { return nil }
+
+func TestStopCancelsLocalStreamingBackupAfterGracePeriod(t *testing.T) {
+	dumper := shutdownBlockingLocalDumper{readStarted: make(chan struct{})}
+	svc := NewBackupService(nil, &config.Config{}, nil, nil, dumper)
+	configureFastBackupShutdown(svc)
+
+	download, err := svc.OpenLocalBackup(context.Background())
+	require.NoError(t, err)
+	readErr := make(chan error, 1)
+	go func() {
+		_, err := io.Copy(io.Discard, download.Body)
+		readErr <- err
+	}()
+	select {
+	case <-dumper.readStarted:
+	case <-time.After(time.Second):
+		t.Fatal("local backup stream did not start reading pg_dump output")
+	}
+
+	waitForStop(t, svc)
+	require.ErrorIs(t, <-readErr, context.Canceled)
+	_ = download.Body.Close()
+}
+
+func TestStopUnblocksLocalBackupWhenClientDoesNotRead(t *testing.T) {
+	svc := NewBackupService(
+		nil,
+		&config.Config{},
+		nil,
+		nil,
+		localBackupDumperStub{data: strings.Repeat("blocked-output", 1<<20)},
+	)
+	configureFastBackupShutdown(svc)
+
+	download, err := svc.OpenLocalBackup(context.Background())
+	require.NoError(t, err)
+	defer download.Body.Close()
+
+	waitForStop(t, svc)
 	svc.opMu.Lock()
 	backingUp := svc.backingUp
 	svc.opMu.Unlock()
