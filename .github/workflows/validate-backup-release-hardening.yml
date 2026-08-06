@@ -16,7 +16,7 @@ permissions:
 
 concurrency:
   group: validate-backup-release-hardening
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   patch-test-commit:
