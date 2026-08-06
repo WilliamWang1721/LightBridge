@@ -4,6 +4,7 @@ package service
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -847,4 +848,94 @@ func TestStartRestore_Async(t *testing.T) {
 	final, err := svc.GetBackupRecord(context.Background(), record.ID)
 	require.NoError(t, err)
 	require.Equal(t, "completed", final.RestoreStatus)
+}
+
+type shutdownCancellationDumper struct {
+	dumpStarted    chan struct{}
+	restoreStarted chan struct{}
+}
+
+func (d *shutdownCancellationDumper) Dump(ctx context.Context) (io.ReadCloser, error) {
+	close(d.dumpStarted)
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+
+func (d *shutdownCancellationDumper) Restore(ctx context.Context, _ io.Reader) error {
+	close(d.restoreStarted)
+	<-ctx.Done()
+	return ctx.Err()
+}
+
+func configureFastBackupShutdown(svc *BackupService) {
+	svc.shutdownGracePeriod = 20 * time.Millisecond
+	svc.shutdownCancelPeriod = time.Second
+}
+
+func waitForStop(t *testing.T, svc *BackupService) {
+	t.Helper()
+	done := make(chan struct{})
+	go func() {
+		svc.Stop()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Stop did not finish after cancelling the active operation")
+	}
+}
+
+func TestStopCancelsSynchronousBackupAfterGracePeriod(t *testing.T) {
+	repo := newMockSettingRepo()
+	seedS3Config(t, repo)
+	dumper := &shutdownCancellationDumper{dumpStarted: make(chan struct{})}
+	svc := newTestBackupService(repo, dumper, newMockObjectStore())
+	configureFastBackupShutdown(svc)
+
+	errCh := make(chan error, 1)
+	go func() {
+		_, err := svc.CreateBackup(context.Background(), "manual", 14)
+		errCh <- err
+	}()
+	select {
+	case <-dumper.dumpStarted:
+	case <-time.After(time.Second):
+		t.Fatal("synchronous backup did not reach pg_dump")
+	}
+
+	waitForStop(t, svc)
+	require.ErrorIs(t, <-errCh, context.Canceled)
+}
+
+func TestStopCancelsSynchronousRestoreAfterGracePeriod(t *testing.T) {
+	repo := newMockSettingRepo()
+	seedS3Config(t, repo)
+	store := newMockObjectStore()
+	var compressed bytes.Buffer
+	writer := gzip.NewWriter(&compressed)
+	_, err := writer.Write([]byte("restore payload"))
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+	store.objects["backups/restore.sql.gz"] = compressed.Bytes()
+
+	dumper := &shutdownCancellationDumper{restoreStarted: make(chan struct{})}
+	svc := newTestBackupService(repo, dumper, store)
+	configureFastBackupShutdown(svc)
+	require.NoError(t, svc.saveRecord(context.Background(), &BackupRecord{
+		ID: "restore-on-shutdown", Status: "completed", S3Key: "backups/restore.sql.gz",
+	}))
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- svc.RestoreBackup(context.Background(), "restore-on-shutdown")
+	}()
+	select {
+	case <-dumper.restoreStarted:
+	case <-time.After(time.Second):
+		t.Fatal("synchronous restore did not reach pg restore")
+	}
+
+	waitForStop(t, svc)
+	require.ErrorIs(t, <-errCh, context.Canceled)
 }

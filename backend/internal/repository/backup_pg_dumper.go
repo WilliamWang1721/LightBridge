@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"sync"
 
 	"github.com/WilliamWang1721/LightBridge/internal/config"
 	"github.com/WilliamWang1721/LightBridge/internal/service"
@@ -76,7 +77,7 @@ func (d *PgDumper) Restore(ctx context.Context, data io.Reader) error {
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("%v: %s", err, string(output))
+		return fmt.Errorf("psql failed: %w: %s", err, string(output))
 	}
 	return nil
 }
@@ -84,15 +85,17 @@ func (d *PgDumper) Restore(ctx context.Context, data io.Reader) error {
 // cmdReadCloser wraps a command stdout pipe and waits for the process on Close
 type cmdReadCloser struct {
 	io.ReadCloser
-	cmd *exec.Cmd
+	cmd       *exec.Cmd
+	closeOnce sync.Once
+	closeErr  error
 }
 
 func (c *cmdReadCloser) Close() error {
-	// Close the pipe first
-	_ = c.ReadCloser.Close()
-	// Wait for the process to exit
-	if err := c.cmd.Wait(); err != nil {
-		return fmt.Errorf("pg_dump exited with error: %w", err)
-	}
-	return nil
+	c.closeOnce.Do(func() {
+		_ = c.ReadCloser.Close()
+		if err := c.cmd.Wait(); err != nil {
+			c.closeErr = fmt.Errorf("pg_dump exited with error: %w", err)
+		}
+	})
+	return c.closeErr
 }

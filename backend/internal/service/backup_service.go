@@ -33,6 +33,10 @@ const (
 	// PostgreSQL logical dump only; it does not include binaries, configuration,
 	// Redis, or filesystem data.
 	DefaultPreVersionBackupRetentionDays = 14
+
+	backupShutdownGracePeriod   = 5 * time.Minute
+	backupShutdownCancelPeriod  = 10 * time.Second
+	backupRecordFinalizeTimeout = 10 * time.Second
 )
 
 var (
@@ -148,6 +152,9 @@ type BackupService struct {
 	shuttingDown atomic.Bool        // 阻止新备份启动
 	bgCtx        context.Context    // 所有后台操作的 parent context
 	bgCancel     context.CancelFunc // 取消所有活跃后台操作
+
+	shutdownGracePeriod  time.Duration // cancellation-free drain window
+	shutdownCancelPeriod time.Duration // bounded cleanup window after cancellation
 }
 
 func NewBackupService(
@@ -159,26 +166,44 @@ func NewBackupService(
 ) *BackupService {
 	bgCtx, bgCancel := context.WithCancel(context.Background())
 	return &BackupService{
-		settingRepo:  settingRepo,
-		dbCfg:        &cfg.Database,
-		encryptor:    encryptor,
-		storeFactory: storeFactory,
-		dumper:       dumper,
-		bgCtx:        bgCtx,
-		bgCancel:     bgCancel,
+		settingRepo:          settingRepo,
+		dbCfg:                &cfg.Database,
+		encryptor:            encryptor,
+		storeFactory:         storeFactory,
+		dumper:               dumper,
+		bgCtx:                bgCtx,
+		bgCancel:             bgCancel,
+		shutdownGracePeriod:  backupShutdownGracePeriod,
+		shutdownCancelPeriod: backupShutdownCancelPeriod,
 	}
 }
 
-// beginTrackedOperation admits work atomically with respect to Stop.
-func (s *BackupService) beginTrackedOperation() (func(), error) {
-	s.lifecycleMu.Lock()
-	defer s.lifecycleMu.Unlock()
-	if s.shuttingDown.Load() {
-		return nil, infraerrors.ServiceUnavailable("SERVER_SHUTTING_DOWN", "server is shutting down")
+// beginTrackedOperation admits work atomically with respect to Stop and
+// returns a context cancelled by either the caller or service shutdown.
+func (s *BackupService) beginTrackedOperation(parent context.Context) (context.Context, func(), error) {
+	if parent == nil {
+		return nil, nil, errors.New("backup operation context is required")
 	}
+
+	s.lifecycleMu.Lock()
+	if s.shuttingDown.Load() {
+		s.lifecycleMu.Unlock()
+		return nil, nil, infraerrors.ServiceUnavailable("SERVER_SHUTTING_DOWN", "server is shutting down")
+	}
+	operationCtx, cancelOperation := context.WithCancel(parent)
+	stopShutdownLink := context.AfterFunc(s.bgCtx, cancelOperation)
 	s.wg.Add(1)
+	s.lifecycleMu.Unlock()
+
 	var once sync.Once
-	return func() { once.Do(s.wg.Done) }, nil
+	finish := func() {
+		once.Do(func() {
+			stopShutdownLink()
+			cancelOperation()
+			s.wg.Done()
+		})
+	}
+	return operationCtx, finish, nil
 }
 
 // Start 启动定时备份调度器并清理孤立记录
@@ -231,7 +256,8 @@ func (s *BackupService) recoverStaleRecords() {
 	}
 }
 
-// Stop 停止定时备份并等待活跃操作完成
+// Stop stops scheduling, allows a bounded graceful drain, then cancels every
+// admitted operation and waits for command/resource cleanup to complete.
 func (s *BackupService) Stop() {
 	s.lifecycleMu.Lock()
 	s.shuttingDown.Store(true)
@@ -243,27 +269,43 @@ func (s *BackupService) Stop() {
 	}
 	s.cronMu.Unlock()
 
-	// 等待活跃备份/恢复完成（最多 5 分钟）
 	done := make(chan struct{})
 	go func() {
 		s.wg.Wait()
 		close(done)
 	}()
+
+	gracePeriod := s.shutdownGracePeriod
+	if gracePeriod <= 0 {
+		gracePeriod = backupShutdownGracePeriod
+	}
+	cancelPeriod := s.shutdownCancelPeriod
+	if cancelPeriod <= 0 {
+		cancelPeriod = backupShutdownCancelPeriod
+	}
+
+	graceTimer := time.NewTimer(gracePeriod)
+	defer graceTimer.Stop()
 	select {
 	case <-done:
 		logger.LegacyPrintf("service.backup", "[Backup] all active operations finished")
-	case <-time.After(5 * time.Minute):
-		logger.LegacyPrintf("service.backup", "[Backup] shutdown timeout after 5min, cancelling active operations")
+	case <-graceTimer.C:
+		logger.LegacyPrintf("service.backup", "[Backup] graceful shutdown deadline reached; cancelling active operations")
 		if s.bgCancel != nil {
-			s.bgCancel() // 取消所有后台操作
+			s.bgCancel()
 		}
-		// 给 goroutine 时间响应取消并完成清理
+		cancelTimer := time.NewTimer(cancelPeriod)
+		defer cancelTimer.Stop()
 		select {
 		case <-done:
 			logger.LegacyPrintf("service.backup", "[Backup] active operations cancelled and cleaned up")
-		case <-time.After(10 * time.Second):
-			logger.LegacyPrintf("service.backup", "[Backup] goroutine cleanup timed out")
+		case <-cancelTimer.C:
+			logger.LegacyPrintf("service.backup", "[Backup] active operations did not finish before the cancellation cleanup deadline")
 		}
+	}
+
+	if s.bgCancel != nil {
+		s.bgCancel()
 	}
 }
 
@@ -418,7 +460,7 @@ func (s *BackupService) removeCronSchedule() {
 }
 
 func (s *BackupService) runScheduledBackup() {
-	finish, err := s.beginTrackedOperation()
+	_, finish, err := s.beginTrackedOperation(s.bgCtx)
 	if err != nil {
 		return
 	}
@@ -483,11 +525,12 @@ func (s *BackupService) createBackup(
 	expireDays int,
 	metadata *BackupRecordMetadata,
 ) (*BackupRecord, error) {
-	finish, err := s.beginTrackedOperation()
+	operationCtx, finish, err := s.beginTrackedOperation(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer finish()
+	ctx = operationCtx
 
 	s.opMu.Lock()
 	if s.backingUp {
@@ -543,7 +586,7 @@ func (s *BackupService) createBackup(
 		record.Status = "failed"
 		record.ErrorMsg = fmt.Sprintf("pg_dump failed: %v", err)
 		record.FinishedAt = time.Now().Format(time.RFC3339)
-		_ = s.saveRecord(ctx, record)
+		s.saveRecordAfterOperation(record)
 		return record, fmt.Errorf("pg_dump: %w", err)
 	}
 
@@ -586,7 +629,7 @@ func (s *BackupService) createBackup(
 		}
 		record.ErrorMsg = errMsg
 		record.FinishedAt = time.Now().Format(time.RFC3339)
-		_ = s.saveRecord(ctx, record)
+		s.saveRecordAfterOperation(record)
 		return record, fmt.Errorf("backup upload: %w", err)
 	}
 	if gzErr := <-gzipDone; gzErr != nil { // 确保 gzip goroutine 已退出并传播流错误
@@ -594,18 +637,24 @@ func (s *BackupService) createBackup(
 		record.ErrorMsg = fmt.Sprintf("gzip/dump failed: %v", gzErr)
 		record.FinishedAt = time.Now().Format(time.RFC3339)
 		s.deleteUploadedBackupAfterStreamFailure(objectStore, s3Key)
-		_ = s.saveRecord(ctx, record)
+		s.saveRecordAfterOperation(record)
 		return record, fmt.Errorf("backup gzip/dump: %w", gzErr)
 	}
 
 	record.SizeBytes = sizeBytes
 	record.Status = "completed"
 	record.FinishedAt = time.Now().Format(time.RFC3339)
-	if err := s.saveRecord(ctx, record); err != nil {
-		logger.LegacyPrintf("service.backup", "[Backup] 保存备份记录失败: %v", err)
-	}
+	s.saveRecordAfterOperation(record)
 
 	return record, nil
+}
+
+func (s *BackupService) saveRecordAfterOperation(record *BackupRecord) {
+	ctx, cancel := context.WithTimeout(context.Background(), backupRecordFinalizeTimeout)
+	defer cancel()
+	if err := s.saveRecord(ctx, record); err != nil {
+		logger.LegacyPrintf("service.backup", "[Backup] failed to persist terminal backup state: %v", err)
+	}
 }
 
 func cloneBackupRecordMetadata(metadata *BackupRecordMetadata) *BackupRecordMetadata {
@@ -636,7 +685,7 @@ func (s *BackupService) StartBackup(ctx context.Context, triggeredBy string, exp
 	s.backingUp = true
 	s.opMu.Unlock()
 
-	finish, err := s.beginTrackedOperation()
+	_, finish, err := s.beginTrackedOperation(s.bgCtx)
 	if err != nil {
 		s.opMu.Lock()
 		s.backingUp = false
@@ -808,11 +857,12 @@ func (s *BackupService) executeBackup(record *BackupRecord, objectStore BackupOb
 
 // RestoreBackup 从 S3 下载备份并流式恢复到数据库
 func (s *BackupService) RestoreBackup(ctx context.Context, backupID string) error {
-	finish, err := s.beginTrackedOperation()
+	operationCtx, finish, err := s.beginTrackedOperation(ctx)
 	if err != nil {
 		return err
 	}
 	defer finish()
+	ctx = operationCtx
 	s.opMu.Lock()
 	if s.restoring {
 		s.opMu.Unlock()
@@ -875,7 +925,7 @@ func (s *BackupService) StartRestore(ctx context.Context, backupID string) (*Bac
 	s.restoring = true
 	s.opMu.Unlock()
 
-	finish, err := s.beginTrackedOperation()
+	_, finish, err := s.beginTrackedOperation(s.bgCtx)
 	if err != nil {
 		s.opMu.Lock()
 		s.restoring = false

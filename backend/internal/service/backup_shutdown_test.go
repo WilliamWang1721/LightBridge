@@ -3,6 +3,7 @@
 package service
 
 import (
+	"context"
 	"github.com/WilliamWang1721/LightBridge/internal/config"
 	"github.com/stretchr/testify/require"
 	"sync"
@@ -19,7 +20,7 @@ func TestBackupOperationAdmissionDoesNotRaceWithStop(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			<-start
-			finish, err := s.beginTrackedOperation()
+			_, finish, err := s.beginTrackedOperation(context.Background())
 			if err == nil {
 				finish()
 			}
@@ -28,14 +29,14 @@ func TestBackupOperationAdmissionDoesNotRaceWithStop(t *testing.T) {
 		close(start)
 		wg.Wait()
 		require.True(t, s.shuttingDown.Load())
-		_, err := s.beginTrackedOperation()
+		_, _, err := s.beginTrackedOperation(context.Background())
 		require.Error(t, err)
 	}
 }
 
 func TestBackupStopWaitsForAdmittedOperation(t *testing.T) {
 	s := NewBackupService(nil, &config.Config{}, nil, nil, nil)
-	finish, err := s.beginTrackedOperation()
+	_, finish, err := s.beginTrackedOperation(context.Background())
 	require.NoError(t, err)
 	done := make(chan struct{})
 	go func() { s.Stop(); close(done) }()

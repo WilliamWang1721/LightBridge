@@ -1,0 +1,57 @@
+name: Release integrity
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: release-integrity-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  verify-production-release:
+    if: ${{ github.event.release.prerelease == false }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout trusted verifier from default branch
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - name: Setup Go for binary build-info inspection
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: backend/go.mod
+          check-latest: false
+          cache-dependency-path: backend/go.sum
+
+      - name: Resolve immutable release commit
+        id: release
+        env:
+          TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          git fetch --force origin "refs/tags/${TAG_NAME}:refs/tags/${TAG_NAME}"
+          commit="$(git rev-list -n 1 "${TAG_NAME}^{commit}")"
+          test -n "$commit"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          echo "owner_lower=$(printf '%s' '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Verify assets, binaries, checksums, and GHCR provenance
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.event.release.tag_name }}
+          TARGET_SHA: ${{ steps.release.outputs.commit }}
+          OWNER_LOWER: ${{ steps.release.outputs.owner_lower }}
+        run: |
+          set -euo pipefail
+          python3 tools/verify_release_integrity.py verify \
+            --repository "$GITHUB_REPOSITORY" \
+            --tag "$TAG_NAME" \
+            --commit "$TARGET_SHA" \
+            --image-repository "${OWNER_LOWER}/lightbridge"

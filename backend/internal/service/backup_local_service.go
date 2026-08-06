@@ -57,13 +57,14 @@ func (s *BackupService) OpenLocalBackup(ctx context.Context) (*LocalBackupDownlo
 	}
 	s.backingUp = true
 	s.opMu.Unlock()
-	finish, err := s.beginTrackedOperation()
+	operationCtx, finish, err := s.beginTrackedOperation(ctx)
 	if err != nil {
 		s.opMu.Lock()
 		s.backingUp = false
 		s.opMu.Unlock()
 		return nil, err
 	}
+	ctx = operationCtx
 
 	release := func() {
 		s.opMu.Lock()
@@ -82,8 +83,23 @@ func (s *BackupService) OpenLocalBackup(ctx context.Context) (*LocalBackupDownlo
 	}
 
 	pipeReader, pipeWriter := io.Pipe()
+	cancellationDone := make(chan struct{})
+	stopCancellation := context.AfterFunc(ctx, func() {
+		defer close(cancellationDone)
+		cancelErr := context.Cause(ctx)
+		if cancelErr == nil {
+			cancelErr = context.Canceled
+		}
+		_ = dumpReader.Close()
+		_ = pipeWriter.CloseWithError(cancelErr)
+	})
 	go func() {
 		defer release()
+		defer func() {
+			if !stopCancellation() {
+				<-cancellationDone
+			}
+		}()
 		defer func() {
 			if recovered := recover(); recovered != nil {
 				_ = dumpReader.Close()
