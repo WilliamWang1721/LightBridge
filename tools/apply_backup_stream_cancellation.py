@@ -15,7 +15,9 @@ replace_once(
     local_service,
     "\tpipeReader, pipeWriter := io.Pipe()\n\tgo func() {\n\t\tdefer release()\n",
     "\tpipeReader, pipeWriter := io.Pipe()\n"
+    "\tcancellationDone := make(chan struct{})\n"
     "\tstopCancellation := context.AfterFunc(ctx, func() {\n"
+    "\t\tdefer close(cancellationDone)\n"
     "\t\tcancelErr := context.Cause(ctx)\n"
     "\t\tif cancelErr == nil {\n"
     "\t\t\tcancelErr = context.Canceled\n"
@@ -24,12 +26,21 @@ replace_once(
     "\t\t_ = pipeWriter.CloseWithError(cancelErr)\n"
     "\t})\n"
     "\tgo func() {\n"
-    "\t\tdefer stopCancellation()\n"
-    "\t\tdefer release()\n",
+    "\t\tdefer release()\n"
+    "\t\tdefer func() {\n"
+    "\t\t\tif !stopCancellation() {\n"
+    "\t\t\t\t<-cancellationDone\n"
+    "\t\t\t}\n"
+    "\t\t}()\n",
 )
 
 pg_dumper = Path("backend/internal/repository/backup_pg_dumper.go")
 replace_once(pg_dumper, '"os/exec"\n', '"os/exec"\n\t"sync"\n')
+replace_once(
+    pg_dumper,
+    'return fmt.Errorf("%v: %s", err, string(output))',
+    'return fmt.Errorf("psql failed: %w: %s", err, string(output))',
+)
 replace_once(
     pg_dumper,
     "type cmdReadCloser struct {\n\tio.ReadCloser\n\tcmd *exec.Cmd\n}\n\n"
