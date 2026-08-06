@@ -66,7 +66,7 @@ jobs:
             -e ADMIN_EMAIL=console-test@example.invalid \
             -e ADMIN_PASSWORD=ConsoleTest123! \
             -e JWT_SECRET=test-jwt-secret-test-jwt-secret-test-jwt-secret-test-jwt-secret \
-            -e TOTP_ENCRYPTION_KEY=test-totp-key-test-totp-key-test-totp-key-test-totp-key \
+            -e TOTP_ENCRYPTION_KEY=abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789 \
             lightbridge:console-fix
           for attempt in $(seq 1 80); do
             if curl -fsS http://127.0.0.1:18080/health; then exit 0; fi
