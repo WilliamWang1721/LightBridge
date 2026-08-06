@@ -89,11 +89,12 @@ jobs:
             --attempts 2 \
             --delay 2
 
-      - name: Commit validated lifecycle changes
+      - name: Commit validated changes and final-state inventory
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add backend/internal/service/backup_service.go \
             backend/internal/service/backup_local_service.go \
             backend/internal/service/backup_service_test.go \
@@ -101,4 +102,18 @@ jobs:
             backend/internal/service/backup_shutdown_test.go \
             backend/internal/repository/backup_pg_dumper.go
           git commit -m "fix: cancel backup operations during shutdown"
+
+          git rm --cached \
+            .github/workflows/validate-backup-release-hardening.yml \
+            tools/apply_backup_lifecycle_hardening.py \
+            tools/apply_backup_shutdown_test_compat.py \
+            tools/apply_backup_stream_cancellation.py
+          python3 tools/codebase_inventory.py
+          python3 tools/codebase_inventory.py --check
+          cp docs/architecture/CODEBASE_INVENTORY.tsv /tmp/CODEBASE_INVENTORY.tsv
+          git reset --hard HEAD
+          cp /tmp/CODEBASE_INVENTORY.tsv docs/architecture/CODEBASE_INVENTORY.tsv
+          git add docs/architecture/CODEBASE_INVENTORY.tsv
+          git commit -m "docs: refresh inventory for release and backup hardening"
+
           git push origin HEAD:agent/fix-release-backup-lifecycle
