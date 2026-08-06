@@ -1,4 +1,4 @@
-name: Diagnose published console rendering
+name: Verify console rendering fix
 
 on:
   push:
@@ -14,32 +14,30 @@ concurrency:
 
 jobs:
   browser-login:
-    name: ${{ matrix.name }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      max-parallel: 2
-      matrix:
-        include:
-          - name: ghcr-v0.3.6
-            image: ghcr.io/williamwang1721/lightbridge:0.3.6
-          - name: ghcr-v0.3.61
-            image: ghcr.io/williamwang1721/lightbridge:0.3.61
-          - name: dockerhub-v0.3.6
-            image: williamwang1721/lightbridge:0.3.6
-          - name: dockerhub-v0.3.61
-            image: williamwang1721/lightbridge:0.3.61
+    timeout-minutes: 35
     env:
-      TARGET_IMAGE: ${{ matrix.image }}
+      TARGET_IMAGE: lightbridge:console-fix
       BASE_URL: http://127.0.0.1:18080
       ADMIN_EMAIL: console-diagnostic@lightbridge.local
       ADMIN_PASSWORD: LightBridge-Console-Diagnostic-2026!
-      OUTPUT_DIR: /tmp/diagnostic-${{ matrix.name }}
-      COMPOSE_PROJECT_NAME: lb-console-${{ github.run_id }}-${{ strategy.job-index }}
+      OUTPUT_DIR: /tmp/console-diagnostic
+      COMPOSE_PROJECT_NAME: lb-console-${{ github.run_id }}
 
     steps:
-      - name: Start exact published image
+      - uses: actions/checkout@v6
+
+      - name: Build the fixed production image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build \
+            --tag "$TARGET_IMAGE" \
+            --build-arg VERSION=console-fix \
+            --build-arg COMMIT="$GITHUB_SHA" \
+            .
+
+      - name: Start the fixed image
         shell: bash
         run: |
           set -euo pipefail
@@ -66,7 +64,7 @@ jobs:
                 retries: 60
             app:
               image: ${TARGET_IMAGE:?TARGET_IMAGE is required}
-              pull_policy: always
+              pull_policy: never
               ports:
                 - "127.0.0.1:18080:8080"
               environment:
@@ -103,12 +101,10 @@ jobs:
                 retries: 80
           YAML
 
-          docker compose -f /tmp/console-diagnostic-compose.yml pull
           docker compose -f /tmp/console-diagnostic-compose.yml up -d --wait --wait-timeout 240
           curl --fail --silent --show-error "$BASE_URL/health" | tee "$OUTPUT_DIR/health.json"
-          docker image inspect "$TARGET_IMAGE" >"$OUTPUT_DIR/image-inspect.json"
 
-      - name: Login through a real browser and inspect the console
+      - name: Login through Chromium and require a rendered console
         shell: bash
         run: |
           set -euo pipefail
@@ -117,121 +113,82 @@ jobs:
           import { chromium } from 'playwright'
 
           const baseURL = process.env.BASE_URL
-          const email = process.env.ADMIN_EMAIL
-          const password = process.env.ADMIN_PASSWORD
           const outputDir = process.env.OUTPUT_DIR
-          const events = []
           const pageErrors = []
           const failedRequests = []
           const errorResponses = []
-
           const browser = await chromium.launch({ headless: true })
-          const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } })
-          const page = await context.newPage()
+          const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } })
 
-          page.on('console', (message) => {
-            events.push({ type: `console:${message.type()}`, text: message.text() })
-          })
-          page.on('pageerror', (error) => {
-            pageErrors.push({ message: error.message, stack: error.stack || '' })
-          })
-          page.on('requestfailed', (request) => {
-            failedRequests.push({
-              url: request.url(),
-              method: request.method(),
-              resourceType: request.resourceType(),
-              failure: request.failure()?.errorText || 'unknown',
+          page.on('pageerror', error => pageErrors.push({ message: error.message, stack: error.stack || '' }))
+          page.on('requestfailed', request => failedRequests.push({
+            url: request.url(),
+            method: request.method(),
+            resourceType: request.resourceType(),
+            failure: request.failure()?.errorText || 'unknown',
+          }))
+          page.on('response', response => {
+            if (response.status() >= 400) errorResponses.push({
+              url: response.url(),
+              status: response.status(),
+              resourceType: response.request().resourceType(),
             })
           })
-          page.on('response', (response) => {
-            if (response.status() >= 400) {
-              errorResponses.push({
-                url: response.url(),
-                status: response.status(),
-                resourceType: response.request().resourceType(),
-              })
-            }
-          })
 
-          let fatal = ''
-          try {
-            await page.goto(`${baseURL}/login`, { waitUntil: 'domcontentloaded', timeout: 60000 })
-            await page.locator('#email').fill(email)
-            await page.locator('#password').fill(password)
-            const submit = page.locator('button[type="submit"]')
-            await submit.waitFor({ state: 'visible', timeout: 30000 })
-            await submit.click()
-            await page.waitForURL(/\/admin\/dashboard(?:[/?#]|$)/, { timeout: 60000 })
-            await page.waitForTimeout(10000)
-          } catch (error) {
-            fatal = error instanceof Error ? `${error.message}\n${error.stack || ''}` : String(error)
-          }
+          await page.goto(`${baseURL}/login`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+          await page.locator('#email').fill(process.env.ADMIN_EMAIL)
+          await page.locator('#password').fill(process.env.ADMIN_PASSWORD)
+          await page.locator('button[type="submit"]').click()
+          await page.waitForURL(/\/admin\/dashboard(?:[/?#]|$)/, { timeout: 60000 })
+          await page.waitForTimeout(10000)
 
           const structure = await page.evaluate(() => {
             const root = document.querySelector('#app')
-            const visibleText = document.body.innerText.trim()
             return {
               url: location.href,
-              title: document.title,
               rootChildren: root?.children.length ?? 0,
-              rootHTMLLength: root?.innerHTML.length ?? 0,
-              bodyTextLength: visibleText.length,
-              bodyTextSample: visibleText.slice(0, 1000),
+              bodyTextLength: document.body.innerText.trim().length,
               sidebarCount: document.querySelectorAll('#lightbridge-sidebar, .sidebar').length,
               headerCount: document.querySelectorAll('.app-topbar').length,
               mainCount: document.querySelectorAll('main.app-main').length,
-              startupError: document.body.innerText.includes('LightBridge could not start'),
             }
           })
 
           await page.screenshot({ path: `${outputDir}/console.png`, fullPage: true })
-          await fs.writeFile(`${outputDir}/page.html`, await page.content())
-          const result = {
-            image: process.env.TARGET_IMAGE,
-            fatal,
-            structure,
-            pageErrors,
-            failedRequests,
-            errorResponses,
-            events,
-          }
+          const result = { structure, pageErrors, failedRequests, errorResponses }
           await fs.writeFile(`${outputDir}/result.json`, JSON.stringify(result, null, 2))
           console.log(JSON.stringify(result, null, 2))
           await browser.close()
 
-          const rendered =
-            !fatal &&
-            structure.url.includes('/admin/dashboard') &&
-            structure.rootChildren > 0 &&
-            structure.sidebarCount > 0 &&
-            structure.headerCount > 0 &&
-            structure.mainCount > 0 &&
-            structure.bodyTextLength > 50 &&
-            !structure.startupError
-
-          if (!rendered) process.exit(1)
+          if (
+            pageErrors.length ||
+            !structure.url.includes('/admin/dashboard') ||
+            structure.rootChildren === 0 ||
+            structure.sidebarCount === 0 ||
+            structure.headerCount === 0 ||
+            structure.mainCount === 0 ||
+            structure.bodyTextLength < 50
+          ) process.exit(1)
           JS
 
           docker run --rm --network host \
-            -e BASE_URL -e ADMIN_EMAIL -e ADMIN_PASSWORD -e OUTPUT_DIR -e TARGET_IMAGE \
-            -e PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+            -e BASE_URL -e ADMIN_EMAIL -e ADMIN_PASSWORD -e OUTPUT_DIR \
             -v "$OUTPUT_DIR:/work" \
             mcr.microsoft.com/playwright:v1.55.0-noble \
             bash -lc 'set -euo pipefail; mkdir -p /tmp/diag; cp /work/diagnose.mjs /tmp/diag/; cd /tmp/diag; npm init -y >/dev/null; npm install --no-audit --no-fund playwright@1.55.0 >/dev/null; node diagnose.mjs'
 
-      - name: Collect service diagnostics
+      - name: Collect diagnostics
         if: always()
         shell: bash
         run: |
           set +e
-          docker compose -f /tmp/console-diagnostic-compose.yml ps -a >"$OUTPUT_DIR/compose-ps.txt" 2>&1
           docker compose -f /tmp/console-diagnostic-compose.yml logs --no-color >"$OUTPUT_DIR/compose.log" 2>&1
 
       - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: console-${{ matrix.name }}
+          name: console-rendering-fix
           path: ${{ env.OUTPUT_DIR }}
           if-no-files-found: error
           retention-days: 2
