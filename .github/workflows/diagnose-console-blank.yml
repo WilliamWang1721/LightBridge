@@ -112,7 +112,7 @@ jobs:
           JS
           docker run --rm --network host -v /tmp/console-result:/work \
             mcr.microsoft.com/playwright:v1.55.0-noble \
-            bash -lc 'cd /tmp && npm init -y >/dev/null && npm install --no-audit --no-fund playwright@1.55.0 >/dev/null && node /work/check.mjs'
+            bash -lc 'set -euo pipefail; mkdir -p /tmp/diag; cp /work/check.mjs /tmp/diag/check.mjs; cd /tmp/diag; npm init -y >/dev/null; npm install --no-audit --no-fund playwright@1.55.0 >/dev/null; node check.mjs'
 
       - name: Upload browser evidence
         if: always()
