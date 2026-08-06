@@ -7,6 +7,7 @@ on:
       - .github/workflows/validate-backup-release-hardening.yml
       - tools/apply_backup_lifecycle_hardening.py
       - tools/apply_backup_shutdown_test_compat.py
+      - tools/apply_backup_stream_cancellation.py
       - tools/verify_release_integrity.py
 
 permissions:
@@ -31,6 +32,7 @@ jobs:
           set -euo pipefail
           python3 tools/apply_backup_lifecycle_hardening.py
           python3 tools/apply_backup_shutdown_test_compat.py
+          python3 tools/apply_backup_stream_cancellation.py
 
       - name: Format and inspect changes
         run: |
@@ -39,7 +41,8 @@ jobs:
             backend/internal/service/backup_local_service.go \
             backend/internal/service/backup_service_test.go \
             backend/internal/service/backup_local_service_test.go \
-            backend/internal/service/backup_shutdown_test.go
+            backend/internal/service/backup_shutdown_test.go \
+            backend/internal/repository/backup_pg_dumper.go
           git diff --check
           git diff --stat
 
@@ -51,11 +54,11 @@ jobs:
 
       - name: Run backup service unit tests
         working-directory: backend
-        run: go test -tags=unit ./internal/service
+        run: go test -tags=unit ./internal/service ./internal/repository
 
       - name: Run backup service race detector
         working-directory: backend
-        run: go test -race -tags=unit ./internal/service
+        run: go test -race -tags=unit ./internal/service ./internal/repository
 
       - name: Validate release verifier syntax
         run: python3 -m py_compile tools/verify_release_integrity.py
@@ -67,6 +70,12 @@ jobs:
           python3 tools/verify_release_integrity.py guard \
             --repository "$GITHUB_REPOSITORY" \
             --tag v0.3.61
+          if python3 tools/verify_release_integrity.py guard \
+            --repository "$GITHUB_REPOSITORY" \
+            --tag v0.3.6; then
+            echo "rollback guard unexpectedly accepted an older stable release" >&2
+            exit 1
+          fi
 
       - name: Verify published v0.3.61 contents and images
         env:
@@ -89,6 +98,7 @@ jobs:
             backend/internal/service/backup_local_service.go \
             backend/internal/service/backup_service_test.go \
             backend/internal/service/backup_local_service_test.go \
-            backend/internal/service/backup_shutdown_test.go
+            backend/internal/service/backup_shutdown_test.go \
+            backend/internal/repository/backup_pg_dumper.go
           git commit -m "fix: cancel backup operations during shutdown"
           git push origin HEAD:agent/fix-release-backup-lifecycle
