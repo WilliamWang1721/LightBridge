@@ -1,0 +1,88 @@
+name: Validate backup and release hardening
+
+on:
+  push:
+    branches: [agent/fix-release-backup-lifecycle]
+    paths:
+      - .github/workflows/validate-backup-release-hardening.yml
+      - tools/apply_backup_lifecycle_hardening.py
+      - tools/verify_release_integrity.py
+
+permissions:
+  contents: write
+  packages: read
+
+concurrency:
+  group: validate-backup-release-hardening
+  cancel-in-progress: false
+
+jobs:
+  patch-test-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: agent/fix-release-backup-lifecycle
+          fetch-depth: 0
+
+      - name: Apply deterministic lifecycle patch
+        run: python3 tools/apply_backup_lifecycle_hardening.py
+
+      - name: Format and inspect changes
+        run: |
+          set -euo pipefail
+          gofmt -w backend/internal/service/backup_service.go \
+            backend/internal/service/backup_local_service.go \
+            backend/internal/service/backup_service_test.go \
+            backend/internal/service/backup_local_service_test.go
+          git diff --check
+          git diff --stat
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Run backup service unit tests
+        working-directory: backend
+        run: go test -tags=unit ./internal/service
+
+      - name: Run backup service race detector
+        working-directory: backend
+        run: go test -race -tags=unit ./internal/service
+
+      - name: Validate release verifier syntax
+        run: python3 -m py_compile tools/verify_release_integrity.py
+
+      - name: Validate stable release rollback guard
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 tools/verify_release_integrity.py guard \
+            --repository "$GITHUB_REPOSITORY" \
+            --tag v0.3.61
+
+      - name: Verify published v0.3.61 contents and images
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 tools/verify_release_integrity.py verify \
+            --repository "$GITHUB_REPOSITORY" \
+            --tag v0.3.61 \
+            --commit 4645a1e9dc6c03f36efe2e5f8a5bf728a0b4eca5 \
+            --image-repository williamwang1721/lightbridge \
+            --attempts 2 \
+            --delay 2
+
+      - name: Commit validated lifecycle changes
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend/internal/service/backup_service.go \
+            backend/internal/service/backup_local_service.go \
+            backend/internal/service/backup_service_test.go \
+            backend/internal/service/backup_local_service_test.go
+          git commit -m "fix: cancel backup operations during shutdown"
+          git push origin HEAD:agent/fix-release-backup-lifecycle
