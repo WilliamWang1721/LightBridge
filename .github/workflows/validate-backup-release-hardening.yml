@@ -6,6 +6,7 @@ on:
     paths:
       - .github/workflows/validate-backup-release-hardening.yml
       - tools/apply_backup_lifecycle_hardening.py
+      - tools/apply_backup_shutdown_test_compat.py
       - tools/verify_release_integrity.py
 
 permissions:
@@ -26,7 +27,10 @@ jobs:
           fetch-depth: 0
 
       - name: Apply deterministic lifecycle patch
-        run: python3 tools/apply_backup_lifecycle_hardening.py
+        run: |
+          set -euo pipefail
+          python3 tools/apply_backup_lifecycle_hardening.py
+          python3 tools/apply_backup_shutdown_test_compat.py
 
       - name: Format and inspect changes
         run: |
@@ -34,7 +38,8 @@ jobs:
           gofmt -w backend/internal/service/backup_service.go \
             backend/internal/service/backup_local_service.go \
             backend/internal/service/backup_service_test.go \
-            backend/internal/service/backup_local_service_test.go
+            backend/internal/service/backup_local_service_test.go \
+            backend/internal/service/backup_shutdown_test.go
           git diff --check
           git diff --stat
 
@@ -83,6 +88,7 @@ jobs:
           git add backend/internal/service/backup_service.go \
             backend/internal/service/backup_local_service.go \
             backend/internal/service/backup_service_test.go \
-            backend/internal/service/backup_local_service_test.go
+            backend/internal/service/backup_local_service_test.go \
+            backend/internal/service/backup_shutdown_test.go
           git commit -m "fix: cancel backup operations during shutdown"
           git push origin HEAD:agent/fix-release-backup-lifecycle
