@@ -117,4 +117,40 @@ describe('TokenUsageTrend', () => {
     // Hit rate = 500 / (200 + 500 + 300) * 100 = 50%
     expect(hitRateDataset.data[0]).toBe(50)
   })
+
+  it('normalizes nullable string values and legacy token field names', () => {
+    const wrapper = mount(TokenUsageTrend, {
+      props: {
+        trendData: [{
+          date: '2026-05-08',
+          requests: '1',
+          input_tokens: null,
+          prompt_tokens: '200',
+          output_tokens: '0',
+          cache_creation_tokens: null,
+          cache_write_tokens: '300',
+          cache_read_tokens: '500',
+          total_tokens: '1000',
+          total_cost: '0.02',
+          user_cost: '0',
+        }] as unknown as import('@/types').TrendDataPoint[],
+      },
+      global: { stubs: { LoadingSpinner: true } },
+    })
+
+    const chartData = JSON.parse(wrapper.find('.chart-data').text())
+    expect(chartData.datasets.find((item: { label: string }) => item.label === 'Input').data).toEqual([200])
+    expect(chartData.datasets.find((item: { label: string }) => item.label === 'Output').data).toEqual([0])
+    expect(chartData.datasets.find((item: { label: string }) => item.label === 'Cache Creation').data).toEqual([300])
+    expect(chartData.datasets.find((item: { label: string }) => item.label === 'Cache Hit Rate').data).toEqual([50])
+  })
+
+  it('shows the empty state when a legacy response supplies null', () => {
+    const wrapper = mount(TokenUsageTrend, {
+      props: { trendData: null },
+      global: { stubs: { LoadingSpinner: true } },
+    })
+
+    expect(wrapper.text()).toContain('No data available')
+  })
 })

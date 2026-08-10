@@ -1,12 +1,12 @@
 <template>
-  <div class="card p-4">
+  <div class="card min-w-0 overflow-hidden p-4">
     <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
       {{ t('admin.dashboard.tokenUsageTrend') }}
     </h3>
     <div v-if="loading" class="flex h-48 items-center justify-center">
       <LoadingSpinner />
     </div>
-    <div v-else-if="trendData.length > 0 && chartData" class="h-48">
+    <div v-else-if="normalizedTrend.length > 0 && chartData" class="relative h-48 min-w-0 overflow-hidden">
       <Line :data="chartData" :options="lineOptions" />
     </div>
     <div
@@ -35,6 +35,7 @@ import {
 import { Line } from 'vue-chartjs'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import type { TrendDataPoint } from '@/types'
+import { readUsageNumber } from '@/utils/usageDisplay'
 
 ChartJS.register(
   CategoryScale,
@@ -50,7 +51,7 @@ ChartJS.register(
 const { t } = useI18n()
 
 const props = defineProps<{
-  trendData: TrendDataPoint[]
+  trendData?: TrendDataPoint[] | null
   loading?: boolean
 }>()
 
@@ -68,15 +69,35 @@ const chartColors = computed(() => ({
   cacheHitRate: '#8b5cf6'
 }))
 
-const chartData = computed(() => {
-  if (!props.trendData?.length) return null
+const normalizedTrend = computed(() => (props.trendData || []).map((point) => {
+  const inputTokens = readUsageNumber(point, ['input_tokens', 'prompt_tokens'])
+  const outputTokens = readUsageNumber(point, ['output_tokens', 'completion_tokens'])
+  const cacheCreationTokens = readUsageNumber(point, ['cache_creation_tokens', 'cache_write_tokens'])
+  const cacheReadTokens = readUsageNumber(point, ['cache_read_tokens', 'cached_tokens'])
 
   return {
-    labels: props.trendData.map((d) => d.date),
+    date: String((point as unknown as Record<string, unknown>).date
+      ?? (point as unknown as Record<string, unknown>).period
+      ?? (point as unknown as Record<string, unknown>).timestamp
+      ?? ''),
+    input_tokens: inputTokens,
+    output_tokens: outputTokens,
+    cache_creation_tokens: cacheCreationTokens,
+    cache_read_tokens: cacheReadTokens,
+    cost: readUsageNumber(point, ['cost', 'total_cost', 'standard_cost']),
+    actual_cost: readUsageNumber(point, ['actual_cost', 'user_cost']),
+  }
+}))
+
+const chartData = computed(() => {
+  if (!normalizedTrend.value.length) return null
+
+  return {
+    labels: normalizedTrend.value.map((d) => d.date),
     datasets: [
       {
         label: 'Input',
-        data: props.trendData.map((d) => d.input_tokens),
+        data: normalizedTrend.value.map((d) => d.input_tokens),
         borderColor: chartColors.value.input,
         backgroundColor: `${chartColors.value.input}20`,
         fill: true,
@@ -84,7 +105,7 @@ const chartData = computed(() => {
       },
       {
         label: 'Output',
-        data: props.trendData.map((d) => d.output_tokens),
+        data: normalizedTrend.value.map((d) => d.output_tokens),
         borderColor: chartColors.value.output,
         backgroundColor: `${chartColors.value.output}20`,
         fill: true,
@@ -92,7 +113,7 @@ const chartData = computed(() => {
       },
       {
         label: 'Cache Creation',
-        data: props.trendData.map((d) => d.cache_creation_tokens),
+        data: normalizedTrend.value.map((d) => d.cache_creation_tokens),
         borderColor: chartColors.value.cacheCreation,
         backgroundColor: `${chartColors.value.cacheCreation}20`,
         fill: true,
@@ -100,7 +121,7 @@ const chartData = computed(() => {
       },
       {
         label: 'Cache Read',
-        data: props.trendData.map((d) => d.cache_read_tokens),
+        data: normalizedTrend.value.map((d) => d.cache_read_tokens),
         borderColor: chartColors.value.cacheRead,
         backgroundColor: `${chartColors.value.cacheRead}20`,
         fill: true,
@@ -108,7 +129,7 @@ const chartData = computed(() => {
       },
       {
         label: 'Cache Hit Rate',
-        data: props.trendData.map((d) => {
+        data: normalizedTrend.value.map((d) => {
           const totalPromptTokens = d.input_tokens + d.cache_read_tokens + d.cache_creation_tokens
           return totalPromptTokens > 0 ? (d.cache_read_tokens / totalPromptTokens) * 100 : 0
         }),
@@ -153,8 +174,8 @@ const lineOptions = computed(() => ({
         },
         footer: (tooltipItems: any) => {
           const dataIndex = tooltipItems[0]?.dataIndex
-          if (dataIndex !== undefined && props.trendData[dataIndex]) {
-            const data = props.trendData[dataIndex]
+          if (dataIndex !== undefined && normalizedTrend.value[dataIndex]) {
+            const data = normalizedTrend.value[dataIndex]
             return `Actual: $${formatCost(data.actual_cost)} | Standard: $${formatCost(data.cost)}`
           }
           return ''
