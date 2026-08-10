@@ -3,7 +3,7 @@
     @refresh="loadDashboardStats"
     @customize-dashboard="showCustomizePanel = true"
   >
-    <div class="space-y-6">
+    <div class="min-w-0 space-y-5 pb-4 md:space-y-6">
       <!-- Loading State -->
       <div v-if="loading" class="flex items-center justify-center py-12">
         <LoadingSpinner />
@@ -11,7 +11,7 @@
 
       <template v-else-if="stats">
         <!-- Small Panels -->
-        <div v-if="enabledSmallPanels.length > 0" class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div v-if="enabledSmallPanels.length > 0" class="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <!-- Total API Keys -->
           <div
             v-if="isSmallPanelEnabled('apiKeys')"
@@ -248,10 +248,10 @@
         </div>
 
         <!-- Large Panels -->
-        <div v-if="enabledLargePanels.length > 0" class="flex flex-col gap-6">
+        <div v-if="enabledLargePanels.length > 0" class="flex min-w-0 flex-col gap-5 md:gap-6">
           <template v-for="panel in enabledLargePanels" :key="panel.key">
             <!-- Charts Grid -->
-            <div v-if="panel.key === 'usageCharts'" class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div v-if="panel.key === 'usageCharts'" class="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-2">
               <ModelDistributionChart
                 :model-stats="modelStats"
                 :enable-ranking-view="true"
