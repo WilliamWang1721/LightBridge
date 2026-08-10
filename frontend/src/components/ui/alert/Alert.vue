@@ -19,7 +19,8 @@ const alertVariants = cva(
       variant: {
         default: 'border-[hsl(var(--border))] bg-[hsl(var(--background))] text-[hsl(var(--foreground))]',
         info: 'border-blue-500/25 bg-blue-500/10 text-blue-900 dark:text-blue-100',
-        success: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-900 dark:text-emerald-100',
+        success:
+          'border-[hsl(var(--primary)/0.25)] bg-[hsl(var(--primary)/0.1)] text-[hsl(var(--primary))]',
         warning: 'border-amber-500/25 bg-amber-500/10 text-amber-950 dark:text-amber-100',
         destructive:
           'border-[hsl(var(--destructive)/0.3)] bg-[hsl(var(--destructive)/0.08)] text-[hsl(var(--destructive))]',

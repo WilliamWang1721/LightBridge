@@ -27,3 +27,114 @@
     radial-gradient(circle at 15% 12%, hsl(var(--primary) / 0.06), transparent 28rem),
     radial-gradient(circle at 85% 88%, hsl(var(--chart-2) / 0.05), transparent 32rem) !important;
 }
+
+/* Legacy success utilities inherit the Luma accent instead of leaking green. */
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) {
+  [class^='text-green-'],
+  [class*=' text-green-'],
+  [class^='text-emerald-'],
+  [class*=' text-emerald-'],
+  [class^='text-lime-'],
+  [class*=' text-lime-'] {
+    color: hsl(var(--primary)) !important;
+  }
+
+  [class^='bg-green-'],
+  [class*=' bg-green-'],
+  [class^='bg-emerald-'],
+  [class*=' bg-emerald-'],
+  [class^='bg-lime-'],
+  [class*=' bg-lime-'] {
+    background-color: hsl(var(--primary) / 0.12) !important;
+  }
+
+  [class^='border-green-'],
+  [class*=' border-green-'],
+  [class^='border-emerald-'],
+  [class*=' border-emerald-'],
+  [class^='border-lime-'],
+  [class*=' border-lime-'] {
+    border-color: hsl(var(--primary) / 0.3) !important;
+  }
+
+  [class^='fill-green-'],
+  [class*=' fill-green-'],
+  [class^='fill-emerald-'],
+  [class*=' fill-emerald-'],
+  [class^='fill-lime-'],
+  [class*=' fill-lime-'] {
+    fill: hsl(var(--primary)) !important;
+  }
+
+  [class^='stroke-green-'],
+  [class*=' stroke-green-'],
+  [class^='stroke-emerald-'],
+  [class*=' stroke-emerald-'],
+  [class^='stroke-lime-'],
+  [class*=' stroke-lime-'] {
+    stroke: hsl(var(--primary)) !important;
+  }
+
+  [class*='from-green-'],
+  [class*='from-emerald-'],
+  [class*='from-lime-'] {
+    --tw-gradient-from: hsl(var(--primary)) var(--tw-gradient-from-position) !important;
+    --tw-gradient-to: hsl(var(--primary) / 0) var(--tw-gradient-to-position) !important;
+  }
+
+  [class*='to-green-'],
+  [class*='to-emerald-'],
+  [class*='to-lime-'] {
+    --tw-gradient-to: hsl(var(--primary)) var(--tw-gradient-to-position) !important;
+  }
+
+  [class*='ring-green-'],
+  [class*='ring-emerald-'],
+  [class*='ring-lime-'] {
+    --tw-ring-color: hsl(var(--ring) / 0.35) !important;
+  }
+
+  [class*='shadow-green-'],
+  [class*='shadow-emerald-'],
+  [class*='shadow-lime-'] {
+    --tw-shadow-color: hsl(var(--primary) / 0.25) !important;
+  }
+
+  [class*='hover:text-green-']:hover,
+  [class*='hover:text-emerald-']:hover,
+  [class*='hover:text-lime-']:hover,
+  .group:hover [class*='group-hover:text-green-'],
+  .group:hover [class*='group-hover:text-emerald-'],
+  .group:hover [class*='group-hover:text-lime-'] {
+    color: hsl(var(--primary)) !important;
+  }
+
+  [class*='hover:bg-green-']:hover,
+  [class*='hover:bg-emerald-']:hover,
+  [class*='hover:bg-lime-']:hover,
+  .group:hover [class*='group-hover:bg-green-'],
+  .group:hover [class*='group-hover:bg-emerald-'],
+  .group:hover [class*='group-hover:bg-lime-'] {
+    background-color: hsl(var(--primary) / 0.16) !important;
+  }
+}
+
+:where(html.dark[data-ui-mode='modern'], html.dark[data-ui-mode='package']) {
+  [class*='dark:text-green-'],
+  [class*='dark:text-emerald-'],
+  [class*='dark:text-lime-'] {
+    color: hsl(var(--primary)) !important;
+  }
+
+  [class*='dark:bg-green-'],
+  [class*='dark:bg-emerald-'],
+  [class*='dark:bg-lime-'] {
+    background-color: hsl(var(--primary) / 0.14) !important;
+  }
+
+  [class*='dark:border-green-'],
+  [class*='dark:border-emerald-'],
+  [class*='dark:border-lime-'] {
+    border-color: hsl(var(--primary) / 0.35) !important;
+  }
+}

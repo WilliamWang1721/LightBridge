@@ -9,14 +9,14 @@
  */
 
 :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) {
-  background: hsl(var(--background));
+  background: var(--lb-bg-page);
   color: hsl(var(--foreground));
 }
 
 :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) body,
 :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) #app {
   min-height: 100%;
-  background: hsl(var(--background)) !important;
+  background: var(--lb-bg-page) !important;
   color: hsl(var(--foreground)) !important;
   font-family: var(--ui-font-body) !important;
 }

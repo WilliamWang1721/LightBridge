@@ -75,9 +75,9 @@
 }
 
 :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .badge-success {
-  border-color: hsl(152 55% 40% / 0.25);
-  background: hsl(152 55% 40% / 0.12) !important;
-  color: hsl(152 55% 34%) !important;
+  border-color: hsl(var(--primary) / 0.25);
+  background: hsl(var(--primary) / 0.12) !important;
+  color: hsl(var(--primary)) !important;
 }
 
 :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.badge-danger, .badge-error) {

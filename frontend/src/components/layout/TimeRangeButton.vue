@@ -1,23 +1,24 @@
 <template>
-  <div class="relative" ref="wrapperRef">
-    <button
-      type="button"
-      class="relative flex h-9 w-9 items-center justify-center rounded-lg text-gray-600 transition-all hover:scale-105 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-dark-800"
-      :title="t('admin.dashboard.timeRange')"
-      @click="open = !open"
-    >
-      <Icon name="clock" size="md" />
-    </button>
+  <Popover v-model:open="open">
+    <PopoverTrigger as-child>
+      <Button
+        variant="ghost"
+        size="icon"
+        :title="t('admin.dashboard.timeRange')"
+        :aria-label="t('admin.dashboard.timeRange')"
+      >
+        <Icon name="clock" size="md" />
+      </Button>
+    </PopoverTrigger>
 
-    <BaseDialog
-      :show="open"
-      :title="t('admin.dashboard.timeRange')"
-      width="narrow"
-      @close="open = false"
-    >
-      <div class="space-y-4">
+    <PopoverContent align="end" class="w-[min(24rem,calc(100vw-1rem))]">
+      <div class="space-y-5">
+        <h2 class="text-base font-semibold text-[hsl(var(--foreground))]">
+          {{ t('admin.dashboard.timeRange') }}
+        </h2>
         <div>
-          <label class="input-label">{{ t('admin.dashboard.timeRange') }}</label>
+          <Label>{{ t('admin.dashboard.timeRange') }}</Label>
+          <div class="mt-2">
           <DateRangePicker
             :start-date="draftStart"
             :end-date="draftEnd"
@@ -25,61 +26,58 @@
             @update:end-date="draftEnd = $event"
             @change="onPickerChange"
           />
+          </div>
         </div>
 
         <div>
-          <label class="input-label">{{ t('admin.dashboard.granularity') }}</label>
-          <div class="mt-2 grid grid-cols-2 gap-2">
-            <button
+          <Label :id="granularityLabelId">{{ t('admin.dashboard.granularity') }}</Label>
+          <div class="mt-2 grid grid-cols-2 gap-2" role="group" :aria-labelledby="granularityLabelId">
+            <Button
               v-for="opt in granularityOptions"
               :key="opt.value"
-              type="button"
+              size="sm"
+              :variant="draftGranularity === opt.value ? 'default' : 'outline'"
+              :aria-pressed="draftGranularity === opt.value"
               @click="draftGranularity = opt.value"
-              :class="[
-                'rounded-lg border-2 px-3 py-2 text-sm font-medium transition-all',
-                draftGranularity === opt.value
-                  ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300'
-                  : 'border-gray-200 text-gray-600 hover:border-primary-300 dark:border-dark-600 dark:text-dark-300'
-              ]"
             >
               {{ opt.label }}
-            </button>
+            </Button>
+          </div>
+        </div>
+
+        <div class="flex justify-between gap-3 border-t border-[hsl(var(--border))] pt-4">
+          <Button variant="outline" size="sm" @click="handleReset">
+            {{ t('common.reset') }}
+          </Button>
+          <div class="flex gap-3">
+            <Button variant="ghost" size="sm" @click="open = false">
+              {{ t('common.close') }}
+            </Button>
+            <Button size="sm" @click="handleApply">
+              {{ t('common.apply') }}
+            </Button>
           </div>
         </div>
       </div>
-
-      <template #footer>
-        <div class="flex justify-between gap-3">
-          <button type="button" class="btn btn-secondary" @click="handleReset">
-            {{ t('common.reset') }}
-          </button>
-          <div class="flex gap-3">
-            <button type="button" class="btn btn-secondary" @click="open = false">
-              {{ t('common.close') }}
-            </button>
-            <button type="button" class="btn btn-primary" @click="handleApply">
-              {{ t('common.apply') }}
-            </button>
-          </div>
-        </div>
-      </template>
-    </BaseDialog>
-  </div>
+    </PopoverContent>
+  </Popover>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
-import BaseDialog from '@/components/common/BaseDialog.vue'
 import DateRangePicker from '@/components/common/DateRangePicker.vue'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useTimeRangeStore, type DashboardGranularity } from '@/stores/timeRange'
 
 const { t } = useI18n()
 const store = useTimeRangeStore()
 
 const open = ref(false)
-const wrapperRef = ref<HTMLElement | null>(null)
+const granularityLabelId = `${useId()}-granularity`
 const draftStart = ref(store.startDate)
 const draftEnd = ref(store.endDate)
 const draftGranularity = ref<DashboardGranularity>(store.granularity)

@@ -1,5 +1,5 @@
 <template>
-  <header class="app-topbar glass sticky top-0 z-30">
+  <header class="app-topbar sticky top-0 z-30">
     <div class="flex min-h-20 items-center justify-between px-4 md:px-6">
       <!-- Left: Mobile Menu Toggle + Page Title -->
       <div class="flex items-center gap-4">

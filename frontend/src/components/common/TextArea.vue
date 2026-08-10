@@ -5,25 +5,25 @@
       <span v-if="required" class="text-red-500">*</span>
     </label>
     <div class="relative">
-      <textarea
+      <LumaTextarea
         :id="id"
         ref="textAreaRef"
-        :value="modelValue"
+        :model-value="modelValue"
         :disabled="disabled"
         :required="required"
         :placeholder="placeholderText"
         :readonly="readonly"
         :rows="rows"
+        :aria-invalid="error ? 'true' : undefined"
         :class="[
-          'input w-full min-h-[80px] transition-all duration-200 resize-y',
-          error ? 'input-error ring-2 ring-red-500/20' : '',
-          disabled ? 'cursor-not-allowed bg-gray-100 opacity-60 dark:bg-dark-900' : ''
+          'min-h-[80px] resize-y',
+          disabled ? 'cursor-not-allowed opacity-60' : ''
         ]"
-        @input="onInput"
+        @update:model-value="emit('update:modelValue', String($event ?? ''))"
         @change="$emit('change', ($event.target as HTMLTextAreaElement).value)"
         @blur="$emit('blur', $event)"
         @focus="$emit('focus', $event)"
-      ></textarea>
+      />
     </div>
     <!-- Hint / Error Text -->
     <p v-if="error" class="input-error-text mt-1.5">
@@ -37,6 +37,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { Textarea as LumaTextarea } from '@/components/ui/textarea'
 
 interface Props {
   modelValue: string | null | undefined
@@ -65,13 +66,8 @@ const emit = defineEmits<{
   (e: 'focus', event: FocusEvent): void
 }>()
 
-const textAreaRef = ref<HTMLTextAreaElement | null>(null)
+const textAreaRef = ref<InstanceType<typeof LumaTextarea> | null>(null)
 const placeholderText = computed(() => props.placeholder || '')
-
-const onInput = (event: Event) => {
-  const value = (event.target as HTMLTextAreaElement).value
-  emit('update:modelValue', value)
-}
 
 // Expose focus method
 defineExpose({

@@ -24,6 +24,7 @@ let listenerInstalled = false
 let accountProfileLoaded = false
 let hydrationPromise: Promise<void> | null = null
 let accountRequestGeneration = 0
+let pendingAccountPreferences: UIProfileOverrides | undefined
 
 function syncFromRuntime() {
   profile.value = { ...getCurrentUIProfile() }
@@ -74,9 +75,18 @@ async function hydrateAccountPreferences() {
     try {
       const result = sanitizeUIProfileOverrides(await uiProfileAPI.getUIProfile()) || {}
       if (generation !== accountRequestGeneration) return
-      accountPreferences.value = result
+      const pending = pendingAccountPreferences
+      accountPreferences.value = pending ?? result
       accountProfileLoaded = true
       profile.value = applyResolvedProfile()
+
+      if (pending !== undefined) {
+        pendingAccountPreferences = undefined
+        const saved = sanitizeUIProfileOverrides(await uiProfileAPI.updateUIProfile(pending)) || {}
+        if (generation !== accountRequestGeneration) return
+        accountPreferences.value = saved
+        profile.value = applyResolvedProfile()
+      }
     } catch (error) {
       if (generation !== accountRequestGeneration) return
       accountSyncError.value = error instanceof Error ? error.message : 'Failed to load UI preferences'
@@ -96,6 +106,7 @@ function clearAccountPreferences() {
   accountRequestGeneration += 1
   hydrationPromise = null
   accountPreferences.value = undefined
+  pendingAccountPreferences = undefined
   accountProfileLoaded = false
   accountSyncing.value = false
   accountSyncError.value = ''
@@ -109,8 +120,12 @@ async function updatePreferences(patch: UIProfileOverrides) {
   storeLocalPreferences(next)
   accountPreferences.value = accountProfileLoaded ? next : accountPreferences.value
   profile.value = applyResolvedProfile()
-  if (!accountProfileLoaded) return profile.value
+  if (!accountProfileLoaded) {
+    pendingAccountPreferences = next
+    return profile.value
+  }
 
+  hydrationPromise = null
   const generation = ++accountRequestGeneration
   accountSyncing.value = true
   accountSyncError.value = ''
@@ -138,8 +153,12 @@ async function resetPreferences() {
   localStorage.removeItem(UI_PLATFORM_STORAGE_KEY)
   accountPreferences.value = accountProfileLoaded ? {} : undefined
   profile.value = applyResolvedProfile()
-  if (!accountProfileLoaded) return profile.value
+  if (!accountProfileLoaded) {
+    pendingAccountPreferences = {}
+    return profile.value
+  }
 
+  hydrationPromise = null
   const generation = ++accountRequestGeneration
   accountSyncing.value = true
   accountSyncError.value = ''

@@ -1,12 +1,12 @@
 html[data-ui-mode='modern'] body,
 html[data-ui-mode='package'] body {
-  background: hsl(var(--background));
+  background: var(--lb-bg-page);
   color: hsl(var(--foreground));
 }
 
 html[data-ui-mode='modern'] .ui-main-shell,
 html[data-ui-mode='package'] .ui-main-shell {
-  background: hsl(var(--background));
+  background: var(--lb-bg-page);
 }
 
 html[data-ui-mode='modern'] .app-main,

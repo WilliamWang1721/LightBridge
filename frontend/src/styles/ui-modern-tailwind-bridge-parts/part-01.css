@@ -124,7 +124,7 @@
 
   /* geometry */
   [class~='rounded-none'] {
-    border-radius: 0 !important;
+    border-radius: var(--ui-radius) !important;
   }
 
   [class~='rounded-sm'] {
@@ -225,4 +225,55 @@
   [class~='ring-gray-200'] {
     --tw-ring-color: hsl(var(--border)) !important;
   }
+}
+
+/* Beat the high-specificity Classic reset without changing Classic mode. */
+html:is([data-ui-mode='modern'], [data-ui-mode='package'])
+  :is(input, select, textarea, button, .btn, .dropdown-item) {
+  border-radius: var(--ui-radius) !important;
+}
+
+html:is([data-ui-mode='modern'], [data-ui-mode='package'])
+  :is(
+    .glass,
+    .glass-card,
+    .card,
+    .card-glass,
+    .modal-content,
+    .dialog-container,
+    .dropdown,
+    .toast,
+    .stat-card,
+    .table-container,
+    .driver-popover,
+    .lightbridge-ops > div,
+    .lightbridge-ops section,
+    .lightbridge-ops article
+  ) {
+  border-radius: calc(var(--ui-radius) + 0.125rem) !important;
+}
+
+html:is([data-ui-mode='modern'], [data-ui-mode='package']) [class~='rounded-none'],
+html:is([data-ui-mode='modern'], [data-ui-mode='package'])
+  :is(.lightbridge-ops, .select-dropdown-portal, [class*='announcement'], [class*='toast'])
+  [class~='rounded-none'] {
+  border-radius: var(--ui-radius) !important;
+}
+
+html:is([data-ui-mode='modern'], [data-ui-mode='package'])
+  :is(.lightbridge-ops, .select-dropdown-portal, [class*='announcement'], [class*='toast'])
+  :is([class~='rounded-sm'], [class~='rounded'], [class~='rounded-md']) {
+  border-radius: max(0px, calc(var(--ui-radius) - 0.125rem)) !important;
+}
+
+html:is([data-ui-mode='modern'], [data-ui-mode='package'])
+  :is(.lightbridge-ops, .select-dropdown-portal, [class*='announcement'], [class*='toast'])
+  :is([class~='rounded-lg'], [class~='rounded-xl']) {
+  border-radius: var(--ui-radius) !important;
+}
+
+html:is([data-ui-mode='modern'], [data-ui-mode='package'])
+  :is(.lightbridge-ops, .select-dropdown-portal, [class*='announcement'], [class*='toast'])
+  :is([class~='rounded-2xl'], [class~='rounded-3xl']) {
+  border-radius: calc(var(--ui-radius) + 0.25rem) !important;
 }

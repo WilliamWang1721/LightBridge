@@ -1,6 +1,6 @@
 <template>
   <!-- Row 1: Core Stats -->
-  <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+  <div class="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
     <!-- Balance -->
     <div v-if="!isSimple" class="card p-4">
       <div class="flex items-center gap-3">
@@ -68,7 +68,7 @@
   </div>
 
   <!-- Row 2: Token Stats -->
-  <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+  <div class="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
     <!-- Today Tokens -->
     <div class="card p-4">
       <div class="flex items-center gap-3">
@@ -140,7 +140,7 @@
         {{ t('dashboard.platformCount', { count: sortedPlatforms.length }) }}
       </span>
     </div>
-    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <div
         v-for="item in platformCards"
         :key="item.platform"
