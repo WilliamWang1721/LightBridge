@@ -34,6 +34,13 @@ const formatLocalDate = (date: Date): string => {
   return `${year}-${month}-${day}`
 }
 
+const lumaStubs = {
+  Icon: true,
+  Popover: { template: '<div><slot /></div>' },
+  PopoverTrigger: { template: '<div><slot /></div>' },
+  PopoverContent: { template: '<div><slot /></div>' },
+}
+
 describe('DateRangePicker', () => {
   it('labels the calendar-day preset as yesterday to today', () => {
     const now = new Date()
@@ -46,9 +53,7 @@ describe('DateRangePicker', () => {
         endDate: formatLocalDate(now)
       },
       global: {
-        stubs: {
-          Icon: true
-        }
+        stubs: lumaStubs,
       }
     })
 
@@ -65,9 +70,7 @@ describe('DateRangePicker', () => {
         endDate: today
       },
       global: {
-        stubs: {
-          Icon: true
-        }
+        stubs: lumaStubs,
       }
     })
 

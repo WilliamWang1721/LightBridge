@@ -32,5 +32,6 @@ describe('Luma dashboard responsive layouts', () => {
     expect(dashboard).toContain('md:grid-cols-2 2xl:grid-cols-4')
     expect(dashboard).toContain('md:grid-cols-2 2xl:grid-cols-3')
     expect(header).toContain('grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-12')
+    expect(header).not.toContain("return '#10b981'")
   })
 })

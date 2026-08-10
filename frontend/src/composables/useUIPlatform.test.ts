@@ -69,4 +69,28 @@ describe('useUIPlatform account hydration', () => {
     expect(document.documentElement.dataset.uiIcons).toBe('classic')
     expect(document.documentElement.dataset.uiChartColor).toBe('vivid')
   })
+
+  it('keeps a reset live when stale account hydration finishes', async () => {
+    let finishHydration!: (value: Record<string, string>) => void
+    api.getUIProfile.mockReturnValue(new Promise((resolve) => {
+      finishHydration = resolve
+    }))
+    api.updateUIProfile.mockImplementation(async (preferences) => preferences)
+    localStorage.setItem('lightbridge.ui.profile.v1', JSON.stringify({ radius: 'large' }))
+
+    const { useUIPlatform } = await import('./useUIPlatform')
+    const ui = useUIPlatform()
+    const hydration = ui.hydrateAccountPreferences()
+    await vi.waitFor(() => expect(api.getUIProfile).toHaveBeenCalledOnce())
+
+    await ui.resetPreferences()
+    expect(document.documentElement.dataset.uiRadius).toBe('default')
+
+    finishHydration({ radius: 'small' })
+    await hydration
+
+    expect(api.updateUIProfile).toHaveBeenCalledWith({})
+    expect(document.documentElement.dataset.uiRadius).toBe('default')
+    expect(localStorage.getItem('lightbridge.ui.profile.v1')).toBeNull()
+  })
 })
