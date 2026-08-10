@@ -168,4 +168,27 @@ describe('ModelDistributionChart', () => {
     expect(rows[2].text()).toContain('400')
     expect(rows[2].text()).toContain('$10.00')
   })
+
+  it('uses accessible Luma buttons for every distribution switch', () => {
+    const wrapper = mount(ModelDistributionChart, {
+      props: {
+        modelStats,
+        showSourceToggle: true,
+        showMetricToggle: true,
+        enableRankingView: true,
+        loading: true,
+      },
+      global: {
+        stubs: {
+          LoadingSpinner: true,
+        },
+      },
+    })
+
+    const buttons = wrapper.findAll('button')
+    expect(buttons).toHaveLength(7)
+    expect(buttons.filter((button) => button.attributes('aria-pressed') === 'true')).toHaveLength(3)
+    expect(buttons.every((button) => button.attributes('disabled') !== undefined)).toBe(true)
+    expect(buttons.every((button) => button.classes().includes('focus-visible:ring-2'))).toBe(true)
+  })
 })

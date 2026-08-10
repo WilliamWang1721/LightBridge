@@ -11,87 +11,76 @@
           v-if="showSourceToggle"
           class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-gray-700 dark:bg-dark-800"
         >
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="source === 'requested'
-              ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
+          <Button
+            size="sm"
+            :variant="source === 'requested' ? 'default' : 'ghost'"
+            :aria-pressed="source === 'requested'"
+            :disabled="loading"
             @click="emit('update:source', 'requested')"
           >
             {{ t('usage.requestedModel') }}
-          </button>
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="source === 'upstream'
-              ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
+          </Button>
+          <Button
+            size="sm"
+            :variant="source === 'upstream' ? 'default' : 'ghost'"
+            :aria-pressed="source === 'upstream'"
+            :disabled="loading"
             @click="emit('update:source', 'upstream')"
           >
             {{ t('usage.upstreamModel') }}
-          </button>
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="source === 'mapping'
-              ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
+          </Button>
+          <Button
+            size="sm"
+            :variant="source === 'mapping' ? 'default' : 'ghost'"
+            :aria-pressed="source === 'mapping'"
+            :disabled="loading"
             @click="emit('update:source', 'mapping')"
           >
             {{ t('usage.mapping') }}
-          </button>
+          </Button>
         </div>
         <div
           v-if="showMetricToggle"
           class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-gray-700 dark:bg-dark-800"
         >
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="metric === 'tokens'
-              ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
+          <Button
+            size="sm"
+            :variant="metric === 'tokens' ? 'default' : 'ghost'"
+            :aria-pressed="metric === 'tokens'"
+            :disabled="loading"
             @click="emit('update:metric', 'tokens')"
           >
             {{ t('admin.dashboard.metricTokens') }}
-          </button>
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="metric === 'actual_cost'
-              ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
+          </Button>
+          <Button
+            size="sm"
+            :variant="metric === 'actual_cost' ? 'default' : 'ghost'"
+            :aria-pressed="metric === 'actual_cost'"
+            :disabled="loading"
             @click="emit('update:metric', 'actual_cost')"
           >
             {{ t('admin.dashboard.metricActualCost') }}
-          </button>
+          </Button>
         </div>
         <div v-if="enableRankingView" class="inline-flex rounded-lg bg-gray-100 p-1 dark:bg-dark-800">
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="
-              activeView === 'model_distribution'
-                ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
-                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-            "
+          <Button
+            size="sm"
+            :variant="activeView === 'model_distribution' ? 'default' : 'ghost'"
+            :aria-pressed="activeView === 'model_distribution'"
+            :disabled="loading || rankingLoading"
             @click="activeView = 'model_distribution'"
           >
             {{ t('admin.dashboard.viewModelDistribution') }}
-          </button>
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="
-              activeView === 'spending_ranking'
-                ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
-                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-            "
+          </Button>
+          <Button
+            size="sm"
+            :variant="activeView === 'spending_ranking' ? 'default' : 'ghost'"
+            :aria-pressed="activeView === 'spending_ranking'"
+            :disabled="loading || rankingLoading"
             @click="activeView = 'spending_ranking'"
           >
             {{ t('admin.dashboard.viewSpendingRanking') }}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -245,6 +234,7 @@ import { useI18n } from 'vue-i18n'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 import { Doughnut } from 'vue-chartjs'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import Button from '@/components/ui/button/Button.vue'
 import UserBreakdownSubTable from './UserBreakdownSubTable.vue'
 import type { ModelStat, UserSpendingRankingItem, UserBreakdownItem } from '@/types'
 import { getUserBreakdown } from '@/api/admin/dashboard'

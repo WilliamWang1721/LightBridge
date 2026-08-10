@@ -1,3 +1,45 @@
+/* Mobile rows use the same Luma card surface while classic mode keeps its existing styles. */
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) [data-mobile-table-card] {
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: calc(var(--ui-radius) + 0.125rem) !important;
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.04);
+}
+
+/* Feature-rich legacy controls retain their behavior and inherit Luma tokens. */
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.select-trigger, .date-picker-trigger) {
+  min-height: var(--ui-control-height);
+  border: 1px solid hsl(var(--input)) !important;
+  border-radius: var(--ui-radius) !important;
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.04) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.select-trigger-open, .date-picker-trigger-open) {
+  border-color: hsl(var(--ring)) !important;
+  box-shadow: 0 0 0 2px hsl(var(--ring) / 0.28) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.select-dropdown-portal, .date-picker-dropdown) {
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: var(--ui-radius) !important;
+  background: hsl(var(--popover)) !important;
+  color: hsl(var(--popover-foreground)) !important;
+  box-shadow: 0 12px 36px hsl(var(--foreground) / 0.14) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.select-option, .date-picker-preset):hover {
+  background: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.select-option-selected, .date-picker-preset-active) {
+  background: hsl(var(--primary) / 0.12) !important;
+  color: hsl(var(--primary)) !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) *,
   :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) *::before,

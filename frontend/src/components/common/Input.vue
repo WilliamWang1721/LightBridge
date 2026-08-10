@@ -13,24 +13,23 @@
         <slot name="prefix"></slot>
       </div>
 
-      <input
+      <LumaInput
         :id="id"
         ref="inputRef"
         :type="type"
-        :value="modelValue"
+        :model-value="modelValue"
         :disabled="disabled"
         :required="required"
         :placeholder="placeholderText"
         :autocomplete="autocomplete"
         :readonly="readonly"
+        :aria-invalid="error ? 'true' : undefined"
         :class="[
-          'input w-full transition-all duration-200',
           $slots.prefix ? 'pl-11' : '',
           $slots.suffix ? 'pr-11' : '',
-          error ? 'input-error ring-2 ring-red-500/20' : '',
-          disabled ? 'cursor-not-allowed bg-gray-100 opacity-60 dark:bg-dark-900' : ''
+          disabled ? 'cursor-not-allowed opacity-60' : ''
         ]"
-        @input="onInput"
+        @update:model-value="emit('update:modelValue', $event)"
         @change="$emit('change', ($event.target as HTMLInputElement).value)"
         @blur="$emit('blur', $event)"
         @focus="$emit('focus', $event)"
@@ -57,6 +56,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { Input as LumaInput } from '@/components/ui/input'
 
 interface Props {
   modelValue: string | number | null | undefined
@@ -87,13 +87,8 @@ const emit = defineEmits<{
   (e: 'enter', event: KeyboardEvent): void
 }>()
 
-const inputRef = ref<HTMLInputElement | null>(null)
+const inputRef = ref<InstanceType<typeof LumaInput> | null>(null)
 const placeholderText = computed(() => props.placeholder || '')
-
-const onInput = (event: Event) => {
-  const value = (event.target as HTMLInputElement).value
-  emit('update:modelValue', value)
-}
 
 // Expose focus method
 defineExpose({
