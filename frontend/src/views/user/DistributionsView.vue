@@ -1,5 +1,6 @@
 <template>
-  <div class="space-y-6">
+  <AppLayout>
+    <div class="space-y-6">
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">{{ t('distributions.userTitle') }}</h1>
@@ -71,12 +72,14 @@
         {{ t('pagination.next') }}
       </button>
     </div>
-  </div>
+    </div>
+  </AppLayout>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AppLayout from '@/components/layout/AppLayout.vue'
 import {
   downloadMyDistribution,
   listMyDistributions,

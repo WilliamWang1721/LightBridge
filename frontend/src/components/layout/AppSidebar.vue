@@ -10,10 +10,7 @@
   >
     <!-- Logo/Brand -->
     <div class="sidebar-header" :class="{ 'sidebar-header-collapsed': sidebarCollapsed }">
-      <!-- Custom Logo or Default Logo -->
-      <div class="sidebar-logo flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl shadow-glow">
-        <img v-if="settingsLoaded" :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
-      </div>
+      <div class="lightbridge-brand-mark" aria-hidden="true"></div>
       <div class="sidebar-brand" :class="{ 'sidebar-brand-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
         <span class="sidebar-brand-title text-lg font-bold text-gray-900 dark:text-white">
           {{ siteName }}
@@ -243,14 +240,14 @@
         v-if="!sidebarCollapsed"
         class="sidebar-footer-controls"
       >
-        <div class="relative" ref="themeDropdownRef">
+        <div class="relative">
           <button
             type="button"
-            @click="toggleThemeDropdown"
+            @click="toggleTheme"
             class="sidebar-link sidebar-footer-action w-full"
             :class="{ 'sidebar-link-collapsed': sidebarCollapsed }"
             :title="sidebarCollapsed ? (isDark ? t('nav.lightMode') : t('nav.darkMode')) : undefined"
-            :aria-expanded="showThemeDropdown"
+            :aria-label="isDark ? t('nav.lightMode') : t('nav.darkMode')"
           >
             <SunIcon v-if="isDark" class="h-5 w-5 flex-shrink-0 text-amber-500" />
             <MoonIcon v-else class="h-5 w-5 flex-shrink-0" />
@@ -259,29 +256,6 @@
             }}</span>
           </button>
 
-          <transition name="dropdown">
-            <div
-              v-if="showThemeDropdown"
-              class="theme-dropdown absolute bottom-full left-0 z-50 mb-2 w-32 overflow-hidden border border-gray-200 bg-white shadow-lg dark:border-dark-700 dark:bg-dark-800"
-            >
-              <button
-                type="button"
-                class="theme-dropdown-item"
-                @click="setTheme('light')"
-              >
-                <span>{{ t('nav.lightMode') }}</span>
-                <Icon v-if="!isDark" name="check" size="sm" class="ml-auto text-primary-500" />
-              </button>
-              <button
-                type="button"
-                class="theme-dropdown-item"
-                @click="setTheme('dark')"
-              >
-                <span>{{ t('nav.darkMode') }}</span>
-                <Icon v-if="isDark" name="check" size="sm" class="ml-auto text-primary-500" />
-              </button>
-            </div>
-          </transition>
         </div>
 
         <LocaleSwitcher variant="sidebar" />
@@ -315,7 +289,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, h, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAdminSettingsStore, useAppStore, useAuthStore, useOnboardingStore } from '@/stores'
@@ -376,17 +350,13 @@ const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
 const mobileOpen = computed(() => appStore.mobileOpen)
 const isAdmin = computed(() => authStore.isAdmin)
 const isDark = ref(document.documentElement.classList.contains('dark'))
-const showThemeDropdown = ref(false)
-const themeDropdownRef = ref<HTMLElement | null>(null)
 
 // Track which parent nav groups are expanded
 const expandedGroups = ref<Set<string>>(new Set())
 
 // Site settings from appStore (cached, no flicker)
 const siteName = computed(() => appStore.siteName)
-const siteLogo = computed(() => appStore.siteLogo)
 const siteVersion = computed(() => appStore.siteVersion)
-const settingsLoaded = computed(() => appStore.publicSettingsLoaded)
 
 // SVG Icon Components
 const DashboardIcon = {
@@ -1107,17 +1077,10 @@ function setTheme(theme: 'light' | 'dark') {
   isDark.value = theme === 'dark'
   document.documentElement.classList.toggle('dark', isDark.value)
   localStorage.setItem('theme', theme)
-  showThemeDropdown.value = false
 }
 
-function toggleThemeDropdown() {
-  showThemeDropdown.value = !showThemeDropdown.value
-}
-
-function handleThemeDropdownClickOutside(event: MouseEvent) {
-  if (themeDropdownRef.value && !themeDropdownRef.value.contains(event.target as Node)) {
-    showThemeDropdown.value = false
-  }
+function toggleTheme() {
+  setTheme(isDark.value ? 'light' : 'dark')
 }
 
 function closeMobile() {
@@ -1213,21 +1176,32 @@ watch(
 )
 
 onMounted(() => {
-  document.addEventListener('click', handleThemeDropdownClickOutside)
   if (isAdmin.value) {
     adminSettingsStore.fetch()
   }
 })
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', handleThemeDropdownClickOutside)
-})
 </script>
 
 <style scoped>
-.sidebar-logo {
-  flex: 0 0 2.25rem;
-  min-width: 2.25rem;
+.lightbridge-brand-mark {
+  display: block !important;
+  box-sizing: border-box !important;
+  width: 28px !important;
+  min-width: 28px !important;
+  max-width: 28px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  max-height: 28px !important;
+  flex: 0 0 28px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #e42313 !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+  filter: none !important;
+  transform: none !important;
+  transition: none !important;
 }
 
 .sidebar-header-collapsed {
@@ -1298,35 +1272,6 @@ onBeforeUnmount(() => {
 
 .sidebar-footer-label {
   margin-left: 0.25rem;
-}
-
-.theme-dropdown {
-  border-radius: 0;
-}
-
-.theme-dropdown-item {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  color: rgb(55 65 81);
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-  text-align: left;
-  transition: background-color 0.15s ease, color 0.15s ease;
-}
-
-.theme-dropdown-item:hover {
-  background: rgb(243 244 246);
-}
-
-.dark .theme-dropdown-item {
-  color: rgb(229 231 235);
-}
-
-.dark .theme-dropdown-item:hover {
-  background: rgb(55 65 81);
 }
 
 .sidebar-link-collapsed {

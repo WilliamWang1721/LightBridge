@@ -39,7 +39,7 @@
 /* Navigation */
 :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .sidebar {
   border-right: 1px solid hsl(var(--border)) !important;
-  background: hsl(var(--card)) !important;
+  background: color-mix(in srgb, var(--lb-bg-page) 96%, var(--lb-text-main)) !important;
   color: hsl(var(--card-foreground));
   box-shadow: 1px 0 0 hsl(var(--border) / 0.35);
 }
@@ -64,15 +64,27 @@
   color: hsl(var(--primary)) !important;
 }
 
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .sidebar-link-active:not(.sidebar-link-collapsed) {
+  width: calc(100% + 1rem);
+  margin-inline: -0.5rem;
+  padding-inline: 0.5rem !important;
+}
+
 :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .sidebar-section-title {
   color: hsl(var(--muted-foreground)) !important;
 }
 
 :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .app-topbar {
+  position: sticky !important;
+  top: 0;
+  width: 100%;
+  margin: 0 !important;
+  border: 0 !important;
   border-bottom: 1px solid hsl(var(--border)) !important;
+  border-radius: 0 !important;
   background: hsl(var(--background) / 0.88) !important;
   box-shadow: none !important;
-  backdrop-filter: blur(14px);
+  backdrop-filter: none !important;
 }
 
 :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .app-topbar::after {

@@ -68,8 +68,8 @@
 }
 
 :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .btn-success {
-  background: hsl(152 60% 38%) !important;
-  color: white !important;
+  background: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
 }
 
 :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .btn-warning {

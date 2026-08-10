@@ -20,7 +20,8 @@ const badgeVariants = cva(
         default: 'border-transparent bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]',
         secondary: 'border-transparent bg-[hsl(var(--secondary))] text-[hsl(var(--secondary-foreground))]',
         outline: 'border-[hsl(var(--border))] text-[hsl(var(--foreground))]',
-        success: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+        success:
+          'border-[hsl(var(--primary)/0.25)] bg-[hsl(var(--primary)/0.1)] text-[hsl(var(--primary))]',
         warning: 'border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300',
         destructive:
           'border-[hsl(var(--destructive)/0.25)] bg-[hsl(var(--destructive)/0.1)] text-[hsl(var(--destructive))]',

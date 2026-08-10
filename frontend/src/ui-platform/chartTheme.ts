@@ -98,7 +98,7 @@ export function hslVariable(value: string, alpha?: number): string {
 export function readUIChartTheme(root: HTMLElement = document.documentElement): UIChartTheme {
   const style = getComputedStyle(root)
   const palette = Array.from({ length: 5 }, (_, index) =>
-    hslVariable(cssVariable(style, `--chart-${index + 1}`, '173 80% 40%')),
+    hslVariable(cssVariable(style, `--chart-${index + 1}`, '221 83% 53%')),
   )
 
   return {

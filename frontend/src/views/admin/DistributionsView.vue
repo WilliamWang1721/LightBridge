@@ -1,5 +1,6 @@
 <template>
-  <div class="space-y-6">
+  <AppLayout>
+    <div class="space-y-6">
     <div>
       <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">{{ t('distributions.adminTitle') }}</h1>
       <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ t('distributions.adminDescription') }}</p>
@@ -126,12 +127,14 @@
         <div v-if="items.length === 0" class="p-8 text-center text-gray-500">{{ t('distributions.empty') }}</div>
       </div>
     </section>
-  </div>
+    </div>
+  </AppLayout>
 </template>
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AppLayout from '@/components/layout/AppLayout.vue'
 import {
   batchCreateDistributions,
   createDistribution,
