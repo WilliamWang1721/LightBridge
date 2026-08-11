@@ -69,6 +69,30 @@ func (h *DistributionHandler) MarkRead(c *gin.Context) {
 	response.Success(c, gin.H{"message": "ok"})
 }
 
+func (h *DistributionHandler) Accept(c *gin.Context) {
+	subject, id, ok := distributionSubjectAndID(c)
+	if !ok {
+		return
+	}
+	if err := h.service.Accept(c.Request.Context(), id, subject.UserID); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"message": "ok"})
+}
+
+func (h *DistributionHandler) Reject(c *gin.Context) {
+	subject, id, ok := distributionSubjectAndID(c)
+	if !ok {
+		return
+	}
+	if err := h.service.Reject(c.Request.Context(), id, subject.UserID); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"message": "ok"})
+}
+
 func (h *DistributionHandler) Download(c *gin.Context) {
 	subject, id, ok := distributionSubjectAndID(c)
 	if !ok {

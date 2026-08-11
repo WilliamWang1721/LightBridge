@@ -30,6 +30,8 @@ func RegisterDistributionRoutes(
 		userRoutes.GET("", userHandler.List)
 		userRoutes.GET("/:id", userHandler.Get)
 		userRoutes.POST("/:id/read", userHandler.MarkRead)
+		userRoutes.POST("/:id/accept", userHandler.Accept)
+		userRoutes.POST("/:id/reject", userHandler.Reject)
 		userRoutes.GET("/:id/download", userHandler.Download)
 	}
 

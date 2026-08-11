@@ -49,10 +49,10 @@ func (r *distributionRepository) Create(ctx context.Context, distribution *servi
 
 	row := tx.QueryRowContext(ctx, `
 		INSERT INTO content_distributions
-			(title, kind, content, file_name, content_type, file_size, file_data, metadata, audience, created_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+			(title, kind, price, content, file_name, content_type, file_size, file_data, metadata, audience, created_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id, created_at
-	`, distribution.Title, distribution.Kind, distribution.Content, fileName, contentType, distribution.FileSize, fileData, string(metadata), string(audience), distribution.CreatedBy)
+	`, distribution.Title, distribution.Kind, distribution.Price, distribution.Content, fileName, contentType, distribution.FileSize, fileData, string(metadata), string(audience), distribution.CreatedBy)
 	if err := row.Scan(&distribution.ID, &distribution.CreatedAt); err != nil {
 		return err
 	}
@@ -84,13 +84,13 @@ func (r *distributionRepository) ListAdmin(ctx context.Context, params paginatio
 		return nil, nil, err
 	}
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT d.id, d.title, d.kind, d.content,
+		SELECT d.id, d.title, d.kind, d.price, d.content,
 		       COALESCE(d.file_name, ''), COALESCE(d.content_type, ''), d.file_size,
 		       d.metadata, d.audience, d.created_by, d.created_at,
 		       (SELECT COUNT(*) FROM content_distribution_recipients r WHERE r.distribution_id = d.id),
 		       (SELECT COUNT(*) FROM content_distribution_recipients r WHERE r.distribution_id = d.id AND r.read_at IS NOT NULL),
 		       (SELECT COUNT(*) FROM content_distribution_recipients r WHERE r.distribution_id = d.id AND r.downloaded_at IS NOT NULL),
-		       NULL, NULL, '', ''
+		       NULL, NULL, NULL, NULL, '', ''
 		FROM content_distributions d
 		ORDER BY d.id DESC
 		LIMIT $1 OFFSET $2
@@ -116,12 +116,15 @@ func (r *distributionRepository) ListForUser(ctx context.Context, userID int64, 
 		return nil, nil, err
 	}
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT d.id, d.title, d.kind, d.content,
+		SELECT d.id, d.title, d.kind, d.price,
+		       CASE WHEN d.kind = 'paid' AND r.accepted_at IS NULL THEN '' ELSE d.content END,
 		       COALESCE(d.file_name, ''), COALESCE(d.content_type, ''), d.file_size,
 		       '{}'::jsonb, '{}'::jsonb, NULL, d.created_at,
 		       0, 0, 0,
 		       r.read_at, r.downloaded_at,
-		       COALESCE(r.title_override, ''), COALESCE(r.content_override, '')
+		       r.accepted_at, r.rejected_at,
+		       COALESCE(r.title_override, ''),
+		       CASE WHEN d.kind = 'paid' AND r.accepted_at IS NULL THEN '' ELSE COALESCE(r.content_override, '') END
 		FROM content_distributions d
 		JOIN content_distribution_recipients r ON r.distribution_id = d.id
 		`+where+`
@@ -141,13 +144,13 @@ func (r *distributionRepository) ListForUser(ctx context.Context, userID int64, 
 
 func (r *distributionRepository) GetByID(ctx context.Context, id int64) (*service.Distribution, error) {
 	row := r.db.QueryRowContext(ctx, `
-		SELECT d.id, d.title, d.kind, d.content,
+		SELECT d.id, d.title, d.kind, d.price, d.content,
 		       COALESCE(d.file_name, ''), COALESCE(d.content_type, ''), d.file_size,
 		       d.metadata, d.audience, d.created_by, d.created_at,
 		       (SELECT COUNT(*) FROM content_distribution_recipients r WHERE r.distribution_id = d.id),
 		       (SELECT COUNT(*) FROM content_distribution_recipients r WHERE r.distribution_id = d.id AND r.read_at IS NOT NULL),
 		       (SELECT COUNT(*) FROM content_distribution_recipients r WHERE r.distribution_id = d.id AND r.downloaded_at IS NOT NULL),
-		       NULL, NULL, '', ''
+		       NULL, NULL, NULL, NULL, '', ''
 		FROM content_distributions d
 		WHERE d.id = $1
 	`, id)
@@ -160,12 +163,15 @@ func (r *distributionRepository) GetByID(ctx context.Context, id int64) (*servic
 
 func (r *distributionRepository) GetForUser(ctx context.Context, id, userID int64) (*service.Distribution, error) {
 	row := r.db.QueryRowContext(ctx, `
-		SELECT d.id, d.title, d.kind, d.content,
+		SELECT d.id, d.title, d.kind, d.price,
+		       CASE WHEN d.kind = 'paid' AND r.accepted_at IS NULL THEN '' ELSE d.content END,
 		       COALESCE(d.file_name, ''), COALESCE(d.content_type, ''), d.file_size,
 		       '{}'::jsonb, '{}'::jsonb, NULL, d.created_at,
 		       0, 0, 0,
 		       r.read_at, r.downloaded_at,
-		       COALESCE(r.title_override, ''), COALESCE(r.content_override, '')
+		       r.accepted_at, r.rejected_at,
+		       COALESCE(r.title_override, ''),
+		       CASE WHEN d.kind = 'paid' AND r.accepted_at IS NULL THEN '' ELSE COALESCE(r.content_override, '') END
 		FROM content_distributions d
 		JOIN content_distribution_recipients r ON r.distribution_id = d.id
 		WHERE d.id = $1 AND r.user_id = $2
@@ -191,6 +197,7 @@ func (r *distributionRepository) GetAttachmentForUser(ctx context.Context, id, u
 		FROM content_distributions d
 		JOIN content_distribution_recipients r ON r.distribution_id = d.id
 		WHERE d.id = $1 AND r.user_id = $2 AND d.file_data IS NOT NULL
+		  AND (d.kind <> 'paid' OR r.accepted_at IS NOT NULL)
 	`, id, userID)
 }
 
@@ -207,20 +214,127 @@ func (r *distributionRepository) getAttachment(ctx context.Context, query string
 
 func (r *distributionRepository) MarkRead(ctx context.Context, id, userID int64, at time.Time) error {
 	result, err := r.db.ExecContext(ctx, `
-		UPDATE content_distribution_recipients
+		UPDATE content_distribution_recipients AS r
 		SET read_at = COALESCE(read_at, $3)
-		WHERE distribution_id = $1 AND user_id = $2
+		WHERE r.distribution_id = $1 AND r.user_id = $2
+		  AND EXISTS (
+			SELECT 1 FROM content_distributions d
+			WHERE d.id = r.distribution_id AND (d.kind <> 'paid' OR r.accepted_at IS NOT NULL)
+		  )
 	`, id, userID, at)
 	return distributionAffected(result, err)
 }
 
 func (r *distributionRepository) MarkDownloaded(ctx context.Context, id, userID int64, at time.Time) error {
 	result, err := r.db.ExecContext(ctx, `
-		UPDATE content_distribution_recipients
+		UPDATE content_distribution_recipients AS r
 		SET downloaded_at = COALESCE(downloaded_at, $3), read_at = COALESCE(read_at, $3)
-		WHERE distribution_id = $1 AND user_id = $2
+		WHERE r.distribution_id = $1 AND r.user_id = $2
+		  AND EXISTS (
+			SELECT 1 FROM content_distributions d
+			WHERE d.id = r.distribution_id AND (d.kind <> 'paid' OR r.accepted_at IS NOT NULL)
+		  )
 	`, id, userID, at)
 	return distributionAffected(result, err)
+}
+
+func (r *distributionRepository) Accept(ctx context.Context, id, userID int64) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var kind string
+	var price float64
+	var acceptedAt, rejectedAt sql.NullTime
+	err = tx.QueryRowContext(ctx, `
+		SELECT d.kind, d.price, r.accepted_at, r.rejected_at
+		FROM content_distributions d
+		JOIN content_distribution_recipients r ON r.distribution_id = d.id
+		WHERE d.id = $1 AND r.user_id = $2
+		FOR UPDATE
+	`, id, userID).Scan(&kind, &price, &acceptedAt, &rejectedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return service.ErrDistributionNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if kind != service.DistributionKindPaid || price <= 0 {
+		return service.ErrDistributionInvalid
+	}
+	if rejectedAt.Valid {
+		return service.ErrDistributionRejected
+	}
+	if acceptedAt.Valid {
+		return tx.Commit()
+	}
+
+	result, err := tx.ExecContext(ctx, `
+		UPDATE users
+		SET balance = balance - $1
+		WHERE id = $2 AND balance >= $1
+	`, price, userID)
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return service.ErrInsufficientBalance
+	}
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE content_distribution_recipients
+		SET accepted_at = NOW()
+		WHERE distribution_id = $1 AND user_id = $2 AND accepted_at IS NULL AND rejected_at IS NULL
+	`, id, userID); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (r *distributionRepository) Reject(ctx context.Context, id, userID int64) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var kind string
+	var acceptedAt, rejectedAt sql.NullTime
+	err = tx.QueryRowContext(ctx, `
+		SELECT d.kind, r.accepted_at, r.rejected_at
+		FROM content_distributions d
+		JOIN content_distribution_recipients r ON r.distribution_id = d.id
+		WHERE d.id = $1 AND r.user_id = $2
+		FOR UPDATE
+	`, id, userID).Scan(&kind, &acceptedAt, &rejectedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return service.ErrDistributionNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if kind != service.DistributionKindPaid {
+		return service.ErrDistributionInvalid
+	}
+	if acceptedAt.Valid {
+		return service.ErrDistributionAccepted
+	}
+	if rejectedAt.Valid {
+		return tx.Commit()
+	}
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE content_distribution_recipients
+		SET rejected_at = NOW(), read_at = COALESCE(read_at, NOW())
+		WHERE distribution_id = $1 AND user_id = $2 AND accepted_at IS NULL AND rejected_at IS NULL
+	`, id, userID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (r *distributionRepository) Delete(ctx context.Context, id int64) error {
@@ -258,11 +372,12 @@ func scanDistribution(scanner distributionScanner) (*service.Distribution, error
 	item := &service.Distribution{}
 	var metadataRaw, audienceRaw []byte
 	var createdBy sql.NullInt64
-	var readAt, downloadedAt sql.NullTime
+	var readAt, downloadedAt, acceptedAt, rejectedAt sql.NullTime
 	if err := scanner.Scan(
 		&item.ID,
 		&item.Title,
 		&item.Kind,
+		&item.Price,
 		&item.Content,
 		&item.FileName,
 		&item.ContentType,
@@ -276,6 +391,8 @@ func scanDistribution(scanner distributionScanner) (*service.Distribution, error
 		&item.DownloadCount,
 		&readAt,
 		&downloadedAt,
+		&acceptedAt,
+		&rejectedAt,
 		&item.RecipientTitle,
 		&item.RecipientContent,
 	); err != nil {
@@ -293,6 +410,14 @@ func scanDistribution(scanner distributionScanner) (*service.Distribution, error
 	if downloadedAt.Valid {
 		value := downloadedAt.Time
 		item.DownloadedAt = &value
+	}
+	if acceptedAt.Valid {
+		value := acceptedAt.Time
+		item.AcceptedAt = &value
+	}
+	if rejectedAt.Valid {
+		value := rejectedAt.Time
+		item.RejectedAt = &value
 	}
 	item.Metadata = decodeDistributionJSON(metadataRaw)
 	item.Audience = decodeDistributionJSON(audienceRaw)

@@ -54,14 +54,14 @@ describe('AppSidebar header styles', () => {
 })
 
 describe('AppSidebar active item styles', () => {
-  it('extends the selected background around its red dot without changing collapsed items', () => {
+  it('keeps the selected neutral pill aligned with the navigation column', () => {
     const expandedActiveStyle = modernCompatSource.match(
       /\.sidebar-link-active:not\(\.sidebar-link-collapsed\)\s*\{[\s\S]*?\n\}/
     )?.[0]
 
-    expect(expandedActiveStyle).toContain('width: calc(100% + 1rem);')
-    expect(expandedActiveStyle).toContain('margin-inline: -0.5rem;')
-    expect(expandedActiveStyle).toContain('padding-inline: 0.5rem !important;')
+    expect(expandedActiveStyle).toContain('width: 100%;')
+    expect(expandedActiveStyle).toContain('margin-inline: 0;')
+    expect(expandedActiveStyle).toContain('padding-inline: 0.75rem !important;')
   })
 })
 

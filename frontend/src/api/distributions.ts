@@ -1,7 +1,7 @@
 import { apiClient } from './client'
 import type { BasePaginationResponse } from '@/types'
 
-export type DistributionKind = 'text' | 'message' | 'file' | 'account_export'
+export type DistributionKind = 'text' | 'message' | 'file' | 'account_export' | 'paid'
 
 export interface DistributionUserFilters {
   status?: string
@@ -24,6 +24,7 @@ export interface DistributionItem {
   id: number
   title: string
   kind: DistributionKind
+  price?: number
   content: string
   file_name?: string
   content_type?: string
@@ -38,11 +39,14 @@ export interface DistributionItem {
   download_count: number
   read_at?: string
   downloaded_at?: string
+  accepted_at?: string
+  rejected_at?: string
 }
 
 export interface CreateDistributionRequest {
   title: string
   kind: DistributionKind
+  price?: number
   content?: string
   file_name?: string
   content_type?: string
@@ -81,6 +85,16 @@ export async function getMyDistribution(id: number) {
 
 export async function markDistributionRead(id: number) {
   const { data } = await apiClient.post<{ message: string }>(`/distributions/${id}/read`)
+  return data
+}
+
+export async function acceptMyDistribution(id: number) {
+  const { data } = await apiClient.post<{ message: string }>(`/distributions/${id}/accept`)
+  return data
+}
+
+export async function rejectMyDistribution(id: number) {
+  const { data } = await apiClient.post<{ message: string }>(`/distributions/${id}/reject`)
   return data
 }
 

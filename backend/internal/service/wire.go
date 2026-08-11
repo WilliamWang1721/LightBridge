@@ -437,7 +437,9 @@ func ProvideBillingCacheService(
 	cfg *config.Config,
 	userPlatformQuotaRepo UserPlatformQuotaRepository,
 ) *BillingCacheService {
-	return NewBillingCacheService(cache, userRepo, subRepo, apiKeyRepo, rpmCache, rateRepo, cfg, userPlatformQuotaRepo)
+	svc := NewBillingCacheService(cache, userRepo, subRepo, apiKeyRepo, rpmCache, rateRepo, cfg, userPlatformQuotaRepo)
+	RegisterDistributionBalanceInvalidator(svc)
+	return svc
 }
 
 // ProvideAPIKeyService wires APIKeyService and connects rate-limit cache invalidation.

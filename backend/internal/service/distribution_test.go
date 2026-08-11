@@ -35,6 +35,7 @@ func TestDistributionKindValidation(t *testing.T) {
 		DistributionKindMessage,
 		DistributionKindFile,
 		DistributionKindAccountExport,
+		DistributionKindPaid,
 	} {
 		require.True(t, isDistributionKind(kind), kind)
 	}
@@ -50,4 +51,22 @@ func TestAccountExportFileValidation(t *testing.T) {
 func TestSanitizeDistributionFileName(t *testing.T) {
 	require.Equal(t, "folder_file.json", sanitizeDistributionFileName(`folder/file.json`))
 	require.Equal(t, "folder_file.json", sanitizeDistributionFileName(`folder\file.json`))
+}
+
+func TestAllDistributionRecipientsHaveContent(t *testing.T) {
+	require.True(t, allDistributionRecipientsHaveContent([]DistributionRecipient{
+		{UserID: 1, ContentOverride: "CDK-A"},
+		{UserID: 2, ContentOverride: "CDK-B"},
+	}))
+	require.False(t, allDistributionRecipientsHaveContent([]DistributionRecipient{
+		{UserID: 1, ContentOverride: "CDK-A"},
+		{UserID: 2},
+	}))
+}
+
+func TestDistributionPriceValidation(t *testing.T) {
+	require.True(t, validDistributionPrice(DistributionKindPaid, 1.25))
+	require.False(t, validDistributionPrice(DistributionKindPaid, 0))
+	require.True(t, validDistributionPrice(DistributionKindMessage, 0))
+	require.False(t, validDistributionPrice(DistributionKindMessage, 1.25))
 }

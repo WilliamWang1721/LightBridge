@@ -178,9 +178,17 @@ func parseCreateDistributionInput(c *gin.Context) (service.CreateDistributionInp
 	input := service.CreateDistributionInput{
 		Title:       c.PostForm("title"),
 		Kind:        c.PostForm("kind"),
+		Price:       0,
 		Content:     c.PostForm("content"),
 		FileName:    c.PostForm("file_name"),
 		ContentType: c.PostForm("content_type"),
+	}
+	if rawPrice := strings.TrimSpace(c.PostForm("price")); rawPrice != "" {
+		price, parseErr := strconv.ParseFloat(rawPrice, 64)
+		if parseErr != nil {
+			return input, parseErr
+		}
+		input.Price = price
 	}
 	if raw := strings.TrimSpace(c.PostForm("audience")); raw != "" {
 		if err := json.Unmarshal([]byte(raw), &input.Audience); err != nil {

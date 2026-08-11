@@ -19,7 +19,7 @@ export const DEFAULT_UI_PROFILE: UIProfile = {
   mode: 'modern',
   componentStyle: 'luma',
   layout: 'default',
-  baseColor: 'natural',
+  baseColor: 'neutral',
   chartColor: 'natural',
   heading: 'natural',
   font: 'inter',

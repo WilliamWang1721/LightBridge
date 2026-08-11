@@ -13,7 +13,7 @@
 :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .modal-overlay {
   z-index: var(--ui-z-dialog) !important;
   padding: clamp(0.75rem, 3vw, 2rem);
-  background: hsl(30 10% 4% / 0.55) !important;
+  background: hsl(var(--foreground) / 0.55) !important;
   backdrop-filter: blur(4px) !important;
 }
 
@@ -22,7 +22,7 @@
   border-radius: calc(var(--ui-radius) + 0.375rem) !important;
   background: hsl(var(--card)) !important;
   color: hsl(var(--card-foreground)) !important;
-  box-shadow: 0 24px 80px hsl(30 10% 4% / 0.3) !important;
+  box-shadow: 0 24px 80px hsl(var(--foreground) / 0.3) !important;
 }
 
 :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) :is(.modal-header, .modal-footer) {
@@ -36,41 +36,140 @@
   font-weight: var(--ui-heading-weight);
 }
 
-/* Navigation */
-:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .sidebar {
-  border-right: 1px solid hsl(var(--border)) !important;
-  background: color-mix(in srgb, var(--lb-bg-page) 96%, var(--lb-text-main)) !important;
-  color: hsl(var(--card-foreground));
-  box-shadow: 1px 0 0 hsl(var(--border) / 0.35);
+/* BaseDialog is legacy markup, so give it the same semantic Luma contract as DialogContent. */
+html:is([data-ui-mode='modern'], [data-ui-mode='package']) .luma-dialog {
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: calc(var(--ui-radius) + 0.375rem) !important;
+  overflow: hidden !important;
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+  box-shadow: 0 24px 80px hsl(var(--foreground) / 0.3) !important;
 }
 
-:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .sidebar-header {
+/* Tailwind's later modal bridge is intentionally broader; keep this legacy dialog rounded. */
+html:is([data-ui-mode='modern'], [data-ui-mode='package']) .modal-content.luma-dialog {
+  border-radius: calc(var(--ui-radius) + 0.375rem) !important;
+  overflow: hidden !important;
+}
+
+html:is([data-ui-mode='modern'], [data-ui-mode='package']) .luma-dialog :is(.modal-header, .modal-body, .modal-footer) {
   border-color: hsl(var(--border)) !important;
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
 }
 
-:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .sidebar-link {
-  min-height: 2.5rem;
+html:is([data-ui-mode='modern'], [data-ui-mode='package']) .luma-dialog .modal-footer {
+  background: hsl(var(--muted)) !important;
+}
+
+html:is([data-ui-mode='modern'], [data-ui-mode='package']) .luma-dialog :is(button, input, select, textarea) {
   border-radius: var(--ui-radius) !important;
+}
+
+html:is([data-ui-mode='modern'], [data-ui-mode='package']) .luma-dialog :is(input, select, textarea) {
+  border: 1px solid hsl(var(--input)) !important;
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Navigation */
+html:is([data-ui-mode='modern'], [data-ui-mode='package']) .sidebar {
+  width: var(--ui-sidebar-width) !important;
+  border-right: 1px solid hsl(var(--border)) !important;
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+  box-shadow: none !important;
+}
+
+html:is([data-ui-mode='modern'], [data-ui-mode='package']) .sidebar-header {
+  min-height: auto !important;
+  padding: 2rem 1.5rem 1.75rem !important;
+  border: 0 !important;
+}
+
+html:is([data-ui-mode='modern'], [data-ui-mode='package']) .sidebar-nav {
+  padding: 0 1.125rem 1.5rem !important;
+}
+
+html:is([data-ui-mode='modern'], [data-ui-mode='package']) .sidebar-section {
+  margin-bottom: 1.75rem;
+}
+
+html:is([data-ui-mode='modern'], [data-ui-mode='package']) .sidebar-section-title {
+  margin-bottom: 0.625rem;
+  padding-inline: 0.75rem !important;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+html:is([data-ui-mode='modern'], [data-ui-mode='package']) .sidebar-link {
+  min-height: 2.5rem;
+  border-radius: calc(var(--ui-radius) + 0.125rem) !important;
+  padding: 0.625rem 0.75rem !important;
+  gap: 0.75rem;
   color: hsl(var(--muted-foreground)) !important;
 }
 
-:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .sidebar-link:hover {
-  background: hsl(var(--accent)) !important;
-  color: hsl(var(--accent-foreground)) !important;
+html:is([data-ui-mode='modern'], [data-ui-mode='package']) .sidebar-link:hover {
+  background: hsl(var(--muted)) !important;
+  color: hsl(var(--foreground)) !important;
 }
 
-:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .sidebar-link-active {
-  background: hsl(var(--primary) / 0.12) !important;
-  color: hsl(var(--primary)) !important;
+html:is([data-ui-mode='modern'], [data-ui-mode='package']) .sidebar-link-active {
+  background: hsl(var(--secondary)) !important;
+  color: hsl(var(--foreground)) !important;
+  font-weight: 600;
 }
 
-:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .sidebar-link-active:not(.sidebar-link-collapsed) {
-  width: calc(100% + 1rem);
-  margin-inline: -0.5rem;
-  padding-inline: 0.5rem !important;
+html:is([data-ui-mode='modern'], [data-ui-mode='package']) .sidebar-link-active:not(.sidebar-link-collapsed) {
+  width: 100%;
+  margin-inline: 0;
+  padding-inline: 0.75rem !important;
 }
 
-:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .sidebar-section-title {
+html:is([data-ui-mode='modern'], [data-ui-mode='package']) .sidebar .sidebar-nav-item:not(.sidebar-link-collapsed) > :is(svg, .sidebar-svg-icon) {
+  width: 0.375rem !important;
+  height: 0.375rem !important;
+  min-width: 0.375rem !important;
+  min-height: 0.375rem !important;
+  color: transparent !important;
+  background: transparent !important;
+  border-radius: 9999px !important;
+}
+
+html:is([data-ui-mode='modern'], [data-ui-mode='package']) .sidebar .sidebar-nav-item:not(.sidebar-link-collapsed) > .sidebar-svg-icon svg {
+  width: 0.375rem !important;
+  height: 0.375rem !important;
+  min-width: 0.375rem !important;
+  min-height: 0.375rem !important;
+  color: transparent !important;
+  background: transparent !important;
+  border-radius: 9999px !important;
+}
+
+html:is([data-ui-mode='modern'], [data-ui-mode='package']) .sidebar .sidebar-nav-item.sidebar-link-active:not(.sidebar-link-collapsed) > :is(svg, .sidebar-svg-icon) {
+  color: transparent !important;
+  background: hsl(var(--foreground)) !important;
+}
+
+html:is([data-ui-mode='modern'], [data-ui-mode='package']) .sidebar .sidebar-nav-item.sidebar-link-active:not(.sidebar-link-collapsed) > .sidebar-svg-icon svg {
+  color: transparent !important;
+  background: transparent !important;
+}
+
+html:is([data-ui-mode='modern'], [data-ui-mode='package']) .sidebar-subnav {
+  border-color: hsl(var(--border)) !important;
+}
+
+html:is([data-ui-mode='modern'], [data-ui-mode='package']) .sidebar-footer {
+  border-color: hsl(var(--border)) !important;
+  padding: 1rem 1.125rem !important;
+  background: hsl(var(--card)) !important;
+}
+
+html:is([data-ui-mode='modern'], [data-ui-mode='package']) .sidebar-section-title {
   color: hsl(var(--muted-foreground)) !important;
 }
 

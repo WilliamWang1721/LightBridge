@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -19,6 +20,7 @@ const (
 	DistributionKindMessage       = "message"
 	DistributionKindFile          = "file"
 	DistributionKindAccountExport = "account_export"
+	DistributionKindPaid          = "paid"
 
 	MaxDistributionAttachmentBytes = 10 << 20
 	MaxDistributionRecipients      = 50000
@@ -31,12 +33,29 @@ var (
 	ErrDistributionAudience = infraerrors.BadRequest("DISTRIBUTION_AUDIENCE_EMPTY", "distribution audience is empty")
 	ErrDistributionTooLarge = infraerrors.BadRequest("DISTRIBUTION_ATTACHMENT_TOO_LARGE", "distribution attachment exceeds the size limit")
 	ErrDistributionTooMany  = infraerrors.BadRequest("DISTRIBUTION_TOO_MANY_RECIPIENTS", "distribution recipient count exceeds the limit")
+	ErrDistributionRejected = infraerrors.Conflict("DISTRIBUTION_REJECTED", "distribution was rejected")
+	ErrDistributionAccepted = infraerrors.Conflict("DISTRIBUTION_ALREADY_ACCEPTED", "distribution was already accepted")
 )
+
+type DistributionBalanceInvalidator interface {
+	InvalidateUserBalance(ctx context.Context, userID int64) error
+}
+
+var distributionBalanceInvalidator DistributionBalanceInvalidator
+
+func RegisterDistributionBalanceInvalidator(invalidator DistributionBalanceInvalidator) {
+	distributionBalanceInvalidator = invalidator
+}
+
+func CurrentDistributionBalanceInvalidator() DistributionBalanceInvalidator {
+	return distributionBalanceInvalidator
+}
 
 type Distribution struct {
 	ID               int64          `json:"id"`
 	Title            string         `json:"title"`
 	Kind             string         `json:"kind"`
+	Price            float64        `json:"price"`
 	Content          string         `json:"content"`
 	FileName         string         `json:"file_name,omitempty"`
 	ContentType      string         `json:"content_type,omitempty"`
@@ -51,6 +70,8 @@ type Distribution struct {
 	DownloadCount    int64          `json:"download_count"`
 	ReadAt           *time.Time     `json:"read_at,omitempty"`
 	DownloadedAt     *time.Time     `json:"downloaded_at,omitempty"`
+	AcceptedAt       *time.Time     `json:"accepted_at,omitempty"`
+	RejectedAt       *time.Time     `json:"rejected_at,omitempty"`
 	RecipientTitle   string         `json:"recipient_title,omitempty"`
 	RecipientContent string         `json:"recipient_content,omitempty"`
 }
@@ -88,6 +109,7 @@ type DistributionAudienceInput struct {
 type CreateDistributionInput struct {
 	Title       string                    `json:"title"`
 	Kind        string                    `json:"kind"`
+	Price       float64                   `json:"price,omitempty"`
 	Content     string                    `json:"content"`
 	FileName    string                    `json:"file_name,omitempty"`
 	ContentType string                    `json:"content_type,omitempty"`
@@ -127,17 +149,23 @@ type DistributionRepository interface {
 	GetAttachmentForUser(ctx context.Context, id, userID int64) (*DistributionAttachment, error)
 	MarkRead(ctx context.Context, id, userID int64, at time.Time) error
 	MarkDownloaded(ctx context.Context, id, userID int64, at time.Time) error
+	Accept(ctx context.Context, id, userID int64) error
+	Reject(ctx context.Context, id, userID int64) error
 	Delete(ctx context.Context, id int64) error
 }
 
 type DistributionService struct {
-	repo      DistributionRepository
-	userRepo  UserRepository
-	encryptor SecretEncryptor
+	repo         DistributionRepository
+	userRepo     UserRepository
+	encryptor    SecretEncryptor
+	balanceCache DistributionBalanceInvalidator
 }
 
 func NewDistributionService(repo DistributionRepository, userRepo UserRepository, encryptor SecretEncryptor) *DistributionService {
-	return &DistributionService{repo: repo, userRepo: userRepo, encryptor: encryptor}
+	return &DistributionService{
+		repo: repo, userRepo: userRepo, encryptor: encryptor,
+		balanceCache: CurrentDistributionBalanceInvalidator(),
+	}
 }
 
 func (s *DistributionService) Create(ctx context.Context, input CreateDistributionInput) (*Distribution, error) {
@@ -147,7 +175,7 @@ func (s *DistributionService) Create(ctx context.Context, input CreateDistributi
 	input.FileName = sanitizeDistributionFileName(input.FileName)
 	input.ContentType = strings.TrimSpace(input.ContentType)
 
-	if input.Title == "" || len([]rune(input.Title)) > 200 || !isDistributionKind(input.Kind) {
+	if input.Title == "" || len([]rune(input.Title)) > 200 || !isDistributionKind(input.Kind) || !validDistributionPrice(input.Kind, input.Price) {
 		return nil, ErrDistributionInvalid
 	}
 	if len(input.FileData) == 0 && strings.TrimSpace(input.FileBase64) != "" {
@@ -159,11 +187,6 @@ func (s *DistributionService) Create(ctx context.Context, input CreateDistributi
 	}
 	if len(input.FileData) > MaxDistributionAttachmentBytes {
 		return nil, ErrDistributionTooLarge
-	}
-	if input.Kind == DistributionKindText || input.Kind == DistributionKindMessage {
-		if input.Content == "" {
-			return nil, ErrDistributionInvalid
-		}
 	}
 	if input.Kind == DistributionKindFile || input.Kind == DistributionKindAccountExport {
 		if len(input.FileData) == 0 || input.FileName == "" {
@@ -180,6 +203,10 @@ func (s *DistributionService) Create(ctx context.Context, input CreateDistributi
 	}
 	if len(recipients) == 0 {
 		return nil, ErrDistributionAudience
+	}
+	if (input.Kind == DistributionKindText || input.Kind == DistributionKindMessage || input.Kind == DistributionKindPaid) &&
+		strings.TrimSpace(input.Content) == "" && !allDistributionRecipientsHaveContent(recipients) {
+		return nil, ErrDistributionInvalid
 	}
 
 	audienceSnapshot := map[string]any{
@@ -198,6 +225,7 @@ func (s *DistributionService) Create(ctx context.Context, input CreateDistributi
 	distribution := &Distribution{
 		Title:          input.Title,
 		Kind:           input.Kind,
+		Price:          input.Price,
 		Content:        input.Content,
 		FileName:       input.FileName,
 		ContentType:    input.ContentType,
@@ -288,6 +316,22 @@ func (s *DistributionService) GetByID(ctx context.Context, id int64) (*Distribut
 
 func (s *DistributionService) MarkRead(ctx context.Context, id, userID int64) error {
 	return s.repo.MarkRead(ctx, id, userID, time.Now().UTC())
+}
+
+func (s *DistributionService) Accept(ctx context.Context, id, userID int64) error {
+	if err := s.repo.Accept(ctx, id, userID); err != nil {
+		return err
+	}
+	if s.balanceCache != nil {
+		cacheCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = s.balanceCache.InvalidateUserBalance(cacheCtx, userID)
+	}
+	return nil
+}
+
+func (s *DistributionService) Reject(ctx context.Context, id, userID int64) error {
+	return s.repo.Reject(ctx, id, userID)
 }
 
 func (s *DistributionService) Delete(ctx context.Context, id int64) error {
@@ -466,6 +510,18 @@ func mergeDistributionRecipient(existing DistributionRecipient, userID int64, ti
 	}
 }
 
+func allDistributionRecipientsHaveContent(recipients []DistributionRecipient) bool {
+	if len(recipients) == 0 {
+		return false
+	}
+	for _, recipient := range recipients {
+		if strings.TrimSpace(recipient.ContentOverride) == "" {
+			return false
+		}
+	}
+	return true
+}
+
 type DistributionImportLine struct {
 	UserID          int64
 	Email           string
@@ -514,11 +570,21 @@ func ParseDistributionImportLines(raw string) ([]DistributionImportLine, error) 
 
 func isDistributionKind(kind string) bool {
 	switch kind {
-	case DistributionKindText, DistributionKindMessage, DistributionKindFile, DistributionKindAccountExport:
+	case DistributionKindText, DistributionKindMessage, DistributionKindFile, DistributionKindAccountExport, DistributionKindPaid:
 		return true
 	default:
 		return false
 	}
+}
+
+func validDistributionPrice(kind string, price float64) bool {
+	if price < 0 || math.IsNaN(price) || math.IsInf(price, 0) {
+		return false
+	}
+	if kind == DistributionKindPaid {
+		return price > 0
+	}
+	return price == 0
 }
 
 func isAccountExportFileName(name string) bool {
