@@ -72,6 +72,15 @@ describe('content distribution runtime', () => {
     expect(userLinks[0].getAttribute('href')).toBe('/distributions')
     expect(adminLinks[0].getAttribute('href')).toBe('/admin/distributions')
 
+    const label = userLinks[0].querySelector('span')!
+    let labelMutations = 0
+    const observer = new MutationObserver((mutations) => { labelMutations += mutations.length })
+    observer.observe(label, { childList: true })
+    document.body.appendChild(document.createElement('div'))
+    await flushNavigationSync()
+    expect(labelMutations).toBe(0)
+    observer.disconnect()
+
     stopFirst()
     stopSecond()
   })

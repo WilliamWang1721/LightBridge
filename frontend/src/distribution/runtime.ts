@@ -123,7 +123,8 @@ function syncDistributionNavigation(router: Router): void {
     link.classList.toggle('sidebar-link-active', isActive)
     link.classList.toggle('router-link-active', isActive)
     const label = link.querySelector('span')
-    if (label) label.textContent = distributionLabel()
+    const text = distributionLabel()
+    if (label && label.textContent !== text) label.textContent = text
   })
 }
 
