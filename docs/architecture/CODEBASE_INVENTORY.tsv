@@ -2618,7 +2618,8 @@ frontend/src/docs/content/release-0.2.60.md	documentation	maintained	60	3894	026
 frontend/src/docs/content/release-0.2.9-preview.1.md	documentation	maintained	28	1441	343f5061b7c8af6e406cff088be4b5e41e2d22ca0cee28d1d0ef299e34cf886a
 frontend/src/docs/content/release-0.3.0-preview.md	documentation	maintained	101	6103	692574c46aba92e53c19f63b0093ba2d5b4eaa43165bf98efdf43d1f2a2eb49c
 frontend/src/docs/content/release-0.3.4.md	documentation	maintained	42	2463	df60266a985a76ec43d2313713df7c6144d4dc9069208cf03fde18cebd4fe5dd
-frontend/src/docs/index.ts	frontend-script	maintained	191	6693	4b18778dc4d778ebcee27cc61f2d2402e4a2a4b45984566212e0297ef8d93f60
+frontend/src/docs/content/release-0.3.64.md	documentation	maintained	18	650	a5b296f80cc4752651c6770566eab47a3086d53a1d40b653c9b578ed0d7a2dbd
+frontend/src/docs/index.ts	frontend-script	maintained	199	6957	fb21ec2f03a0ab4feb6e7c0de49a68321b9cf24d9c673cfb1114cfcdecb7a16d
 frontend/src/i18n/__tests__/riskControlLocales.spec.ts	frontend-script	maintained	24	1276	c5b9ea52f89a2c896982b4d3a414a9d51475b38209ffa842a29dc74804953e57
 frontend/src/i18n/__tests__/usageServiceTierLocales.spec.ts	frontend-script	maintained	20	727	009c53d195a044f6bf7371998265a0152e4668b625d7dc7348471893259c5afb
 frontend/src/i18n/index.ts	frontend-script	maintained	91	2598	5173621347ec40b634a43dd9582e9f11061f2756ed83838265ecfc102dc785b3
