@@ -1,7 +1,7 @@
 <template>
   <div class="min-w-0 space-y-5 md:space-y-6">
     <!-- Date Range Filter -->
-    <div class="card p-4">
+    <Card class="p-4">
       <div class="flex flex-wrap items-center gap-4">
         <div class="flex items-center gap-2">
           <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('dashboard.timeRange') }}:</span>
@@ -17,12 +17,12 @@
           </div>
         </div>
       </div>
-    </div>
+    </Card>
 
     <!-- Charts Grid -->
     <div class="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-2">
       <!-- Model Distribution Chart -->
-      <div class="card relative min-w-0 overflow-hidden p-4">
+      <Card class="relative min-w-0 overflow-hidden p-4">
         <div v-if="loading" class="absolute inset-0 z-10 flex items-center justify-center bg-white/50 backdrop-blur-sm dark:bg-dark-800/50">
           <LoadingSpinner size="md" />
         </div>
@@ -48,14 +48,14 @@
                   <td class="max-w-[100px] truncate py-1.5 font-medium text-gray-900 dark:text-white" :title="model.model">{{ model.model }}</td>
                   <td class="py-1.5 text-right text-gray-600 dark:text-gray-400">{{ formatNumber(model.requests) }}</td>
                   <td class="py-1.5 text-right text-gray-600 dark:text-gray-400">{{ formatTokens(model.total_tokens) }}</td>
-                  <td class="py-1.5 text-right text-green-600 dark:text-green-400">${{ formatCost(model.actual_cost) }}</td>
+                  <td class="py-1.5 text-right text-[hsl(var(--foreground))]">${{ formatCost(model.actual_cost) }}</td>
                   <td class="py-1.5 text-right text-gray-400 dark:text-gray-500">${{ formatCost(model.cost) }}</td>
                 </tr>
               </tbody>
             </table>
           </div>
         </div>
-      </div>
+      </Card>
 
       <!-- Token Usage Trend Chart -->
       <TokenUsageTrend :trend-data="trend" :loading="loading" />
@@ -69,6 +69,7 @@ import { useI18n } from 'vue-i18n'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import DateRangePicker from '@/components/common/DateRangePicker.vue'
 import Select from '@/components/common/Select.vue'
+import { Card } from '@/components/ui/card'
 import { Doughnut } from 'vue-chartjs'
 import TokenUsageTrend from '@/components/charts/TokenUsageTrend.vue'
 import type { TrendDataPoint, ModelStat } from '@/types'
@@ -84,7 +85,7 @@ const modelData = computed(() => !props.models?.length ? null : {
   labels: props.models.map((m: ModelStat) => m.model),
   datasets: [{
     data: props.models.map((m: ModelStat) => m.total_tokens),
-    backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16']
+    backgroundColor: ['#262626', '#525252', '#737373', '#a3a3a3', '#d4d4d4', '#404040', '#737373', '#bdbdbd']
   }]
 })
 

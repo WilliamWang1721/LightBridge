@@ -12,239 +12,88 @@
       <template v-else-if="stats">
         <!-- Small Panels -->
         <div v-if="enabledSmallPanels.length > 0" class="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <!-- Total API Keys -->
-          <div
+          <DashboardStatCard
             v-if="isSmallPanelEnabled('apiKeys')"
-            class="card p-4"
+            icon="key"
+            :label="t('admin.dashboard.apiKeys')"
+            :value="stats.total_api_keys"
+            :hint="`${stats.active_api_keys} ${t('common.active')}`"
             :style="smallPanelOrderStyle('apiKeys')"
-          >
-            <div class="flex items-center gap-3">
-              <div class="rounded-lg bg-blue-100 p-2 dark:bg-blue-900/30">
-                <Icon name="key" size="md" class="text-blue-600 dark:text-blue-400" :stroke-width="2" />
-              </div>
-              <div>
-                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  {{ t('admin.dashboard.apiKeys') }}
-                </p>
-                <p class="text-xl font-bold text-gray-900 dark:text-white">
-                  {{ stats.total_api_keys }}
-                </p>
-                <p class="text-xs text-green-600 dark:text-green-400">
-                  {{ stats.active_api_keys }} {{ t('common.active') }}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Service Accounts -->
-          <div
+          />
+          <DashboardStatCard
             v-if="isSmallPanelEnabled('accounts')"
-            class="card p-4"
+            icon="server"
+            :label="t('admin.dashboard.accounts')"
+            :value="stats.total_accounts"
             :style="smallPanelOrderStyle('accounts')"
           >
-            <div class="flex items-center gap-3">
-              <div class="rounded-lg bg-purple-100 p-2 dark:bg-purple-900/30">
-                <Icon name="server" size="md" class="text-purple-600 dark:text-purple-400" :stroke-width="2" />
-              </div>
-              <div>
-                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  {{ t('admin.dashboard.accounts') }}
-                </p>
-                <p class="text-xl font-bold text-gray-900 dark:text-white">
-                  {{ stats.total_accounts }}
-                </p>
-                <p class="text-xs">
-                  <span class="text-green-600 dark:text-green-400"
-                    >{{ stats.normal_accounts }} {{ t('common.active') }}</span
-                  >
-                  <span v-if="stats.error_accounts > 0" class="ml-1 text-red-500"
-                    >{{ stats.error_accounts }} {{ t('common.error') }}</span
-                  >
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Today Requests -->
-          <div
+            <template #meta>
+              <p class="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+                {{ stats.normal_accounts }} {{ t('common.active') }}
+                <span v-if="stats.error_accounts > 0" class="ml-1 text-red-600 dark:text-red-400">
+                  {{ stats.error_accounts }} {{ t('common.error') }}
+                </span>
+              </p>
+            </template>
+          </DashboardStatCard>
+          <DashboardStatCard
             v-if="isSmallPanelEnabled('todayRequests')"
-            class="card p-4"
+            icon="chart"
+            :label="t('admin.dashboard.todayRequests')"
+            :value="stats.today_requests"
+            :hint="`${t('common.total')}: ${formatNumber(stats.total_requests)}`"
             :style="smallPanelOrderStyle('todayRequests')"
-          >
-            <div class="flex items-center gap-3">
-              <div class="rounded-lg bg-green-100 p-2 dark:bg-green-900/30">
-                <Icon name="chart" size="md" class="text-green-600 dark:text-green-400" :stroke-width="2" />
-              </div>
-              <div>
-                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  {{ t('admin.dashboard.todayRequests') }}
-                </p>
-                <p class="text-xl font-bold text-gray-900 dark:text-white">
-                  {{ stats.today_requests }}
-                </p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">
-                  {{ t('common.total') }}: {{ formatNumber(stats.total_requests) }}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <!-- New Users Today -->
-          <div
+          />
+          <DashboardStatCard
             v-if="isSmallPanelEnabled('users')"
-            class="card p-4"
+            icon="userPlus"
+            :label="t('admin.dashboard.users')"
+            :value="`+${stats.today_new_users}`"
+            :hint="`${t('common.total')}: ${formatNumber(stats.total_users)}`"
             :style="smallPanelOrderStyle('users')"
-          >
-            <div class="flex items-center gap-3">
-              <div class="rounded-lg bg-emerald-100 p-2 dark:bg-emerald-900/30">
-                <Icon name="userPlus" size="md" class="text-emerald-600 dark:text-emerald-400" :stroke-width="2" />
-              </div>
-              <div>
-                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  {{ t('admin.dashboard.users') }}
-                </p>
-                <p class="text-xl font-bold text-emerald-600 dark:text-emerald-400">
-                  +{{ stats.today_new_users }}
-                </p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">
-                  {{ t('common.total') }}: {{ formatNumber(stats.total_users) }}
-                </p>
-              </div>
-            </div>
-          </div>
-          <!-- Today Tokens -->
-          <div
+          />
+          <DashboardStatCard
             v-if="isSmallPanelEnabled('todayTokens')"
-            class="card p-4"
+            icon="cube"
+            :label="t('admin.dashboard.todayTokens')"
+            :value="formatTokens(stats.today_tokens)"
             :style="smallPanelOrderStyle('todayTokens')"
           >
-            <div class="flex items-center gap-3">
-              <div class="rounded-lg bg-amber-100 p-2 dark:bg-amber-900/30">
-                <Icon name="cube" size="md" class="text-amber-600 dark:text-amber-400" :stroke-width="2" />
-              </div>
-              <div>
-                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  {{ t('admin.dashboard.todayTokens') }}
-                </p>
-                <p class="text-xl font-bold text-gray-900 dark:text-white">
-                  {{ formatTokens(stats.today_tokens) }}
-                </p>
-                <p class="text-xs">
-                  <span
-                    class="text-green-600 dark:text-green-400"
-                    :title="t('admin.dashboard.actual')"
-                    >${{ formatCost(stats.today_actual_cost) }}</span
-                  >
-                  <span class="text-gray-400 dark:text-gray-500"> / </span>
-                  <span
-                    class="text-orange-500 dark:text-orange-400"
-                    :title="t('admin.dashboard.accountCost')"
-                    >${{ formatCost(stats.today_account_cost) }}</span
-                  >
-                  <span class="text-gray-400 dark:text-gray-500"> / </span>
-                  <span
-                    class="text-gray-400 dark:text-gray-500"
-                    :title="t('admin.dashboard.standard')"
-                    >${{ formatCost(stats.today_cost) }}</span
-                  >
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Total Tokens -->
-          <div
+            <template #meta>
+              <p class="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+                ${{ formatCost(stats.today_actual_cost) }} / ${{ formatCost(stats.today_account_cost) }} / ${{ formatCost(stats.today_cost) }}
+              </p>
+            </template>
+          </DashboardStatCard>
+          <DashboardStatCard
             v-if="isSmallPanelEnabled('totalTokens')"
-            class="card p-4"
+            icon="database"
+            :label="t('admin.dashboard.totalTokens')"
+            :value="formatTokens(stats.total_tokens)"
             :style="smallPanelOrderStyle('totalTokens')"
           >
-            <div class="flex items-center gap-3">
-              <div class="rounded-lg bg-indigo-100 p-2 dark:bg-indigo-900/30">
-                <Icon name="database" size="md" class="text-indigo-600 dark:text-indigo-400" :stroke-width="2" />
-              </div>
-              <div>
-                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  {{ t('admin.dashboard.totalTokens') }}
-                </p>
-                <p class="text-xl font-bold text-gray-900 dark:text-white">
-                  {{ formatTokens(stats.total_tokens) }}
-                </p>
-                <p class="text-xs">
-                  <span
-                    class="text-green-600 dark:text-green-400"
-                    :title="t('admin.dashboard.actual')"
-                    >${{ formatCost(stats.total_actual_cost) }}</span
-                  >
-                  <span class="text-gray-400 dark:text-gray-500"> / </span>
-                  <span
-                    class="text-orange-500 dark:text-orange-400"
-                    :title="t('admin.dashboard.accountCost')"
-                    >${{ formatCost(stats.total_account_cost) }}</span
-                  >
-                  <span class="text-gray-400 dark:text-gray-500"> / </span>
-                  <span
-                    class="text-gray-400 dark:text-gray-500"
-                    :title="t('admin.dashboard.standard')"
-                    >${{ formatCost(stats.total_cost) }}</span
-                  >
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Performance (RPM/TPM) -->
-          <div
+            <template #meta>
+              <p class="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+                ${{ formatCost(stats.total_actual_cost) }} / ${{ formatCost(stats.total_account_cost) }} / ${{ formatCost(stats.total_cost) }}
+              </p>
+            </template>
+          </DashboardStatCard>
+          <DashboardStatCard
             v-if="isSmallPanelEnabled('performance')"
-            class="card p-4"
+            icon="bolt"
+            :label="t('admin.dashboard.performance')"
+            :value="`${formatTokens(stats.rpm)} RPM`"
+            :hint="`${formatTokens(stats.tpm)} TPM`"
             :style="smallPanelOrderStyle('performance')"
-          >
-            <div class="flex items-center gap-3">
-              <div class="rounded-lg bg-violet-100 p-2 dark:bg-violet-900/30">
-                <Icon name="bolt" size="md" class="text-violet-600 dark:text-violet-400" :stroke-width="2" />
-              </div>
-              <div class="flex-1">
-                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  {{ t('admin.dashboard.performance') }}
-                </p>
-                <div class="flex items-baseline gap-2">
-                  <p class="text-xl font-bold text-gray-900 dark:text-white">
-                    {{ formatTokens(stats.rpm) }}
-                  </p>
-                  <span class="text-xs text-gray-500 dark:text-gray-400">RPM</span>
-                </div>
-                <div class="flex items-baseline gap-2">
-                  <p class="text-sm font-semibold text-violet-600 dark:text-violet-400">
-                    {{ formatTokens(stats.tpm) }}
-                  </p>
-                  <span class="text-xs text-gray-500 dark:text-gray-400">TPM</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Avg Response Time -->
-          <div
+          />
+          <DashboardStatCard
             v-if="isSmallPanelEnabled('avgResponse')"
-            class="card p-4"
+            icon="clock"
+            :label="t('admin.dashboard.avgResponse')"
+            :value="formatDuration(stats.average_duration_ms)"
+            :hint="`${stats.active_users} ${t('admin.dashboard.activeUsers')}`"
             :style="smallPanelOrderStyle('avgResponse')"
-          >
-            <div class="flex items-center gap-3">
-              <div class="rounded-lg bg-rose-100 p-2 dark:bg-rose-900/30">
-                <Icon name="clock" size="md" class="text-rose-600 dark:text-rose-400" :stroke-width="2" />
-              </div>
-              <div>
-                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  {{ t('admin.dashboard.avgResponse') }}
-                </p>
-                <p class="text-xl font-bold text-gray-900 dark:text-white">
-                  {{ formatDuration(stats.average_duration_ms) }}
-                </p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">
-                  {{ stats.active_users }} {{ t('admin.dashboard.activeUsers') }}
-                </p>
-              </div>
-            </div>
-          </div>
+          />
         </div>
 
         <!-- Large Panels -->
@@ -270,7 +119,7 @@
             </div>
 
             <!-- User Usage Trend (Full Width) -->
-            <div v-else-if="panel.key === 'userTrend'" class="card p-4">
+            <Card v-else-if="panel.key === 'userTrend'" class="p-4">
               <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
                 {{ t('admin.dashboard.recentUsage') }} (Top 12)
               </h3>
@@ -286,7 +135,7 @@
                   {{ t('admin.dashboard.noDataAvailable') }}
                 </div>
               </div>
-            </div>
+            </Card>
           </template>
         </div>
       </template>
@@ -305,7 +154,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, type CSSProperties } from 'vue'
+import { ref, computed, markRaw, onMounted, watch, type CSSProperties } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
@@ -321,7 +170,8 @@ import type {
 } from '@/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
-import Icon from '@/components/icons/Icon.vue'
+import DashboardStatCard from '@/components/admin/dashboard/DashboardStatCard.vue'
+import { Card } from '@/components/ui/card'
 import ModelDistributionChart from '@/components/charts/ModelDistributionChart.vue'
 import TokenUsageTrend from '@/components/charts/TokenUsageTrend.vue'
 import DashboardCustomizePanel from '@/components/admin/dashboard/DashboardCustomizePanel.vue'
@@ -530,7 +380,7 @@ const chartColors = computed(() => ({
 }))
 
 // Line chart options (for user trend chart)
-const lineOptions = computed(() => ({
+const lineOptions = computed(() => markRaw({
   responsive: true,
   maintainAspectRatio: false,
   interaction: {
@@ -623,18 +473,18 @@ const userTrendChartData = computed(() => {
 
   const sortedDates = Array.from(allDates).sort()
   const colors = [
-    '#3b82f6',
-    '#10b981',
-    '#f59e0b',
-    '#ef4444',
-    '#8b5cf6',
-    '#ec4899',
-    '#e42313',
-    '#f97316',
-    '#6366f1',
-    '#84cc16',
-    '#06b6d4',
-    '#a855f7'
+    '#171717',
+    '#404040',
+    '#525252',
+    '#737373',
+    '#a3a3a3',
+    '#d4d4d4',
+    '#262626',
+    '#666666',
+    '#8a8a8a',
+    '#b5b5b5',
+    '#333333',
+    '#e5e5e5'
   ]
 
   const datasets = Array.from(userGroups.values()).map((group, idx) => ({
@@ -646,10 +496,10 @@ const userTrendChartData = computed(() => {
     tension: 0.3
   }))
 
-  return {
+  return markRaw({
     labels: sortedDates,
     datasets
-  }
+  })
 })
 
 // Format helpers

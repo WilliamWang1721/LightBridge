@@ -1,5 +1,5 @@
 <template>
-  <div class="card min-w-0 overflow-hidden p-4">
+  <Card class="min-w-0 overflow-hidden p-4">
     <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
       {{ t('admin.dashboard.tokenUsageTrend') }}
     </h3>
@@ -15,11 +15,11 @@
     >
       {{ t('admin.dashboard.noDataAvailable') }}
     </div>
-  </div>
+  </Card>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, markRaw } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   Chart as ChartJS,
@@ -34,6 +34,7 @@ import {
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import { Card } from '@/components/ui/card'
 import type { TrendDataPoint } from '@/types'
 import { readUsageNumber } from '@/utils/usageDisplay'
 
@@ -62,11 +63,11 @@ const isDarkMode = computed(() => {
 const chartColors = computed(() => ({
   text: isDarkMode.value ? '#e5e7eb' : '#374151',
   grid: isDarkMode.value ? '#374151' : '#e5e7eb',
-  input: '#3b82f6',
-  output: '#10b981',
-  cacheCreation: '#f59e0b',
-  cacheRead: '#06b6d4',
-  cacheHitRate: '#8b5cf6'
+  input: '#262626',
+  output: '#525252',
+  cacheCreation: '#737373',
+  cacheRead: '#a3a3a3',
+  cacheHitRate: '#d4d4d4'
 }))
 
 const normalizedTrend = computed(() => (props.trendData || []).map((point) => {
@@ -92,7 +93,7 @@ const normalizedTrend = computed(() => (props.trendData || []).map((point) => {
 const chartData = computed(() => {
   if (!normalizedTrend.value.length) return null
 
-  return {
+  return markRaw({
     labels: normalizedTrend.value.map((d) => d.date),
     datasets: [
       {
@@ -141,10 +142,10 @@ const chartData = computed(() => {
         yAxisID: 'yPercent'
       }
     ]
-  }
+  })
 })
 
-const lineOptions = computed(() => ({
+const lineOptions = computed(() => markRaw({
   responsive: true,
   maintainAspectRatio: false,
   interaction: {

@@ -1,5 +1,5 @@
 <template>
-  <aside
+  <Sidebar
     id="lightbridge-sidebar"
     class="sidebar"
     :aria-label="t('nav.mainNavigation', 'Main navigation')"
@@ -9,7 +9,7 @@
     ]"
   >
     <!-- Logo/Brand -->
-    <div class="sidebar-header" :class="{ 'sidebar-header-collapsed': sidebarCollapsed }">
+    <SidebarHeader class="sidebar-header" :class="{ 'sidebar-header-collapsed': sidebarCollapsed }">
       <div class="lightbridge-brand-mark" aria-hidden="true"></div>
       <div class="sidebar-brand" :class="{ 'sidebar-brand-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
         <span class="sidebar-brand-title text-lg font-bold text-gray-900 dark:text-white">
@@ -21,12 +21,12 @@
           <span class="sidebar-version-product">LightBridge</span>
         </div>
       </div>
-    </div>
+    </SidebarHeader>
 
     <!-- Navigation -->
-    <nav class="sidebar-nav scrollbar-hide" :aria-label="t('nav.mainNavigation', 'Main navigation')">
-      <section v-for="section in navigationSections" :key="section.key" class="sidebar-section">
-        <div
+    <SidebarContent class="sidebar-nav scrollbar-hide" :aria-label="t('nav.mainNavigation', 'Main navigation')">
+      <SidebarGroup v-for="section in navigationSections" :key="section.key" class="sidebar-section !p-0">
+        <SidebarGroupLabel
           v-if="section.title"
           class="sidebar-section-title"
           :class="{ 'sidebar-section-title-collapsed': sidebarCollapsed }"
@@ -36,11 +36,13 @@
             class="sidebar-section-title-text"
             :class="{ 'sidebar-section-title-text-collapsed': sidebarCollapsed }"
           >{{ section.title }}</span>
-        </div>
+        </SidebarGroupLabel>
 
-        <template v-for="item in section.items" :key="item.path">
+        <SidebarMenu>
+          <SidebarMenuItem v-for="item in section.items" :key="item.path">
           <template v-if="item.children?.length">
-            <button
+            <SidebarMenuButton
+              as="button"
               type="button"
               class="sidebar-link sidebar-nav-item mb-1 w-full"
               :class="{
@@ -63,14 +65,15 @@
                   :class="isGroupExpanded(item) ? 'rotate-180' : ''"
                 />
               </span>
-            </button>
+            </SidebarMenuButton>
             <div
               v-if="!sidebarCollapsed && isGroupExpanded(item)"
               class="sidebar-subnav mb-1 ml-4 border-l border-gray-200 pl-2 dark:border-dark-600"
             >
-              <router-link
+              <SidebarMenuButton
                 v-for="child in item.children"
                 :key="child.path"
+                :as="RouterLink"
                 :to="child.path"
                 class="sidebar-link sidebar-nav-item mb-0.5 py-1.5 text-sm"
                 :class="{ 'sidebar-link-active': route.path === child.path }"
@@ -79,12 +82,13 @@
               >
                 <component :is="child.icon" class="h-4 w-4 flex-shrink-0" />
                 <span>{{ child.label }}</span>
-              </router-link>
+              </SidebarMenuButton>
             </div>
           </template>
 
-          <router-link
+          <SidebarMenuButton
             v-else
+            :as="RouterLink"
             :to="item.path"
             class="sidebar-link sidebar-nav-item mb-1"
             :class="{ 'sidebar-link-active': isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
@@ -109,19 +113,21 @@
               :class="{ 'sidebar-label-collapsed': sidebarCollapsed }"
               :aria-hidden="sidebarCollapsed ? 'true' : 'false'"
             >{{ item.label }}</span>
-          </router-link>
-        </template>
-      </section>
-    </nav>
+          </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarGroup>
+    </SidebarContent>
 
     <!-- Bottom Section -->
-    <div class="sidebar-footer mt-auto border-t border-gray-100 p-3 dark:border-dark-800">
+    <SidebarFooter class="sidebar-footer mt-auto border-t border-gray-100 p-3 dark:border-dark-800">
       <div
         v-if="!sidebarCollapsed"
         class="sidebar-footer-controls"
       >
         <div class="relative">
-          <button
+          <SidebarMenuButton
+            as="button"
             type="button"
             @click="toggleTheme"
             class="sidebar-link sidebar-footer-action w-full"
@@ -134,7 +140,7 @@
             <span class="sidebar-label sidebar-footer-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{
               isDark ? t('nav.lightMode') : t('nav.darkMode')
             }}</span>
-          </button>
+          </SidebarMenuButton>
 
         </div>
 
@@ -142,7 +148,8 @@
       </div>
 
       <!-- Collapse Button -->
-      <button
+      <SidebarMenuButton
+        as="button"
         type="button"
         @click="toggleSidebar"
         class="sidebar-link w-full"
@@ -152,9 +159,9 @@
         <ChevronDoubleLeftIcon v-if="!sidebarCollapsed" class="h-5 w-5 flex-shrink-0" />
         <ChevronDoubleRightIcon v-else class="h-5 w-5 flex-shrink-0" />
         <span class="sidebar-label sidebar-footer-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ t('nav.collapse') }}</span>
-      </button>
-    </div>
-  </aside>
+      </SidebarMenuButton>
+    </SidebarFooter>
+  </Sidebar>
 
   <!-- Mobile Overlay -->
   <transition name="fade">
@@ -170,7 +177,7 @@
 
 <script setup lang="ts">
 import { computed, h, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAdminSettingsStore, useAppStore, useAuthStore, useOnboardingStore } from '@/stores'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
@@ -178,6 +185,17 @@ import VersionBadge from '@/components/common/VersionBadge.vue'
 import { sanitizeSvg } from '@/utils/sanitize'
 import { makeProgressiveSidebarFlag, ProgressiveFeatures } from '@/utils/progressiveFeatures'
 import { moduleMenuContributions, resolveModuleText } from '@/modules/runtime/registry'
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from '@/components/ui/sidebar'
 
 interface NavItem {
   path: string
