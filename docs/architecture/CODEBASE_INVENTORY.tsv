@@ -34,7 +34,7 @@ backend/cmd/model-sync-smoke/README.md	documentation	maintained	47	1255	94d26b21
 backend/cmd/model-sync-smoke/main.go	backend-go	maintained	195	6131	30a89fd0dc24c2a0ab7f540d1cf26158936612103e15b227fb4ee151fb789252
 backend/cmd/model-sync-smoke/main_test.go	backend-go	maintained	174	6378	75550b4ce06d0a6540df9acb9793929e33076570f90cf5416b92acd180b4fa1a
 backend/cmd/module-migrate/main.go	backend-go	maintained	47	2079	fc048ad91f01d0c288222e5742a9cdef75b305d890ff7d844236eb0a57143ba1
-backend/cmd/server/VERSION	other-text	maintained	1	7	20442966020a11b727ef340500960443fb40afc15df133f69a7e03fe466eb8f5
+backend/cmd/server/VERSION	other-text	maintained	1	7	3187467f3e3ac5cf8099f62bab1fb0460786346840e4ffe93cca8d51d2e0b982
 backend/cmd/server/cleanup.go	backend-go	maintained	258	6840	d3b6826d0a76cab0d573a6a2ae3091e44980c79378fb1865b1dc768187f4f2e5
 backend/cmd/server/cleanup_test.go	backend-go	maintained	47	1359	941fb150cc7fb912493e8f2d8b30d3a56b782379213310c6dd0c11740bce28bd
 backend/cmd/server/main.go	backend-go	maintained	205	5377	ac0796b43393359f52b48e68d20bba5309421ed87e6b8f0eeba133a44013d344
@@ -2594,8 +2594,8 @@ frontend/src/constants/account.ts	frontend-script	maintained	63	2810	feb3539e65d
 frontend/src/constants/channel.ts	frontend-script	maintained	22	1111	901a984787f5a45484703f9d16d586324af0d9d21b0fe79e06bd7f3ff88ffacf
 frontend/src/constants/channelMonitor.ts	frontend-script	maintained	43	1339	ecfc154dfbeed31fbc9b97028d9a3ab94b3c9023644c93ca1d5dd9569a702fa6
 frontend/src/distribution/layout.test.ts	frontend-script	maintained	20	754	e5044a71d4c5efe17a511436b381306f4e6154a62083f3610f91bdf62b3865c9
-frontend/src/distribution/runtime.test.ts	frontend-script	maintained	78	2760	64609c05934e99a87f190b37766d9f91cae1c04297153d7dfa0e943806914701
-frontend/src/distribution/runtime.ts	frontend-script	maintained	150	4926	b6e5af794bf963c80d223222f7c99d3106f0d7bb45e6ed793860757cf5657df6
+frontend/src/distribution/runtime.test.ts	frontend-script	maintained	87	3142	111a90c3c96fc480c23a04a8989e6b4865c649567648d8e32659b19d749ad15b
+frontend/src/distribution/runtime.ts	frontend-script	maintained	151	4978	2ce8653772423f935fe2ae1131af64bc75e6b7fe7479188a572efc7c778c0b6f
 frontend/src/docs/content/getting-started.md	documentation	maintained	28	1256	54297494af90e7d2ff3f69bcd308ed3b881d33e5805aba30df89e3a3770f5610
 frontend/src/docs/content/lightbridge-router.md	documentation	maintained	163	7285	f946e9ff5bd5bc43d8b503092374291587c04d9c3616d2d27029ca54d3576720
 frontend/src/docs/content/ops-admin-affiliate.md	documentation	maintained	82	2325	6d0faad9b7cc858b4f5fcd9094d188c150283aa6c5180d4c1e1b5839b24f4e94
