@@ -17,6 +17,18 @@
   backdrop-filter: blur(4px) !important;
 }
 
+/* The backdrop follows the page; the dialog itself stays centered in the viewport. */
+html:is([data-ui-mode='modern'], [data-ui-mode='package']) body.modal-open {
+  position: relative;
+}
+
+html:is([data-ui-mode='modern'], [data-ui-mode='package']) .modal-overlay {
+  position: absolute !important;
+  min-height: 100dvh;
+  height: 100%;
+  display: block;
+}
+
 :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .modal-content {
   border: 1px solid hsl(var(--border)) !important;
   border-radius: calc(var(--ui-radius) + 0.375rem) !important;
@@ -48,6 +60,12 @@ html:is([data-ui-mode='modern'], [data-ui-mode='package']) .luma-dialog {
 
 /* Tailwind's later modal bridge is intentionally broader; keep this legacy dialog rounded. */
 html:is([data-ui-mode='modern'], [data-ui-mode='package']) .modal-content.luma-dialog {
+  position: fixed;
+  top: 50dvh;
+  left: 50vw;
+  width: min(calc(100vw - clamp(1.5rem, 6vw, 4rem)), 72rem) !important;
+  max-height: calc(100dvh - clamp(1.5rem, 6vw, 4rem));
+  transform: translate(-50%, -50%);
   border-radius: calc(var(--ui-radius) + 0.375rem) !important;
   overflow: hidden !important;
 }
@@ -75,6 +93,11 @@ html:is([data-ui-mode='modern'], [data-ui-mode='package']) .luma-dialog :is(inpu
 /* Navigation */
 html:is([data-ui-mode='modern'], [data-ui-mode='package']) .sidebar {
   width: var(--ui-sidebar-width) !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  min-height: 100vh !important;
+  max-height: 100dvh !important;
+  overflow: hidden !important;
   border-right: 1px solid hsl(var(--border)) !important;
   background: hsl(var(--card)) !important;
   color: hsl(var(--card-foreground)) !important;
@@ -88,6 +111,10 @@ html:is([data-ui-mode='modern'], [data-ui-mode='package']) .sidebar-header {
 }
 
 html:is([data-ui-mode='modern'], [data-ui-mode='package']) .sidebar-nav {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
   padding: 0 1.125rem 1.5rem !important;
 }
 
@@ -164,8 +191,13 @@ html:is([data-ui-mode='modern'], [data-ui-mode='package']) .sidebar-subnav {
 }
 
 html:is([data-ui-mode='modern'], [data-ui-mode='package']) .sidebar-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  flex: 0 0 auto;
+  margin-top: auto !important;
   border-color: hsl(var(--border)) !important;
-  padding: 1rem 1.125rem !important;
+  padding: 1rem 1.125rem max(1rem, env(safe-area-inset-bottom)) !important;
   background: hsl(var(--card)) !important;
 }
 
