@@ -24,11 +24,11 @@ describe('Luma color system', () => {
 
     expect(hues.length).toBeGreaterThan(20)
     expect(hues.every((hue) => hue < 90 || hue >= 170)).toBe(true)
-    expect(platform).toContain('--chart-1: 221 83% 53%;')
-    expect(platform).toContain('--chart-2: 271 81% 56%;')
-    expect(platform).toContain('--chart-3: 38 92% 50%;')
-    expect(platform).toContain('--chart-4: 0 84% 60%;')
-    expect(platform).toContain('--chart-5: 190 90% 44%;')
+    expect(platform).toContain('--chart-1: 0 0% 12%;')
+    expect(platform).toContain('--chart-2: 0 0% 28%;')
+    expect(platform).toContain('--chart-3: 0 0% 44%;')
+    expect(platform).toContain('--chart-4: 0 0% 60%;')
+    expect(platform).toContain('--chart-5: 0 0% 76%;')
   })
 
   it('maps legacy green utility families onto semantic Luma tokens', () => {

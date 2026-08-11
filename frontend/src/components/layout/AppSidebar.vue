@@ -38,10 +38,27 @@
           >{{ section.title }}</span>
         </SidebarGroupLabel>
 
-        <SidebarMenu>
+        <SidebarMenu class="sidebar-card-stack">
           <SidebarMenuItem v-for="item in section.items" :key="item.path">
-          <template v-if="item.children?.length">
+            <div v-if="!sidebarCollapsed && item.children?.length" class="sidebar-nav-card">
+              <div class="sidebar-nav-card-heading">{{ item.label }}</div>
+              <SidebarMenuButton
+                v-for="child in item.children"
+                :key="child.path"
+                :as="RouterLink"
+                :to="child.path"
+                class="sidebar-link sidebar-card-link"
+                :class="{ 'sidebar-link-active': isActive(child.path) }"
+                :aria-current="isActive(child.path) ? 'page' : undefined"
+                @click="handleMenuItemClick(child.path)"
+              >
+                <component :is="child.icon" class="h-5 w-5 flex-shrink-0" />
+                <span>{{ child.label }}</span>
+              </SidebarMenuButton>
+            </div>
+
             <SidebarMenuButton
+              v-else-if="item.children?.length"
               as="button"
               type="button"
               class="sidebar-link sidebar-nav-item mb-1 w-full"
@@ -66,54 +83,35 @@
                 />
               </span>
             </SidebarMenuButton>
-            <div
-              v-if="!sidebarCollapsed && isGroupExpanded(item)"
-              class="sidebar-subnav mb-1 ml-4 border-l border-gray-200 pl-2 dark:border-dark-600"
-            >
-              <SidebarMenuButton
-                v-for="child in item.children"
-                :key="child.path"
-                :as="RouterLink"
-                :to="child.path"
-                class="sidebar-link sidebar-nav-item mb-0.5 py-1.5 text-sm"
-                :class="{ 'sidebar-link-active': route.path === child.path }"
-                :aria-current="route.path === child.path ? 'page' : undefined"
-                @click="handleMenuItemClick(child.path)"
-              >
-                <component :is="child.icon" class="h-4 w-4 flex-shrink-0" />
-                <span>{{ child.label }}</span>
-              </SidebarMenuButton>
-            </div>
-          </template>
 
-          <SidebarMenuButton
-            v-else
-            :as="RouterLink"
-            :to="item.path"
-            class="sidebar-link sidebar-nav-item mb-1"
-            :class="{ 'sidebar-link-active': isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
-            :title="sidebarCollapsed ? item.label : undefined"
-            :aria-current="isActive(item.path) ? 'page' : undefined"
-            :data-tour="item.path === '/keys' ? 'sidebar-my-keys' : undefined"
-            :id="
-              item.path === '/admin/accounts'
-                ? 'sidebar-channel-manage'
-                : item.path === '/admin/groups'
-                  ? 'sidebar-group-manage'
-                  : item.path === '/admin/redeem'
-                    ? 'sidebar-wallet'
-                    : undefined
-            "
-            @click="handleMenuItemClick(item.path)"
-          >
-            <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
-            <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
-            <span
-              class="sidebar-label"
-              :class="{ 'sidebar-label-collapsed': sidebarCollapsed }"
-              :aria-hidden="sidebarCollapsed ? 'true' : 'false'"
-            >{{ item.label }}</span>
-          </SidebarMenuButton>
+            <SidebarMenuButton
+              v-else
+              :as="RouterLink"
+              :to="item.path"
+              class="sidebar-link sidebar-card-link"
+              :class="{ 'sidebar-link-active': isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
+              :title="sidebarCollapsed ? item.label : undefined"
+              :aria-current="isActive(item.path) ? 'page' : undefined"
+              :data-tour="item.path === '/keys' ? 'sidebar-my-keys' : undefined"
+              :id="
+                item.path === '/admin/accounts'
+                  ? 'sidebar-channel-manage'
+                  : item.path === '/admin/groups'
+                    ? 'sidebar-group-manage'
+                    : item.path === '/admin/redeem'
+                      ? 'sidebar-wallet'
+                      : undefined
+              "
+              @click="handleMenuItemClick(item.path)"
+            >
+              <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
+              <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
+              <span
+                class="sidebar-label"
+                :class="{ 'sidebar-label-collapsed': sidebarCollapsed }"
+                :aria-hidden="sidebarCollapsed ? 'true' : 'false'"
+              >{{ item.label }}</span>
+            </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarGroup>
@@ -1245,6 +1243,59 @@ onMounted(() => {
 .sidebar-section-title-collapsed::after {
   opacity: 1;
   transition-delay: 0.08s;
+}
+
+.sidebar-card-stack {
+  gap: 0.875rem !important;
+}
+
+.sidebar-nav-card {
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  border-radius: 1.25rem;
+  background: hsl(var(--card));
+  padding: 0.625rem;
+}
+
+.sidebar-nav-card-heading {
+  padding: 0.35rem 0.625rem 0.5rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1rem;
+}
+
+.sidebar-card-link {
+  min-height: 2.5rem;
+  border-radius: 0.875rem !important;
+  gap: 0.75rem !important;
+  padding: 0.625rem 0.75rem !important;
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.sidebar-card-link:hover {
+  background: hsl(var(--muted)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+.sidebar-card-link.sidebar-link-active {
+  background: hsl(var(--secondary)) !important;
+  color: hsl(var(--foreground)) !important;
+  font-weight: 600;
+}
+
+:deep(.sidebar-card-link > svg),
+:deep(.sidebar-card-link > .sidebar-svg-icon),
+:deep(.sidebar-card-link > .sidebar-svg-icon svg) {
+  display: block !important;
+  width: 1.25rem !important;
+  height: 1.25rem !important;
+  min-width: 1.25rem !important;
+  min-height: 1.25rem !important;
+  color: currentColor !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  flex-shrink: 0;
 }
 
 .sidebar-label {

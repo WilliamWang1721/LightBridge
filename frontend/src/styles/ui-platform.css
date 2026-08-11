@@ -40,11 +40,11 @@
   --border: 0 0% 88%;
   --input: 0 0% 88%;
   --ring: 0 0% 28%;
-  --chart-1: 221 83% 53%;
-  --chart-2: 271 81% 56%;
-  --chart-3: 38 92% 50%;
-  --chart-4: 0 84% 60%;
-  --chart-5: 190 90% 44%;
+  --chart-1: 0 0% 12%;
+  --chart-2: 0 0% 28%;
+  --chart-3: 0 0% 44%;
+  --chart-4: 0 0% 60%;
+  --chart-5: 0 0% 76%;
   color-scheme: light;
   font-family: var(--ui-font-body);
 }
@@ -74,11 +74,11 @@
   --border: 0 0% 22%;
   --input: 0 0% 22%;
   --ring: 0 0% 75%;
-  --chart-1: 217 91% 60%;
-  --chart-2: 270 95% 75%;
-  --chart-3: 43 96% 56%;
-  --chart-4: 0 91% 71%;
-  --chart-5: 189 94% 55%;
+  --chart-1: 0 0% 92%;
+  --chart-2: 0 0% 78%;
+  --chart-3: 0 0% 64%;
+  --chart-4: 0 0% 50%;
+  --chart-5: 0 0% 36%;
   color-scheme: dark;
 }
 
@@ -118,11 +118,11 @@
 }
 
 [data-ui-chart-color='muted'] {
-  --chart-1: 221 38% 50%;
-  --chart-2: 271 30% 52%;
-  --chart-3: 42 38% 52%;
-  --chart-4: 0 36% 54%;
-  --chart-5: 190 34% 48%;
+  --chart-1: 0 0% 24%;
+  --chart-2: 0 0% 38%;
+  --chart-3: 0 0% 52%;
+  --chart-4: 0 0% 66%;
+  --chart-5: 0 0% 80%;
 }
 
 [data-ui-radius='none'] { --ui-radius: 0; }
