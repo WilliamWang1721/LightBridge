@@ -43,6 +43,7 @@ export const UI_REGISTRY: UIRegistry = {
     neutral: { id: 'neutral', label: 'Neutral' },
     stone: { id: 'stone', label: 'Stone' },
     zinc: { id: 'zinc', label: 'Zinc' },
+    mist: { id: 'mist', label: 'Mist' },
   },
   chartColors: {
     natural: { id: 'natural', label: 'Natural' },
@@ -67,6 +68,7 @@ export const UI_REGISTRY: UIRegistry = {
     none: { id: 'none', label: 'None' },
     small: { id: 'small', label: 'Small' },
     default: { id: 'default', label: 'Default' },
+    medium: { id: 'medium', label: 'Medium' },
     large: { id: 'large', label: 'Large' },
   },
   densities: {

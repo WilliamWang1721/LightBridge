@@ -7,7 +7,7 @@ const TOKEN_KEYS: Array<keyof AppearanceTokens> = [
   '--background', '--foreground', '--card', '--card-foreground', '--popover', '--popover-foreground',
   '--primary', '--primary-foreground', '--secondary', '--secondary-foreground', '--muted', '--muted-foreground',
   '--accent', '--accent-foreground', '--border', '--input', '--ring', '--chart-1', '--chart-2', '--chart-3',
-  '--chart-4', '--chart-5',
+  '--chart-4', '--chart-5', '--ui-radius',
 ]
 
 function tokenBlock(tokens: AppearanceTokens): string {

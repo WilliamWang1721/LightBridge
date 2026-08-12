@@ -25,6 +25,7 @@ export interface AppearanceTokens {
   '--chart-3': string
   '--chart-4': string
   '--chart-5': string
+  '--ui-radius': string
 }
 
 export interface AppearanceCompatibility {
@@ -37,11 +38,11 @@ export interface RuntimeAppearancePreview {
   code: string
   preset: PresetConfig
   profile: {
-    baseColor: 'neutral' | 'stone' | 'zinc'
+    baseColor: 'neutral' | 'stone' | 'zinc' | 'mist'
     chartColor: 'natural' | 'vivid' | 'muted'
     font: 'inter' | 'system'
     heading: 'natural' | 'editorial'
-    radius: 'none' | 'small' | 'default' | 'large'
+    radius: 'none' | 'small' | 'default' | 'medium' | 'large'
     menu: 'default' | 'subtle' | 'outlined' | 'translucent'
   }
   tokens: Record<AppearanceMode, AppearanceTokens>

@@ -109,6 +109,15 @@
   --input: 240 6% 86%;
 }
 
+[data-ui-base-color='mist'] {
+  --background: 210 20% 98%;
+  --foreground: 215 18% 10%;
+  --muted: 210 16% 94%;
+  --muted-foreground: 215 10% 42%;
+  --border: 214 15% 86%;
+  --input: 214 15% 86%;
+}
+
 [data-ui-chart-color='vivid'] {
   --chart-1: 221 83% 53%;
   --chart-2: 271 81% 56%;
@@ -128,6 +137,7 @@
 [data-ui-radius='none'] { --ui-radius: 0; }
 [data-ui-radius='small'] { --ui-radius: 0.375rem; }
 [data-ui-radius='default'] { --ui-radius: 0.625rem; }
+[data-ui-radius='medium'] { --ui-radius: 0.5rem; }
 [data-ui-radius='large'] { --ui-radius: 0.875rem; }
 
 [data-ui-density='compact'] {

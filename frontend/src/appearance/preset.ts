@@ -29,6 +29,7 @@ const LIGHT_TOKENS: AppearanceTokens = {
   '--chart-3': '0 0% 44%',
   '--chart-4': '0 0% 60%',
   '--chart-5': '0 0% 76%',
+  '--ui-radius': '0.625rem',
 }
 
 const DARK_TOKENS: AppearanceTokens = {
@@ -54,6 +55,7 @@ const DARK_TOKENS: AppearanceTokens = {
   '--chart-3': '0 0% 64%',
   '--chart-4': '0 0% 50%',
   '--chart-5': '0 0% 36%',
+  '--ui-radius': '0.625rem',
 }
 
 const BASE_COLOR_TOKENS: Record<string, Partial<AppearanceTokens>> = {
@@ -65,6 +67,10 @@ const BASE_COLOR_TOKENS: Record<string, Partial<AppearanceTokens>> = {
   zinc: {
     '--background': '0 0% 98%', '--foreground': '240 10% 10%', '--muted': '240 5% 94%',
     '--muted-foreground': '240 4% 42%', '--border': '240 6% 86%', '--input': '240 6% 86%',
+  },
+  mist: {
+    '--background': '210 20% 98%', '--foreground': '215 18% 10%', '--muted': '210 16% 94%',
+    '--muted-foreground': '215 10% 42%', '--border': '214 15% 86%', '--input': '214 15% 86%',
   },
 }
 
@@ -78,12 +84,24 @@ const CHART_TOKENS: Record<string, Partial<AppearanceTokens>> = {
     '--chart-1': '0 0% 24%', '--chart-2': '0 0% 38%', '--chart-3': '0 0% 52%',
     '--chart-4': '0 0% 66%', '--chart-5': '0 0% 80%',
   },
+  mist: {
+    '--chart-1': '215 18% 22%', '--chart-2': '215 14% 36%', '--chart-3': '212 11% 50%',
+    '--chart-4': '210 9% 64%', '--chart-5': '208 8% 78%',
+  },
 }
 
 const SUPPORTED_BASE_COLORS = new Set(Object.keys(BASE_COLOR_TOKENS))
 const SUPPORTED_CHART_COLORS = new Set(Object.keys(CHART_TOKENS))
 const SUPPORTED_FONTS = new Set(['inter', 'system'])
-const SUPPORTED_RADII = new Set(['none', 'small', 'default', 'large'])
+const RADIUS_TOKENS: Record<string, string> = {
+  none: '0',
+  small: '0.375rem',
+  default: '0.625rem',
+  medium: '0.5rem',
+  large: '0.875rem',
+}
+
+const SUPPORTED_RADII = new Set(Object.keys(RADIUS_TOKENS))
 
 function cloneTokens(tokens: AppearanceTokens): AppearanceTokens {
   return { ...tokens }
@@ -93,11 +111,12 @@ function makeTokens(mode: 'light' | 'dark', preset: PresetConfig): AppearanceTok
   const tokens = cloneTokens(mode === 'light' ? LIGHT_TOKENS : DARK_TOKENS)
   Object.assign(tokens, BASE_COLOR_TOKENS[preset.baseColor] || {})
   Object.assign(tokens, CHART_TOKENS[preset.chartColor || 'neutral'] || {})
+  tokens['--ui-radius'] = RADIUS_TOKENS[preset.radius] || RADIUS_TOKENS.default
   return tokens
 }
 
 function compatibilityFor(preset: PresetConfig): AppearanceCompatibility {
-  const applied: string[] = ['theme:neutral']
+  const applied: string[] = []
   const unavailable: string[] = []
   const deploymentControlled = [`style:${preset.style} → luma`, `iconLibrary:${preset.iconLibrary} → lucide`]
 
@@ -114,7 +133,8 @@ function compatibilityFor(preset: PresetConfig): AppearanceCompatibility {
   if (preset.menuAccent === 'subtle' && preset.menuColor === 'default') applied.push('menu:default')
   else unavailable.push(`menu:${preset.menuAccent}/${preset.menuColor}`)
 
-  if (preset.theme !== 'neutral') unavailable.push(`theme:${preset.theme}`)
+  if (preset.theme === 'neutral') applied.push('theme:neutral')
+  else deploymentControlled.push(`theme:${preset.theme} → neutral grayscale`)
   return { applied, deploymentControlled, unavailable }
 }
 
@@ -126,11 +146,11 @@ export function decodeRuntimeAppearance(code: string): RuntimeAppearancePreview 
 
   const compatibility = compatibilityFor(preset)
   const profile: RuntimeAppearancePreview['profile'] = {
-    baseColor: SUPPORTED_BASE_COLORS.has(preset.baseColor) ? preset.baseColor as 'neutral' | 'stone' | 'zinc' : 'neutral',
-    chartColor: 'natural',
+    baseColor: SUPPORTED_BASE_COLORS.has(preset.baseColor) ? preset.baseColor as 'neutral' | 'stone' | 'zinc' | 'mist' : 'neutral',
+    chartColor: preset.chartColor === 'mist' ? 'muted' : 'natural',
     font: SUPPORTED_FONTS.has(preset.font) ? preset.font as 'inter' | 'system' : 'inter',
     heading: preset.fontHeading === 'inherit' ? 'natural' : 'editorial',
-    radius: SUPPORTED_RADII.has(preset.radius) ? preset.radius as 'none' | 'small' | 'default' | 'large' : 'default',
+    radius: SUPPORTED_RADII.has(preset.radius) ? preset.radius as 'none' | 'small' | 'default' | 'medium' | 'large' : 'default',
     menu: preset.menuAccent === 'subtle' && preset.menuColor === 'default' ? 'default' : 'default',
   }
 
