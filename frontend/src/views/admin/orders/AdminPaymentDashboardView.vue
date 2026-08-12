@@ -1,5 +1,11 @@
 <template>
   <AppLayout>
+    <ReactPageHost
+      :load="loadPaymentDashboardPage"
+      :props="pageProps"
+      :error-message="t('common.error')"
+    >
+      <template #fallback>
     <div class="space-y-6">
       <!-- Header with Day Switcher -->
       <div class="flex items-center justify-end">
@@ -64,17 +70,21 @@
         </div>
       </template>
     </div>
+      </template>
+    </ReactPageHost>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminPaymentAPI } from '@/api/admin/payment'
 import { extractI18nErrorMessage } from '@/utils/apiError'
 import type { DashboardStats } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import ReactPageHost from '@/console/ReactPageHost.vue'
+import type { PaymentDashboardPageProps } from '@/console/react/PaymentDashboardPage'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import Icon from '@/components/icons/Icon.vue'
 import OrderStatsCards from '@/components/admin/payment/OrderStatsCards.vue'
@@ -87,6 +97,36 @@ const DAYS_OPTIONS = [7, 30, 90] as const
 const days = ref<number>(30)
 const loading = ref(false)
 const stats = ref<DashboardStats | null>(null)
+
+const loadPaymentDashboardPage = () => import('@/console/react/PaymentDashboardPage')
+
+const pageProps = computed<PaymentDashboardPageProps>(() => ({
+  days: days.value,
+  loading: loading.value,
+  stats: stats.value,
+  copy: {
+    daySuffix: t('payment.admin.daySuffix'),
+    refresh: t('common.refresh'),
+    todayRevenue: t('payment.admin.todayRevenue'),
+    totalRevenue: t('payment.admin.totalRevenue'),
+    todayOrders: t('payment.admin.todayOrders'),
+    avgAmount: t('payment.admin.avgAmount'),
+    orders: t('payment.admin.orders'),
+    dailyRevenue: t('payment.admin.dailyRevenue'),
+    revenue: t('payment.admin.revenue'),
+    orderCount: t('payment.admin.orderCount'),
+    paymentDistribution: t('payment.admin.paymentDistribution'),
+    topUsers: t('payment.admin.topUsers'),
+    noData: t('payment.admin.noData'),
+    paymentMethod: (type) => {
+      const key = `payment.methods.${type}`
+      const translated = t(key)
+      return translated === key ? type : translated
+    },
+  },
+  onDaysChange: (value) => { days.value = value },
+  onRefresh: () => { void loadDashboard() },
+}))
 
 function methodColor(type: string): string {
   const c: Record<string, string> = {

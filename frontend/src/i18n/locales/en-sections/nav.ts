@@ -62,4 +62,7 @@ export default {
     groupChannelSub: 'Channels & Subscriptions',
     groupAffiliate: 'Affiliate',
     authSettings: 'Auth & Login',
+    languageSelect: 'Language',
+    mainNavigation: 'Main navigation',
+    closeNavigation: 'Close navigation',
   }

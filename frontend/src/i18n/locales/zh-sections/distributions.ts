@@ -42,7 +42,7 @@ export default {
   personalizedUsersRequired: '请先选择用户。',
   personalizedCountMismatch: '已选择 {users} 名用户，但填写了 {contents} 条内容。两者必须一致。',
   multilineImport: '多行分发名单',
-  multilinePlaceholder: '用户ID或邮箱 | 个性化标题 | 个性化内容\n10001 | 专属通知 | 这是仅发送给该用户的内容\nuser@example.com',
+  multilinePlaceholder: '用户ID或邮箱 | 个性化标题 | 个性化内容\n10001 | 专属通知 | 这是仅发送给该用户的内容\nuser{\'@\'}example.com',
   previewAudience: '预览分发范围',
   audienceCount: '将分发给 {count} 名用户',
   filterSearch: '搜索邮箱、用户名、备注或 API Key',

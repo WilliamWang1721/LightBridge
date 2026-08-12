@@ -1,5 +1,11 @@
 <template>
   <AppLayout>
+    <ReactPageHost
+      :load="loadPaymentOrdersPage"
+      :props="pageProps"
+      :error-message="t('common.error')"
+    >
+      <template #fallback>
     <div class="space-y-4">
       <!-- Filters -->
       <div class="card p-4">
@@ -108,6 +114,8 @@
     </BaseDialog>
 
     <AdminRefundDialog :show="showRefundDialog" :order="selectedOrder" :submitting="refundSubmitting" @confirm="handleRefund" @cancel="showRefundDialog = false" />
+      </template>
+    </ReactPageHost>
   </AppLayout>
 </template>
 
@@ -120,6 +128,8 @@ import { extractI18nErrorMessage } from '@/utils/apiError'
 import { formatOrderDateTime } from '@/components/payment/orderUtils'
 import type { PaymentOrder } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import ReactPageHost from '@/console/ReactPageHost.vue'
+import type { PaymentOrdersPageProps } from '@/console/react/PaymentOrdersPage'
 import Pagination from '@/components/common/Pagination.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Select from '@/components/common/Select.vue'
@@ -139,6 +149,8 @@ interface AuditLog {
 const { t } = useI18n()
 const appStore = useAppStore()
 
+const loadPaymentOrdersPage = () => import('@/console/react/PaymentOrdersPage')
+
 const ordersLoading = ref(false)
 const orders = ref<PaymentOrder[]>([])
 const orderSearch = ref('')
@@ -149,6 +161,114 @@ const showDetailDialog = ref(false)
 const showRefundDialog = ref(false)
 const refundSubmitting = ref(false)
 const orderAuditLogs = ref<AuditLog[]>([])
+
+const pageProps = computed<PaymentOrdersPageProps>(() => ({
+  orders: orders.value,
+  loading: ordersLoading.value,
+  search: orderSearch.value,
+  filters: {
+    status: orderFilters.status,
+    paymentType: orderFilters.payment_type,
+    orderType: orderFilters.order_type,
+  },
+  statusOptions: statusFilterOptions.value,
+  paymentTypeOptions: paymentTypeFilterOptions.value,
+  orderTypeOptions: orderTypeFilterOptions.value,
+  page: orderPagination.page,
+  pageSize: orderPagination.page_size,
+  total: orderPagination.total,
+  selectedOrder: selectedOrder.value,
+  auditLogs: orderAuditLogs.value,
+  showDetailDialog: showDetailDialog.value,
+  showRefundDialog: showRefundDialog.value,
+  refundSubmitting: refundSubmitting.value,
+  copy: {
+    searchOrders: t('payment.admin.searchOrders'),
+    allStatuses: t('payment.admin.allStatuses'),
+    allPaymentTypes: t('payment.admin.allPaymentTypes'),
+    allOrderTypes: t('payment.admin.allOrderTypes'),
+    balanceOrder: t('payment.admin.balanceOrder'),
+    subscriptionOrder: t('payment.admin.subscriptionOrder'),
+    orderId: t('payment.orders.orderId'),
+    orderNo: t('payment.orders.orderNo'),
+    user: t('payment.admin.colUser'),
+    payAmount: t('payment.orders.payAmount'),
+    paymentMethod: t('payment.orders.paymentMethod'),
+    status: t('payment.orders.status'),
+    createdAt: t('payment.orders.createdAt'),
+    actions: t('common.actions'),
+    view: t('common.view'),
+    cancel: t('payment.orders.cancel'),
+    retry: t('payment.admin.retry'),
+    approveRefund: t('payment.admin.approveRefund'),
+    retryRefund: t('payment.admin.retryRefund'),
+    refund: t('payment.admin.refund'),
+    orderDetail: t('payment.admin.orderDetail'),
+    amount: t('payment.orders.amount'),
+    feeRate: t('payment.admin.feeRate'),
+    expiresAt: t('payment.admin.expiresAt'),
+    paidAt: t('payment.admin.paidAt'),
+    refundAmount: t('payment.admin.refundAmount'),
+    refundReason: t('payment.admin.refundReason'),
+    refundRequestInfo: t('payment.admin.refundRequestInfo'),
+    refundRequestedAt: t('payment.admin.refundRequestedAt'),
+    refundRequestedBy: t('payment.admin.refundRequestedBy'),
+    refundRequestReason: t('payment.admin.refundRequestReason'),
+    auditLogs: t('payment.admin.auditLogs'),
+    operator: t('payment.admin.operator'),
+    refundOrder: t('payment.admin.refundOrder'),
+    creditedAmount: t('payment.orders.creditedAmount'),
+    deductBalance: t('payment.admin.deductBalance'),
+    deductBalanceHint: t('payment.admin.deductBalanceHint'),
+    maxRefundable: t('payment.admin.maxRefundable'),
+    refundReasonPlaceholder: t('payment.admin.refundReasonPlaceholder'),
+    forceRefund: t('payment.admin.forceRefund'),
+    confirmRefund: t('payment.admin.confirmRefund'),
+    processing: t('common.processing'),
+    cancelAction: t('common.cancel'),
+    previous: t('pagination.previous'),
+    next: t('pagination.next'),
+    showing: t('pagination.showing'),
+    to: t('pagination.to'),
+    of: t('pagination.of'),
+    results: t('pagination.results'),
+    perPage: t('pagination.perPage'),
+    pageOf: (values) => t('pagination.pageOf', values),
+    noOrders: t('payment.admin.noData'),
+    noData: t('payment.admin.noData'),
+    paymentMethodLabel: (type) => {
+      const key = `payment.methods.${type}`
+      const translated = t(key)
+      return translated === key ? type : translated
+    },
+    statusLabel: (status) => {
+      const key = `payment.status.${status.toLowerCase()}`
+      const translated = t(key)
+      return translated === key ? status : translated
+    },
+  },
+  formatDate: formatDateTime,
+  onSearch: (value) => {
+    orderSearch.value = value
+    debounceLoadOrders()
+  },
+  onFilterChange: (key, value) => {
+    if (key === 'status') orderFilters.status = value
+    if (key === 'paymentType') orderFilters.payment_type = value
+    if (key === 'orderType') orderFilters.order_type = value
+    void loadOrders()
+  },
+  onRefresh: () => { void loadOrders() },
+  onViewOrder: (order) => { void showOrderDetail(order) },
+  onCancelOrder: (order) => { void handleCancelOrder(order) },
+  onRetryOrder: (order) => { void handleRetryOrder(order) },
+  onOpenRefund: openRefundDialog,
+  onCloseDetail: () => { showDetailDialog.value = false },
+  onCloseRefund: () => { showRefundDialog.value = false },
+  onRefund: (data) => { void handleRefund(data) },
+  onPageChange: handleOrderPageChange,
+  onPageSizeChange: handleOrderPageSizeChange,
+}))
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 function debounceLoadOrders() {

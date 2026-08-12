@@ -62,4 +62,7 @@ export default {
     groupChannelSub: '渠道与订阅',
     groupAffiliate: '推广',
     authSettings: '登录与认证',
+    languageSelect: '语言选择',
+    mainNavigation: '主导航',
+    closeNavigation: '关闭导航',
   }

@@ -1,5 +1,11 @@
 <template>
   <AppLayout>
+    <ReactPageHost
+      :load="loadChannelStatusPage"
+      :props="pageProps"
+      :error-message="t('common.error')"
+    >
+      <template #fallback>
     <MonitorHero
       :overall-status="overallStatus"
       :interval-seconds="DEFAULT_INTERVAL_SECONDS"
@@ -25,6 +31,8 @@
       :title="detailTitle"
       @close="closeDetail"
     />
+      </template>
+    </ReactPageHost>
   </AppLayout>
 </template>
 
@@ -40,6 +48,8 @@ import {
   type UserMonitorDetail,
 } from '@/api/channelMonitor'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import ReactPageHost from '@/console/ReactPageHost.vue'
+import type { ChannelStatusPageProps } from '@/console/react/ChannelStatusPage'
 import MonitorHero, {
   type MonitorWindow,
   type OverallStatus,
@@ -84,6 +94,8 @@ const overallStatus = computed<OverallStatus>(() => {
 const detailTitle = computed(() => {
   return detailTarget.value?.name || t('channelStatus.detailTitle')
 })
+
+const loadChannelStatusPage = () => import('@/console/react/ChannelStatusPage')
 
 // ── Loaders ──
 async function reload(silent = false) {
@@ -146,6 +158,71 @@ function closeDetail() {
   showDetail.value = false
   detailTarget.value = null
 }
+
+const pageProps = computed<ChannelStatusPageProps>(() => ({
+  items: items.value,
+  loading: loading.value,
+  overallStatus: overallStatus.value,
+  currentWindow: currentWindow.value,
+  countdown: countdown.value,
+  detailCache,
+  autoRefresh: {
+    enabled: autoRefresh.enabled.value,
+    intervalSeconds: autoRefresh.intervalSeconds.value,
+    intervals: autoRefresh.intervals,
+  },
+  copy: {
+    windowTab: {
+      '7d': t('channelStatus.windowTab.7d'),
+      '15d': t('channelStatus.windowTab.15d'),
+      '30d': t('channelStatus.windowTab.30d'),
+    },
+    overall: {
+      operational: t('channelStatus.overall.operational'),
+      degraded: t('channelStatus.overall.degraded'),
+    },
+    status: {
+      operational: t('monitorCommon.status.operational'),
+      degraded: t('monitorCommon.status.degraded'),
+      failed: t('monitorCommon.status.failed'),
+      error: t('monitorCommon.status.error'),
+      unknown: t('monitorCommon.status.unknown'),
+    },
+    providers: {
+      openai: t('monitorCommon.providers.openai'),
+      anthropic: t('monitorCommon.providers.anthropic'),
+      gemini: t('monitorCommon.providers.gemini'),
+    },
+    refresh: t('common.refresh'),
+    detailTitle: t('channelStatus.detailTitle'),
+    closeDetail: t('channelStatus.closeDetail'),
+    loading: t('common.loading'),
+    detailLoadError: t('channelStatus.detailLoadError'),
+    emptyTitle: t('channelStatus.empty.title'),
+    emptyDescription: t('channelStatus.empty.description'),
+    dialogLatency: t('monitorCommon.dialogLatency'),
+    endpointPing: t('monitorCommon.endpointPing'),
+    availability: t('monitorCommon.availabilityPrefix'),
+    extraModelsCount: (count) => t('monitorCommon.extraModelsCount', { n: count }),
+    nextUpdateIn: (count) => t('monitorCommon.nextUpdateIn', { n: count }),
+    pollEvery: (seconds) => t('monitorCommon.pollEvery', { n: seconds }),
+    detailColumns: {
+      model: t('channelStatus.detailColumns.model'),
+      latestStatus: t('channelStatus.detailColumns.latestStatus'),
+      latestLatency: t('channelStatus.detailColumns.latestLatency'),
+      availability7d: t('channelStatus.detailColumns.availability7d'),
+      availability15d: t('channelStatus.detailColumns.availability15d'),
+      availability30d: t('channelStatus.detailColumns.availability30d'),
+      avgLatency7d: t('channelStatus.detailColumns.avgLatency7d'),
+    },
+  },
+  onWindowChange: (value) => { void handleWindowChange(value) },
+  onRefresh: () => { void manualReload() },
+  onAutoRefreshChange: (enabled) => autoRefresh.setEnabled(enabled),
+  onIntervalChange: (seconds) => autoRefresh.setInterval(seconds),
+  onCardClick: openDetail,
+  onLoadDetail: (id) => loadDetail(id),
+}))
 
 watch(items, () => {
   void ensureDetailsForWindow()

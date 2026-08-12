@@ -1,6 +1,12 @@
 <template>
   <AppLayout>
-    <div class="space-y-6">
+    <ReactPageHost
+      :load="loadDistributionPage"
+      :props="pageProps"
+      :error-message="t('common.error')"
+    >
+      <template #fallback>
+        <div class="space-y-6">
     <section class="card p-5">
       <div class="grid gap-4 lg:grid-cols-2">
         <label class="space-y-1">
@@ -190,15 +196,15 @@
         <div v-if="items.length === 0" class="p-8 text-center text-gray-500">{{ t('distributions.empty') }}</div>
       </div>
     </section>
-    </div>
+        </div>
 
-    <BaseDialog
-    :show="showUserPicker"
-    :title="t('distributions.userPickerTitle')"
-    width="extra-wide"
-    :close-on-click-outside="true"
-    @close="showUserPicker = false"
-  >
+        <BaseDialog
+        :show="showUserPicker"
+        :title="t('distributions.userPickerTitle')"
+        width="extra-wide"
+        :close-on-click-outside="true"
+        @close="showUserPicker = false"
+      >
     <div class="space-y-4">
       <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_9rem_9rem_12rem_auto]">
         <input
@@ -287,7 +293,9 @@
         </button>
       </div>
     </template>
-    </BaseDialog>
+        </BaseDialog>
+      </template>
+    </ReactPageHost>
   </AppLayout>
 </template>
 
@@ -296,6 +304,8 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import ReactPageHost from '@/console/ReactPageHost.vue'
+import type { DistributionPageProps } from '@/console/react/DistributionPage'
 import { adminAPI } from '@/api/admin'
 import type { AdminUser } from '@/types'
 import {
@@ -359,6 +369,136 @@ const allPickerUsersSelected = computed(() =>
   pickerUsers.value.length > 0 && pickerUsers.value.every((user) => selectedUserIds.value.has(user.id))
 )
 const pickerPageSize = 25
+const loadDistributionPage = () => import('@/console/react/DistributionPage')
+
+const pageProps = computed<DistributionPageProps>(() => ({
+  form: { ...form },
+  filters: { ...filters },
+  audienceMode: audienceMode.value,
+  importLines: importLines.value,
+  selectedUsers: selectedUsers.value,
+  selectedUserIds: Array.from(selectedUserIds.value),
+  personalizedMode: personalizedMode.value,
+  personalizedContent: personalizedContent.value,
+  selectedFileName: selectedFileName.value,
+  audienceCount: audienceCount.value,
+  previewing: previewing.value,
+  submitting: submitting.value,
+  loading: loading.value,
+  items: items.value,
+  showUserPicker: showUserPicker.value,
+  pickerUsers: pickerUsers.value,
+  pickerLoading: pickerLoading.value,
+  pickerSearch: pickerSearch.value,
+  pickerPage: pickerPage.value,
+  pickerPages: pickerPages.value,
+  pickerFilters: { ...pickerFilters },
+  batchJson: batchJson.value,
+  canPersonalize: canPersonalize.value,
+  personalizationError: personalizationError.value,
+  allPickerUsersSelected: allPickerUsersSelected.value,
+  copy: {
+    title: t('distributions.title'),
+    kind: t('distributions.kind'),
+    kinds: {
+      text: t('distributions.kinds.text'),
+      message: t('distributions.kinds.message'),
+      file: t('distributions.kinds.file'),
+      account_export: t('distributions.kinds.account_export'),
+      paid: t('distributions.kinds.paid'),
+    },
+    price: t('distributions.price'),
+    priceHint: t('distributions.priceHint'),
+    content: t('distributions.content'),
+    contentPlaceholder: t('distributions.contentPlaceholder'),
+    personalizedContent: t('distributions.personalizedContent'),
+    personalizedContentPlaceholder: t('distributions.personalizedContentPlaceholder'),
+    personalizedContentHint: t('distributions.personalizedContentHint'),
+    fileHint: t('distributions.fileHint'),
+    audienceMode: t('distributions.audienceMode'),
+    audienceExplicit: t('distributions.audienceExplicit'),
+    audienceAdvanced: t('distributions.audienceAdvanced'),
+    audienceLines: t('distributions.audienceLines'),
+    audienceAll: t('distributions.audienceAll'),
+    recipients: t('distributions.recipients'),
+    recipientsPickerHint: t('distributions.recipientsPickerHint'),
+    openUserPicker: t('distributions.openUserPicker'),
+    removeSelectedUser: t('distributions.removeSelectedUser'),
+    noUsersSelected: t('distributions.noUsersSelected'),
+    enablePersonalizedContent: t('distributions.enablePersonalizedContent'),
+    filterSearch: t('distributions.filterSearch'),
+    filterGroup: t('distributions.filterGroup'),
+    filterAnyStatus: t('distributions.filterAnyStatus'),
+    filterAnyRole: t('distributions.filterAnyRole'),
+    filterAnyActivity: t('distributions.filterAnyActivity'),
+    filterHasActivity: t('distributions.filterHasActivity'),
+    filterHasUsage: t('distributions.filterHasUsage'),
+    filterHasBalanceChange: t('distributions.filterHasBalanceChange'),
+    filterNoActivity: t('distributions.filterNoActivity'),
+    multilineImport: t('distributions.multilineImport'),
+    multilinePlaceholder: t('distributions.multilinePlaceholder'),
+    loading: t('common.loading'),
+    previewAudience: t('distributions.previewAudience'),
+    audienceCount: (count: number) => t('distributions.audienceCount', { count }),
+    send: t('distributions.send'),
+    batchJson: t('distributions.batchJson'),
+    batchJsonHint: t('distributions.batchJsonHint'),
+    sendBatch: t('distributions.sendBatch'),
+    history: t('distributions.history'),
+    deliveryStats: (item: DistributionItem) => t('distributions.deliveryStats', {
+      recipients: item.recipient_count,
+      read: item.read_count,
+      downloads: item.download_count,
+    }),
+    download: t('distributions.download'),
+    delete: t('common.delete'),
+    empty: t('distributions.empty'),
+    userPickerTitle: t('distributions.userPickerTitle'),
+    userPickerSearch: t('distributions.userPickerSearch'),
+    userPickerFilter: t('distributions.userPickerFilter'),
+    selectedUsers: (count: number) => t('distributions.selectedUsers', { count }),
+    selectPageUsers: t('distributions.selectPageUsers'),
+    clearPageSelection: t('distributions.clearPageSelection'),
+    userPickerEmpty: t('distributions.userPickerEmpty'),
+    previous: t('pagination.previous'),
+    next: t('pagination.next'),
+    clearSelectedUsers: t('distributions.clearSelectedUsers'),
+    confirm: t('common.confirm'),
+    close: t('common.close'),
+  },
+  actions: {
+    onTitleChange: (value) => { form.title = value },
+    onKindChange: (value) => { form.kind = value },
+    onPriceChange: (value) => { form.price = value },
+    onContentChange: (value) => { form.content = value },
+    onPersonalizedContentChange: (value) => { personalizedContent.value = value },
+    onFileChange: (file) => { if (file) void selectFile(file) },
+    onAudienceModeChange: (value) => { audienceMode.value = value },
+    onFilterChange: (key, value) => { filters[key] = value },
+    onImportLinesChange: (value) => { importLines.value = value },
+    onPersonalizedModeChange: (value) => { personalizedMode.value = value },
+    onOpenUserPicker: openUserPicker,
+    onToggleSelectedUser: toggleSelectedUser,
+    onPreviewAudience: () => { void previewAudience() },
+    onSubmit: () => { void submit() },
+    onBatchJsonChange: (value) => { batchJson.value = value },
+    onSubmitBatch: () => { void submitBatch() },
+    onRemove: (item) => { void remove(item) },
+    onDownload: (item) => { void downloadAdmin(item) },
+    onPickerSearchChange: (value) => { pickerSearch.value = value },
+    onPickerFilterChange: (key, value) => {
+      if (key === 'status') pickerFilters.status = value as typeof pickerFilters.status
+      if (key === 'role') pickerFilters.role = value as typeof pickerFilters.role
+      if (key === 'activity') pickerFilters.activity = value as typeof pickerFilters.activity
+      if (key === 'group_name') pickerFilters.group_name = value
+    },
+    onLoadPickerUsers: (resetPage = false) => { void loadPickerUsers(resetPage) },
+    onTogglePickerPageSelection: togglePickerPageSelection,
+    onChangePickerPage: changePickerPage,
+    onClearSelectedUsers: clearSelectedUsers,
+    onCloseUserPicker: () => { showUserPicker.value = false },
+  },
+}))
 
 function buildAudience(): DistributionAudienceInput {
   if (audienceMode.value === 'all') return { all: true }
@@ -434,8 +574,10 @@ function changePickerPage(page: number) {
   void loadPickerUsers()
 }
 
-async function selectFile(event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0]
+async function selectFile(fileOrEvent: File | Event) {
+  const file = fileOrEvent instanceof File
+    ? fileOrEvent
+    : (fileOrEvent.target as HTMLInputElement | null)?.files?.[0]
   if (!file) return
   if (file.size > 10 * 1024 * 1024) throw new Error(t('distributions.fileTooLarge'))
   selectedFileName.value = file.name

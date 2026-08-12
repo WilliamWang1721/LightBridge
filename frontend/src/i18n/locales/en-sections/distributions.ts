@@ -42,7 +42,7 @@ export default {
   personalizedUsersRequired: 'Select users first.',
   personalizedCountMismatch: '{users} users are selected but {contents} content lines were entered. They must match.',
   multilineImport: 'Multiline distribution list',
-  multilinePlaceholder: 'user ID or email | personalized title | personalized content\n10001 | Private notice | Content only for this user\nuser@example.com',
+  multilinePlaceholder: 'user ID or email | personalized title | personalized content\n10001 | Private notice | Content only for this user\nuser{\'@\'}example.com',
   previewAudience: 'Preview audience',
   audienceCount: 'Will distribute to {count} users',
   filterSearch: 'Search email, username, notes, or API key',

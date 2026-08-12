@@ -1,5 +1,11 @@
 <template>
   <AppLayout>
+    <ReactPageHost
+      :load="loadAuthSettingsPage"
+      :props="pageProps"
+      :error-message="t('common.error')"
+    >
+      <template #fallback>
     <div class="mx-auto max-w-4xl space-y-6">
       <!-- Loading -->
       <div v-if="loading" class="flex items-center justify-center py-12">
@@ -241,18 +247,22 @@
         </div>
       </template>
     </div>
+      </template>
+    </ReactPageHost>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { computed, ref, reactive, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import ReactPageHost from '@/console/ReactPageHost.vue'
 import Icon from '@/components/icons/Icon.vue'
 import Toggle from '@/components/common/Toggle.vue'
 import { settingsAPI } from '@/api/admin/settings'
 import { extractApiErrorMessage } from '@/utils/apiError'
+import type { AuthSettingsForm, AuthSettingsPageProps } from '@/console/react/AuthSettingsPage'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -293,6 +303,58 @@ const form = reactive({
   dingtalk_connect_client_id: '',
   dingtalk_connect_redirect_url: '',
 })
+
+const loadAuthSettingsPage = () => import('@/console/react/AuthSettingsPage')
+
+const onFieldChange: AuthSettingsPageProps['onFieldChange'] = (key, value) => {
+  Object.assign(form, { [key]: value })
+}
+
+const onToggle: AuthSettingsPageProps['onToggle'] = (key, value) => {
+  Object.assign(form, { [key]: value })
+  void saveSettings()
+}
+
+const pageProps = computed<AuthSettingsPageProps>(() => ({
+  form: { ...form } as AuthSettingsForm,
+  loading: loading.value,
+  saving: saving.value,
+  copy: {
+    registration: {
+      title: t('admin.authSettings.registration.title'),
+      description: t('admin.authSettings.registration.description'),
+      emailVerify: t('admin.authSettings.registration.emailVerify'),
+      emailVerifyHint: t('admin.authSettings.registration.emailVerifyHint'),
+      passwordReset: t('admin.authSettings.registration.passwordReset'),
+      passwordResetHint: t('admin.authSettings.registration.passwordResetHint'),
+      invitationCode: t('admin.authSettings.registration.invitationCode'),
+      invitationCodeHint: t('admin.authSettings.registration.invitationCodeHint'),
+    },
+    provider: (id) => {
+      const prefix = id === 'oidc_connect_enabled' ? 'oidc' : id === 'github_oauth_enabled' ? 'github' : id === 'google_oauth_enabled' ? 'google' : id === 'wechat_connect_enabled' ? 'wechat' : id === 'linuxdo_connect_enabled' ? 'linuxdo' : 'dingtalk'
+      return {
+        title: t(`admin.authSettings.${prefix}.title`),
+        description: t(`admin.authSettings.${prefix}.description`),
+        enabled: t(`admin.authSettings.${prefix}.title`),
+        idLabel: t(`admin.authSettings.${prefix}.${prefix === 'wechat' ? 'appId' : 'clientId'}`),
+        idPlaceholder: t(`admin.authSettings.${prefix}.${prefix === 'wechat' ? 'appIdPlaceholder' : 'clientIdPlaceholder'}`),
+        providerNameLabel: prefix === 'oidc' ? t('admin.authSettings.oidc.providerName') : undefined,
+        providerNamePlaceholder: prefix === 'oidc' ? t('admin.authSettings.oidc.providerNamePlaceholder') : undefined,
+        appIdLabel: prefix === 'wechat' ? t('admin.authSettings.wechat.appId') : undefined,
+        appIdPlaceholder: prefix === 'wechat' ? t('admin.authSettings.wechat.appIdPlaceholder') : undefined,
+        issuerLabel: prefix === 'oidc' ? t('admin.authSettings.oidc.issuerUrl') : undefined,
+        issuerPlaceholder: prefix === 'oidc' ? t('admin.authSettings.oidc.issuerUrlPlaceholder') : undefined,
+        redirectLabel: t(`admin.authSettings.${prefix}.redirectUrl`),
+        redirectPlaceholder: t(`admin.authSettings.${prefix}.redirectUrlPlaceholder`),
+      }
+    },
+    save: t('common.save'),
+    saving: t('common.saving'),
+  },
+  onFieldChange,
+  onToggle,
+  onSave: () => { void saveSettings() },
+}))
 
 async function loadSettings() {
   loading.value = true

@@ -1,5 +1,11 @@
 <template>
   <AppLayout>
+    <ReactPageHost
+      :load="loadAvailableChannelsPage"
+      :props="pageProps"
+      :error-message="t('common.error')"
+    >
+      <template #fallback>
     <TablePageLayout>
       <template #filters>
         <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
@@ -45,6 +51,8 @@
         />
       </template>
     </TablePageLayout>
+      </template>
+    </ReactPageHost>
   </AppLayout>
 </template>
 
@@ -55,6 +63,8 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import AvailableChannelsTable from '@/components/channels/AvailableChannelsTable.vue'
+import ReactPageHost from '@/console/ReactPageHost.vue'
+import type { AvailableChannelsPageProps } from '@/console/react/AvailableChannelsPage'
 import userChannelsAPI, { type UserAvailableChannel } from '@/api/channels'
 import userGroupsAPI from '@/api/groups'
 import { useAppStore } from '@/stores/app'
@@ -74,6 +84,27 @@ const columnLabels = computed(() => ({
   platform: t('availableChannels.columns.platform'),
   groups: t('availableChannels.columns.groups'),
   supportedModels: t('availableChannels.columns.supportedModels'),
+}))
+
+const loadAvailableChannelsPage = () => import('@/console/react/AvailableChannelsPage')
+
+const pageProps = computed<AvailableChannelsPageProps>(() => ({
+  rows: filteredChannels.value,
+  searchQuery: searchQuery.value,
+  loading: loading.value,
+  userGroupRates: userGroupRates.value,
+  copy: {
+    searchPlaceholder: t('availableChannels.searchPlaceholder'),
+    refresh: t('common.refresh', 'Refresh'),
+    ...columnLabels.value,
+    empty: t('availableChannels.empty'),
+    noPricing: t('availableChannels.noPricing'),
+    noModels: t('availableChannels.noModels'),
+    exclusive: t('availableChannels.exclusive'),
+    public: t('availableChannels.public'),
+  },
+  onSearch: (value) => { searchQuery.value = value },
+  onRefresh: () => { void loadChannels() },
 }))
 
 /**

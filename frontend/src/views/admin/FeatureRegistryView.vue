@@ -1,5 +1,11 @@
 <template>
   <AppLayout>
+    <ReactPageHost
+      :load="loadFeatureRegistryPage"
+      :props="pageProps"
+      :error-message="t('common.error')"
+    >
+      <template #fallback>
     <div class="space-y-6">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -119,6 +125,8 @@
         </div>
       </section>
     </div>
+      </template>
+    </ReactPageHost>
   </AppLayout>
 </template>
 
@@ -126,6 +134,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import ReactPageHost from '@/console/ReactPageHost.vue'
+import type { FeatureRegistryPageProps } from '@/console/react/FeatureRegistryPage'
 import Icon from '@/components/icons/Icon.vue'
 import Toggle from '@/components/common/Toggle.vue'
 import {
@@ -145,6 +155,8 @@ const error = ref('')
 const profile = ref<string | undefined>()
 const features = ref<FeatureControlState[]>([])
 const busyFeatureID = ref('')
+
+const loadFeatureRegistryPage = () => import('@/console/react/FeatureRegistryPage')
 
 const featureGroups = computed(() => {
   const buckets = new Map<FeatureGroupID, FeatureControlState[]>([
@@ -166,6 +178,45 @@ const featureGroups = computed(() => {
       features: groupFeatures.slice().sort((left, right) => left.label.localeCompare(right.label) || left.id.localeCompare(right.id)),
     }))
 })
+
+const pageProps = computed<FeatureRegistryPageProps>(() => ({
+  loading: loading.value,
+  error: error.value,
+  profile: profile.value,
+  groups: featureGroups.value,
+  busyFeatureID: busyFeatureID.value,
+  copy: {
+    refresh: t('featureRegistry.refresh'),
+    profile: (value) => t('featureRegistry.profile', { profile: value }),
+    featureCount: (count) => t('featureRegistry.featureCount', { count }),
+    enabled: t('featureRegistry.enabled'),
+    disabled: t('featureRegistry.disabled'),
+    restartRequired: t('featureRegistry.restartRequired'),
+    configurable: t('featureRegistry.configurable'),
+    notConfigurable: t('featureRegistry.notConfigurable'),
+    unavailable: t('featureRegistry.unavailable'),
+    overrideEnabled: t('featureRegistry.overrideEnabled'),
+    overrideDisabled: t('featureRegistry.overrideDisabled'),
+    minimumProfile: (value) => t('featureRegistry.minimumProfile', { profile: value }),
+    configuredState: (state) => t('featureRegistry.configuredState', { state }),
+    runtimeState: (state) => t('featureRegistry.runtimeState', { state }),
+    reason: (value) => t('featureRegistry.reason', { reason: value }),
+    dependencies: t('featureRegistry.dependencies'),
+    noDependencies: t('featureRegistry.noDependencies'),
+    surfaces: t('featureRegistry.surfaces'),
+    runtimeComponents: t('featureRegistry.runtimeComponents'),
+    noRuntimeComponents: t('featureRegistry.noRuntimeComponents'),
+    restoreDefault: t('featureRegistry.restoreDefault'),
+    noFeatures: t('featureRegistry.noFeatures'),
+    noFeaturesHint: t('featureRegistry.noFeaturesHint'),
+    tierLabel,
+    activationLabel,
+    reasonLabel,
+  },
+  onRefresh: () => { void loadFeatures() },
+  onSetEnabled: (feature, enabled) => { void setEnabled(feature, enabled) },
+  onRestoreDefault: (feature) => { void restoreDefault(feature) },
+}))
 
 function applyOverview(next: { features: FeatureControlState[]; profile?: string }) {
   features.value = next.features

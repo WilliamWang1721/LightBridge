@@ -1,5 +1,11 @@
 <template>
-  <header class="app-topbar sticky top-0 z-30">
+  <ReactPageHost
+    :load="loadConsoleHeaderPage"
+    :props="consoleHeaderProps"
+    :error-message="t('common.error')"
+  >
+    <template #fallback>
+      <header class="app-topbar sticky top-0 z-30">
     <div class="flex min-h-20 items-center justify-between px-4 md:px-6">
       <!-- Left: Page Title -->
       <div class="flex items-center gap-4">
@@ -231,7 +237,9 @@
         </div>
       </div>
     </div>
-  </header>
+      </header>
+    </template>
+  </ReactPageHost>
 </template>
 
 <script setup lang="ts">
@@ -244,19 +252,28 @@ import SubscriptionProgressMini from '@/components/common/SubscriptionProgressMi
 import AnnouncementBell from '@/components/common/AnnouncementBell.vue'
 import TimeRangeButton from '@/components/layout/TimeRangeButton.vue'
 import Icon from '@/components/icons/Icon.vue'
+import ReactPageHost from '@/console/ReactPageHost.vue'
+import type { ConsoleHeaderProps } from '@/console/react/ConsoleHeader'
+import { useAnnouncementStore, useSubscriptionStore } from '@/stores'
+import { useTimeRangeStore } from '@/stores/timeRange'
 
-defineEmits<{
+const emit = defineEmits<{
   refresh: []
   customizeDashboard: []
 }>()
 
 const router = useRouter()
 const route = useRoute()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const appStore = useAppStore()
 const authStore = useAuthStore()
 const adminSettingsStore = useAdminSettingsStore()
 const onboardingStore = useOnboardingStore()
+const announcementStore = useAnnouncementStore()
+const subscriptionStore = useSubscriptionStore()
+const timeRangeStore = useTimeRangeStore()
+
+const loadConsoleHeaderPage = () => import('@/console/react/ConsoleHeader')
 
 // 时间范围按钮仅在仪表盘 / 管理控制台页面显示
 const TIME_RANGE_ROUTES = new Set(['AdminDashboard', 'AdminOps'])
@@ -340,6 +357,104 @@ function handleReplayGuide() {
   closeDropdown()
   onboardingStore.replay()
 }
+
+async function markAllAnnouncementsRead() {
+  await announcementStore.markAllAsRead()
+  appStore.showSuccess(t('announcements.allMarkedAsRead'))
+}
+
+function applyTimeRange(start: string, end: string, granularity: 'hour' | 'day') {
+  timeRangeStore.setRange(start, end)
+  timeRangeStore.setGranularity(granularity)
+}
+
+function resetTimeRange() {
+  timeRangeStore.reset()
+}
+
+function navigate(path: string) {
+  void router.push(path)
+}
+
+const consoleHeaderProps = computed<ConsoleHeaderProps>(() => ({
+  pageTitle: pageTitle.value,
+  pageDescription: pageDescription.value,
+  user: user.value,
+  isAdmin: authStore.isAdmin,
+  contactInfo: contactInfo.value,
+  showOnboardingButton: showOnboardingButton.value,
+  showTimeRangeButton: showTimeRangeButton.value,
+  showDashboardCustomizeButton: showDashboardCustomizeButton.value,
+  startDate: timeRangeStore.startDate,
+  endDate: timeRangeStore.endDate,
+  granularity: timeRangeStore.granularity,
+  locale: locale.value === 'zh' ? 'zh' : 'en',
+  announcements: announcementStore.announcements,
+  announcementLoading: announcementStore.loading,
+  subscriptions: subscriptionStore.activeSubscriptions,
+  labels: {
+    refresh: t('common.refresh', 'Refresh'),
+    customize: t('admin.dashboard.customize.button'),
+    timeRange: t('admin.dashboard.timeRange'),
+    granularity: t('admin.dashboard.granularity'),
+    hour: t('admin.dashboard.hour'),
+    day: t('admin.dashboard.day'),
+    reset: t('dates.custom'),
+    close: t('common.cancel'),
+    apply: t('dates.apply'),
+    startDate: t('dates.startDate'),
+    endDate: t('dates.endDate'),
+    selectDateRange: t('dates.selectDateRange'),
+    presetToday: t('dates.today'),
+    presetYesterday: t('dates.yesterday'),
+    presetLast24Hours: t('dates.yesterdayToToday'),
+    preset7Days: t('dates.last7Days'),
+    preset14Days: t('dates.last14Days'),
+    preset30Days: t('dates.last30Days'),
+    announcementsTitle: t('announcements.title'),
+    announcementsUnread: t('announcements.unread'),
+    announcementsMarkAllRead: t('announcements.markAllRead'),
+    announcementsEmpty: t('announcements.empty'),
+    announcementsEmptyDescription: t('announcements.emptyDescription'),
+    announcementsRead: t('announcements.read'),
+    announcementsMarkRead: t('announcements.markRead'),
+    announcementsReadStatus: t('announcements.readStatus'),
+    announcementsMarkReadHint: t('announcements.markReadHint'),
+    docs: t('nav.docs'),
+    balance: t('common.balance'),
+    profile: t('nav.profile'),
+    apiKeys: t('nav.apiKeys'),
+    github: t('nav.github'),
+    contactSupport: t('common.contactSupport'),
+    restartTour: t('onboarding.restartTour'),
+    logout: t('nav.logout'),
+    subscriptionTitle: t('subscriptionProgress.title'),
+    subscriptionActiveCount: (count: number) => t('subscriptionProgress.activeCount', { count }),
+    subscriptionUnlimited: t('subscriptionProgress.unlimited'),
+    subscriptionDaily: t('subscriptionProgress.daily'),
+    subscriptionWeekly: t('subscriptionProgress.weekly'),
+    subscriptionMonthly: t('subscriptionProgress.monthly'),
+    subscriptionExpired: t('subscriptionProgress.expired'),
+    subscriptionExpiresToday: t('subscriptionProgress.expiresToday'),
+    subscriptionExpiresTomorrow: t('subscriptionProgress.expiresTomorrow'),
+    subscriptionDaysRemaining: (days: number) => t('subscriptionProgress.daysRemaining', { days }),
+    subscriptionViewAll: t('subscriptionProgress.viewAll'),
+    formatDateRange: (start: string, end: string, language: 'zh' | 'en') => {
+      const dateLocale = language === 'zh' ? 'zh-CN' : 'en-US'
+      const formatter = new Intl.DateTimeFormat(dateLocale, { month: 'short', day: 'numeric' })
+      return `${formatter.format(new Date(`${start}T00:00:00`))} - ${formatter.format(new Date(`${end}T00:00:00`))}`
+    },
+  },
+  onRefresh: () => emit('refresh'),
+  onCustomizeDashboard: () => emit('customizeDashboard'),
+  onTimeRangeApply: applyTimeRange,
+  onTimeRangeReset: resetTimeRange,
+  onMarkAnnouncementRead: (id) => announcementStore.markAsRead(id),
+  onMarkAllAnnouncementsRead: markAllAnnouncementsRead,
+  onNavigate: navigate,
+  onLogout: handleLogout,
+  onReplayGuide: handleReplayGuide,
+}))
 
 function handleClickOutside(event: MouseEvent) {
   if (dropdownRef.value && !dropdownRef.value.contains(event.target as Node)) {

@@ -1,6 +1,5 @@
-import { createElement, type ReactNode } from 'react'
-
-const h = createElement
+import { type ReactNode } from 'react'
+import { createShadcnElement as h } from './ui/createElement'
 
 type IconName = 'github' | 'users' | 'link' | 'help'
 

@@ -1,5 +1,11 @@
 <template>
   <AppLayout>
+    <ReactPageHost
+      :load="loadUserOrdersPage"
+      :props="pageProps"
+      :error-message="t('common.error')"
+    >
+      <template #fallback>
     <div class="space-y-4">
       <!-- Filters -->
       <div class="card p-4">
@@ -77,6 +83,8 @@
         </div>
       </template>
     </BaseDialog>
+      </template>
+    </ReactPageHost>
   </AppLayout>
 </template>
 
@@ -89,6 +97,8 @@ import { paymentAPI } from '@/api/payment'
 import { extractI18nErrorMessage } from '@/utils/apiError'
 import type { PaymentOrder } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import ReactPageHost from '@/console/ReactPageHost.vue'
+import type { UserOrdersPageProps } from '@/console/react/UserOrdersPage'
 import Pagination from '@/components/common/Pagination.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Select from '@/components/common/Select.vue'
@@ -116,6 +126,8 @@ const statusFilters = computed(() => [
   { value: 'FAILED', label: t('payment.status.failed') },
   { value: 'REFUNDED', label: t('payment.status.refunded') },
 ])
+
+const loadUserOrdersPage = () => import('@/console/react/UserOrdersPage')
 
 async function fetchOrders() {
   loading.value = true
@@ -184,6 +196,61 @@ async function loadRefundEligibility() {
     refundEligibleProviders.value = new Set(res.data.provider_instance_ids || [])
   } catch { /* ignore — default to hiding refund button */ }
 }
+
+async function cancelOrderFromReact(orderId: number) {
+  cancelTargetId.value = orderId
+  await confirmCancel()
+}
+
+async function refundOrderFromReact(order: PaymentOrder, reason: string) {
+  refundTarget.value = order
+  refundReason.value = reason
+  await confirmRefund()
+}
+
+const pageProps = computed<UserOrdersPageProps>(() => ({
+  orders: orders.value,
+  loading: loading.value,
+  actionLoading: actionLoading.value,
+  currentFilter: currentFilter.value,
+  statusFilters: statusFilters.value,
+  page: pagination.page,
+  pageSize: pagination.page_size,
+  total: pagination.total,
+  refundEligible: canRequestRefund,
+  copy: {
+    all: t('common.all'),
+    refresh: t('common.refresh'),
+    recharge: t('payment.result.backToRecharge'),
+    orderId: t('payment.orders.orderId'),
+    orderNo: t('payment.orders.orderNo'),
+    payAmount: t('payment.orders.payAmount'),
+    paymentMethod: t('payment.orders.paymentMethod'),
+    status: t('payment.orders.status'),
+    createdAt: t('payment.orders.createdAt'),
+    actions: t('payment.orders.actions'),
+    cancel: t('payment.orders.cancel'),
+    requestRefund: t('payment.orders.requestRefund'),
+    confirmCancel: t('payment.confirmCancel'),
+    refundReason: t('payment.refundReason'),
+    refundReasonPlaceholder: t('payment.refundReasonPlaceholder'),
+    orderAmount: t('payment.orders.creditedAmount'),
+    close: t('common.cancel'),
+    processing: t('common.processing'),
+    save: t('common.save'),
+    noOrders: t('payment.orders.empty'),
+    previous: t('pagination.previous'),
+    next: t('pagination.next'),
+    pageOf: (page, total) => t('pagination.pageOf', { page, total }),
+  },
+  onFilterChange: (value) => { currentFilter.value = value; pagination.page = 1; void fetchOrders() },
+  onRefresh: () => { void fetchOrders() },
+  onRecharge: () => { void router.push('/purchase') },
+  onPageChange: (page) => { pagination.page = page; void fetchOrders() },
+  onPageSizeChange: (size) => { pagination.page_size = size; pagination.page = 1; void fetchOrders() },
+  onCancel: (id) => { void cancelOrderFromReact(id) },
+  onRefund: (order, reason) => { void refundOrderFromReact(order, reason) },
+}))
 
 onMounted(() => { fetchOrders(); loadRefundEligibility() })
 </script>

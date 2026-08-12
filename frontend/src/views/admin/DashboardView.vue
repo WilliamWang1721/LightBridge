@@ -11,7 +11,14 @@
 
       <template v-else-if="stats">
         <!-- Small Panels -->
-        <div v-if="enabledSmallPanels.length > 0" class="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <ReactPageHost
+          v-if="enabledSmallPanels.length > 0"
+          :load="loadDashboardStatsPage"
+          :props="dashboardStatsPageProps"
+          :error-message="t('common.error')"
+        >
+          <template #fallback>
+            <div class="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <DashboardStatCard
             v-if="isSmallPanelEnabled('apiKeys')"
             icon="key"
@@ -94,28 +101,44 @@
             :hint="`${stats.active_users} ${t('admin.dashboard.activeUsers')}`"
             :style="smallPanelOrderStyle('avgResponse')"
           />
-        </div>
+            </div>
+          </template>
+        </ReactPageHost>
 
         <!-- Large Panels -->
         <div v-if="enabledLargePanels.length > 0" class="flex min-w-0 flex-col gap-5 md:gap-6">
           <template v-for="panel in enabledLargePanels" :key="panel.key">
             <!-- Charts Grid -->
             <div v-if="panel.key === 'usageCharts'" class="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-2">
-              <ModelDistributionChart
-                :model-stats="modelStats"
-                :enable-ranking-view="true"
-                :ranking-items="rankingItems"
-                :ranking-total-actual-cost="rankingTotalActualCost"
-                :ranking-total-requests="rankingTotalRequests"
-                :ranking-total-tokens="rankingTotalTokens"
-                :loading="chartsLoading"
-                :ranking-loading="rankingLoading"
-                :ranking-error="rankingError"
-                :start-date="startDate"
-                :end-date="endDate"
-                @ranking-click="goToUserUsage"
-              />
-              <TokenUsageTrend :trend-data="trendData" :loading="chartsLoading" />
+              <ReactPageHost
+                :load="loadModelDistributionPage"
+                :props="modelDistributionPageProps"
+              >
+                <template #fallback>
+                  <ModelDistributionChart
+                    :model-stats="modelStats"
+                    :enable-ranking-view="true"
+                    :ranking-items="rankingItems"
+                    :ranking-total-actual-cost="rankingTotalActualCost"
+                    :ranking-total-requests="rankingTotalRequests"
+                    :ranking-total-tokens="rankingTotalTokens"
+                    :loading="chartsLoading"
+                    :ranking-loading="rankingLoading"
+                    :ranking-error="rankingError"
+                    :start-date="startDate"
+                    :end-date="endDate"
+                    @ranking-click="goToUserUsage"
+                  />
+                </template>
+              </ReactPageHost>
+              <ReactPageHost
+                :load="loadTokenUsageTrendPage"
+                :props="tokenUsageTrendPageProps"
+              >
+                <template #fallback>
+                  <TokenUsageTrend :trend-data="trendData" :loading="chartsLoading" />
+                </template>
+              </ReactPageHost>
             </div>
 
             <!-- User Usage Trend (Full Width) -->
@@ -172,6 +195,9 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import DashboardStatCard from '@/components/admin/dashboard/DashboardStatCard.vue'
 import { Card } from '@/components/ui/card'
+import ReactPageHost from '@/console/ReactPageHost.vue'
+import type { DashboardStatsPageProps } from '@/console/react/DashboardStats'
+import type { ModelDistributionPageProps } from '@/console/react/ModelDistribution'
 import ModelDistributionChart from '@/components/charts/ModelDistributionChart.vue'
 import TokenUsageTrend from '@/components/charts/TokenUsageTrend.vue'
 import DashboardCustomizePanel from '@/components/admin/dashboard/DashboardCustomizePanel.vue'
@@ -538,6 +564,63 @@ const formatDuration = (ms: number): string => {
   return `${Math.round(ms)}ms`
 }
 
+const loadDashboardStatsPage = () => import('@/console/react/DashboardStats')
+const loadModelDistributionPage = () => import('@/console/react/ModelDistribution')
+const loadTokenUsageTrendPage = () => import('@/console/react/TokenUsageTrend')
+
+const dashboardStatsPageProps = computed<DashboardStatsPageProps>(() => {
+  const current = stats.value
+  if (!current) return { cards: [] }
+
+  const cards: DashboardStatsPageProps['cards'][number][] = []
+  for (const panel of enabledSmallPanels.value) {
+    const order = enabledSmallPanelKeys.value.indexOf(panel.key)
+    const base = { key: panel.key, label: t(panel.labelKey), order: order < 0 ? 0 : order }
+
+    if (panel.key === 'apiKeys') {
+      cards.push({ ...base, value: current.total_api_keys, hint: `${current.active_api_keys} ${t('common.active')}` })
+    } else if (panel.key === 'accounts') {
+      cards.push({
+        ...base,
+        value: current.total_accounts,
+        meta: {
+          text: `${current.normal_accounts} ${t('common.active')}`,
+          alert: current.error_accounts > 0 ? `${current.error_accounts} ${t('common.error')}` : undefined,
+        },
+      })
+    } else if (panel.key === 'todayRequests') {
+      cards.push({ ...base, value: current.today_requests, hint: `${t('common.total')}: ${formatNumber(current.total_requests)}` })
+    } else if (panel.key === 'users') {
+      cards.push({ ...base, value: `+${current.today_new_users}`, hint: `${t('common.total')}: ${formatNumber(current.total_users)}` })
+    } else if (panel.key === 'todayTokens') {
+      cards.push({
+        ...base,
+        value: formatTokens(current.today_tokens),
+        meta: { text: `$${formatCost(current.today_actual_cost)} / $${formatCost(current.today_account_cost)} / $${formatCost(current.today_cost)}` },
+      })
+    } else if (panel.key === 'totalTokens') {
+      cards.push({
+        ...base,
+        value: formatTokens(current.total_tokens),
+        meta: { text: `$${formatCost(current.total_actual_cost)} / $${formatCost(current.total_account_cost)} / $${formatCost(current.total_cost)}` },
+      })
+    } else if (panel.key === 'performance') {
+      cards.push({ ...base, value: `${formatTokens(current.rpm)} RPM`, hint: `${formatTokens(current.tpm)} TPM` })
+    } else if (panel.key === 'avgResponse') {
+      cards.push({ ...base, value: formatDuration(current.average_duration_ms), hint: `${current.active_users} ${t('admin.dashboard.activeUsers')}` })
+    }
+  }
+
+  return { cards }
+})
+
+const tokenUsageTrendPageProps = computed(() => ({
+  trendData: trendData.value,
+  loading: chartsLoading.value,
+  title: t('admin.dashboard.tokenUsageTrend'),
+  noData: t('admin.dashboard.noDataAvailable'),
+}))
+
 const goToUserUsage = (item: UserSpendingRankingItem) => {
   void router.push({
     path: '/admin/usage',
@@ -548,6 +631,40 @@ const goToUserUsage = (item: UserSpendingRankingItem) => {
     }
   })
 }
+
+const modelDistributionPageProps = computed<ModelDistributionPageProps>(() => ({
+  modelStats: modelStats.value,
+  rankingItems: rankingItems.value,
+  rankingTotalActualCost: rankingTotalActualCost.value,
+  rankingTotalRequests: rankingTotalRequests.value,
+  rankingTotalTokens: rankingTotalTokens.value,
+  loading: chartsLoading.value,
+  rankingLoading: rankingLoading.value,
+  rankingError: rankingError.value,
+  startDate: startDate.value,
+  endDate: endDate.value,
+  labels: {
+    modelDistribution: t('admin.dashboard.modelDistribution'),
+    spendingRankingTitle: t('admin.dashboard.spendingRankingTitle'),
+    viewModelDistribution: t('admin.dashboard.viewModelDistribution'),
+    viewSpendingRanking: t('admin.dashboard.viewSpendingRanking'),
+    spendingRankingUser: t('admin.dashboard.spendingRankingUser'),
+    spendingRankingRequests: t('admin.dashboard.spendingRankingRequests'),
+    spendingRankingTokens: t('admin.dashboard.spendingRankingTokens'),
+    spendingRankingSpend: t('admin.dashboard.spendingRankingSpend'),
+    spendingRankingOther: t('admin.dashboard.spendingRankingOther'),
+    model: t('admin.dashboard.model'),
+    requests: t('admin.dashboard.requests'),
+    tokens: t('admin.dashboard.tokens'),
+    actual: t('admin.dashboard.actual'),
+    accountCost: t('admin.dashboard.accountCost'),
+    standard: t('admin.dashboard.standard'),
+    noData: t('admin.dashboard.noDataAvailable'),
+    failedToLoad: t('admin.dashboard.failedToLoad'),
+    userPrefix: (id: number) => t('admin.redeem.userPrefix', { id }),
+  },
+  onRankingClick: goToUserUsage,
+}))
 
 // Load data
 const loadDashboardSnapshot = async (includeStats: boolean) => {

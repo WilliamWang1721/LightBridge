@@ -1,5 +1,11 @@
 <template>
   <AppLayout>
+    <ReactPageHost
+      :load="loadPaymentPlansPage"
+      :props="pageProps"
+      :error-message="t('common.error')"
+    >
+      <template #fallback>
     <div class="space-y-4">
       <!-- Actions -->
       <div class="flex items-center justify-end gap-2">
@@ -73,6 +79,8 @@
     <PlanEditDialog :show="showPlanDialog" :plan="editingPlan" :groups="groups" @close="showPlanDialog = false" @saved="loadPlans" />
 
     <ConfirmDialog :show="showDeletePlanDialog" :title="t('payment.admin.deletePlan')" :message="t('payment.admin.deletePlanConfirm')" :confirm-text="t('common.delete')" danger @confirm="handleDeletePlan" @cancel="showDeletePlanDialog = false" />
+      </template>
+    </ReactPageHost>
   </AppLayout>
 </template>
 
@@ -88,6 +96,8 @@ import type { SubscriptionPlan } from '@/types/payment'
 import type { AdminGroup } from '@/types'
 import type { Column } from '@/components/common/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import ReactPageHost from '@/console/ReactPageHost.vue'
+import type { PaymentPlanForm, PaymentPlansPageProps } from '@/console/react/PaymentPlansPage'
 import DataTable from '@/components/common/DataTable.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -131,6 +141,67 @@ const showPlanDialog = ref(false)
 const showDeletePlanDialog = ref(false)
 const editingPlan = ref<SubscriptionPlan | null>(null)
 const deletingPlanId = ref<number | null>(null)
+const saving = ref(false)
+
+const loadPaymentPlansPage = () => import('@/console/react/PaymentPlansPage')
+
+const pageProps = computed<PaymentPlansPageProps>(() => ({
+  plans: plans.value,
+  groups: groups.value,
+  loading: plansLoading.value,
+  saving: saving.value,
+  editingPlan: editingPlan.value,
+  showPlanDialog: showPlanDialog.value,
+  showDeleteDialog: showDeletePlanDialog.value,
+  deletingPlanId: deletingPlanId.value,
+  copy: {
+    refresh: t('common.refresh'),
+    createPlan: t('payment.admin.createPlan'),
+    editPlan: t('payment.admin.editPlan'),
+    planName: t('payment.admin.planName'),
+    group: t('payment.admin.group'),
+    groupMissing: t('payment.admin.groupMissing'),
+    price: t('payment.admin.price'),
+    originalPrice: t('payment.admin.originalPrice'),
+    validityDays: t('payment.admin.validityDays'),
+    validityUnit: t('payment.admin.validityUnit'),
+    days: t('payment.admin.days'),
+    weeks: t('payment.admin.weeks'),
+    months: t('payment.admin.months'),
+    forSale: t('payment.admin.forSale'),
+    sortOrder: t('payment.admin.sortOrder'),
+    actions: t('common.actions'),
+    edit: t('common.edit'),
+    delete: t('common.delete'),
+    selectGroup: t('payment.admin.selectGroup'),
+    planDescription: t('payment.admin.planDescription'),
+    dailyLimit: t('payment.admin.dailyLimit'),
+    weeklyLimit: t('payment.admin.weeklyLimit'),
+    monthlyLimit: t('payment.admin.monthlyLimit'),
+    unlimited: t('payment.admin.unlimited'),
+    features: t('payment.admin.features'),
+    featuresPlaceholder: t('payment.admin.featuresPlaceholder'),
+    featuresHint: t('payment.admin.featuresHint'),
+    cancel: t('common.cancel'),
+    save: t('common.save'),
+    saving: t('common.saving'),
+    deletePlan: t('payment.admin.deletePlan'),
+    deletePlanConfirm: t('payment.admin.deletePlanConfirm'),
+    confirm: t('common.delete'),
+    noPlans: t('payment.admin.noData'),
+    groupRequired: t('payment.admin.groupRequired'),
+    priceRequired: t('payment.admin.priceRequired'),
+    validityDaysRequired: t('payment.admin.validityDaysRequired'),
+  },
+  onRefresh: () => { void loadPlans() },
+  onOpenEdit: openPlanEdit,
+  onCloseEdit: () => { showPlanDialog.value = false },
+  onToggleForSale: (plan) => { void toggleForSale(plan) },
+  onOpenDelete: confirmDeletePlan,
+  onCloseDelete: () => { showDeletePlanDialog.value = false },
+  onDelete: () => { void handleDeletePlan() },
+  onSavePlan: (form) => { void savePlan(form) },
+}))
 
 const planColumns = computed((): Column[] => [
   { key: 'id', label: 'ID' },
@@ -162,6 +233,46 @@ async function loadPlans() {
 function openPlanEdit(plan: SubscriptionPlan | null) {
   editingPlan.value = plan
   showPlanDialog.value = true
+}
+
+async function savePlan(form: PaymentPlanForm) {
+  if (!form.group_id) {
+    appStore.showError(t('payment.admin.groupRequired'))
+    return
+  }
+  if (!form.price || form.price <= 0) {
+    appStore.showError(t('payment.admin.priceRequired'))
+    return
+  }
+  if (!form.validity_days || form.validity_days < 1) {
+    appStore.showError(t('payment.admin.validityDaysRequired'))
+    return
+  }
+
+  saving.value = true
+  try {
+    const data = {
+      name: form.name,
+      group_id: form.group_id,
+      description: form.description,
+      price: form.price,
+      original_price: form.original_price || 0,
+      validity_days: form.validity_days,
+      validity_unit: form.validity_unit,
+      sort_order: form.sort_order,
+      for_sale: form.for_sale,
+      features: form.features.split('\n').map((feature) => feature.trim()).filter(Boolean).join('\n'),
+    }
+    if (editingPlan.value) await adminPaymentAPI.updatePlan(editingPlan.value.id, data)
+    else await adminPaymentAPI.createPlan(data)
+    appStore.showSuccess(t('common.saved'))
+    showPlanDialog.value = false
+    await loadPlans()
+  } catch (err: unknown) {
+    appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')))
+  } finally {
+    saving.value = false
+  }
 }
 
 
