@@ -15,7 +15,7 @@ import { createElement, type ComponentType } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue'
 
-type ReactPageProps = Record<string, unknown>
+type ReactPageProps = object
 type ReactPageModule = { default?: unknown }
 
 const props = withDefaults(defineProps<{
