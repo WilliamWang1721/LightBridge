@@ -205,6 +205,7 @@ import {
   Moon as MoonIcon,
   Radio as SignalIcon,
   Server as ServerIcon,
+  Sparkles as AppearanceIcon,
   Settings as CogIcon,
   ShieldCheck as ShieldIcon,
   Sun as SunIcon,
@@ -549,6 +550,7 @@ const adminNavItems = computed((): NavItem[] => {
         ...moduleNavItems('system'),
         { path: '/admin/usage', label: t('nav.usage'), icon: ChartIcon },
         { path: '/admin/feedback', label: t('nav.feedback'), icon: FeedbackIcon },
+        { path: '/admin/appearance', label: t('nav.appearance'), icon: AppearanceIcon },
       ],
     },
   ]
@@ -612,6 +614,7 @@ const sidebarIconNames = new Map<unknown, SidebarIconName>([
   [ErrorAnalysisIcon, 'alert'],
   [PriceTagIcon, 'tag'],
   [FeedbackIcon, 'feedback'],
+  [AppearanceIcon, 'sparkles'],
 ])
 
 function toConsoleSidebarItem(item: NavItem): ConsoleSidebarItem {

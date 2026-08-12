@@ -10,6 +10,7 @@ import AnnouncementPopup from '@/components/common/AnnouncementPopup.vue'
 import { useAppStore, useAuthStore, useSubscriptionStore, useAnnouncementStore } from '@/stores'
 import { getSetupStatus } from '@/api/setup'
 import { syncProgressiveRoutes } from '@/router'
+import { applyRuntimeAppearance } from '@/appearance/runtime'
 import {
   hydrateProgressiveFeatureManifest,
   isProgressiveFeatureEnabled,
@@ -42,6 +43,7 @@ function redirectDisabledProgressiveRoute() {
 watch(
   () => appStore.cachedPublicSettings,
   async () => {
+    applyRuntimeAppearance(appStore.cachedPublicSettings?.ui_appearance?.preset_code)
     await hydrateProgressiveFeatureManifest(true).catch(() => undefined)
     await syncProgressiveRoutes()
     redirectDisabledProgressiveRoute()

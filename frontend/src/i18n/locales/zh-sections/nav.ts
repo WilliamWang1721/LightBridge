@@ -27,6 +27,7 @@ export default {
     errorAnalysis: '错误分析',
     promoCodes: '优惠码',
     settings: '系统设置',
+    appearance: '运行时外观',
     myAccount: '我的账户',
     lightMode: '浅色模式',
     darkMode: '深色模式',

@@ -14,6 +14,8 @@ import {
 } from '@/ui-platform/runtime'
 import { resolveUIProfile, sanitizeUIProfileOverrides } from '@/ui-platform/resolver'
 import type { UIProfile, UIProfileOverrides, UIRegistryEntry } from '@/ui-platform/types'
+import { RUNTIME_APPEARANCE_EVENT } from '@/appearance/runtime'
+import { runtimeAppearanceFromSettings } from '@/appearance/preset'
 
 const profile = ref<UIProfile>({ ...DEFAULT_UI_PROFILE })
 const accountPreferences = ref<UIProfileOverrides | undefined>()
@@ -40,6 +42,9 @@ function ensureInitialized() {
     window.addEventListener(UI_PLATFORM_EVENT, (event) => {
       profile.value = { ...(event as CustomEvent<UIProfile>).detail }
     })
+    window.addEventListener(RUNTIME_APPEARANCE_EVENT, () => {
+      profile.value = applyResolvedProfile()
+    })
     listenerInstalled = true
   }
 }
@@ -54,7 +59,11 @@ function storeLocalPreferences(value: UIProfileOverrides) {
 }
 
 function applyResolvedProfile(previewOverrides?: UIProfileOverrides) {
+  const adminDefaults = runtimeAppearanceFromSettings(
+    typeof window !== 'undefined' ? window.__APP_CONFIG__?.ui_appearance?.preset_code : undefined,
+  )?.profile as UIProfileOverrides | undefined
   const { profile: resolved, warnings } = resolveUIProfile({
+    adminDefaults,
     localPreferences: loadLocalUIProfile(),
     userPreferences: accountPreferences.value,
     previewOverrides,

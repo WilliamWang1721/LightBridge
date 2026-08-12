@@ -6,6 +6,7 @@ import i18n, { initI18n } from './i18n'
 import { useAppStore } from '@/stores/app'
 import { hydrateProgressiveFeatureManifest } from '@/utils/progressiveFeatures'
 import { initializeUIPlatform } from '@/ui-platform/runtime'
+import { applyRuntimeAppearance } from '@/appearance/runtime'
 import { initializeChartTheme } from '@/ui-platform/chartTheme'
 import {
   installDistributionNavigation,
@@ -30,6 +31,7 @@ async function bootstrap() {
   // Apply theme and UI profile before app mount to prevent visual flashing.
   initThemeClass()
   initializeUIPlatform()
+  applyRuntimeAppearance(window.__APP_CONFIG__?.ui_appearance?.preset_code)
   initializeChartTheme()
   installDistributionRoutes(router)
 

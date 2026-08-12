@@ -268,8 +268,9 @@ type PublicSettings struct {
 	PurchaseSubscriptionURL     string
 	TableDefaultPageSize        int
 	TablePageSizeOptions        []int
-	CustomMenuItems             string // JSON array of custom menu items
-	CustomEndpoints             string // JSON array of custom endpoints
+	CustomMenuItems             string                     // JSON array of custom menu items
+	CustomEndpoints             string                     // JSON array of custom endpoints
+	UIAppearance                *RuntimeAppearanceSettings `json:"ui_appearance,omitempty"`
 
 	LinuxDoOAuthEnabled      bool
 	DingTalkOAuthEnabled     bool

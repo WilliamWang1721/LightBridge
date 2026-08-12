@@ -241,6 +241,13 @@ export interface PublicSettings {
   channel_pricing_enabled: boolean
   /** 部署模式：personal（个人）/ distribution（分发）。缺省视为 distribution */
   deployment_mode?: 'personal' | 'distribution' | string
+  ui_appearance?: RuntimeAppearanceSettings | null
+}
+
+export interface RuntimeAppearanceSettings {
+  version: number
+  source: string
+  preset_code: string
 }
 
 export interface AuthResponse {

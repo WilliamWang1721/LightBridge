@@ -27,6 +27,7 @@ export default {
     errorAnalysis: 'Error Analysis',
     promoCodes: 'Promo Codes',
     settings: 'Settings',
+    appearance: 'Runtime Appearance',
     myAccount: 'My Account',
     lightMode: 'Light Mode',
     darkMode: 'Dark Mode',

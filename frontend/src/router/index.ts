@@ -357,6 +357,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/appearance',
+    name: 'AdminAppearance',
+    component: () => import('@/views/admin/AppearanceView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Runtime Appearance',
+      titleKey: 'appearance.title',
+      descriptionKey: 'appearance.description',
+    },
+  },
+  {
     path: '/admin/features',
     name: 'AdminFeatureRegistry',
     component: () => import('@/views/admin/FeatureRegistryView.vue'),

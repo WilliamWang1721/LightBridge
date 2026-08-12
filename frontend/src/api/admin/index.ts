@@ -35,6 +35,7 @@ import riskControlAPI from './riskControl'
 import privacyFilterAPI from './privacyFilter'
 import uiThemesAPI from './uiThemes'
 import availabilityAPI from './availability'
+import appearanceAPI from './appearance'
 
 /**
  * Unified admin API object for convenient access
@@ -71,7 +72,8 @@ export const adminAPI = {
   riskControl: riskControlAPI,
   privacyFilter: privacyFilterAPI,
   uiThemes: uiThemesAPI,
-  availability: availabilityAPI
+  availability: availabilityAPI,
+  appearance: appearanceAPI,
 }
 
 export {
@@ -105,7 +107,8 @@ export {
   affiliatesAPI,
   riskControlAPI,
   privacyFilterAPI,
-  uiThemesAPI
+  uiThemesAPI,
+  appearanceAPI
 }
 
 export default adminAPI

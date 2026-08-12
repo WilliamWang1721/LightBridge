@@ -33,6 +33,7 @@ import distributions from './distributions'
 import userSubscriptions from './userSubscriptions'
 import onboarding from './onboarding'
 import payment from './payment'
+import appearance from './appearance'
 
 export default {
   home,
@@ -70,4 +71,5 @@ export default {
   userSubscriptions,
   onboarding,
   payment,
+  appearance,
 }
