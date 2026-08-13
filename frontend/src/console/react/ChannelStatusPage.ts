@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import type { UserMonitorDetail, UserMonitorModelDetail, UserMonitorView } from '@/api/channelMonitor'
 import { createShadcnElement as h } from './ui/createElement'
+import { AppIcon } from './ui/app-icon'
 
 export interface ChannelStatusCopy {
   windowTab: Record<'7d' | '15d' | '30d', string>
@@ -52,13 +53,7 @@ const latency = (value: number | null | undefined) => value == null ? '-' : Stri
 const percent = (value: number | null | undefined) => value == null || Number.isNaN(value) ? '-' : `${value.toFixed(2)}%`
 
 function Icon({ name }: { name: 'refresh' | 'bolt' | 'globe' | 'clock' }): ReactNode {
-  const paths = {
-    refresh: 'M20.25 12a8.25 8.25 0 1 1-2.42-5.83M20.25 4.5v5.25H15',
-    bolt: 'm13.5 2.25-9 11.25h6.75l-.75 8.25 9-11.25h-6.75l.75-8.25Z',
-    globe: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm-8.5-9h17M12 3c2.1 2.25 3.15 5.25 3.15 9S14.1 18.75 12 21c-2.1-2.25-3.15-5.25-3.15-9S9.9 5.25 12 3Z',
-    clock: 'M12 6.75v5.25l3.75 2.25M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
-  }[name]
-  return h('svg', { className: 'h-4 w-4', fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true' }, h('path', { d: paths }))
+  return h(AppIcon, { name })
 }
 
 function MonitorCard({ item, window, countdown, copy, onClick }: { item: UserMonitorView; window: '7d' | '15d' | '30d'; countdown: number; copy: ChannelStatusCopy; onClick: () => void }): ReactNode {

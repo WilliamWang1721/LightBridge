@@ -4,6 +4,7 @@ import type { PlatformQuotaItem, ModelStat, TrendDataPoint, UsageLog } from '@/t
 import TokenUsageTrend from './TokenUsageTrend'
 import { readUsageNumber } from '@/utils/usageDisplay'
 import { createShadcnElement as h } from './ui/createElement'
+import { AppIcon, type AppIconName } from './ui/app-icon'
 
 export interface UserDashboardCopy {
   refresh: string
@@ -72,20 +73,8 @@ export interface UserDashboardPageProps {
   onNavigate: (path: string) => void
 }
 
-function Icon({ name }: { name: 'wallet' | 'key' | 'chart' | 'dollar' | 'cube' | 'database' | 'bolt' | 'clock' | 'arrow' | 'gift' }): ReactNode {
-  const paths = {
-    wallet: 'M3.75 6.75h16.5v10.5H3.75A1.5 1.5 0 0 1 2.25 15.75v-7.5a1.5 1.5 0 0 1 1.5-1.5Zm0 0V5.25a1.5 1.5 0 0 1 1.5-1.5h13.5a1.5 1.5 0 0 1 1.5 1.5v1.5m-4.5 5.25h.008v.008H14.25V12Z',
-    key: 'M15.75 5.25a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Zm-9 15a5.25 5.25 0 0 1 10.5 0M16.5 9.75h4.5m-2.25-2.25v4.5',
-    chart: 'M3.75 19.5h16.5M6.75 16.5v-3m5.25 3V9m5.25 7.5V6',
-    dollar: 'M12 6.75v10.5m3-8.25c-.62-.77-1.56-1.25-2.63-1.25h-.74A2.63 2.63 0 0 0 9 10.38c0 1.45 1.18 2.62 2.63 2.62h.74A2.63 2.63 0 0 1 15 15.62 2.63 2.63 0 0 1 12.37 18h-.74A3.38 3.38 0 0 1 9 16.75',
-    cube: 'm12 3.75 8.25 4.5v7.5L12 20.25l-8.25-4.5v-7.5L12 3.75Zm0 0v7.5m8.25-3L12 11.25l-8.25-3',
-    database: 'M4.5 5.25c0-1.243 3.358-2.25 7.5-2.25s7.5 1.007 7.5 2.25-3.358 2.25-7.5 2.25-7.5-1.007-7.5-2.25Zm0 0v6c0 1.243 3.358 2.25 7.5 2.25s7.5-1.007 7.5-2.25v-6m-15 6v6c0 1.243 3.358 2.25 7.5 2.25s7.5-1.007 7.5-2.25v-6',
-    bolt: 'm13.5 2.25-9 11.25h6.75l-.75 8.25 9-11.25h-6.75l.75-8.25Z',
-    clock: 'M12 6.75v5.25l3.75 2.25M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
-    arrow: 'M4.5 12h15m-6.75-6.75L19.5 12l-6.75 6.75',
-    gift: 'M20.25 12v8.25H3.75V12m16.5 0H3.75m16.5 0V8.25H3.75V12m8.25-3.75v12m0-12H8.625A2.625 2.625 0 1 1 11.25 5.625V8.25Zm0 0h2.625A2.625 2.625 0 1 0 11.25 5.625V8.25Z',
-  }[name]
-  return h('svg', { className: 'h-5 w-5', fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true' }, h('path', { d: paths }))
+function Icon({ name }: { name: AppIconName }): ReactNode {
+  return h(AppIcon, { name, className: 'h-5 w-5' })
 }
 
 const money = (value: number) => Number.isFinite(value) ? value.toFixed(4) : '0.0000'

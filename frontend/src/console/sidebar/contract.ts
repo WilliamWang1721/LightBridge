@@ -1,6 +1,9 @@
+import type { User } from '@/types'
+
 export interface ConsoleSidebarItem {
   path: string
   label: string
+  iconName?: string
   iconSvg?: string
   id?: string
   dataTour?: string
@@ -14,28 +17,24 @@ export interface ConsoleSidebarSection {
   items: ConsoleSidebarItem[]
 }
 
-export interface ConsoleSidebarLocaleOption {
-  value: string
-  label: string
-}
-
 export interface ConsoleSidebarLabels {
   mainNavigation: string
-  lightMode: string
-  darkMode: string
-  collapse: string
-  expand: string
   closeNavigation: string
-  locale: string
+  profile: string
+  apiKeys: string
+  settings: string
+  github: string
+  contactSupport: string
+  restartTour: string
+  logout: string
 }
 
 export interface ConsoleSidebarCallbacks {
   onNavigate: (path: string) => void
   onToggleGroup: (path: string) => void
-  onToggleTheme: () => void
-  onLocaleChange: (locale: string) => void
-  onToggleCollapse: () => void
   onCloseMobile: () => void
+  onLogout: () => void | Promise<void>
+  onReplayGuide?: () => void
 }
 
 export interface ConsoleSidebarProps extends ConsoleSidebarCallbacks {
@@ -43,9 +42,12 @@ export interface ConsoleSidebarProps extends ConsoleSidebarCallbacks {
   currentPath: string
   expandedGroupPaths: readonly string[]
   labels: ConsoleSidebarLabels
-  localeOptions: ConsoleSidebarLocaleOption[]
-  currentLocale: string
-  isDark: boolean
-  collapsed: boolean
   mobileOpen: boolean
+  user?: User | null
+  isAdmin: boolean
+  contactInfo?: string | null
+  showOnboardingButton: boolean
+  siteName: string
+  siteLogo?: string | null
+  siteVersion?: string
 }

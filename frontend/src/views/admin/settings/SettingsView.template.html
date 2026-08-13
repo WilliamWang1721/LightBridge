@@ -10,36 +10,24 @@
       <!-- Settings Form -->
       <form v-else @submit.prevent="saveSettings" class="space-y-6" novalidate>
         <!-- Tab Navigation -->
-        <div class="settings-tabs-shell">
-          <nav
-            class="settings-tabs-scroll"
-            role="tablist"
-            :aria-label="t('admin.settings.title')"
-          >
-            <div class="settings-tabs">
-              <button
+        <Tabs v-model="activeTab" class="settings-tabs-shell">
+          <div class="settings-tabs-scroll">
+            <TabsList
+              :aria-label="t('admin.settings.title')"
+              class="w-full min-w-max justify-start gap-0 rounded-none border-0 border-b border-[hsl(var(--border))] bg-transparent p-0 text-[hsl(var(--muted-foreground))]"
+            >
+              <TabsTrigger
                 v-for="tab in settingsTabs"
                 :key="tab.key"
+                :value="tab.key"
                 :id="`settings-tab-${tab.key}`"
-                type="button"
-                role="tab"
-                :aria-selected="activeTab === tab.key"
-                :tabindex="activeTab === tab.key ? 0 : -1"
-                :class="[
-                  'settings-tab',
-                  activeTab === tab.key && 'settings-tab-active',
-                ]"
-                @click="selectSettingsTab(tab.key)"
-                @keydown="handleSettingsTabKeydown($event, tab.key)"
+                class="min-h-11 min-w-[6.75rem] shrink-0 rounded-none border-0 border-b-2 border-transparent bg-transparent px-4 py-2 text-sm font-medium shadow-none transition-colors hover:bg-transparent hover:text-[hsl(var(--foreground))] data-[state=active]:border-[hsl(var(--primary))] data-[state=active]:bg-transparent data-[state=active]:text-[hsl(var(--primary))] data-[state=active]:shadow-none"
               >
-                <Icon :name="tab.icon" size="sm" class="settings-tab-icon" />
-                <span class="settings-tab-label">{{
-                  t(`admin.settings.tabs.${tab.key}`)
-                }}</span>
-              </button>
-            </div>
-          </nav>
-        </div>
+                {{ t(`admin.settings.tabs.${tab.key}`) }}
+              </TabsTrigger>
+            </TabsList>
+          </div>
+        </Tabs>
 
         <!-- Tab: Security — Admin API Key -->
         <div v-show="activeTab === 'security'" class="space-y-6">
@@ -4443,32 +4431,30 @@
         <!-- Tab: General -->
         <div v-show="activeTab === 'general'" class="space-y-6">
           <!-- Site Settings -->
-          <div class="card">
-            <div
-              class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
-            >
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+          <Card>
+            <CardHeader class="border-b border-[hsl(var(--border))] px-6 py-4">
+              <CardTitle>
                 {{ t("admin.settings.site.title") }}
-              </h2>
-              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              </CardTitle>
+              <CardDescription>
                 {{ t("admin.settings.site.description") }}
-              </p>
-            </div>
-            <div class="space-y-6 p-6">
+              </CardDescription>
+            </CardHeader>
+            <CardContent class="space-y-6 px-6 py-6">
               <!-- Backend Mode -->
-              <div
-                class="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20"
-              >
-                <div>
-                  <h3 class="text-sm font-medium text-gray-900 dark:text-white">
+              <Card class="border-[hsl(var(--border))] bg-[hsl(var(--muted)/0.35)] shadow-none">
+                <CardContent class="flex items-center justify-between gap-4 px-4 py-4">
+                  <div>
+                    <h3 class="text-sm font-medium text-[hsl(var(--foreground))]">
                     {{ t("admin.settings.site.backendMode") }}
-                  </h3>
-                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    </h3>
+                    <p class="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
                     {{ t("admin.settings.site.backendModeDescription") }}
-                  </p>
-	                </div>
-	                <Toggle v-model="form.backend_mode_enabled" />
-	              </div>
+                    </p>
+                  </div>
+                  <Toggle v-model="form.backend_mode_enabled" />
+                </CardContent>
+              </Card>
 
 	              <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div>
@@ -4793,8 +4779,8 @@
                 </div>
                 <Toggle v-model="form.hide_ccs_import_button" />
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
           <!-- Custom Menu Items -->
           <div class="card">
@@ -5803,6 +5789,39 @@
         </div><!-- /Tab: Features -->
 
         <div v-show="activeTab === 'themes'" class="space-y-6">
+          <div class="card">
+            <div class="border-b border-[hsl(var(--border))] px-6 py-4">
+              <h2 class="text-lg font-semibold text-[hsl(var(--foreground))]">
+                {{ t("admin.settings.uiThemes.preferencesTitle") }}
+              </h2>
+              <p class="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
+                {{ t("admin.settings.uiThemes.preferencesDescription") }}
+              </p>
+            </div>
+            <div class="divide-y divide-[hsl(var(--border))] px-6">
+              <div class="flex items-center justify-between gap-4 py-4">
+                <span class="text-sm font-medium text-[hsl(var(--foreground))]">
+                  {{ t("admin.settings.uiThemes.colorMode") }}
+                </span>
+                <button
+                  type="button"
+                  class="inline-flex h-9 items-center gap-2 rounded-[var(--ui-radius)] border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 text-sm text-[hsl(var(--foreground))] transition-colors hover:bg-[hsl(var(--muted))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]"
+                  :aria-label="themeLabel"
+                  :title="themeLabel"
+                  @click="toggleTheme"
+                >
+                  <Icon :name="isDark ? 'sun' : 'moon'" size="sm" aria-hidden="true" />
+                  {{ themeLabel }}
+                </button>
+              </div>
+              <div class="flex items-center justify-between gap-4 py-4">
+                <span class="text-sm font-medium text-[hsl(var(--foreground))]">
+                  {{ t("admin.settings.uiThemes.language") }}
+                </span>
+                <LocaleSwitcher />
+              </div>
+            </div>
+          </div>
           <ThemeManager />
         </div>
 

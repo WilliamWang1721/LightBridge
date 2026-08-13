@@ -20,21 +20,12 @@ html[data-ui-mode='package'] .sidebar.w-64 {
   width: var(--ui-sidebar-width);
 }
 
-html[data-ui-mode='modern'] .sidebar.w-\[72px\],
-html[data-ui-mode='package'] .sidebar.w-\[72px\] {
-  width: var(--ui-sidebar-collapsed-width);
-}
-
 @media (min-width: 1024px) {
   html[data-ui-mode='modern'] .ui-main-shell,
   html[data-ui-mode='package'] .ui-main-shell {
-    margin-left: var(--ui-sidebar-width);
+    margin-left: calc(var(--ui-sidebar-width) + 2rem);
   }
 
-  html[data-ui-mode='modern'] .ui-main-shell[data-sidebar-collapsed='true'],
-  html[data-ui-mode='package'] .ui-main-shell[data-sidebar-collapsed='true'] {
-    margin-left: var(--ui-sidebar-collapsed-width);
-  }
 }
 
 @media (max-width: 639px) {

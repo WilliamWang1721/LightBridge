@@ -5,6 +5,7 @@ import type {
   ModelCatalogPriceRange,
 } from '@/api/modelCatalog'
 import { createShadcnElement as h } from './ui/createElement'
+import { AppIcon } from './ui/app-icon'
 
 export type CatalogViewMode = 'merged' | 'by_group' | 'by_channel' | 'by_account'
 
@@ -44,32 +45,11 @@ interface CatalogSection {
 }
 
 function Icon({ name }: { name: 'search' | 'grid' | 'chevronDown' | 'refresh' | 'plus' | 'dollar' }): ReactNode {
-  const paths = {
-    search: 'm21 21-4.35-4.35m1.35-5.4a6.75 6.75 0 1 1-13.5 0 6.75 6.75 0 0 1 13.5 0Z',
-    grid: 'M4.5 4.5h6v6h-6v-6Zm9 0h6v6h-6v-6Zm-9 9h6v6h-6v-6Zm9 0h6v6h-6v-6Z',
-    chevronDown: 'm6.75 9 5.25 5.25L17.25 9',
-    refresh: 'M20.25 12a8.25 8.25 0 1 1-2.42-5.83M20.25 4.5v5.25H15',
-    plus: 'M12 5.25v13.5m6.75-6.75H5.25',
-    dollar: 'M12 6.75v10.5m3-8.25c-.62-.77-1.56-1.25-2.63-1.25h-.74A2.63 2.63 0 0 0 9 10.38c0 1.45 1.18 2.62 2.63 2.62h.74A2.63 2.63 0 0 1 15 15.62 2.63 2.63 0 0 1 12.37 18h-.74A3.38 3.38 0 0 1 9 16.75',
-  }[name]
-  return h('svg', {
-    className: 'h-4 w-4 shrink-0',
-    fill: 'none',
-    viewBox: '0 0 24 24',
-    stroke: 'currentColor',
-    strokeWidth: 1.6,
-    strokeLinecap: 'round',
-    strokeLinejoin: 'round',
-    'aria-hidden': 'true',
-  }, h('path', { d: paths }))
+  return h(AppIcon, { name, className: 'h-4 w-4 shrink-0' })
 }
 
 function ModelGlyph({ model }: { model: string }): ReactNode {
-  const glyph = model.replace(/[^a-z0-9]/gi, '').slice(0, 1).toUpperCase() || '•'
-  return h('span', {
-    className: 'flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[hsl(var(--muted))] text-[10px] font-semibold text-[hsl(var(--muted-foreground))]',
-    'aria-hidden': 'true',
-  }, glyph)
+  return h(AppIcon, { name: 'cube', className: 'h-5 w-5 shrink-0 text-[hsl(var(--muted-foreground))]' })
 }
 
 function formatMoney(value?: number | null): string {

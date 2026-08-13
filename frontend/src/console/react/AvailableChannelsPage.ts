@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react'
 import type { UserAvailableChannel, UserAvailableGroup, UserSupportedModel } from '@/api/channels'
 import { createShadcnElement as h } from './ui/createElement'
+import { AppIcon } from './ui/app-icon'
 
 export interface AvailableChannelsPageCopy {
   searchPlaceholder: string
@@ -28,14 +29,7 @@ export interface AvailableChannelsPageProps {
 }
 
 function Icon({ name }: { name: 'search' | 'refresh' | 'shield' | 'globe' | 'inbox' }): ReactNode {
-  const paths = {
-    search: 'm21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z',
-    refresh: 'M20.25 12a8.25 8.25 0 1 1-2.42-5.83M20.25 4.5v5.25H15',
-    shield: 'M12 3.75 19.5 6v5.25c0 4.65-3.15 7.65-7.5 9-4.35-1.35-7.5-4.35-7.5-9V6L12 3.75Z',
-    globe: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm-8.5-9h17M12 3c2.1 2.25 3.15 5.25 3.15 9S14.1 18.75 12 21c-2.1-2.25-3.15-5.25-3.15-9S9.9 5.25 12 3Z',
-    inbox: 'M4.5 4.5h15v12.75h-15V4.5Zm0 8.25h4.25l1.25 1.5h4l1.25-1.5h4.25',
-  }[name]
-  return h('svg', { className: 'h-4 w-4', fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true' }, h('path', { d: paths }))
+  return h(AppIcon, { name })
 }
 
 function channelGroups(channel: UserAvailableChannel): UserAvailableGroup[] {

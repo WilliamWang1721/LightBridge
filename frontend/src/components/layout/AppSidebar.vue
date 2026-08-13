@@ -1,195 +1,25 @@
 <template>
-  <Sidebar
+  <aside
     id="lightbridge-sidebar"
-    class="sidebar"
+    class="sidebar w-64"
     :aria-label="t('nav.mainNavigation', 'Main navigation')"
-    :class="[
-      sidebarCollapsed ? 'w-[72px]' : 'w-64',
-      { '-translate-x-full lg:translate-x-0': !mobileOpen }
-    ]"
+    :class="{ '-translate-x-full lg:translate-x-0': !mobileOpen }"
   >
-    <!-- Logo/Brand -->
-    <SidebarHeader class="sidebar-header" :class="{ 'sidebar-header-collapsed': sidebarCollapsed }">
-      <div class="lightbridge-brand-mark" aria-hidden="true"></div>
-      <div class="sidebar-brand" :class="{ 'sidebar-brand-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
-        <span class="sidebar-brand-title text-lg font-bold text-gray-900 dark:text-white">
-          {{ siteName }}
-        </span>
-        <div class="sidebar-version-row">
-          <!-- Version Badge -->
-          <VersionBadge :version="siteVersion" />
-          <span class="sidebar-version-product">LightBridge</span>
-        </div>
-      </div>
-    </SidebarHeader>
-
     <ReactPageHost
       :load="loadConsoleSidebar"
       :props="sidebarProps"
       :error-message="t('common.error')"
-    >
-      <template #fallback>
-        <!-- Vue fallback: kept until the React shell is proven on the running console. -->
-        <SidebarContent class="sidebar-nav scrollbar-hide" :aria-label="t('nav.mainNavigation', 'Main navigation')">
-      <SidebarGroup v-for="section in navigationSections" :key="section.key" class="sidebar-section !p-0">
-        <SidebarGroupLabel
-          v-if="section.title"
-          class="sidebar-section-title"
-          :class="{ 'sidebar-section-title-collapsed': sidebarCollapsed }"
-          :aria-hidden="sidebarCollapsed ? 'true' : 'false'"
-        >
-          <span
-            class="sidebar-section-title-text"
-            :class="{ 'sidebar-section-title-text-collapsed': sidebarCollapsed }"
-          >{{ section.title }}</span>
-        </SidebarGroupLabel>
-
-        <SidebarMenu>
-          <SidebarMenuItem v-for="item in section.items" :key="item.path">
-          <template v-if="item.children?.length">
-            <SidebarMenuButton
-              as="button"
-              type="button"
-              class="sidebar-link sidebar-nav-item mb-1 w-full"
-              :class="{
-                'sidebar-link-active': isGroupActive(item) && !isGroupExpanded(item),
-                'sidebar-link-collapsed': sidebarCollapsed
-              }"
-              :title="sidebarCollapsed ? item.label : undefined"
-              :aria-expanded="!sidebarCollapsed && isGroupExpanded(item)"
-              @click="handleGroupClick(item)"
-            >
-              <component :is="item.icon" class="h-5 w-5 flex-shrink-0" />
-              <span
-                class="sidebar-label sidebar-label-flex"
-                :class="{ 'sidebar-label-collapsed': sidebarCollapsed }"
-                :aria-hidden="sidebarCollapsed ? 'true' : 'false'"
-              >
-                <span class="min-w-0 truncate">{{ item.label }}</span>
-                <ChevronDownIcon
-                  class="h-4 w-4 flex-shrink-0 transition-transform duration-200"
-                  :class="isGroupExpanded(item) ? 'rotate-180' : ''"
-                />
-              </span>
-            </SidebarMenuButton>
-            <div
-              v-if="!sidebarCollapsed && isGroupExpanded(item)"
-              class="sidebar-subnav mb-1 ml-4 border-l border-gray-200 pl-2 dark:border-dark-600"
-            >
-              <SidebarMenuButton
-                v-for="child in item.children"
-                :key="child.path"
-                :as="RouterLink"
-                :to="child.path"
-                class="sidebar-link sidebar-nav-item mb-0.5 py-1.5 text-sm"
-                :class="{ 'sidebar-link-active': route.path === child.path }"
-                :aria-current="route.path === child.path ? 'page' : undefined"
-                @click="handleMenuItemClick(child.path)"
-              >
-                <component :is="child.icon" class="h-4 w-4 flex-shrink-0" />
-                <span>{{ child.label }}</span>
-              </SidebarMenuButton>
-            </div>
-          </template>
-
-          <SidebarMenuButton
-            v-else
-            :as="RouterLink"
-            :to="item.path"
-            class="sidebar-link sidebar-nav-item mb-1"
-            :class="{ 'sidebar-link-active': isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
-            :title="sidebarCollapsed ? item.label : undefined"
-            :aria-current="isActive(item.path) ? 'page' : undefined"
-            :data-tour="item.path === '/keys' ? 'sidebar-my-keys' : undefined"
-            :id="
-              item.path === '/admin/accounts'
-                ? 'sidebar-channel-manage'
-                : item.path === '/admin/groups'
-                  ? 'sidebar-group-manage'
-                  : item.path === '/admin/redeem'
-                    ? 'sidebar-wallet'
-                    : undefined
-            "
-            @click="handleMenuItemClick(item.path)"
-          >
-            <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
-            <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
-            <span
-              class="sidebar-label"
-              :class="{ 'sidebar-label-collapsed': sidebarCollapsed }"
-              :aria-hidden="sidebarCollapsed ? 'true' : 'false'"
-            >{{ item.label }}</span>
-          </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarGroup>
-        </SidebarContent>
-
-        <SidebarFooter class="sidebar-footer mt-auto border-t border-gray-100 p-3 dark:border-dark-800">
-      <div
-        v-if="!sidebarCollapsed"
-        class="sidebar-footer-controls"
-      >
-        <div class="relative">
-          <SidebarMenuButton
-            as="button"
-            type="button"
-            @click="toggleTheme"
-            class="sidebar-link sidebar-footer-action w-full"
-            :class="{ 'sidebar-link-collapsed': sidebarCollapsed }"
-            :title="sidebarCollapsed ? (isDark ? t('nav.lightMode') : t('nav.darkMode')) : undefined"
-            :aria-label="isDark ? t('nav.lightMode') : t('nav.darkMode')"
-          >
-            <SunIcon v-if="isDark" class="h-5 w-5 flex-shrink-0" />
-            <MoonIcon v-else class="h-5 w-5 flex-shrink-0" />
-            <span class="sidebar-label sidebar-footer-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{
-              isDark ? t('nav.lightMode') : t('nav.darkMode')
-            }}</span>
-          </SidebarMenuButton>
-
-        </div>
-
-        <LocaleSwitcher variant="sidebar" />
-      </div>
-
-      <!-- Collapse Button -->
-      <SidebarMenuButton
-        as="button"
-        type="button"
-        @click="toggleSidebar"
-        class="sidebar-link w-full"
-        :class="{ 'sidebar-link-collapsed': sidebarCollapsed }"
-        :title="sidebarCollapsed ? t('nav.expand') : t('nav.collapse')"
-      >
-        <ChevronDoubleLeftIcon v-if="!sidebarCollapsed" class="h-5 w-5 flex-shrink-0" />
-        <ChevronDoubleRightIcon v-else class="h-5 w-5 flex-shrink-0" />
-        <span class="sidebar-label sidebar-footer-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ t('nav.collapse') }}</span>
-        </SidebarMenuButton>
-        </SidebarFooter>
-        <transition name="fade">
-          <button
-            v-if="mobileOpen"
-            type="button"
-            class="fixed inset-0 z-30 border-0 bg-black/50 p-0 lg:hidden"
-            :aria-label="t('nav.closeNavigation')"
-            @click="closeMobile"
-          />
-        </transition>
-      </template>
-    </ReactPageHost>
-  </Sidebar>
+    />
+  </aside>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
   Bell as BellIcon,
   ChartNoAxesColumn as ChartIcon,
-  ChevronDown as ChevronDownIcon,
-  ChevronsLeft as ChevronDoubleLeftIcon,
-  ChevronsRight as ChevronDoubleRightIcon,
   CircleDollarSign as RechargeSubscriptionIcon,
   CreditCard as CreditCardIcon,
   Database as DatabaseIcon,
@@ -202,13 +32,12 @@ import {
   Layers3 as ChannelIcon,
   ListOrdered as OrderListIcon,
   MessageSquare as FeedbackIcon,
-  Moon as MoonIcon,
   Radio as SignalIcon,
+  Send as DistributionIcon,
   Server as ServerIcon,
   Sparkles as AppearanceIcon,
   Settings as CogIcon,
   ShieldCheck as ShieldIcon,
-  Sun as SunIcon,
   Tag as PriceTagIcon,
   Ticket as TicketIcon,
   TriangleAlert as ErrorAnalysisIcon,
@@ -216,26 +45,11 @@ import {
   UsersRound as UsersIcon,
 } from '@lucide/vue'
 import { useAdminSettingsStore, useAppStore, useAuthStore, useOnboardingStore } from '@/stores'
-import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
-import VersionBadge from '@/components/common/VersionBadge.vue'
 import ReactPageHost from '@/console/ReactPageHost.vue'
 import type { ConsoleSidebarItem, ConsoleSidebarProps, ConsoleSidebarSection } from '@/console/sidebar/contract'
 import { sidebarIconSvgs, type SidebarIconName } from '@/console/sidebar/icons'
-import { availableLocales, setLocale } from '@/i18n'
-import { sanitizeSvg } from '@/utils/sanitize'
 import { makeProgressiveSidebarFlag, ProgressiveFeatures } from '@/utils/progressiveFeatures'
 import { moduleMenuContributions, resolveModuleText } from '@/modules/runtime/registry'
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-} from '@/components/ui/sidebar'
 
 interface NavItem {
   path: string
@@ -291,16 +105,15 @@ const onboardingStore = useOnboardingStore()
 const adminSettingsStore = useAdminSettingsStore()
 const loadConsoleSidebar = () => import('@/console/react/ConsoleSidebar')
 
-const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
 const mobileOpen = computed(() => appStore.mobileOpen)
 const isAdmin = computed(() => authStore.isAdmin)
-const isDark = ref(document.documentElement.classList.contains('dark'))
 
 // Track which parent nav groups are expanded
 const expandedGroups = ref<Set<string>>(new Set())
 
 // Site settings from appStore (cached, no flicker)
 const siteName = computed(() => appStore.siteName)
+const siteLogo = computed(() => appStore.siteLogo)
 const siteVersion = computed(() => appStore.siteVersion)
 
 
@@ -349,6 +162,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
   const items: NavItem[] = []
   if (withDashboard) {
     items.push({ path: '/dashboard', label: t('nav.dashboard'), icon: DashboardIcon })
+    items.push({ path: '/distributions', label: t('nav.distributions'), icon: DistributionIcon })
   }
 
   // API 与监控
@@ -395,6 +209,9 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
 
   // 个人资料
   items.push({ path: '/profile', label: t('nav.profile'), icon: UserIcon })
+  if (!withDashboard) {
+    items.push({ path: '/distributions', label: t('nav.distributions'), icon: DistributionIcon })
+  }
 
   // 自定义菜单
   for (const item of customMenuItemsForUser.value) {
@@ -442,6 +259,7 @@ const adminNavItems = computed((): NavItem[] => {
   const baseItems: NavItem[] = [
     // Dashboard
     { path: '/admin/dashboard', label: t('nav.dashboard'), icon: DashboardIcon },
+    { path: '/admin/distributions', label: t('nav.distributions'), icon: DistributionIcon },
 
     // Operations group
     {
@@ -609,6 +427,7 @@ const sidebarIconNames = new Map<unknown, SidebarIconName>([
   [CogIcon, 'settings'],
   [OrderIcon, 'order'],
   [OrderListIcon, 'orderList'],
+  [DistributionIcon, 'send'],
   [SignalIcon, 'signal'],
   [ShieldIcon, 'shield'],
   [ErrorAnalysisIcon, 'alert'],
@@ -622,6 +441,7 @@ function toConsoleSidebarItem(item: NavItem): ConsoleSidebarItem {
   return {
     path: item.path,
     label: item.label,
+    iconName,
     iconSvg: item.iconSvg || (iconName ? sidebarIconSvgs[iconName] : undefined),
     id:
       item.path === '/admin/accounts'
@@ -668,45 +488,48 @@ const sidebarProps = computed<ConsoleSidebarProps>(() => ({
   expandedGroupPaths: Array.from(expandedGroups.value),
   labels: {
     mainNavigation: t('nav.mainNavigation'),
-    lightMode: t('nav.lightMode'),
-    darkMode: t('nav.darkMode'),
-    collapse: t('nav.collapse'),
-    expand: t('nav.expand'),
     closeNavigation: t('nav.closeNavigation'),
-    locale: t('nav.languageSelect'),
+    profile: t('nav.profile'),
+    apiKeys: t('nav.apiKeys'),
+    settings: t('nav.settings'),
+    github: t('nav.github'),
+    contactSupport: t('common.contactSupport'),
+    restartTour: t('onboarding.restartTour'),
+    logout: t('nav.logout'),
   },
-  localeOptions: availableLocales.map(({ code, name }) => ({ value: code, label: name })),
-  currentLocale: locale.value,
-  isDark: isDark.value,
-  collapsed: sidebarCollapsed.value,
   mobileOpen: mobileOpen.value,
+  user: authStore.user,
+  isAdmin: isAdmin.value,
+  contactInfo: appStore.contactInfo,
+  showOnboardingButton: !authStore.isSimpleMode && authStore.user?.role === 'admin',
+  siteName: siteName.value,
+  siteLogo: siteLogo.value,
+  siteVersion: siteVersion.value,
   onNavigate: (path) => {
     handleMenuItemClick(path)
     void router.push(path)
   },
   onToggleGroup: toggleGroupPath,
-  onToggleTheme: toggleTheme,
-  onLocaleChange: (code) => { void setLocale(code) },
-  onToggleCollapse: toggleSidebar,
   onCloseMobile: closeMobile,
+  onLogout: handleLogout,
+  onReplayGuide: handleReplayGuide,
 }))
-
-function toggleSidebar() {
-  appStore.toggleSidebar()
-}
-
-function setTheme(theme: 'light' | 'dark') {
-  isDark.value = theme === 'dark'
-  document.documentElement.classList.toggle('dark', isDark.value)
-  localStorage.setItem('theme', theme)
-}
-
-function toggleTheme() {
-  setTheme(isDark.value ? 'light' : 'dark')
-}
 
 function closeMobile() {
   appStore.setMobileOpen(false)
+}
+
+async function handleLogout() {
+  try {
+    await authStore.logout()
+  } catch (error) {
+    console.error('Logout error:', error)
+  }
+  await router.push('/login')
+}
+
+function handleReplayGuide() {
+  onboardingStore.replay()
 }
 
 function handleMenuItemClick(itemPath: string) {
@@ -727,19 +550,6 @@ function handleMenuItemClick(itemPath: string) {
   }
 }
 
-function isActive(path: string): boolean {
-  return route.path === path || route.path.startsWith(path + '/')
-}
-
-function isGroupActive(item: NavItem): boolean {
-  if (!item.children) return false
-  return item.children.some(child => route.path === child.path)
-}
-
-function isGroupExpanded(item: NavItem): boolean {
-  return expandedGroups.value.has(item.path) || isGroupActive(item)
-}
-
 function toggleGroup(item: NavItem) {
   if (expandedGroups.value.has(item.path)) {
     expandedGroups.value.delete(item.path)
@@ -750,19 +560,11 @@ function toggleGroup(item: NavItem) {
 
 /**
  * Click handler for collapsible parent items.
- * - When sidebar is collapsed: navigate to the first child (quick access).
  * - When `expandOnly` is true: only toggle expand state.
  * - Otherwise (default, e.g. /admin/orders): navigate to the parent path
  *   (router-link semantics) and ensure the group is expanded.
  */
 function handleGroupClick(item: NavItem) {
-  if (sidebarCollapsed.value) {
-    // 收起状态下点击分组图标，导航到第一个子项
-    if (item.children?.length) {
-      router.push(item.children[0].path)
-    }
-    return
-  }
   if (item.expandOnly) {
     toggleGroup(item)
     return
@@ -774,16 +576,6 @@ function handleGroupClick(item: NavItem) {
   if (!expandedGroups.value.has(item.path)) {
     expandedGroups.value.add(item.path)
   }
-}
-
-// Initialize theme
-const savedTheme = localStorage.getItem('theme')
-if (
-  savedTheme === 'dark' ||
-  (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)
-) {
-  isDark.value = true
-  document.documentElement.classList.add('dark')
 }
 
 // Fetch admin settings (for feature-gated nav items like Ops).
@@ -803,188 +595,3 @@ onMounted(() => {
   }
 })
 </script>
-
-<style scoped>
-.lightbridge-brand-mark {
-  display: block !important;
-  box-sizing: border-box !important;
-  width: 28px !important;
-  min-width: 28px !important;
-  max-width: 28px !important;
-  height: 28px !important;
-  min-height: 28px !important;
-  max-height: 28px !important;
-  flex: 0 0 28px !important;
-  padding: 0 !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: #e42313 !important;
-  box-shadow: none !important;
-  opacity: 1 !important;
-  filter: none !important;
-  transform: none !important;
-  transition: none !important;
-}
-
-.sidebar-header-collapsed {
-  gap: 0;
-  padding-left: 1.125rem;
-  padding-right: 1.125rem;
-}
-
-.sidebar-brand {
-  min-width: 0;
-  flex: 1 1 auto;
-  white-space: nowrap;
-  transition:
-    max-width 0.22s ease,
-    opacity 0.14s ease,
-    transform 0.14s ease;
-  max-width: 12rem;
-}
-
-.sidebar-brand-collapsed {
-  max-width: 0;
-  overflow: hidden;
-  opacity: 0;
-  transform: translateX(-4px);
-  pointer-events: none;
-}
-
-.sidebar-brand-title {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sidebar-version-row {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  min-width: 0;
-}
-
-.sidebar-version-product {
-  color: rgb(107 114 128);
-  font-size: 0.75rem;
-  font-weight: 300;
-  line-height: 1rem;
-}
-
-.dark .sidebar-version-product {
-  color: rgb(156 163 175);
-}
-
-.sidebar-footer-controls {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.sidebar-footer-controls-collapsed {
-  grid-template-columns: 1fr;
-}
-
-.sidebar-footer-action {
-  justify-content: flex-start;
-  min-width: 0;
-}
-
-.sidebar-footer-label {
-  margin-left: 0.25rem;
-}
-
-.sidebar-link-collapsed {
-  gap: 0;
-  justify-content: center;
-  overflow: visible;
-  padding-left: 0;
-  padding-right: 0;
-}
-
-.sidebar-section-title {
-  position: relative;
-  display: flex;
-  align-items: center;
-  min-height: 1.25rem;
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-.sidebar-section-title-text {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition:
-    opacity 0.16s ease,
-    transform 0.16s ease;
-}
-
-.sidebar-section-title::after {
-  content: '';
-  position: absolute;
-  left: 0.75rem;
-  right: 0.75rem;
-  top: 50%;
-  height: 1px;
-  background: rgb(229 231 235);
-  opacity: 0;
-  transform: translateY(-50%);
-  transition: opacity 0.18s ease;
-}
-
-.dark .sidebar-section-title::after {
-  background: rgb(55 65 81);
-}
-
-.sidebar-section-title-text-collapsed {
-  opacity: 0;
-  transform: translateX(-4px);
-}
-
-.sidebar-section-title-collapsed::after {
-  opacity: 1;
-  transition-delay: 0.08s;
-}
-
-.sidebar-label {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition:
-    max-width 0.2s ease,
-    opacity 0.12s ease,
-    transform 0.12s ease;
-  max-width: 12rem;
-}
-
-.sidebar-label-flex {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.sidebar-label-collapsed {
-  max-width: 0;
-  opacity: 0;
-  transform: translateX(-4px);
-  pointer-events: none;
-}
-
-/* Custom SVG icon in sidebar: constrain size without overriding uploaded SVG colors */
-.sidebar-svg-icon {
-  color: currentColor;
-}
-
-.sidebar-svg-icon :deep(svg) {
-  display: block;
-  width: 1.25rem;
-  height: 1.25rem;
-}
-</style>

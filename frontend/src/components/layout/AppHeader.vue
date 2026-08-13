@@ -7,17 +7,14 @@
     <template #fallback>
       <header class="app-topbar sticky top-0 z-30">
     <div class="flex min-h-20 items-center justify-between px-4 md:px-6">
-      <!-- Left: Page Title -->
-      <div class="flex items-center gap-4">
-        <div class="app-topbar-heading min-w-0">
-          <h1 class="app-topbar-title text-gray-900 dark:text-white">
-            {{ pageTitle }}
-          </h1>
-          <p v-if="pageDescription" class="app-topbar-description text-gray-500 dark:text-dark-400">
-            {{ pageDescription }}
-          </p>
-        </div>
-      </div>
+      <!-- Left: Breadcrumb path -->
+      <nav class="flex min-w-0 flex-1 items-center gap-2 text-sm" :aria-label="pageTitle">
+        <router-link to="/admin/dashboard" class="truncate text-gray-500 transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-white">
+          {{ appStore.siteName }}
+        </router-link>
+        <span aria-hidden="true" class="text-gray-400">/</span>
+        <span class="truncate font-medium text-gray-900 dark:text-white">{{ pageTitle }}</span>
+      </nav>
 
       <!-- Right: Refresh + Dashboard Customize + Time Range + Announcements + Docs + Subscriptions + Balance + User Dropdown -->
       <div class="flex items-center gap-3">
@@ -88,7 +85,7 @@
         </div>
 
         <!-- User Dropdown -->
-        <div v-if="user" class="relative" ref="dropdownRef">
+        <div v-if="false" class="relative" ref="dropdownRef">
           <button
             type="button"
             @click="toggleDropdown"
@@ -111,7 +108,7 @@
                 {{ displayName }}
               </div>
               <div class="text-xs capitalize text-gray-500 dark:text-dark-400">
-                {{ user.role }}
+                {{ user?.role }}
               </div>
             </div>
             <Icon name="chevronDown" size="sm" class="hidden text-gray-400 md:block" />
@@ -130,7 +127,7 @@
                 <div class="text-sm font-medium text-gray-900 dark:text-white">
                   {{ displayName }}
                 </div>
-                <div class="text-xs text-gray-500 dark:text-dark-400">{{ user.email }}</div>
+                <div class="text-xs text-gray-500 dark:text-dark-400">{{ user?.email }}</div>
               </div>
 
               <!-- Balance (mobile only) -->
@@ -139,7 +136,7 @@
                   {{ t('common.balance') }}
                 </div>
                 <div class="text-sm font-semibold text-[hsl(var(--foreground))]">
-                  ${{ user.balance?.toFixed(2) || '0.00' }}
+                  ${{ user?.balance?.toFixed(2) || '0.00' }}
                 </div>
               </div>
 
@@ -379,6 +376,10 @@ function navigate(path: string) {
 const consoleHeaderProps = computed<ConsoleHeaderProps>(() => ({
   pageTitle: pageTitle.value,
   pageDescription: pageDescription.value,
+  breadcrumbs: [
+    { label: appStore.siteName || 'LightBridge', path: '/admin/dashboard' },
+    { label: pageTitle.value },
+  ],
   user: user.value,
   isAdmin: authStore.isAdmin,
   contactInfo: contactInfo.value,

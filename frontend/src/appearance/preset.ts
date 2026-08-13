@@ -6,6 +6,8 @@ import {
 } from 'shadcn/preset'
 import type { AppearanceCompatibility, AppearanceTokens, RuntimeAppearancePreview } from './types'
 
+export const DEFAULT_RUNTIME_APPEARANCE_PRESET_CODE = 'b7Br6guwa'
+
 const LIGHT_TOKENS: AppearanceTokens = {
   '--background': '0 0% 98%',
   '--foreground': '0 0% 9%',
@@ -164,11 +166,11 @@ export function decodeRuntimeAppearance(code: string): RuntimeAppearancePreview 
 }
 
 export function runtimeAppearanceFromSettings(code?: string | null): RuntimeAppearancePreview | null {
-  if (!code) return null
+  const resolvedCode = code?.trim() || DEFAULT_RUNTIME_APPEARANCE_PRESET_CODE
   try {
-    return decodeRuntimeAppearance(code)
+    return decodeRuntimeAppearance(resolvedCode)
   } catch (error) {
     console.warn('[appearance] ignored invalid runtime preset', error)
-    return null
+    return decodeRuntimeAppearance(DEFAULT_RUNTIME_APPEARANCE_PRESET_CODE)
   }
 }

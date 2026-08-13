@@ -20,7 +20,10 @@ import {
   resetRuntimeAppearance,
   updateRuntimeAppearance,
 } from '@/api/admin/appearance'
-import { decodeRuntimeAppearance } from '@/appearance/preset'
+import {
+  DEFAULT_RUNTIME_APPEARANCE_PRESET_CODE,
+  decodeRuntimeAppearance,
+} from '@/appearance/preset'
 import type { RuntimeAppearancePreview } from '@/appearance/types'
 import type { RuntimeAppearanceSettings } from '@/types'
 import type { AppearancePageProps } from '@/console/react/AppearancePage'
@@ -32,6 +35,14 @@ const preview = ref<RuntimeAppearancePreview | null>(null)
 const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
+
+function productDefaultAppearance(): RuntimeAppearanceSettings {
+  return {
+    version: 1,
+    source: 'shadcn-preset',
+    preset_code: DEFAULT_RUNTIME_APPEARANCE_PRESET_CODE,
+  }
+}
 
 const loadAppearancePage = () => import('@/console/react/AppearancePage')
 
@@ -48,9 +59,11 @@ function previewCode(code: string) {
 async function load() {
   loading.value = true
   try {
-    appearance.value = await getRuntimeAppearance()
-    if (appearance.value) previewCode(appearance.value.preset_code)
+    appearance.value = await getRuntimeAppearance() || productDefaultAppearance()
+    previewCode(appearance.value.preset_code)
   } catch (requestError) {
+    appearance.value = productDefaultAppearance()
+    previewCode(appearance.value.preset_code)
     error.value = extractApiErrorMessage(requestError, t('appearance.loadFailed'))
   } finally {
     loading.value = false
@@ -79,9 +92,9 @@ async function reset() {
   try {
     saving.value = true
     await resetRuntimeAppearance()
-    appearance.value = null
-    preview.value = null
-    appStore.patchPublicSettings({ ui_appearance: null })
+    appearance.value = productDefaultAppearance()
+    previewCode(appearance.value.preset_code)
+    appStore.patchPublicSettings({ ui_appearance: appearance.value })
     error.value = ''
     appStore.showSuccess(t('appearance.resetSuccess'))
   } catch (requestError) {

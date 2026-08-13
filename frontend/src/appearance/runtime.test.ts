@@ -11,10 +11,10 @@ describe('runtime appearance application', () => {
     expect(style?.textContent).toContain('--background: 0 0% 98%')
   })
 
-  it('removes the runtime override when reset', () => {
+  it('applies the product preset when reset', () => {
     applyRuntimeAppearance(null)
 
-    expect(document.documentElement.dataset.uiAppearance).toBeUndefined()
-    expect(document.getElementById('lightbridge-runtime-appearance')).toBeNull()
+    expect(document.documentElement.dataset.uiAppearance).toBe('b7Br6guwa')
+    expect(document.getElementById('lightbridge-runtime-appearance')).not.toBeNull()
   })
 })

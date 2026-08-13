@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { encodePreset } from 'shadcn/preset'
-import { decodeRuntimeAppearance, runtimeAppearanceFromSettings } from './preset'
+import {
+  DEFAULT_RUNTIME_APPEARANCE_PRESET_CODE,
+  decodeRuntimeAppearance,
+  runtimeAppearanceFromSettings,
+} from './preset'
 
 describe('runtime appearance preset', () => {
   it('decodes the official default preset into project-owned tokens', () => {
@@ -13,7 +17,11 @@ describe('runtime appearance preset', () => {
 
   it('fails closed for malformed or unsupported codes', () => {
     expect(() => decodeRuntimeAppearance('not-a-preset')).toThrow()
-    expect(runtimeAppearanceFromSettings('not-a-preset')).toBeNull()
+    expect(runtimeAppearanceFromSettings('not-a-preset')?.code).toBe(DEFAULT_RUNTIME_APPEARANCE_PRESET_CODE)
+  })
+
+  it('uses the product preset when no installation override exists', () => {
+    expect(runtimeAppearanceFromSettings(null)?.code).toBe(DEFAULT_RUNTIME_APPEARANCE_PRESET_CODE)
   })
 
   it('maps current shadcn mist, medium, and non-neutral theme values safely', () => {

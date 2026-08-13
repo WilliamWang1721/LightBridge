@@ -5,8 +5,15 @@ export default {
   theme: {
     extend: {
       colors: {
+        border: 'hsl(var(--border))',
+        input: 'hsl(var(--input))',
+        ring: 'hsl(var(--ring))',
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
         // 主色调 - Teal/Cyan 青色系
         primary: {
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))',
           50: '#f0fdfa',
           100: '#ccfbf1',
           200: '#99f6e4',
@@ -21,6 +28,8 @@ export default {
         },
         // 辅助色 - 深蓝灰
         accent: {
+          DEFAULT: 'hsl(var(--accent))',
+          foreground: 'hsl(var(--accent-foreground))',
           50: '#f8fafc',
           100: '#f1f5f9',
           200: '#e2e8f0',
@@ -32,6 +41,26 @@ export default {
           800: '#1e293b',
           900: '#0f172a',
           950: '#020617'
+        },
+        secondary: {
+          DEFAULT: 'hsl(var(--secondary))',
+          foreground: 'hsl(var(--secondary-foreground))'
+        },
+        destructive: {
+          DEFAULT: 'hsl(var(--destructive))',
+          foreground: 'hsl(var(--destructive-foreground))'
+        },
+        muted: {
+          DEFAULT: 'hsl(var(--muted))',
+          foreground: 'hsl(var(--muted-foreground))'
+        },
+        popover: {
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))'
+        },
+        card: {
+          DEFAULT: 'hsl(var(--card))',
+          foreground: 'hsl(var(--card-foreground))'
         },
         // 深色模式背景
         dark: {
@@ -46,6 +75,16 @@ export default {
           800: '#1e293b',
           900: '#0f172a',
           950: '#020617'
+        },
+        sidebar: {
+          DEFAULT: 'hsl(var(--sidebar-background))',
+          foreground: 'hsl(var(--sidebar-foreground))',
+          primary: 'hsl(var(--sidebar-primary))',
+          'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
+          accent: 'hsl(var(--sidebar-accent))',
+          'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
+          border: 'hsl(var(--sidebar-border))',
+          ring: 'hsl(var(--sidebar-ring))'
         }
       },
       fontFamily: {
@@ -131,6 +170,9 @@ export default {
         xs: '2px'
       },
       borderRadius: {
+        lg: 'var(--ui-radius)',
+        md: 'calc(var(--ui-radius) - 2px)',
+        sm: 'calc(var(--ui-radius) - 4px)',
         '4xl': '2rem'
       }
     }

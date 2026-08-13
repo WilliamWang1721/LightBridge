@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import type { AdminGroup } from '@/types'
 import type { SubscriptionPlan } from '@/types/payment'
 import { createShadcnElement as h } from './ui/createElement'
+import { AppIcon } from './ui/app-icon'
 import { Button as ShadcnButton, Dialog as ShadcnDialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, Switch as ShadcnSwitch } from './ui'
 
 export interface PaymentPlanForm {
@@ -78,13 +79,7 @@ export interface PaymentPlansPageProps {
 }
 
 function Icon({ name }: { name: 'refresh' | 'edit' | 'trash' | 'x' }): ReactNode {
-  const paths = {
-    refresh: 'M20.25 12a8.25 8.25 0 1 1-2.42-5.83M20.25 4.5v5.25H15',
-    edit: 'm16.86 3.87 3.27 3.27M4.5 19.5l.7-3.53L16.86 4.3a2.31 2.31 0 0 1 3.27 3.27L8.47 19.23 4.5 19.5Z',
-    trash: 'm5.25 7.5.75 12.75h12L18.75 7.5M3.75 7.5h16.5M9 4.5h6l1.5 3H7.5l1.5-3Z',
-    x: 'm6.75 6.75 10.5 10.5m0-10.5-10.5 10.5',
-  }[name]
-  return h('svg', { className: 'h-4 w-4', fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true' }, h('path', { d: paths }))
+  return h(AppIcon, { name })
 }
 
 function Button({ children, className = '', ...props }: { children?: ReactNode; className?: string; type?: 'button' | 'submit'; disabled?: boolean; onClick?: () => void; title?: string }) {

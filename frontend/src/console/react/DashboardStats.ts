@@ -1,7 +1,6 @@
 import { type ReactNode } from 'react'
-import { sanitizeSvg } from '@/utils/sanitize'
-import { sidebarIconSvgs } from '@/console/sidebar/icons'
 import { createShadcnElement as h } from './ui/createElement'
+import { AppIcon } from './ui/app-icon'
 
 export interface DashboardStatCardData {
   key: string
@@ -19,22 +18,11 @@ export interface DashboardStatsPageProps {
   cards: readonly DashboardStatCardData[]
 }
 
-type DashboardStatIcon = 'key' | 'server' | 'chart' | 'userPlus' | 'cube' | 'database' | 'bolt' | 'clock'
-
-const iconSvgs: Record<DashboardStatIcon, string> = {
-  key: sidebarIconSvgs.key,
-  server: sidebarIconSvgs.server,
-  chart: sidebarIconSvgs.chart,
-  userPlus: sidebarIconSvgs.user,
-  cube: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 8.25 4.5v9L12 21l-8.25-4.5v-9L12 3Z"/><path d="m3.75 7.5 8.25 4.5 8.25-4.5M12 12v9"/></svg>',
-  database: sidebarIconSvgs.database,
-  bolt: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m13.5 2.25-9 11.25h6.75l-.75 8.25 9-11.25h-6.75l.75-8.25Z"/></svg>',
-  clock: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.75"/><path d="M12 7.5v5.25l3.75 2.25"/></svg>',
-}
+type DashboardStatIcon = 'key' | 'chart' | 'userPlus' | 'cube' | 'database' | 'bolt' | 'clock'
 
 const iconByKey: Record<string, DashboardStatIcon> = {
   apiKeys: 'key',
-  accounts: 'server',
+  accounts: 'database',
   todayRequests: 'chart',
   users: 'userPlus',
   todayTokens: 'cube',
@@ -44,11 +32,7 @@ const iconByKey: Record<string, DashboardStatIcon> = {
 }
 
 function Icon({ name }: { name: DashboardStatIcon }): ReactNode {
-  return h('span', {
-    className: 'h-5 w-5 shrink-0 [&>svg]:h-full [&>svg]:w-full',
-    'aria-hidden': 'true',
-    dangerouslySetInnerHTML: { __html: sanitizeSvg(iconSvgs[name]) },
-  })
+  return h(AppIcon, { name, className: 'h-5 w-5 shrink-0' })
 }
 
 function StatCard({ card }: { card: DashboardStatCardData }): ReactNode {

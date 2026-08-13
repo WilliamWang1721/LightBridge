@@ -31,7 +31,6 @@ Manages global UI state including sidebar, loading indicators, and toast notific
 
 **State:**
 
-- `sidebarCollapsed: boolean` - Sidebar collapsed state
 - `loading: boolean` - Global loading state
 - `toasts: Toast[]` - Active toast notifications
 
@@ -41,8 +40,6 @@ Manages global UI state including sidebar, loading indicators, and toast notific
 
 **Actions:**
 
-- `toggleSidebar()` - Toggle sidebar state
-- `setSidebarCollapsed(collapsed)` - Set sidebar state explicitly
 - `setLoading(isLoading)` - Set loading state
 - `showToast(type, message, duration?)` - Show toast notification
 - `showSuccess(message, duration?)` - Show success toast
@@ -92,10 +89,6 @@ import { useAppStore } from '@/stores'
 
 // In component setup
 const appStore = useAppStore()
-
-// Sidebar control
-appStore.toggleSidebar()
-appStore.setSidebarCollapsed(true)
 
 // Loading state
 appStore.setLoading(true)
@@ -154,8 +147,6 @@ async function handleLogout() {
 
 <template>
   <div>
-    <button @click="appStore.toggleSidebar">Toggle Sidebar</button>
-
     <div v-if="appStore.loading">Loading...</div>
 
     <div v-if="authStore.isAuthenticated">

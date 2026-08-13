@@ -17,6 +17,10 @@ export default {
       uiThemes: {
         title: 'UI Themes',
         description: 'Install, configure, and activate custom CSS, menu modules, and page sections.',
+        preferencesTitle: 'Display preferences',
+        preferencesDescription: 'Adjust the console color mode and interface language.',
+        colorMode: 'Color mode',
+        language: 'Interface language',
         githubUrl: 'GitHub repository URL',
         zipUpload: 'ZIP upload',
         import: 'Import',

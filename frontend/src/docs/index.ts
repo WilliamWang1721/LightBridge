@@ -10,6 +10,7 @@ import release0260 from './content/release-0.2.60.md?raw'
 import release030Preview from './content/release-0.3.0-preview.md?raw'
 import release034 from './content/release-0.3.4.md?raw'
 import release0364 from './content/release-0.3.64.md?raw'
+import release037 from './content/release-0.3.7.md?raw'
 import opsPublicPages from './content/ops-public-pages.md?raw'
 import opsUserCenter from './content/ops-user-center.md?raw'
 import opsUserPayment from './content/ops-user-payment.md?raw'
@@ -121,6 +122,13 @@ export const lightBridgeDocs: LightBridgeDoc[] = [
     group: '操作文档',
     description: '订阅管理、公告管理、兑换码管理、优惠码管理、风控管理功能说明',
     content: opsAdminDistribution,
+  },
+  {
+    id: 'release-0.3.7',
+    title: '0.3.7 版本更新',
+    group: '版本更新',
+    description: '控制台侧栏与仪表盘升级为 shadcn 风格，并支持运行时外观预设',
+    content: release037,
   },
   {
     id: 'release-0.3.64',

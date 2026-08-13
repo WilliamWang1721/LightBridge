@@ -13,16 +13,16 @@ export type SettingsTab =
   | "backup";
 
 export const SETTINGS_TABS = [
-  { key: "general", icon: "home" },
-  { key: "agreement", icon: "document" },
-  { key: "themes", icon: "sparkles" },
-  { key: "security", icon: "shield" },
-  { key: "users", icon: "user" },
-  { key: "gateway", icon: "server" },
-  { key: "payment", icon: "creditCard" },
-  { key: "email", icon: "mail" },
-  { key: "backup", icon: "database" },
-] as const satisfies ReadonlyArray<{ key: SettingsTab; icon: string }>;
+  { key: "general" },
+  { key: "agreement" },
+  { key: "themes" },
+  { key: "security" },
+  { key: "users" },
+  { key: "gateway" },
+  { key: "payment" },
+  { key: "email" },
+  { key: "backup" },
+] as const satisfies ReadonlyArray<{ key: SettingsTab }>;
 
 const SETTINGS_TAB_KEYBOARD_ACTIONS = {
   ArrowLeft: -1,

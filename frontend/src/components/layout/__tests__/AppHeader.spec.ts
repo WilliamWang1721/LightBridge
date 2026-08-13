@@ -23,6 +23,7 @@ describe('AppHeader shell integration', () => {
     expect(topbarStyle).toContain('width: 100%;')
     expect(topbarStyle).toContain('margin: 0 !important;')
     expect(topbarStyle).toContain('border-radius: 0 !important;')
+    expect(topbarStyle).toContain('background: var(--lb-bg-page) !important;')
     expect(topbarStyle).toContain('box-shadow: none !important;')
     expect(topbarStyle).toContain('backdrop-filter: none !important;')
   })

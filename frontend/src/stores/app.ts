@@ -19,7 +19,6 @@ import { getPublicSettings as fetchPublicSettingsAPI } from '@/api/auth'
 export const useAppStore = defineStore('app', () => {
   // ==================== State ====================
 
-  const sidebarCollapsed = ref<boolean>(false)
   const mobileOpen = ref<boolean>(false)
   const loading = ref<boolean>(false)
   const toasts = ref<Toast[]>([])
@@ -59,21 +58,6 @@ export const useAppStore = defineStore('app', () => {
   const loadingCount = ref<number>(0)
 
   // ==================== Actions ====================
-
-  /**
-   * Toggle sidebar collapsed state
-   */
-  function toggleSidebar(): void {
-    sidebarCollapsed.value = !sidebarCollapsed.value
-  }
-
-  /**
-   * Set sidebar collapsed state explicitly
-   * @param collapsed - Whether sidebar should be collapsed
-   */
-  function setSidebarCollapsed(collapsed: boolean): void {
-    sidebarCollapsed.value = collapsed
-  }
 
   /**
    * Toggle mobile sidebar open state
@@ -232,7 +216,6 @@ export const useAppStore = defineStore('app', () => {
    * Useful for cleanup or testing
    */
   function reset(): void {
-    sidebarCollapsed.value = false
     loading.value = false
     loadingCount.value = 0
     toasts.value = []
@@ -447,7 +430,6 @@ export const useAppStore = defineStore('app', () => {
 
   return {
     // State
-    sidebarCollapsed,
     mobileOpen,
     loading,
     toasts,
@@ -477,8 +459,6 @@ export const useAppStore = defineStore('app', () => {
     backendModeEnabled,
 
     // Actions
-    toggleSidebar,
-    setSidebarCollapsed,
     toggleMobileSidebar,
     setMobileOpen,
     setLoading,

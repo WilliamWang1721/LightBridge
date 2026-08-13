@@ -3,166 +3,11 @@
     @refresh="loadDashboardStats"
     @customize-dashboard="showCustomizePanel = true"
   >
-    <div class="min-w-0 space-y-5 pb-4 md:space-y-6">
-      <!-- Loading State -->
-      <div v-if="loading" class="flex items-center justify-center py-12">
-        <LoadingSpinner />
-      </div>
-
-      <template v-else-if="stats">
-        <!-- Small Panels -->
-        <ReactPageHost
-          v-if="enabledSmallPanels.length > 0"
-          :load="loadDashboardStatsPage"
-          :props="dashboardStatsPageProps"
-          :error-message="t('common.error')"
-        >
-          <template #fallback>
-            <div class="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <DashboardStatCard
-            v-if="isSmallPanelEnabled('apiKeys')"
-            icon="key"
-            :label="t('admin.dashboard.apiKeys')"
-            :value="stats.total_api_keys"
-            :hint="`${stats.active_api_keys} ${t('common.active')}`"
-            :style="smallPanelOrderStyle('apiKeys')"
-          />
-          <DashboardStatCard
-            v-if="isSmallPanelEnabled('accounts')"
-            icon="server"
-            :label="t('admin.dashboard.accounts')"
-            :value="stats.total_accounts"
-            :style="smallPanelOrderStyle('accounts')"
-          >
-            <template #meta>
-              <p class="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
-                {{ stats.normal_accounts }} {{ t('common.active') }}
-                <span v-if="stats.error_accounts > 0" class="ml-1 text-red-600 dark:text-red-400">
-                  {{ stats.error_accounts }} {{ t('common.error') }}
-                </span>
-              </p>
-            </template>
-          </DashboardStatCard>
-          <DashboardStatCard
-            v-if="isSmallPanelEnabled('todayRequests')"
-            icon="chart"
-            :label="t('admin.dashboard.todayRequests')"
-            :value="stats.today_requests"
-            :hint="`${t('common.total')}: ${formatNumber(stats.total_requests)}`"
-            :style="smallPanelOrderStyle('todayRequests')"
-          />
-          <DashboardStatCard
-            v-if="isSmallPanelEnabled('users')"
-            icon="userPlus"
-            :label="t('admin.dashboard.users')"
-            :value="`+${stats.today_new_users}`"
-            :hint="`${t('common.total')}: ${formatNumber(stats.total_users)}`"
-            :style="smallPanelOrderStyle('users')"
-          />
-          <DashboardStatCard
-            v-if="isSmallPanelEnabled('todayTokens')"
-            icon="cube"
-            :label="t('admin.dashboard.todayTokens')"
-            :value="formatTokens(stats.today_tokens)"
-            :style="smallPanelOrderStyle('todayTokens')"
-          >
-            <template #meta>
-              <p class="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
-                ${{ formatCost(stats.today_actual_cost) }} / ${{ formatCost(stats.today_account_cost) }} / ${{ formatCost(stats.today_cost) }}
-              </p>
-            </template>
-          </DashboardStatCard>
-          <DashboardStatCard
-            v-if="isSmallPanelEnabled('totalTokens')"
-            icon="database"
-            :label="t('admin.dashboard.totalTokens')"
-            :value="formatTokens(stats.total_tokens)"
-            :style="smallPanelOrderStyle('totalTokens')"
-          >
-            <template #meta>
-              <p class="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
-                ${{ formatCost(stats.total_actual_cost) }} / ${{ formatCost(stats.total_account_cost) }} / ${{ formatCost(stats.total_cost) }}
-              </p>
-            </template>
-          </DashboardStatCard>
-          <DashboardStatCard
-            v-if="isSmallPanelEnabled('performance')"
-            icon="bolt"
-            :label="t('admin.dashboard.performance')"
-            :value="`${formatTokens(stats.rpm)} RPM`"
-            :hint="`${formatTokens(stats.tpm)} TPM`"
-            :style="smallPanelOrderStyle('performance')"
-          />
-          <DashboardStatCard
-            v-if="isSmallPanelEnabled('avgResponse')"
-            icon="clock"
-            :label="t('admin.dashboard.avgResponse')"
-            :value="formatDuration(stats.average_duration_ms)"
-            :hint="`${stats.active_users} ${t('admin.dashboard.activeUsers')}`"
-            :style="smallPanelOrderStyle('avgResponse')"
-          />
-            </div>
-          </template>
-        </ReactPageHost>
-
-        <!-- Large Panels -->
-        <div v-if="enabledLargePanels.length > 0" class="flex min-w-0 flex-col gap-5 md:gap-6">
-          <template v-for="panel in enabledLargePanels" :key="panel.key">
-            <!-- Charts Grid -->
-            <div v-if="panel.key === 'usageCharts'" class="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-2">
-              <ReactPageHost
-                :load="loadModelDistributionPage"
-                :props="modelDistributionPageProps"
-              >
-                <template #fallback>
-                  <ModelDistributionChart
-                    :model-stats="modelStats"
-                    :enable-ranking-view="true"
-                    :ranking-items="rankingItems"
-                    :ranking-total-actual-cost="rankingTotalActualCost"
-                    :ranking-total-requests="rankingTotalRequests"
-                    :ranking-total-tokens="rankingTotalTokens"
-                    :loading="chartsLoading"
-                    :ranking-loading="rankingLoading"
-                    :ranking-error="rankingError"
-                    :start-date="startDate"
-                    :end-date="endDate"
-                    @ranking-click="goToUserUsage"
-                  />
-                </template>
-              </ReactPageHost>
-              <ReactPageHost
-                :load="loadTokenUsageTrendPage"
-                :props="tokenUsageTrendPageProps"
-              >
-                <template #fallback>
-                  <TokenUsageTrend :trend-data="trendData" :loading="chartsLoading" />
-                </template>
-              </ReactPageHost>
-            </div>
-
-            <!-- User Usage Trend (Full Width) -->
-            <Card v-else-if="panel.key === 'userTrend'" class="p-4">
-              <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
-                {{ t('admin.dashboard.recentUsage') }} (Top 12)
-              </h3>
-              <div class="h-64">
-                <div v-if="userTrendLoading" class="flex h-full items-center justify-center">
-                  <LoadingSpinner size="md" />
-                </div>
-                <Line v-else-if="userTrendChartData" :data="userTrendChartData" :options="lineOptions" />
-                <div
-                  v-else
-                  class="flex h-full items-center justify-center text-sm text-gray-500 dark:text-gray-400"
-                >
-                  {{ t('admin.dashboard.noDataAvailable') }}
-                </div>
-              </div>
-            </Card>
-          </template>
-        </div>
-      </template>
-    </div>
+    <ReactPageHost
+      :load="loadDashboardPage"
+      :props="dashboardPageProps"
+      :error-message="t('common.error')"
+    />
     <DashboardCustomizePanel
       v-model:enabled-small-keys="enabledSmallPanelKeys"
       v-model:enabled-large-keys="enabledLargePanelKeys"
@@ -177,7 +22,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, markRaw, onMounted, watch, type CSSProperties } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
@@ -192,38 +37,11 @@ import type {
   UserSpendingRankingItem
 } from '@/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
-import DashboardStatCard from '@/components/admin/dashboard/DashboardStatCard.vue'
-import { Card } from '@/components/ui/card'
 import ReactPageHost from '@/console/ReactPageHost.vue'
 import type { DashboardStatsPageProps } from '@/console/react/DashboardStats'
 import type { ModelDistributionPageProps } from '@/console/react/ModelDistribution'
-import ModelDistributionChart from '@/components/charts/ModelDistributionChart.vue'
-import TokenUsageTrend from '@/components/charts/TokenUsageTrend.vue'
+import type { DashboardPageProps } from '@/console/react/DashboardPage'
 import DashboardCustomizePanel from '@/components/admin/dashboard/DashboardCustomizePanel.vue'
-
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Tooltip,
-  Legend,
-  Filler
-} from 'chart.js'
-import { Line } from 'vue-chartjs'
-
-// Register Chart.js components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Tooltip,
-  Legend,
-  Filler
-)
 
 const appStore = useAppStore()
 const router = useRouter()
@@ -285,9 +103,7 @@ const initialDashboardLayout = loadDashboardLayout()
 const enabledSmallPanelKeys = ref<string[]>(initialDashboardLayout.small)
 const enabledLargePanelKeys = ref<string[]>(initialDashboardLayout.large)
 const showCustomizePanel = ref(false)
-const enabledSmallPanelSet = computed(() => new Set(enabledSmallPanelKeys.value))
 const enabledSmallPanels = computed(() => panelsForKeys(enabledSmallPanelKeys.value, dashboardSmallPanels))
-const enabledLargePanels = computed(() => panelsForKeys(enabledLargePanelKeys.value, dashboardLargePanels))
 
 // Date range
 // 时间范围 / 颗粒度由顶部菜单栏的全局 store 驱动
@@ -385,149 +201,6 @@ function resetDashboardLayout() {
   enabledLargePanelKeys.value = [...defaultDashboardLayout.large]
 }
 
-function isSmallPanelEnabled(key: string): boolean {
-  return enabledSmallPanelSet.value.has(key)
-}
-
-function smallPanelOrderStyle(key: string): CSSProperties {
-  const order = enabledSmallPanelKeys.value.indexOf(key)
-  return { order: order < 0 ? 0 : order }
-}
-
-// Dark mode detection
-const isDarkMode = computed(() => {
-  return document.documentElement.classList.contains('dark')
-})
-
-// Chart colors
-const chartColors = computed(() => ({
-  text: isDarkMode.value ? '#e5e7eb' : '#374151',
-  grid: isDarkMode.value ? '#374151' : '#e5e7eb'
-}))
-
-// Line chart options (for user trend chart)
-const lineOptions = computed(() => markRaw({
-  responsive: true,
-  maintainAspectRatio: false,
-  interaction: {
-    intersect: false,
-    mode: 'index' as const
-  },
-  plugins: {
-    legend: {
-      position: 'top' as const,
-      labels: {
-        color: chartColors.value.text,
-        usePointStyle: true,
-        pointStyle: 'circle',
-        padding: 15,
-        font: {
-          size: 11
-        }
-      }
-    },
-    tooltip: {
-      itemSort: (a: any, b: any) => {
-        const aValue = typeof a?.raw === 'number' ? a.raw : Number(a?.parsed?.y ?? 0)
-        const bValue = typeof b?.raw === 'number' ? b.raw : Number(b?.parsed?.y ?? 0)
-        return bValue - aValue
-      },
-      callbacks: {
-        label: (context: any) => {
-          return `${context.dataset.label}: ${formatTokens(context.raw)}`
-        }
-      }
-    }
-  },
-  scales: {
-    x: {
-      grid: {
-        color: chartColors.value.grid
-      },
-      ticks: {
-        color: chartColors.value.text,
-        font: {
-          size: 10
-        }
-      }
-    },
-    y: {
-      grid: {
-        color: chartColors.value.grid
-      },
-      ticks: {
-        color: chartColors.value.text,
-        font: {
-          size: 10
-        },
-        callback: (value: string | number) => formatTokens(Number(value))
-      }
-    }
-  }
-}))
-
-// User trend chart data
-const userTrendChartData = computed(() => {
-  if (!userTrend.value?.length) return null
-
-  const getDisplayName = (point: UserUsageTrendPoint): string => {
-    const username = point.username?.trim()
-    if (username) {
-      return username
-    }
-
-    const email = point.email?.trim()
-    if (email) {
-      return email
-    }
-
-    return t('admin.redeem.userPrefix', { id: point.user_id })
-  }
-
-  // Group by user_id to avoid merging different users with the same display name
-  const userGroups = new Map<number, { name: string; data: Map<string, number> }>()
-  const allDates = new Set<string>()
-
-  userTrend.value.forEach((point) => {
-    allDates.add(point.date)
-    const key = point.user_id
-    if (!userGroups.has(key)) {
-      userGroups.set(key, { name: getDisplayName(point), data: new Map() })
-    }
-    userGroups.get(key)!.data.set(point.date, point.tokens)
-  })
-
-  const sortedDates = Array.from(allDates).sort()
-  const colors = [
-    '#171717',
-    '#404040',
-    '#525252',
-    '#737373',
-    '#a3a3a3',
-    '#d4d4d4',
-    '#262626',
-    '#666666',
-    '#8a8a8a',
-    '#b5b5b5',
-    '#333333',
-    '#e5e5e5'
-  ]
-
-  const datasets = Array.from(userGroups.values()).map((group, idx) => ({
-    label: group.name,
-    data: sortedDates.map((date) => group.data.get(date) || 0),
-    borderColor: colors[idx % colors.length],
-    backgroundColor: `${colors[idx % colors.length]}20`,
-    fill: false,
-    tension: 0.3
-  }))
-
-  return markRaw({
-    labels: sortedDates,
-    datasets
-  })
-})
-
 // Format helpers
 const formatTokens = (value: number | undefined): string => {
   if (value === undefined || value === null) return '0'
@@ -564,13 +237,20 @@ const formatDuration = (ms: number): string => {
   return `${Math.round(ms)}ms`
 }
 
-const loadDashboardStatsPage = () => import('@/console/react/DashboardStats')
-const loadModelDistributionPage = () => import('@/console/react/ModelDistribution')
-const loadTokenUsageTrendPage = () => import('@/console/react/TokenUsageTrend')
+const loadDashboardPage = () => import('@/console/react/DashboardPage')
 
 const dashboardStatsPageProps = computed<DashboardStatsPageProps>(() => {
   const current = stats.value
-  if (!current) return { cards: [] }
+  if (!current) {
+    return {
+      cards: enabledSmallPanels.value.map((panel, order) => ({
+        key: panel.key,
+        label: t(panel.labelKey),
+        value: '—',
+        order
+      }))
+    }
+  }
 
   const cards: DashboardStatsPageProps['cards'][number][] = []
   for (const panel of enabledSmallPanels.value) {
@@ -664,6 +344,23 @@ const modelDistributionPageProps = computed<ModelDistributionPageProps>(() => ({
     userPrefix: (id: number) => t('admin.redeem.userPrefix', { id }),
   },
   onRankingClick: goToUserUsage,
+}))
+
+const dashboardPageProps = computed<DashboardPageProps>(() => ({
+  loading: loading.value,
+  cards: dashboardStatsPageProps.value.cards,
+  modelDistribution: modelDistributionPageProps.value,
+  tokenUsageTrend: tokenUsageTrendPageProps.value,
+  userTrend: userTrend.value,
+  userTrendLoading: userTrendLoading.value,
+  labels: {
+    recentUsage: t('admin.dashboard.recentUsage'),
+    userUsageTrend: t('admin.dashboard.userUsageTrend'),
+    requests: t('admin.dashboard.requests'),
+    tokens: t('admin.dashboard.tokens'),
+    noData: t('admin.dashboard.noDataAvailable'),
+    userPrefix: (id: number) => t('admin.redeem.userPrefix', { id }),
+  },
 }))
 
 // Load data

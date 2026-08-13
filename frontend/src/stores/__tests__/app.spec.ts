@@ -6,6 +6,12 @@ import { getPublicSettings } from '@/api/auth'
 // Mock API 模块
 vi.mock('@/api/admin/system', () => ({
   checkUpdates: vi.fn(),
+  unavailableUpdateCapabilities: {
+    deployment_type: 'unknown',
+    can_in_place_update: false,
+    can_rollback: false,
+    can_restart: false,
+  },
 }))
 
 vi.mock('@/api/auth', () => ({
@@ -183,30 +189,9 @@ describe('useAppStore', () => {
     })
   })
 
-  // --- 侧边栏 ---
+  // --- 移动端侧边栏 ---
 
-  describe('侧边栏管理', () => {
-    it('toggleSidebar 切换折叠状态', () => {
-      const store = useAppStore()
-      expect(store.sidebarCollapsed).toBe(false)
-
-      store.toggleSidebar()
-      expect(store.sidebarCollapsed).toBe(true)
-
-      store.toggleSidebar()
-      expect(store.sidebarCollapsed).toBe(false)
-    })
-
-    it('setSidebarCollapsed 直接设置状态', () => {
-      const store = useAppStore()
-
-      store.setSidebarCollapsed(true)
-      expect(store.sidebarCollapsed).toBe(true)
-
-      store.setSidebarCollapsed(false)
-      expect(store.sidebarCollapsed).toBe(false)
-    })
-
+  describe('移动端侧边栏管理', () => {
     it('toggleMobileSidebar 切换移动端状态', () => {
       const store = useAppStore()
       expect(store.mobileOpen).toBe(false)
@@ -297,13 +282,11 @@ describe('useAppStore', () => {
     it('重置所有 UI 状态', () => {
       const store = useAppStore()
 
-      store.setSidebarCollapsed(true)
       store.setLoading(true)
       store.showSuccess('消息')
 
       store.reset()
 
-      expect(store.sidebarCollapsed).toBe(false)
       expect(store.loading).toBe(false)
       expect(store.toasts).toHaveLength(0)
     })

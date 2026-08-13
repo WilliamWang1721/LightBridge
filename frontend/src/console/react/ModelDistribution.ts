@@ -2,6 +2,9 @@ import { useRef, useState, type ReactNode } from 'react'
 import { getUserBreakdown } from '@/api/admin/dashboard'
 import type { ModelStat, UserBreakdownItem, UserSpendingRankingItem } from '@/types'
 import { createShadcnElement as h } from './ui/createElement'
+import { Button } from './ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
+import { AppIcon } from './ui/app-icon'
 
 export interface ModelDistributionLabels {
   modelDistribution: string
@@ -81,18 +84,7 @@ function Spinner(): ReactNode {
 }
 
 function Chevron({ expanded }: { expanded: boolean }): ReactNode {
-  return h('svg', {
-    className: 'h-3 w-3 shrink-0',
-    fill: 'none',
-    stroke: 'currentColor',
-    viewBox: '0 0 24 24',
-    'aria-hidden': 'true',
-  }, h('path', {
-    d: expanded ? 'M19 9l-7 7-7-7' : 'M9 5l7 7-7 7',
-    strokeLinecap: 'round',
-    strokeLinejoin: 'round',
-    strokeWidth: 2,
-  }))
+  return h(AppIcon, { name: expanded ? 'chevronDown' : 'chevronRight', className: 'h-3 w-3 shrink-0' })
 }
 
 interface DonutItem {
@@ -164,26 +156,6 @@ function UserBreakdown({ items, loading, labels }: {
     h('td', { key: 'account', className: 'py-1 text-right text-[hsl(var(--muted-foreground))]' }, `$${formatCost(user.account_cost)}`),
     h('td', { key: 'standard', className: 'py-1 pr-1 text-right text-[hsl(var(--muted-foreground)/0.7)]' }, `$${formatCost(user.cost)}`),
   ])))))
-}
-
-function SwitchButton({ active, disabled, onClick, children }: {
-  active: boolean
-  disabled: boolean
-  onClick: () => void
-  children?: string
-}): ReactNode {
-  return h('button', {
-    type: 'button',
-    className: [
-      'rounded-md px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]',
-      active
-        ? 'bg-[hsl(var(--foreground))] text-[hsl(var(--background))]'
-        : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]',
-    ].join(' '),
-    'aria-pressed': active,
-    disabled,
-    onClick,
-  }, children)
 }
 
 export default function ModelDistribution({
@@ -349,24 +321,30 @@ export default function ModelDistribution({
     ])
   }
 
-  return h('section', { className: 'card min-w-0 overflow-hidden p-4' }, [
-    h('div', { key: 'header', className: 'mb-4 flex flex-wrap items-center justify-between gap-3' }, [
-      h('h3', { key: 'title', className: 'text-sm font-semibold text-[hsl(var(--foreground))]' }, title),
+  return h(Card, { className: '@container/card min-w-0 overflow-hidden' }, [
+    h(CardHeader, { key: 'header', className: 'flex-row items-center justify-between gap-3 space-y-0 pb-4' }, [
+      h(CardTitle, { key: 'title', className: 'text-base' }, title),
       h('div', { key: 'switches', className: 'inline-flex rounded-lg bg-[hsl(var(--muted))] p-1' }, [
-        h(SwitchButton, {
+        h(Button, {
           key: 'model',
-          active: activeView === 'model_distribution',
+          variant: activeView === 'model_distribution' ? 'default' : 'ghost',
+          size: 'sm',
+          className: 'h-7 px-2.5 text-xs',
+          'aria-pressed': activeView === 'model_distribution',
           disabled: loading || rankingLoading,
           onClick: () => setActiveView('model_distribution'),
         }, labels.viewModelDistribution),
-        h(SwitchButton, {
+        h(Button, {
           key: 'ranking',
-          active: activeView === 'spending_ranking',
+          variant: activeView === 'spending_ranking' ? 'default' : 'ghost',
+          size: 'sm',
+          className: 'h-7 px-2.5 text-xs',
+          'aria-pressed': activeView === 'spending_ranking',
           disabled: loading || rankingLoading,
           onClick: () => setActiveView('spending_ranking'),
         }, labels.viewSpendingRanking),
       ]),
     ]),
-    h('div', { key: 'content' }, activeView === 'model_distribution' ? modelContent : rankingContent),
+    h(CardContent, { key: 'content', className: 'pt-0' }, activeView === 'model_distribution' ? modelContent : rankingContent),
   ])
 }

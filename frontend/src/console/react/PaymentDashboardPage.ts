@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react'
 import type { DashboardStats } from '@/types/payment'
 import { createShadcnElement as h } from './ui/createElement'
+import { AppIcon } from './ui/app-icon'
 
 const DAYS = [7, 30, 90] as const
 
@@ -31,22 +32,7 @@ export interface PaymentDashboardPageProps {
 }
 
 function Icon({ name, className = 'h-5 w-5' }: { name: 'money' | 'card' | 'chart' | 'refresh'; className?: string }): ReactNode {
-  const path = {
-    money: h('path', { d: 'M12 6.75v10.5m3-8.25c-.62-.77-1.56-1.25-2.63-1.25h-.74A2.63 2.63 0 0 0 9 10.38c0 1.45 1.18 2.62 2.63 2.62h.74A2.63 2.63 0 0 1 15 15.62 2.63 2.63 0 0 1 12.37 18h-.74A3.38 3.38 0 0 1 9 16.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z' }),
-    card: h('path', { d: 'M3.75 7.5h16.5M3.75 9h16.5m-13.5 4.5h3m-3 2.25h1.5m-4.5 3h15a1.5 1.5 0 0 0 1.5-1.5v-9a1.5 1.5 0 0 0-1.5-1.5h-15a1.5 1.5 0 0 0-1.5 1.5v9a1.5 1.5 0 0 0 1.5 1.5Z' }),
-    chart: h('path', { d: 'M3.75 19.5h16.5M6.75 16.5v-3m5.25 3V9m5.25 7.5V6' }),
-    refresh: h('path', { d: 'M20.25 12a8.25 8.25 0 1 1-2.42-5.83M20.25 4.5v5.25H15' }),
-  }[name]
-  return h('svg', {
-    className,
-    fill: 'none',
-    viewBox: '0 0 24 24',
-    stroke: 'currentColor',
-    strokeWidth: 1.5,
-    strokeLinecap: 'round',
-    strokeLinejoin: 'round',
-    'aria-hidden': 'true',
-  }, path)
+  return h(AppIcon, { name, className })
 }
 
 function formatMoney(value: number): string {

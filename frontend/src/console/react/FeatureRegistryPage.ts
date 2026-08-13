@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react'
 import type { FeatureControlState, FeatureRuntimeComponent } from '@/api/admin/features'
 import { createShadcnElement as h } from './ui/createElement'
+import { AppIcon } from './ui/app-icon'
 import { Switch as ShadcnSwitch } from './ui'
 
 export type FeatureGroupID = 'core' | 'optional' | 'extension' | 'other'
@@ -52,19 +53,7 @@ export interface FeatureRegistryPageProps {
 }
 
 function Icon({ name, className = 'h-5 w-5' }: { name: 'refresh' | 'error'; className?: string }): ReactNode {
-  const path = name === 'refresh'
-    ? h('path', { d: 'M20.25 12a8.25 8.25 0 1 1-2.42-5.83M20.25 4.5v5.25H15' })
-    : h('path', { d: 'M12 8.25v3.75m0 3.75h.01v.01H12v-.01ZM10.29 3.86 1.82 18a2.25 2.25 0 0 0 1.93 3.4h16.5a2.25 2.25 0 0 0 1.93-3.4L13.71 3.86a2.25 2.25 0 0 0-3.42 0Z' })
-  return h('svg', {
-    className,
-    fill: 'none',
-    viewBox: '0 0 24 24',
-    stroke: 'currentColor',
-    strokeWidth: 1.5,
-    strokeLinecap: 'round',
-    strokeLinejoin: 'round',
-    'aria-hidden': 'true',
-  }, path)
+  return h(AppIcon, { name, className })
 }
 
 function Switch({

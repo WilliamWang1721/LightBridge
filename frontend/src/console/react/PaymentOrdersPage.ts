@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import type { OrderStatus, PaymentOrder } from '@/types/payment'
 import { createShadcnElement as h } from './ui/createElement'
+import { AppIcon } from './ui/app-icon'
 import { Badge as ShadcnBadge, Button as ShadcnButton, Dialog as ShadcnDialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, Select as ShadcnSelect } from './ui'
 
 export type PaymentOrderRow = PaymentOrder & {
@@ -108,25 +109,7 @@ export interface PaymentOrdersPageProps {
 }
 
 function Icon({ name }: { name: 'eye' | 'x' | 'refresh' | 'check' | 'dollar' | 'chevronLeft' | 'chevronRight' }): ReactNode {
-  const paths = {
-    eye: 'M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12Z M12 15.25a3.25 3.25 0 1 0 0-6.5 3.25 3.25 0 0 0 0 6.5Z',
-    x: 'm6.75 6.75 10.5 10.5m0-10.5-10.5 10.5',
-    refresh: 'M20.25 12a8.25 8.25 0 1 1-2.42-5.83M20.25 4.5v5.25H15',
-    check: 'm5.25 12.75 4.5 4.5 9-10.5',
-    dollar: 'M12 6.75v10.5m3-8.25c-.62-.77-1.56-1.25-2.63-1.25h-.74A2.63 2.63 0 0 0 9 10.38c0 1.45 1.18 2.62 2.63 2.62h.74A2.63 2.63 0 0 1 15 15.62 2.63 2.63 0 0 1 12.37 18h-.74A3.38 3.38 0 0 1 9 16.75',
-    chevronLeft: 'm14.25 18-6-6 6-6',
-    chevronRight: 'm9.75 18 6-6-6-6',
-  }[name]
-  return h('svg', {
-    className: 'h-4 w-4',
-    fill: 'none',
-    viewBox: '0 0 24 24',
-    stroke: 'currentColor',
-    strokeWidth: 1.7,
-    strokeLinecap: 'round',
-    strokeLinejoin: 'round',
-    'aria-hidden': 'true',
-  }, h('path', { d: paths }))
+  return h(AppIcon, { name })
 }
 
 function Button({

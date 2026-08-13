@@ -9,10 +9,12 @@ const read = (path: string) => readFileSync(resolve(src, path), 'utf8')
 
 describe('Luma dashboard responsive layouts', () => {
   it('keeps administrator metrics single-column on narrow screens', () => {
-    const source = read('views/admin/DashboardView.vue')
+    const source = read('console/react/DashboardPage.tsx')
 
-    expect(source).toContain('grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4')
-    expect(source).toContain('grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-2')
+    expect(source).toContain('grid grid-cols-1 gap-3 px-3')
+    expect(source).toContain('sm:grid-cols-2')
+    expect(source).toContain('lg:grid-cols-4')
+    expect(source).toContain('grid min-w-0 grid-cols-1 gap-4 px-3 lg:grid-cols-2')
   })
 
   it('uses progressive metric and detail grids on the user dashboard', () => {

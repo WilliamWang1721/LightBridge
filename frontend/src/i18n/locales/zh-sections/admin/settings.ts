@@ -17,6 +17,10 @@ export default {
       uiThemes: {
         title: '界面主题',
         description: '安装、配置和激活自定义 CSS、菜单模块与页面板块。',
+        preferencesTitle: '显示偏好',
+        preferencesDescription: '调整控制台的显示模式和界面语言。',
+        colorMode: '深浅色模式',
+        language: '界面语言',
         githubUrl: 'GitHub 仓库 URL',
         zipUpload: 'ZIP 上传',
         import: '导入',

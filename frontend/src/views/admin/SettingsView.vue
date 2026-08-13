@@ -32,17 +32,20 @@ import type {
 } from "@/types";
 import AppLayout from "@/components/layout/AppLayout.vue";
 import Icon from "@/components/icons/Icon.vue";
+import LocaleSwitcher from "@/components/common/LocaleSwitcher.vue";
 import Select from "@/components/common/Select.vue";
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 import PaymentProviderList from "@/components/payment/PaymentProviderList.vue";
 import PaymentProviderDialog from "@/components/payment/PaymentProviderDialog.vue";
 import GroupBadge from "@/components/common/GroupBadge.vue";
 import GroupOptionItem from "@/components/common/GroupOptionItem.vue";
-import Toggle from "@/components/common/Toggle.vue";
+import { Switch as Toggle } from "@/components/ui/switch";
 import ProxySelector from "@/components/common/ProxySelector.vue";
 import ImageUpload from "@/components/common/ImageUpload.vue";
 import EmailTemplateEditor from "@/views/admin/settings/EmailTemplateEditor.vue";
 import ThemeManager from "@/components/admin/ThemeManager.vue";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useClipboard } from "@/composables/useClipboard";
 import { extractApiErrorMessage } from "@/utils/apiError";
 import { useAppStore } from "@/stores";
@@ -62,7 +65,6 @@ import {
   loginAgreementRoutePath,
   normalizeLoginAgreementDocumentId,
   parseTablePageSizeOptionsInput,
-  resolveNextSettingsTab,
   SETTINGS_TABS,
   TABLE_PAGE_SIZE_MAX,
   TABLE_PAGE_SIZE_MIN,
@@ -82,12 +84,24 @@ const appStore = useAppStore();
 const adminSettingsStore = useAdminSettingsStore();
 const route = useRoute();
 const isZhLocale = computed(() => locale.value.startsWith("zh"));
+const isDark = ref(document.documentElement.classList.contains("dark"));
+const themeLabel = computed(() => (isDark.value ? t("nav.lightMode") : t("nav.darkMode")));
 const backupFeatureEnabled = computed(() => isProgressiveFeatureEnabled(ProgressiveFeatures.backup));
 const BackupSettings = defineAsyncComponent(() => import("@/views/admin/BackupView.vue"));
 
 function localText(zh: string, en: string): string {
   return isZhLocale.value ? zh : en;
 }
+
+function toggleTheme() {
+  isDark.value = !isDark.value;
+  document.documentElement.classList.toggle("dark", isDark.value);
+  localStorage.setItem("theme", isDark.value ? "dark" : "light");
+}
+
+void LocaleSwitcher;
+void themeLabel.value;
+void toggleTheme;
 
 const paymentGuideHref = computed(() =>
   locale.value.startsWith("zh")
@@ -105,27 +119,6 @@ const activeTab = ref<SettingsTab>(
   (route?.meta?.defaultTab as SettingsTab) || "general",
 );
 const settingsTabs = computed(() => SETTINGS_TABS.filter((tab) => tab.key !== "backup" || backupFeatureEnabled.value));
-
-function selectSettingsTab(tab: SettingsTab): void {
-  activeTab.value = tab;
-}
-
-function focusSettingsTab(tab: SettingsTab): void {
-  window.requestAnimationFrame(() => {
-    document.getElementById(`settings-tab-${tab}`)?.focus();
-  });
-}
-
-function handleSettingsTabKeydown(event: KeyboardEvent, tab: SettingsTab): void {
-  const nextTab = resolveNextSettingsTab(tab, event.key, settingsTabs.value);
-  if (!nextTab) {
-    return;
-  }
-
-  event.preventDefault();
-  selectSettingsTab(nextTab);
-  focusSettingsTab(nextTab);
-}
 
 const { copyToClipboard } = useClipboard();
 
@@ -1994,6 +1987,16 @@ watch(
 const useSettingsExternalTemplateBindings = () => ({
   AppLayout,
   Icon,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  activeTab,
+  settingsTabs,
   Select,
   ConfirmDialog,
   PaymentProviderList,
@@ -2009,7 +2012,6 @@ const useSettingsExternalTemplateBindings = () => ({
   BackupSettings,
   paymentGuideHref,
   paymentMethodsHref,
-  handleSettingsTabKeydown,
   platformQuotaPlatforms,
   openTestDialog,
   toggleProviderExpand,

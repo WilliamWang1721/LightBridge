@@ -76,6 +76,26 @@
   ::selection {
     @apply bg-primary-500/20 text-primary-900 dark:text-primary-100;
   }
+  :root {
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 0 0% 91%;
+    --sidebar-ring: 0 0% 26%;
+  }
+  .dark {
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 0 0% 92%;
+    --sidebar-primary-foreground: 0 0% 10%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 0 0% 16%;
+    --sidebar-ring: 0 0% 74%;
+  }
 
 
 }
@@ -549,7 +569,6 @@
   .sidebar {
     @apply fixed inset-y-0 left-0 z-40;
     @apply w-64 bg-white dark:bg-dark-900;
-    @apply border-r border-gray-200 dark:border-dark-800;
     @apply flex flex-col;
     @apply transition-transform duration-300;
     transition-property: width, transform;
@@ -829,12 +848,6 @@
     font-family: var(--lb-font-body);
   }
 
-  input,
-  select,
-  textarea,
-  button {
-    border-radius: 0 !important;
-  }
 }
 
 @layer components {
@@ -944,29 +957,20 @@
   .app-topbar {
     position: sticky;
     border: 0 !important;
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.9) 68%, rgba(255, 255, 255, 0.72) 100%) !important;
+    background: var(--lb-bg-page) !important;
     box-shadow: none !important;
   }
 
   .app-topbar::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: -18px;
-    height: 18px;
-    pointer-events: none;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0));
+    display: none;
   }
 
   .dark .app-topbar {
-    background:
-      linear-gradient(180deg, rgba(16, 16, 16, 0.98) 0%, rgba(16, 16, 16, 0.9) 68%, rgba(16, 16, 16, 0.72) 100%) !important;
+    background: var(--lb-bg-page) !important;
   }
 
   .dark .app-topbar::after {
-    background: linear-gradient(180deg, rgba(16, 16, 16, 0.82), rgba(16, 16, 16, 0));
+    display: none;
   }
 
   .app-topbar-title {
@@ -1133,8 +1137,8 @@
     font-weight: 400;
   }
 
-  .sidebar-link:not(.sidebar-link-collapsed) svg,
-  .sidebar-link:not(.sidebar-link-collapsed) .sidebar-svg-icon {
+  .sidebar-link svg,
+  .sidebar-link .sidebar-svg-icon {
     width: 6px !important;
     height: 6px !important;
     color: transparent !important;
@@ -1147,40 +1151,9 @@
     font-weight: 500;
   }
 
-  .sidebar-link-active:not(.sidebar-link-collapsed) svg,
-  .sidebar-link-active:not(.sidebar-link-collapsed) .sidebar-svg-icon {
+  .sidebar-link-active svg,
+  .sidebar-link-active .sidebar-svg-icon {
     background: var(--lb-red);
-  }
-
-  .sidebar-link-collapsed {
-    justify-content: center;
-    align-items: center;
-    gap: 0 !important;
-    min-height: 44px;
-    overflow: visible !important;
-    padding: 12px 0 !important;
-  }
-
-  .sidebar .sidebar-link.sidebar-link-collapsed svg,
-  .sidebar .sidebar-link.sidebar-link-collapsed .sidebar-svg-icon,
-  .sidebar .sidebar-link.sidebar-link-collapsed .sidebar-svg-icon svg {
-    display: block !important;
-    width: 20px !important;
-    height: 20px !important;
-    min-width: 20px !important;
-    min-height: 20px !important;
-    max-width: 20px !important;
-    max-height: 20px !important;
-    color: var(--lb-text-secondary) !important;
-    background: transparent !important;
-    border-radius: 0;
-    flex-shrink: 0;
-  }
-
-  .sidebar .sidebar-link-active.sidebar-link-collapsed svg,
-  .sidebar .sidebar-link-active.sidebar-link-collapsed .sidebar-svg-icon,
-  .sidebar .sidebar-link-active.sidebar-link-collapsed .sidebar-svg-icon svg {
-    color: var(--lb-text-main) !important;
   }
 
   .sidebar-link:hover {

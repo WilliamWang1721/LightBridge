@@ -1,11 +1,18 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import type { User, UserAnnouncement, UserSubscription } from '@/types'
 import { formatRelativeTime, formatRelativeWithDateTime } from '@/utils/format'
-import { sanitizeSvg } from '@/utils/sanitize'
-import { sidebarIconSvgs } from '@/console/sidebar/icons'
 import { createShadcnElement as h } from './ui/createElement'
+import { AppIcon, type AppIconName } from './ui/app-icon'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from './ui/breadcrumb'
 
 type Granularity = 'hour' | 'day'
 
@@ -62,6 +69,7 @@ export interface ConsoleHeaderLabels {
 export interface ConsoleHeaderProps {
   pageTitle: string
   pageDescription: string
+  breadcrumbs: readonly ConsoleHeaderBreadcrumb[]
   user?: User | null
   isAdmin: boolean
   contactInfo?: string | null
@@ -87,34 +95,17 @@ export interface ConsoleHeaderProps {
   onReplayGuide?: () => void
 }
 
-const icon = (body: string) => `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`
-
-const iconSvgs = {
-  ...sidebarIconSvgs,
-  refresh: icon('<path d="M20.25 12a8.25 8.25 0 0 0-14.1-5.83L3.75 8.57m0 0V3.75m0 4.82h4.82M3.75 12a8.25 8.25 0 0 0 14.1 5.83l2.4-2.4m0 0v4.82m0-4.82h-4.82"/>'),
-  clock: icon('<circle cx="12" cy="12" r="8.75"/><path d="M12 7.5v5.25l3.75 2.25"/>'),
-  grid: sidebarIconSvgs.dashboard,
-  chevronDown: icon('<path d="m6.75 9 5.25 5.25L17.25 9"/>'),
-  x: icon('<path d="M6 6l12 12M18 6 6 18"/>'),
-  logout: icon('<path d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m-3-3h9m0 0-3-3m3 3-3 3"/>'),
-  check: icon('<path d="m5 12 4 4L19 6"/>'),
-  dollar: icon('<circle cx="12" cy="12" r="8.75"/><path d="M12 6v12m-3-2.25.75.56c1.24.93 3.26.93 4.5 0 1.24-.93 1.24-2.44 0-3.37-.47-.35-1.08-.54-1.69-.54-.61 0-1.22-.19-1.69-.54-1.18-.93-1.18-2.44 0-3.37 1.18-.93 3.09-.93 4.27 0l.44.35"/>'),
-  lightbulb: icon('<path d="M9.75 18h4.5m-3.75 3h3m-5.7-7.02A6.75 6.75 0 1 1 16.2 13.98c-.84.5-1.45 1.39-1.45 2.37V18h-5.5v-1.65c0-.98-.61-1.87-1.45-2.37Z"/>'),
-  book: icon('<path d="M12 6.04A8.97 8.97 0 0 0 6 3.75c-1.05 0-2.06.18-3 .51v14.25A8.99 8.99 0 0 1 6 18c2.3 0 4.41.87 6 2.29m0-14.25a8.97 8.97 0 0 1 6-2.29c1.05 0 2.06.18 3 .51v14.25A8.99 8.99 0 0 0 18 18a8.97 8.97 0 0 0-6 2.29m0-14.25v14.25"/>'),
-  inbox: icon('<path d="M20 13V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7m16 0v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-5m16 0h-2.59a1 1 0 0 0-.71.29l-2.41 2.42a1 1 0 0 1-.71.29h-3.17a1 1 0 0 1-.71-.29l-2.41-2.42A1 1 0 0 0 6.59 13H4"/>'),
-  github: '<svg fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.17 6.839 9.49.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.604-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0 1 12 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.167 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>',
-} as const
-
-function Icon({ name, className = '' }: { name: keyof typeof iconSvgs; className?: string }): ReactNode {
-  return h('span', {
-    className: `inline-flex h-5 w-5 shrink-0 [&>svg]:h-full [&>svg]:w-full ${className}`,
-    'aria-hidden': 'true',
-    dangerouslySetInnerHTML: { __html: sanitizeSvg(iconSvgs[name]) },
-  })
+export interface ConsoleHeaderBreadcrumb {
+  label: string
+  path?: string
 }
 
-const iconButtonClass = 'relative flex h-9 w-9 items-center justify-center rounded-xl text-[hsl(var(--muted-foreground))] transition-colors hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]'
-const panelClass = 'rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] shadow-2xl'
+function Icon({ name, className = 'h-5 w-5' }: { name: AppIconName; className?: string }): ReactNode {
+  return h(AppIcon, { name, className })
+}
+
+const iconButtonClass = 'relative flex h-9 w-9 items-center justify-center rounded-xl bg-transparent text-[hsl(var(--muted-foreground))] transition-colors hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]'
+const panelClass = 'rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--popover))] shadow-lg'
 
 function dateString(date: Date): string {
   const year = date.getFullYear()
@@ -345,40 +336,23 @@ function SubscriptionProgress({ props }: { props: ConsoleHeaderProps }): ReactNo
   ])
 }
 
-function UserMenu({ props }: { props: ConsoleHeaderProps }): ReactNode {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement | null>(null)
-  const user = props.user
-  const close = () => setOpen(false)
-  useEffect(() => {
-    if (!open) return
-    const onDocumentClick = (event: MouseEvent) => {
-      if (ref.current && !ref.current.contains(event.target as Node)) close()
-    }
-    document.addEventListener('mousedown', onDocumentClick)
-    return () => document.removeEventListener('mousedown', onDocumentClick)
-  }, [open])
-  if (!user) return null
-  const displayName = user.username || user.email?.split('@')[0] || ''
-  const initials = (user.username || user.email?.split('@')[0] || '').slice(0, 2).toUpperCase()
-  const navigate = (path: string) => { close(); props.onNavigate(path) }
-  const menuItem = (key: string, iconName: keyof typeof iconSvgs, label: string, action: () => void) => h('button', { key, type: 'button', className: 'flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-[hsl(var(--foreground))] transition-colors hover:bg-[hsl(var(--muted))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[hsl(var(--ring))]', onClick: action }, [h(Icon, { key: 'icon', name: iconName, className: 'h-4 w-4 text-[hsl(var(--muted-foreground))]' }), label])
+function HeaderBreadcrumbs({ props }: { props: ConsoleHeaderProps }): ReactNode {
+  const items = props.breadcrumbs.length > 0 ? props.breadcrumbs : [{ label: props.pageTitle }]
+  const navigate = (event: ReactMouseEvent<HTMLAnchorElement>, path?: string) => {
+    if (!path) return
+    event.preventDefault()
+    props.onNavigate(path)
+  }
 
-  return h('div', { ref, className: 'relative' }, [
-    h('button', { key: 'trigger', type: 'button', className: 'flex items-center gap-2 rounded-xl p-1.5 transition-colors hover:bg-[hsl(var(--muted))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]', 'aria-label': 'User menu', 'aria-expanded': open, 'aria-controls': 'lightbridge-user-menu', onClick: () => setOpen((value) => !value) }, [
-      h('span', { key: 'avatar', className: 'flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl bg-[hsl(var(--foreground))] text-sm font-medium text-[hsl(var(--background))]' }, user.avatar_url ? h('img', { src: user.avatar_url, alt: displayName, className: 'h-full w-full object-cover' }) : initials),
-      h('span', { key: 'name', className: 'hidden text-left md:block' }, [h('span', { key: 'display', className: 'block text-sm font-medium text-[hsl(var(--foreground))]' }, displayName), h('span', { key: 'role', className: 'block text-xs capitalize text-[hsl(var(--muted-foreground))]' }, user.role)]),
-      h(Icon, { key: 'chevron', name: 'chevronDown', className: 'hidden h-4 w-4 text-[hsl(var(--muted-foreground))] md:block' }),
-    ]),
-    open ? h('div', { key: 'menu', id: 'lightbridge-user-menu', className: `absolute right-0 top-11 z-50 w-56 overflow-hidden ${panelClass}`, role: 'menu' }, [
-      h('div', { key: 'info', className: 'border-b border-[hsl(var(--border))] px-4 py-3' }, [h('div', { key: 'name', className: 'text-sm font-medium text-[hsl(var(--foreground))]' }, displayName), h('div', { key: 'email', className: 'text-xs text-[hsl(var(--muted-foreground))]' }, user.email)]),
-      h('div', { key: 'mobileBalance', className: 'border-b border-[hsl(var(--border))] px-4 py-2 sm:hidden' }, [h('div', { key: 'label', className: 'text-xs text-[hsl(var(--muted-foreground))]' }, props.labels.balance), h('div', { key: 'value', className: 'text-sm font-semibold text-[hsl(var(--foreground))]' }, `$${(user.balance || 0).toFixed(2)}`)]),
-      h('div', { key: 'links', className: 'py-1' }, [menuItem('profile', 'user', props.labels.profile, () => navigate('/profile')), menuItem('keys', 'key', props.labels.apiKeys, () => navigate('/keys')), props.isAdmin ? h('a', { key: 'github', href: 'https://github.com/WilliamWang1721/LightBridge', target: '_blank', rel: 'noopener noreferrer', className: 'flex items-center gap-2 px-4 py-2 text-sm text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]', onClick: close }, [h(Icon, { key: 'icon', name: 'github', className: 'h-4 w-4 text-[hsl(var(--muted-foreground))]' }), props.labels.github]) : null]),
-      props.contactInfo ? h('div', { key: 'contact', className: 'border-t border-[hsl(var(--border))] px-4 py-2.5 text-xs text-[hsl(var(--muted-foreground))]' }, `${props.labels.contactSupport}: ${props.contactInfo}`) : null,
-      props.showOnboardingButton ? h('div', { key: 'guide', className: 'border-t border-[hsl(var(--border))] py-1' }, menuItem('guide', 'lightbulb', props.labels.restartTour, () => { close(); props.onReplayGuide?.() })) : null,
-      h('div', { key: 'logout', className: 'border-t border-[hsl(var(--border))] py-1' }, menuItem('logout', 'logout', props.labels.logout, () => { close(); void props.onLogout() })),
-    ]) : null,
-  ])
+  return h(Breadcrumb, { 'aria-label': props.pageTitle, className: 'min-w-0' }, h(BreadcrumbList, { className: 'text-sm' }, items.flatMap((item, index) => {
+    const last = index === items.length - 1
+    return [
+      h(BreadcrumbItem, { key: `item-${index}`, className: 'min-w-0' }, last
+        ? h(BreadcrumbPage, { className: 'truncate font-semibold' }, item.label)
+        : h(BreadcrumbLink as unknown as React.JSXElementConstructor<Record<string, unknown>>, { render: h('a', { href: item.path || '#', onClick: (event: ReactMouseEvent<HTMLAnchorElement>) => navigate(event, item.path) }), className: 'truncate' }, item.label)),
+      last ? null : h(BreadcrumbSeparator, { key: `separator-${index}` }),
+    ]
+  })))
 }
 
 export default function ConsoleHeader(props: ConsoleHeaderProps): ReactNode {
@@ -389,7 +363,7 @@ export default function ConsoleHeader(props: ConsoleHeaderProps): ReactNode {
   }
 
   return h('header', { className: 'app-topbar sticky top-0 z-30' }, h('div', { className: 'flex min-h-20 items-center justify-between gap-4 px-4 md:px-6' }, [
-    h('div', { key: 'heading', className: 'min-w-0' }, [h('h1', { key: 'title', className: 'app-topbar-title truncate text-[hsl(var(--foreground))]' }, props.pageTitle), props.pageDescription ? h('p', { key: 'description', className: 'app-topbar-description truncate text-[hsl(var(--muted-foreground))]' }, props.pageDescription) : null]),
+    h('div', { key: 'heading', className: 'min-w-0 flex-1' }, h(HeaderBreadcrumbs, { props })),
     h('div', { key: 'actions', className: 'flex shrink-0 items-center gap-1.5 sm:gap-2.5' }, [
       props.showTimeRangeButton && props.onRefresh ? h('button', { key: 'refresh', type: 'button', className: iconButtonClass, title: props.labels.refresh, 'aria-label': props.labels.refresh, onClick: props.onRefresh }, h(Icon, { name: 'refresh' })) : null,
       props.showDashboardCustomizeButton && props.onCustomizeDashboard ? h('button', { key: 'customize', type: 'button', className: iconButtonClass, title: props.labels.customize, 'aria-label': props.labels.customize, onClick: props.onCustomizeDashboard }, h(Icon, { name: 'grid' })) : null,
@@ -398,7 +372,6 @@ export default function ConsoleHeader(props: ConsoleHeaderProps): ReactNode {
       h('a', { key: 'docs', href: '/docs', className: iconButtonClass, title: props.labels.docs, 'aria-label': props.labels.docs, onClick: (event: MouseEvent) => handleInternalNavigation(event, '/docs') }, h(Icon, { name: 'book' })),
       user ? h(SubscriptionProgress, { key: 'subscriptions', props }) : null,
       user ? h('div', { key: 'balance', className: 'hidden items-center gap-2 rounded-xl bg-[hsl(var(--secondary))] px-3 py-1.5 sm:flex' }, [h(Icon, { key: 'icon', name: 'dollar', className: 'h-4 w-4 text-[hsl(var(--muted-foreground))]' }), h('span', { key: 'value', className: 'text-sm font-semibold text-[hsl(var(--foreground))]' }, `$${(user.balance || 0).toFixed(2)}`)]) : null,
-      user ? h(UserMenu, { key: 'menu', props }) : null,
     ]),
   ]))
 }
