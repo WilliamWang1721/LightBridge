@@ -35,6 +35,11 @@ vi.mock('vue-i18n', async () => {
 import FeatureRegistryView from '../FeatureRegistryView.vue'
 
 const AppLayoutStub = { template: '<div><slot /></div>' }
+const ReactPageHostStub = defineComponent({
+  setup(_, { slots }) {
+    return () => slots.fallback?.() ?? null
+  },
+})
 const ToggleStub = defineComponent({
   props: {
     modelValue: { type: Boolean, required: true },
@@ -85,7 +90,12 @@ describe('FeatureRegistryView', () => {
 
     const wrapper = mount(FeatureRegistryView, {
       global: {
-        stubs: { AppLayout: AppLayoutStub, Icon: true, Toggle: ToggleStub },
+        stubs: {
+          AppLayout: AppLayoutStub,
+          ReactPageHost: ReactPageHostStub,
+          Icon: true,
+          Toggle: ToggleStub,
+        },
       },
     })
     await flushPromises()
@@ -111,7 +121,12 @@ describe('FeatureRegistryView', () => {
 
     const wrapper = mount(FeatureRegistryView, {
       global: {
-        stubs: { AppLayout: AppLayoutStub, Icon: true, Toggle: ToggleStub },
+        stubs: {
+          AppLayout: AppLayoutStub,
+          ReactPageHost: ReactPageHostStub,
+          Icon: true,
+          Toggle: ToggleStub,
+        },
       },
     })
     await flushPromises()

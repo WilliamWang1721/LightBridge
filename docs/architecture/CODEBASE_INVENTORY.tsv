@@ -2974,7 +2974,7 @@ frontend/src/views/admin/VersionControlView.vue	frontend-vue	maintained	718	2833
 frontend/src/views/admin/__tests__/AccountsView.bulkEdit.spec.ts	frontend-script	maintained	233	6795	b88f92c19bf2347f931e7ef03066af9298da5a4c18fb54b5061903af0e785dde
 frontend/src/views/admin/__tests__/BackupView.spec.ts	frontend-script	maintained	117	3283	73f78af6daa66b6c292f1f92ac5193c24b4890ba263041b1515b504bb1f47ca3
 frontend/src/views/admin/__tests__/DashboardView.spec.ts	frontend-script	maintained	146	3483	59738fe7bac4e41a03e6d214b3bfd777a212cae2ce24a8c8e7c7907dc5e885f6
-frontend/src/views/admin/__tests__/FeatureRegistryView.spec.ts	frontend-script	maintained	125	4625	3f9ecc84d5a82a976dd8ade34626d46f989203d2c0fa7cc7230816c1feeb8fb1
+frontend/src/views/admin/__tests__/FeatureRegistryView.spec.ts	frontend-script	maintained	140	4911	2389b88d81bb53d2e4520a4c58a508bc3c9ed0372e877ca789b67c5173aa1b0f
 frontend/src/views/admin/__tests__/RedeemView.batchUpdate.spec.ts	frontend-script	maintained	187	5211	511c475cf326d30f72021bd095d2ca45b083201ebad89e28e05dff102e1bdb0c
 frontend/src/views/admin/__tests__/RiskControlView.spec.ts	frontend-script	maintained	407	12142	297ce1dec9b6480ae43f30a2c3b826fed3f2be718849ca8e16f6b59af606d9b5
 frontend/src/views/admin/__tests__/SettingsView.spec.ts	frontend-script	maintained	1163	40791	3b4fed3c2e703f5e1f6e89d3fa77116622362bf06e3bfa20eb76a5dfc4d27c12
