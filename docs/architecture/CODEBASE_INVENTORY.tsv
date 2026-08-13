@@ -2625,7 +2625,7 @@ frontend/src/console/react/DistributionPage.ts	frontend-script	maintained	621	27
 frontend/src/console/react/FeatureRegistryPage.ts	frontend-script	maintained	208	11165	26ec8c48062641306a3b65d181309837c6680f44d558c666ba69998902d9170b
 frontend/src/console/react/FeedbackPage.test.ts	frontend-script	maintained	53	1903	41aac4518ea7af992532c60f5f44ec2f6211c339aa553d3d6971dc143b3b9331
 frontend/src/console/react/FeedbackPage.ts	frontend-script	maintained	106	4341	58603be155969b7255f6115d5b95b817d13bace5b3c37e76df3a0d6e8da39a20
-frontend/src/console/react/ModelCatalogPage.ts	frontend-script	maintained	242	15842	2e7a4cda06c5da4eee677f9fda8fc689b99807bb011ce2608e6f0d62c86c31ff
+frontend/src/console/react/ModelCatalogPage.ts	frontend-script	maintained	242	15839	bbac3cb62dfec0208bb78cc5278c0c2339b04d2e2dd99ab9d335a584f6245a27
 frontend/src/console/react/ModelDistribution.ts	frontend-script	maintained	350	16533	b02922d24a32b335ed53c6a0f94e6258573a162711b370e8dc253141a70b84ce
 frontend/src/console/react/PaymentDashboardPage.ts	frontend-script	maintained	183	10550	2393aaf69442ff7b070d19b9c8a43ee0bd793acaae6ea5fad0ea824f413592ad
 frontend/src/console/react/PaymentOrdersPage.ts	frontend-script	maintained	322	22908	d0690fd76a57aba3dd80da4f2922783eb9000a06908fbfd01edddf43d038cb65
@@ -2635,7 +2635,7 @@ frontend/src/console/react/UserDashboardPage.ts	frontend-script	maintained	183	1
 frontend/src/console/react/UserOrdersPage.ts	frontend-script	maintained	121	9568	0379ea41ce195b20b961a924b0372920a90120e4d630458b6bf82b7b8b07b786
 frontend/src/console/react/hooks/use-mobile.tsx	frontend-script	maintained	19	565	ad0936f84f1df79d3697bfbff9c18f8ad58431c1cbaf2359c6a853b0fcc9f28b
 frontend/src/console/react/lib/utils.ts	frontend-script	maintained	6	166	e46429536f43f5910f5b2b0c50bb2769b510a4558bb4b5d20a3b0a9091dbf7c3
-frontend/src/console/react/ui/app-icon.tsx	frontend-script	maintained	88	1599	0313659280529dacc58c8748abd4121b34e0f83c850cec5af440943dc50601c5
+frontend/src/console/react/ui/app-icon.tsx	frontend-script	maintained	88	1605	230ee9d1bfa5cf0ec96ed2e069674f3232f50097f6a837f3bac1cdec2e2a2ef4
 frontend/src/console/react/ui/avatar.tsx	frontend-script	maintained	48	1419	4b77333cfa7c88a3d3e3516595e1829b08bcf55984c3a3b465d35809b708d488
 frontend/src/console/react/ui/badge.tsx	frontend-script	maintained	24	1085	6dcdb8d9c68192fe3411d119923afe4e34ae57e50332bd6a1f4281ba845c9b46
 frontend/src/console/react/ui/breadcrumb.tsx	frontend-script	maintained	122	2603	880ed3253793f0a7779c6b03fd346dc9f9d7ccfe10bb45c509d4103584356cde

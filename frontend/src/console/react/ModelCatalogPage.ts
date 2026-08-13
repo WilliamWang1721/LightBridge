@@ -48,7 +48,7 @@ function Icon({ name }: { name: 'search' | 'grid' | 'chevronDown' | 'refresh' | 
   return h(AppIcon, { name, className: 'h-4 w-4 shrink-0' })
 }
 
-function ModelGlyph({ model }: { model: string }): ReactNode {
+function ModelGlyph(_props: { model: string }): ReactNode {
   return h(AppIcon, { name: 'cube', className: 'h-5 w-5 shrink-0 text-[hsl(var(--muted-foreground))]' })
 }
 
