@@ -1,5 +1,9 @@
 <template>
-  <div ref="mountNode" class="contents" data-console-runtime="react"></div>
+  <div
+    ref="mountNode"
+    class="console-runtime-host flex h-full min-h-0 min-w-0 w-full flex-1 flex-col"
+    data-console-runtime="react"
+  ></div>
   <component v-if="error && fallback" :is="fallback" />
   <slot v-else-if="error && $slots.fallback" name="fallback" />
   <div
@@ -14,7 +18,7 @@
 <script setup lang="ts">
 import { createElement, type ComponentType } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue'
 
 type ReactPageProps = object
 type ReactPageModule = { default?: unknown }
@@ -48,7 +52,11 @@ async function loadPage() {
 
   try {
     const module = await props.load()
-    if (!mounted || currentGeneration !== generation || !mountNode.value) return
+    if (!mounted || currentGeneration !== generation) return
+    if (!mountNode.value) {
+      error.value = props.errorMessage
+      return
+    }
 
     if (typeof module.default !== 'function' && typeof module.default !== 'object') {
       throw new Error('React console page export is invalid')
@@ -64,7 +72,11 @@ async function loadPage() {
 
 watch(() => props.props, render, { deep: true })
 
-onMounted(() => { void loadPage() })
+onMounted(() => {
+  void nextTick().then(() => {
+    void loadPage()
+  })
+})
 
 onBeforeUnmount(() => {
   mounted = false

@@ -184,7 +184,7 @@ const Sidebar = React.forwardRef<
     if (collapsible === "none") {
       return (
         <div
-          className={cn("group flex h-full w-[--sidebar-width] flex-col bg-sidebar text-sidebar-foreground", className)}
+          className={cn("group flex h-full w-full flex-col bg-[hsl(var(--sidebar-background))] text-[hsl(var(--sidebar-foreground))]", className)}
           data-state={state}
           data-collapsible={state === "collapsed" ? "icon" : undefined}
           data-variant={variant}

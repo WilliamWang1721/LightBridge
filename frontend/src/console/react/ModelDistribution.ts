@@ -321,7 +321,7 @@ export default function ModelDistribution({
     ])
   }
 
-  return h(Card, { className: '@container/card min-w-0 overflow-hidden' }, [
+  return h(Card, { className: 'min-w-0 overflow-hidden' }, [
     h(CardHeader, { key: 'header', className: 'flex-row items-center justify-between gap-3 space-y-0 pb-4' }, [
       h(CardTitle, { key: 'title', className: 'text-base' }, title),
       h('div', { key: 'switches', className: 'inline-flex rounded-lg bg-[hsl(var(--muted))] p-1' }, [

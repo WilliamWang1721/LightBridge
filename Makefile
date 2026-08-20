@@ -11,6 +11,8 @@ FRONTEND_CRITICAL_VITEST := \
 	src/api/__tests__/admin.features.spec.ts \
 	src/api/admin/__tests__/backup.spec.ts \
 	src/views/admin/__tests__/FeatureRegistryView.spec.ts \
+	src/console/ReactPageHost.spec.ts \
+	src/console/react/DashboardPage.test.ts \
 	src/router/__tests__/progressive-routes.spec.ts \
 	src/components/ui/__tests__/primitives.spec.ts \
 	src/ui-platform/chartTheme.test.ts \

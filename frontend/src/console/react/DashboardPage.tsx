@@ -53,11 +53,11 @@ function SectionCards({ cards, loading }: Pick<DashboardPageProps, 'cards' | 'lo
   const visibleCards = loading && cards.length === 0 ? Array.from({ length: 8 }, (_, index) => ({ key: `loading-${index}` })) : cards
 
   return (
-    <div className="*:data-[slot=card]:shadow-xs grid grid-cols-1 gap-3 px-3 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card sm:grid-cols-2 dark:*:data-[slot=card]:bg-card lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 px-3 sm:grid-cols-2 lg:grid-cols-4">
       {visibleCards.map((card) => {
         if (!('label' in card)) {
           return (
-            <Card key={card.key} className="@container/card gap-4 py-4">
+            <Card key={card.key} className="gap-4 py-4">
               <CardHeader className="gap-3 px-4">
                 <Skeleton className="h-4 w-24" />
                 <Skeleton className="h-8 w-32" />
@@ -72,25 +72,25 @@ function SectionCards({ cards, loading }: Pick<DashboardPageProps, 'cards' | 'lo
 
         const MetricIcon = metricIcons[card.key] || Activity
         return (
-          <Card key={card.key} className="@container/card gap-4 py-4">
+          <Card key={card.key} className="gap-4 py-4">
             <CardHeader className="relative px-4">
-              <CardDescription className="text-base font-medium">{card.label}</CardDescription>
-              <CardTitle className="text-3xl font-semibold tabular-nums">
+              <CardDescription className="text-base font-medium text-[hsl(var(--foreground))]">{card.label}</CardDescription>
+              <CardTitle className="text-3xl font-semibold tabular-nums text-[hsl(var(--foreground))]">
                 {card.value}
               </CardTitle>
               <div className="absolute right-4 top-4">
-                <Badge variant="outline" className="flex gap-1 rounded-lg text-xs">
+                <Badge variant="outline" className="flex gap-1 rounded-lg text-xs text-[hsl(var(--foreground))]">
                   <MetricIcon className="size-3" aria-hidden="true" />
                   <span className="sr-only">{card.label}</span>
                 </Badge>
               </div>
             </CardHeader>
             <CardFooter className="flex-col items-start gap-1 px-4 text-sm">
-              <div className="line-clamp-1 flex gap-2 font-medium">
+              <div className="line-clamp-1 flex gap-2 font-medium text-[hsl(var(--foreground))]">
                 {card.hint || card.meta?.text || '\u00a0'}
                 <Activity className="size-4" aria-hidden="true" />
               </div>
-              <div className="text-muted-foreground">{card.meta?.alert || '\u00a0'}</div>
+              <div className="text-[hsl(var(--muted-foreground))]">{card.meta?.alert || '\u00a0'}</div>
             </CardFooter>
           </Card>
         )
@@ -119,9 +119,9 @@ function UserTrendCard({
   const rows = [...totals.entries()].sort(([, a], [, b]) => b.tokens - a.tokens).slice(0, 12)
 
   return (
-    <Card className="@container/card min-w-0">
+    <Card className="min-w-0">
       <CardHeader>
-        <CardTitle>{labels.userUsageTrend}</CardTitle>
+        <CardTitle className="text-[hsl(var(--foreground))]">{labels.userUsageTrend}</CardTitle>
         <CardDescription>{labels.recentUsage}</CardDescription>
       </CardHeader>
       <CardContent className="min-h-56">
@@ -130,7 +130,7 @@ function UserTrendCard({
             {Array.from({ length: 5 }, (_, index) => <Skeleton key={index} className="h-8 w-full" />)}
           </div>
         ) : rows.length === 0 ? (
-          <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">{labels.noData}</div>
+          <div className="flex h-48 items-center justify-center text-sm text-[hsl(var(--muted-foreground))]">{labels.noData}</div>
         ) : (
           <Table>
             <TableHeader>
@@ -166,7 +166,7 @@ export default function DashboardPage({
   labels,
 }: DashboardPageProps) {
   return (
-    <div className="@container/main flex flex-1 flex-col gap-2">
+    <div className="flex min-w-0 flex-1 flex-col gap-2">
       <div className="flex flex-col gap-4 py-3 md:gap-4">
         <SectionCards cards={cards} loading={loading} />
         <div className="px-3">

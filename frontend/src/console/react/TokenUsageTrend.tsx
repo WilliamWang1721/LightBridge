@@ -1,3 +1,4 @@
+import * as React from 'react'
 import type { TrendDataPoint } from '@/types'
 import { readUsageNumber } from '@/utils/usageDisplay'
 import {
@@ -91,7 +92,7 @@ export default function TokenUsageTrend({ trendData, loading = false, title, noD
   const points = normalizeTrend(trendData)
 
   return (
-    <Card className="@container/card min-w-0 overflow-hidden">
+    <Card className="min-w-0 overflow-hidden">
       <CardHeader className="pb-4">
         <CardTitle className="text-base">{title}</CardTitle>
       </CardHeader>
@@ -103,7 +104,7 @@ export default function TokenUsageTrend({ trendData, loading = false, title, noD
         ) : points.length > 0 ? (
           <TrendChart points={points} />
         ) : (
-          <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">{noData}</div>
+          <div className="flex h-64 items-center justify-center text-sm text-[hsl(var(--muted-foreground))]">{noData}</div>
         )}
       </CardContent>
     </Card>

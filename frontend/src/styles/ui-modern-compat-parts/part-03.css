@@ -81,6 +81,18 @@
   backdrop-filter: none !important;
 }
 
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) [data-console-runtime='react'] {
+  display: flex;
+  min-width: 0;
+  width: 100%;
+}
+
+:where(html[data-ui-mode='modern'], html[data-ui-mode='package']) [data-console-runtime='react'] [data-slot='card'] {
+  border: 1px solid hsl(var(--border)) !important;
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+}
+
 :where(html[data-ui-mode='modern'], html[data-ui-mode='package']) .card-hover:hover {
   border-color: hsl(var(--ring) / 0.35) !important;
   box-shadow:
