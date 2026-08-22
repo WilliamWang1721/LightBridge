@@ -1,0 +1,21 @@
+[Unit]
+Description=LightBridge Mail Service
+After=network.target LightBridge.service
+Wants=network.target
+
+[Service]
+Type=simple
+User=LightBridge
+Group=LightBridge
+WorkingDirectory=/opt/LightBridge
+EnvironmentFile=-/etc/LightBridge/mail-service.env
+ExecStart=/opt/LightBridge/lightbridge-mail-service
+Restart=always
+RestartSec=5s
+LimitNOFILE=100000
+NoNewPrivileges=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/LightBridge/mail-service
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,47 @@
+apiVersion: lightbridge/v1alpha1
+id: lightbridge-mail-service
+name: LightBridge Mail Service
+type: ui
+version: 0.1.0
+core:
+  compatible: ">=0.1.0 <0.2.0"
+frontend:
+  entry: frontend/remoteEntry.js
+  routes:
+    - path: /admin/mail-service
+      title: LightBridge Mail Service
+      exposedModule: ./MailServiceHome
+      requiresAdmin: true
+    - path: /admin/mail-service/settings
+      title: LightBridge Mail Service Settings
+      exposedModule: ./MailServiceSettings
+      requiresAdmin: true
+    - path: /admin/mail-service/mailboxes
+      title: LightBridge Mail Service Mailboxes
+      exposedModule: ./MailServiceMailboxes
+      requiresAdmin: true
+  menu:
+    - title: LightBridge Mail Service
+      path: /admin/mail-service
+      group: Integrations
+      order: 30
+  accountForms:
+    - providerId: openai
+      exposedModule: ./OAuthMailServicePanel
+    - providerId: gemini
+      exposedModule: ./OAuthMailServicePanel
+    - providerId: anthropic
+      exposedModule: ./OAuthMailServicePanel
+capabilities:
+  - ui.admin.route
+  - ui.account.form
+permissions:
+  network:
+    - http://127.0.0.1:8091/mail/v1/*
+    - http://mail-service:8091/mail/v1/*
+  secrets:
+    - lbms_api_key
+notes:
+  - User visible copy must only use LightBridge Mail Service or LBMS.
+  - LightBridge account extra should only persist lbms_link.
+  - The underlying mail driver is an internal implementation detail.

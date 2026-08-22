@@ -1,0 +1,33 @@
+services:
+  mail-service:
+    build:
+      context: ../mailservice
+      dockerfile: Dockerfile
+    container_name: LightBridge-mail-service
+    restart: unless-stopped
+    ports:
+      - "${LBMS_BIND_HOST:-127.0.0.1}:${LBMS_PORT:-8091}:8091"
+    environment:
+      LBMS_HOST: 0.0.0.0
+      LBMS_PORT: 8091
+      LBMS_API_KEY: ${LBMS_API_KEY:?LBMS_API_KEY is required}
+      LBMS_DATA_PATH: /data/lbms-store.json
+      LBMS_DRIVER: ${LBMS_DRIVER:-outlook_email_plus}
+      LBMS_DRIVER_BASE_URL: ${LBMS_DRIVER_BASE_URL:-http://outlook-mail-plus:5000}
+      LBMS_DRIVER_API_KEY: ${LBMS_DRIVER_API_KEY:?LBMS_DRIVER_API_KEY is required}
+      LBMS_REQUEST_TIMEOUT_SECONDS: ${LBMS_REQUEST_TIMEOUT_SECONDS:-10}
+      LBMS_VERIFICATION_CACHE_SECONDS: ${LBMS_VERIFICATION_CACHE_SECONDS:-30}
+      LIGHTBRIDGE_BASE_URL: ${LIGHTBRIDGE_BASE_URL:-http://LightBridge:8080}
+    volumes:
+      - mail_service_data:/data
+    depends_on:
+      - LightBridge
+    networks:
+      - LightBridge-network
+
+volumes:
+  mail_service_data:
+
+networks:
+  LightBridge-network:
+    driver: bridge
